@@ -11,6 +11,16 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  app: {
+    baseURL: process.env.NUXT_APP_BASE_URL || '/',
+  },
+
+  runtimeConfig: {
+    public: {
+      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'
+    }
+  },
+
   routeRules: {
     '/': { prerender: true }
   },
