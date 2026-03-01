@@ -565,8 +565,57 @@
             </p>
           </UiCardContent>
         </UiCard>
+
+        <!-- Danger Zone -->
+        <UiCard
+          v-motion
+          :initial="{ opacity: 0, y: 12 }"
+          :enter="{ opacity: 1, y: 0, transition: { delay: 300 } }"
+          class="overflow-hidden border-destructive/50"
+        >
+          <UiCardHeader class="border-b border-destructive/30">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-destructive flex items-center justify-center">
+                <component :is="AlertTriangleIcon" class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <UiCardTitle class="text-base text-destructive">Reset Scraped Data</UiCardTitle>
+                <UiCardDescription>
+                  Clear all audit logs, capacity history, engine stats, and disk group data.
+                  Integration configurations, preferences, and custom rules are preserved.
+                  Data will be re-populated on the next engine run.
+                </UiCardDescription>
+              </div>
+            </div>
+          </UiCardHeader>
+          <UiCardContent class="pt-5">
+            <UiButton variant="destructive" :disabled="resettingData" @click="showResetDialog = true">
+              {{ resettingData ? 'Clearing…' : 'Clear All Scraped Data' }}
+            </UiButton>
+          </UiCardContent>
+        </UiCard>
       </UiTabsContent>
     </UiTabs>
+
+    <!-- Data Reset Confirmation Dialog -->
+    <UiDialog :open="showResetDialog" @update:open="(val: boolean) => { showResetDialog = val }">
+      <UiDialogContent class="max-w-md">
+        <UiDialogHeader>
+          <UiDialogTitle>Are you sure?</UiDialogTitle>
+          <UiDialogDescription>
+            This will permanently delete all audit logs, capacity history, and engine statistics. This action cannot be undone.
+          </UiDialogDescription>
+        </UiDialogHeader>
+        <UiDialogFooter class="flex gap-2 justify-end">
+          <UiButton variant="outline" @click="showResetDialog = false">
+            Cancel
+          </UiButton>
+          <UiButton variant="destructive" :disabled="resettingData" @click="confirmResetData">
+            {{ resettingData ? 'Clearing…' : 'Yes, clear all data' }}
+          </UiButton>
+        </UiDialogFooter>
+      </UiDialogContent>
+    </UiDialog>
 
     <!-- Integration Modal -->
     <UiDialog :open="showModal" @update:open="(val: boolean) => { showModal = val }">
@@ -761,6 +810,10 @@ const savingUsername = ref(false)
 // Default threshold state
 const defaultThreshold = ref(85)
 const defaultTarget = ref(75)
+
+// Data reset state
+const showResetDialog = ref(false)
+const resettingData = ref(false)
 
 // API Key state
 const apiKey = ref('')
@@ -1140,6 +1193,23 @@ async function fetchApiKey() {
 function copyApiKey() {
   navigator.clipboard.writeText(apiKey.value)
   addToast('API key copied to clipboard', 'success')
+}
+
+// ─── Data Reset ──────────────────────────────────────────────────────────────
+async function confirmResetData() {
+  resettingData.value = true
+  try {
+    const result = await api('/api/v1/data/reset', { method: 'DELETE' }) as any
+    showResetDialog.value = false
+    addToast('All scraped data has been cleared', 'success')
+    // Refresh page data so the UI reflects the cleared state
+    await fetchIntegrations()
+  } catch (e: any) {
+    console.error('Failed to reset data:', e)
+    addToast(e?.data?.error || 'Failed to clear data', 'error')
+  } finally {
+    resettingData.value = false
+  }
 }
 
 onMounted(() => {

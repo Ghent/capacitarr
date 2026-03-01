@@ -339,4 +339,7 @@ func RegisterAPIRoutes(g *echo.Group, database *gorm.DB, cfg *config.Config, app
 
 	// Audit routes
 	RegisterAuditRoutes(protected, database)
+
+	// Data management routes (reset/clear)
+	RegisterDataRoutes(protected, database)
 }
