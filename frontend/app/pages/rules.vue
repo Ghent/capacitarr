@@ -192,7 +192,7 @@
       </UiCardHeader>
       <UiCardContent>
         <!-- Preset Chips -->
-        <div class="flex flex-wrap gap-2 mb-6">
+        <div class="flex flex-wrap gap-2 mb-2">
           <UiButton
             v-for="preset in presets"
             :key="preset.name"
@@ -204,6 +204,21 @@
             {{ preset.name }}
           </UiButton>
         </div>
+
+        <!-- Preset Description -->
+        <Transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 -translate-y-1"
+          enter-to-class="opacity-100 translate-y-0"
+          leave-from-class="opacity-100 translate-y-0"
+          leave-to-class="opacity-0 -translate-y-1"
+          mode="out-in"
+        >
+          <p :key="activePresetDescription" class="text-xs text-muted-foreground/70 mb-6 leading-relaxed">
+            {{ activePresetDescription }}
+          </p>
+        </Transition>
 
         <!-- Two-Column Slider Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
@@ -222,47 +237,6 @@
             />
             <p class="text-xs text-muted-foreground">{{ slider.description }}</p>
           </div>
-        </div>
-
-        <!-- Execution Mode -->
-        <div class="mt-8 pt-6 border-t border-border">
-          <h4 class="text-sm font-semibold mb-3">Execution Mode</h4>
-          <div class="flex gap-3">
-            <button
-              v-for="mode in executionModes"
-              :key="mode.value"
-              data-slot="execution-mode-card"
-              :data-active="prefs.executionMode === mode.value"
-              class="flex-1 px-4 py-3 rounded-xl border-2 text-left transition-all"
-              :class="prefs.executionMode === mode.value
-                ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
-                : 'border-border hover:border-border'"
-              @click="prefs.executionMode = mode.value; savePreferences()"
-            >
-              <div class="text-sm font-medium" :class="prefs.executionMode === mode.value ? 'text-primary' : ''">
-                {{ mode.label }}
-              </div>
-              <div class="text-xs text-muted-foreground mt-0.5">{{ mode.description }}</div>
-            </button>
-          </div>
-        </div>
-
-        <!-- Tiebreaker -->
-        <div class="mt-6 pt-6 border-t border-border">
-          <h4 class="text-sm font-semibold mb-1">Score Tiebreaker</h4>
-          <p class="text-xs text-muted-foreground mb-3">When items have the same score, how should they be ordered?</p>
-          <UiSelect v-model="prefs.tiebreakerMethod" @update:model-value="savePreferences">
-            <UiSelectTrigger class="w-full max-w-xs">
-              <UiSelectValue placeholder="Select tiebreaker" />
-            </UiSelectTrigger>
-            <UiSelectContent>
-              <UiSelectItem value="size_desc">Largest first (free more space)</UiSelectItem>
-              <UiSelectItem value="size_asc">Smallest first</UiSelectItem>
-              <UiSelectItem value="name_asc">Alphabetical (A → Z)</UiSelectItem>
-              <UiSelectItem value="oldest_first">Oldest in library first</UiSelectItem>
-              <UiSelectItem value="newest_first">Newest in library first</UiSelectItem>
-            </UiSelectContent>
-          </UiSelect>
         </div>
       </UiCardContent>
     </UiCard>
@@ -700,12 +674,6 @@ const sliders = [
   { key: 'availabilityWeight', label: 'Availability (Show Status)', description: 'Ended shows score higher than continuing.' }
 ]
 
-const executionModes = [
-  { value: 'dry-run', label: 'Dry Run', description: 'Log only, no deletions' },
-  { value: 'approval', label: 'Approval', description: 'Queue for manual approval' },
-  { value: 'auto', label: 'Automatic', description: 'Delete automatically' }
-]
-
 const presets = [
   { name: 'Balanced', values: { watchHistoryWeight: 8, lastWatchedWeight: 7, fileSizeWeight: 6, ratingWeight: 5, timeInLibraryWeight: 4, availabilityWeight: 3 } },
   { name: 'Space Saver', values: { watchHistoryWeight: 3, lastWatchedWeight: 3, fileSizeWeight: 10, ratingWeight: 2, timeInLibraryWeight: 8, availabilityWeight: 5 } },
@@ -718,6 +686,18 @@ function isActivePreset(values: Record<string, number>): boolean {
     ([key, val]) => prefs[key as keyof typeof prefs] === val
   )
 }
+
+const presetDescriptions: Record<string, string> = {
+  Balanced: 'A general-purpose profile that weighs all factors evenly. Good starting point.',
+  'Space Saver': 'Prioritizes freeing disk space. Targets large, old media with low ratings.',
+  Hoarder: 'Strongly resists deletion. Only removes media that\'s never been watched and poorly rated.',
+  'Watch-Based': 'Focuses on watch history. Unwatched and stale media is removed first.',
+}
+
+const activePresetDescription = computed(() => {
+  const active = presets.find(p => isActivePreset(p.values))
+  return active ? presetDescriptions[active.name] ?? '' : 'Custom configuration — adjust sliders to fine-tune scoring.'
+})
 
 // ---------------------------------------------------------------------------
 // Custom Rules (Cascading Rule Builder)

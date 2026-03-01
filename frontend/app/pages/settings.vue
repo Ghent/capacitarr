@@ -100,6 +100,74 @@
             <p class="text-xs text-muted-foreground/70">Changes apply immediately and are stored in your browser.</p>
           </UiCardContent>
         </UiCard>
+
+        <!-- Engine Behavior Section -->
+        <UiCard
+          v-motion
+          :initial="{ opacity: 0, y: 12 }"
+          :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 300 } }"
+          class="overflow-hidden"
+        >
+          <UiCardHeader class="border-b border-border">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+                <component :is="CogIcon" class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <UiCardTitle class="text-base">Engine Behavior</UiCardTitle>
+                <UiCardDescription>Control how the scoring engine acts on results</UiCardDescription>
+              </div>
+            </div>
+          </UiCardHeader>
+          <UiCardContent class="pt-5 space-y-6">
+            <!-- Execution Mode -->
+            <div class="space-y-3">
+              <div class="flex items-center gap-2">
+                <UiLabel>Execution Mode</UiLabel>
+                <SaveIndicator :status="saveStatus.executionMode" />
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  v-for="mode in executionModes"
+                  :key="mode.value"
+                  data-slot="execution-mode-card"
+                  :data-active="engineExecutionMode === mode.value"
+                  class="px-4 py-3 rounded-xl border-2 text-left transition-all"
+                  :class="engineExecutionMode === mode.value
+                    ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+                    : 'border-border hover:border-border'"
+                  @click="setExecutionMode(mode.value)"
+                >
+                  <div class="text-sm font-medium" :class="engineExecutionMode === mode.value ? 'text-primary' : ''">
+                    {{ mode.label }}
+                  </div>
+                  <div class="text-xs text-muted-foreground mt-0.5">{{ mode.description }}</div>
+                </button>
+              </div>
+            </div>
+
+            <!-- Score Tiebreaker -->
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-2">
+                <UiLabel>Score Tiebreaker</UiLabel>
+                <SaveIndicator :status="saveStatus.tiebreaker" />
+              </div>
+              <p class="text-xs text-muted-foreground mb-1">When items have the same score, how should they be ordered?</p>
+              <UiSelect v-model="engineTiebreakerMethod">
+                <UiSelectTrigger class="w-full max-w-xs">
+                  <UiSelectValue placeholder="Select tiebreaker" />
+                </UiSelectTrigger>
+                <UiSelectContent>
+                  <UiSelectItem value="size_desc">Largest first (free more space)</UiSelectItem>
+                  <UiSelectItem value="size_asc">Smallest first</UiSelectItem>
+                  <UiSelectItem value="name_asc">Alphabetical (A → Z)</UiSelectItem>
+                  <UiSelectItem value="oldest_first">Oldest in library first</UiSelectItem>
+                  <UiSelectItem value="newest_first">Newest in library first</UiSelectItem>
+                </UiSelectContent>
+              </UiSelect>
+            </div>
+          </UiCardContent>
+        </UiCard>
       </UiTabsContent>
 
       <!-- ═══════════════════════════════════════════════════════
@@ -594,7 +662,8 @@ import {
   TvIcon, FilmIcon, PlayCircleIcon, ServerIcon,
   DatabaseIcon, MonitorIcon, ActivityIcon,
   InboxIcon, MusicIcon, TimerIcon, ShieldIcon,
-  CheckIcon, UserIcon, BookOpenIcon, MonitorPlayIcon
+  CheckIcon, UserIcon, BookOpenIcon, MonitorPlayIcon,
+  CogIcon
 } from 'lucide-vue-next'
 import { formatRelativeTime } from '~/utils/format'
 
@@ -637,6 +706,16 @@ const saving = ref(false)
 const formError = ref('')
 const { addToast } = useToast()
 
+// Engine behavior state
+const engineExecutionMode = ref('dry-run')
+const engineTiebreakerMethod = ref('size_desc')
+
+const executionModes = [
+  { value: 'dry-run', label: 'Dry Run', description: 'Log only, no deletions' },
+  { value: 'approval', label: 'Approval', description: 'Queue for manual approval' },
+  { value: 'auto', label: 'Automatic', description: 'Delete automatically' }
+]
+
 // General settings state
 const retentionDays = ref(30)
 const pollIntervalSeconds = ref(300)
@@ -658,6 +737,8 @@ const saveStatus = reactive<Record<string, 'idle' | 'saving' | 'saved' | 'error'
   retention: 'idle',
   defaultThreshold: 'idle',
   defaultTarget: 'idle',
+  executionMode: 'idle',
+  tiebreaker: 'idle',
 })
 
 // Password change state
@@ -929,10 +1010,28 @@ async function fetchPreferences() {
     if (prefs?.pollIntervalSeconds !== undefined && prefs.pollIntervalSeconds >= 30) {
       pollIntervalSeconds.value = prefs.pollIntervalSeconds
     }
+    if (prefs?.executionMode) {
+      engineExecutionMode.value = prefs.executionMode
+    }
+    if (prefs?.tiebreakerMethod) {
+      engineTiebreakerMethod.value = prefs.tiebreakerMethod
+    }
   } catch (e) {
     console.error('Failed to fetch preferences:', e)
   }
 }
+
+function setExecutionMode(mode: string) {
+  engineExecutionMode.value = mode
+  autoSavePreference('executionMode', 'executionMode', mode)
+}
+
+// Watch tiebreaker — immediate save on select change
+watch(engineTiebreakerMethod, (newVal, oldVal) => {
+  if (oldVal !== undefined && newVal !== oldVal) {
+    autoSavePreference('tiebreaker', 'tiebreakerMethod', newVal)
+  }
+})
 
 // ─── Password Change ─────────────────────────────────────────────────────────
 async function changePassword() {
