@@ -149,6 +149,49 @@ func RegisterAPIRoutes(g *echo.Group, database *gorm.DB, cfg *config.Config, app
 		return c.JSON(http.StatusOK, map[string]string{"message": "Password changed successfully"})
 	})
 
+	protected.PUT("/auth/username", func(c echo.Context) error {
+		currentUser, ok := c.Get("user").(string)
+		if !ok || currentUser == "" {
+			return echo.ErrUnauthorized
+		}
+
+		var req struct {
+			NewUsername     string `json:"newUsername"`
+			CurrentPassword string `json:"currentPassword"`
+		}
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
+		}
+
+		if req.NewUsername == "" || req.CurrentPassword == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "New username and current password are required"})
+		}
+		if len(req.NewUsername) < 3 {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Username must be at least 3 characters"})
+		}
+
+		var user db.AuthConfig
+		if err := database.Where("username = ?", currentUser).First(&user).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
+		}
+
+		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)); err != nil {
+			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Current password is incorrect"})
+		}
+
+		// Check if new username is already taken
+		var existing db.AuthConfig
+		if err := database.Where("username = ?", req.NewUsername).First(&existing).Error; err == nil {
+			return c.JSON(http.StatusConflict, map[string]string{"error": "Username already taken"})
+		}
+
+		if err := database.Model(&user).Update("username", req.NewUsername).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update username"})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"message": "Username changed successfully"})
+	})
+
 	protected.POST("/auth/apikey", func(c echo.Context) error {
 		username, ok := c.Get("user").(string)
 		if !ok || username == "" {

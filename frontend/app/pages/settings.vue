@@ -15,106 +15,14 @@
       <UiTabsList class="mb-6">
         <UiTabsTrigger value="general">General</UiTabsTrigger>
         <UiTabsTrigger value="integrations">Integrations</UiTabsTrigger>
-        <UiTabsTrigger value="authentication">Authentication</UiTabsTrigger>
+        <UiTabsTrigger value="security">Security</UiTabsTrigger>
+        <UiTabsTrigger value="advanced">Advanced</UiTabsTrigger>
       </UiTabsList>
 
       <!-- ═══════════════════════════════════════════════════════
            GENERAL TAB
            ═══════════════════════════════════════════════════════ -->
       <UiTabsContent value="general" class="space-y-6">
-        <!-- Poll Interval -->
-        <UiCard
-          v-motion
-          :initial="{ opacity: 0, y: 12 }"
-          :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } }"
-          class="overflow-hidden"
-        >
-          <UiCardHeader class="border-b border-border">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
-                <component :is="TimerIcon" class="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <UiCardTitle class="text-base">Poll Interval</UiCardTitle>
-                <UiCardDescription>How often Capacitarr checks your integrations</UiCardDescription>
-              </div>
-            </div>
-          </UiCardHeader>
-          <UiCardContent class="pt-5">
-            <div class="space-y-1.5">
-              <div class="flex items-center gap-2">
-                <UiLabel>Interval</UiLabel>
-                <SaveIndicator :status="saveStatus.pollInterval" />
-              </div>
-              <UiSelect v-model="pollIntervalStr">
-                <UiSelectTrigger class="w-full max-w-xs">
-                  <UiSelectValue placeholder="Select interval" />
-                </UiSelectTrigger>
-                <UiSelectContent>
-                  <UiSelectItem value="30">30 seconds</UiSelectItem>
-                  <UiSelectItem value="60">1 minute</UiSelectItem>
-                  <UiSelectItem value="300">5 minutes (default)</UiSelectItem>
-                  <UiSelectItem value="900">15 minutes</UiSelectItem>
-                  <UiSelectItem value="1800">30 minutes</UiSelectItem>
-                  <UiSelectItem value="3600">1 hour</UiSelectItem>
-                </UiSelectContent>
-              </UiSelect>
-              <p class="text-xs text-muted-foreground/70">The poller adjusts dynamically — no restart required.</p>
-            </div>
-          </UiCardContent>
-        </UiCard>
-
-        <!-- Data Management Section -->
-        <UiCard
-          v-motion
-          :initial="{ opacity: 0, y: 12 }"
-          :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 100 } }"
-          class="overflow-hidden"
-        >
-          <UiCardHeader class="border-b border-border">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <component :is="DatabaseIcon" class="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <UiCardTitle class="text-base">Data Management</UiCardTitle>
-                <UiCardDescription>Configure audit log retention</UiCardDescription>
-              </div>
-            </div>
-          </UiCardHeader>
-          <UiCardContent class="pt-5 space-y-4">
-            <div class="space-y-1.5">
-              <div class="flex items-center gap-2">
-                <UiLabel>Audit Log Retention</UiLabel>
-                <SaveIndicator :status="saveStatus.retention" />
-              </div>
-              <UiSelect v-model="retentionStr">
-                <UiSelectTrigger class="w-full max-w-xs">
-                  <UiSelectValue placeholder="Select retention" />
-                </UiSelectTrigger>
-                <UiSelectContent>
-                  <UiSelectItem value="7">7 days</UiSelectItem>
-                  <UiSelectItem value="14">14 days</UiSelectItem>
-                  <UiSelectItem value="30">30 days (default)</UiSelectItem>
-                  <UiSelectItem value="60">60 days</UiSelectItem>
-                  <UiSelectItem value="90">90 days</UiSelectItem>
-                  <UiSelectItem value="180">180 days</UiSelectItem>
-                  <UiSelectItem value="365">365 days</UiSelectItem>
-                  <UiSelectItem value="0">Indefinite</UiSelectItem>
-                </UiSelectContent>
-              </UiSelect>
-            </div>
-
-            <!-- Indefinite warning -->
-            <UiAlert v-if="retentionDays === 0" variant="destructive">
-              <UiAlertTitle>Warning</UiAlertTitle>
-              <UiAlertDescription>
-                Indefinite retention will cause the database to grow continuously. This may eventually impact performance.
-              </UiAlertDescription>
-            </UiAlert>
-          </UiCardContent>
-        </UiCard>
-
         <!-- Display Preferences Section -->
         <UiCard
           v-motion
@@ -306,9 +214,57 @@
       </UiTabsContent>
 
       <!-- ═══════════════════════════════════════════════════════
-           AUTHENTICATION TAB
+           SECURITY TAB
            ═══════════════════════════════════════════════════════ -->
-      <UiTabsContent value="authentication" class="space-y-6">
+      <UiTabsContent value="security" class="space-y-6">
+        <!-- Username Change -->
+        <UiCard
+          v-motion
+          :initial="{ opacity: 0, y: 12 }"
+          :enter="{ opacity: 1, y: 0 }"
+          class="overflow-hidden"
+        >
+          <UiCardHeader class="border-b border-border">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center">
+                <component :is="UserIcon" class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <UiCardTitle class="text-base">Change Username</UiCardTitle>
+                <UiCardDescription>Update your admin username for better security</UiCardDescription>
+              </div>
+            </div>
+          </UiCardHeader>
+          <UiCardContent class="pt-5 space-y-4 max-w-md">
+            <div class="space-y-1.5">
+              <UiLabel for="new-username">New Username</UiLabel>
+              <UiInput
+                id="new-username"
+                v-model="usernameForm.newUsername"
+                type="text"
+                placeholder="Enter new username"
+              />
+            </div>
+            <div class="space-y-1.5">
+              <UiLabel for="username-password">Current Password</UiLabel>
+              <UiInput
+                id="username-password"
+                v-model="usernameForm.password"
+                type="password"
+                placeholder="Confirm with current password"
+              />
+            </div>
+            <UiAlert v-if="usernameError" variant="destructive">
+              <UiAlertDescription>{{ usernameError }}</UiAlertDescription>
+            </UiAlert>
+            <div>
+              <UiButton :disabled="savingUsername" @click="changeUsername">
+                {{ savingUsername ? 'Changing…' : 'Change Username' }}
+              </UiButton>
+            </div>
+          </UiCardContent>
+        </UiCard>
+
         <!-- Password Change -->
         <UiCard
           v-motion
@@ -397,6 +353,156 @@
                 {{ apiKey ? 'Regenerate API Key' : 'Generate API Key' }}
               </UiButton>
             </div>
+          </UiCardContent>
+        </UiCard>
+      </UiTabsContent>
+
+      <!-- ═══════════════════════════════════════════════════════
+           ADVANCED TAB
+           ═══════════════════════════════════════════════════════ -->
+      <UiTabsContent value="advanced" class="space-y-6">
+        <!-- Poll Interval -->
+        <UiCard
+          v-motion
+          :initial="{ opacity: 0, y: 12 }"
+          :enter="{ opacity: 1, y: 0 }"
+          class="overflow-hidden"
+        >
+          <UiCardHeader class="border-b border-border">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+                <component :is="TimerIcon" class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <UiCardTitle class="text-base">Poll Interval</UiCardTitle>
+                <UiCardDescription>How often Capacitarr checks your integrations</UiCardDescription>
+              </div>
+            </div>
+          </UiCardHeader>
+          <UiCardContent class="pt-5">
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-2">
+                <UiLabel>Interval</UiLabel>
+                <SaveIndicator :status="saveStatus.pollInterval" />
+              </div>
+              <UiSelect v-model="pollIntervalStr">
+                <UiSelectTrigger class="w-full max-w-xs">
+                  <UiSelectValue placeholder="Select interval" />
+                </UiSelectTrigger>
+                <UiSelectContent>
+                  <UiSelectItem value="30">30 seconds</UiSelectItem>
+                  <UiSelectItem value="60">1 minute</UiSelectItem>
+                  <UiSelectItem value="300">5 minutes (default)</UiSelectItem>
+                  <UiSelectItem value="900">15 minutes</UiSelectItem>
+                  <UiSelectItem value="1800">30 minutes</UiSelectItem>
+                  <UiSelectItem value="3600">1 hour</UiSelectItem>
+                </UiSelectContent>
+              </UiSelect>
+              <p class="text-xs text-muted-foreground/70">The poller adjusts dynamically — no restart required.</p>
+            </div>
+          </UiCardContent>
+        </UiCard>
+
+        <!-- Data Management -->
+        <UiCard
+          v-motion
+          :initial="{ opacity: 0, y: 12 }"
+          :enter="{ opacity: 1, y: 0, transition: { delay: 100 } }"
+          class="overflow-hidden"
+        >
+          <UiCardHeader class="border-b border-border">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+                <component :is="DatabaseIcon" class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <UiCardTitle class="text-base">Data Management</UiCardTitle>
+                <UiCardDescription>Configure audit log retention</UiCardDescription>
+              </div>
+            </div>
+          </UiCardHeader>
+          <UiCardContent class="pt-5 space-y-4">
+            <div class="space-y-1.5">
+              <div class="flex items-center gap-2">
+                <UiLabel>Audit Log Retention</UiLabel>
+                <SaveIndicator :status="saveStatus.retention" />
+              </div>
+              <UiSelect v-model="retentionStr">
+                <UiSelectTrigger class="w-full max-w-xs">
+                  <UiSelectValue placeholder="Select retention" />
+                </UiSelectTrigger>
+                <UiSelectContent>
+                  <UiSelectItem value="7">7 days</UiSelectItem>
+                  <UiSelectItem value="14">14 days</UiSelectItem>
+                  <UiSelectItem value="30">30 days (default)</UiSelectItem>
+                  <UiSelectItem value="60">60 days</UiSelectItem>
+                  <UiSelectItem value="90">90 days</UiSelectItem>
+                  <UiSelectItem value="180">180 days</UiSelectItem>
+                  <UiSelectItem value="365">365 days</UiSelectItem>
+                  <UiSelectItem value="0">Indefinite</UiSelectItem>
+                </UiSelectContent>
+              </UiSelect>
+            </div>
+            <UiAlert v-if="retentionDays === 0" variant="destructive">
+              <UiAlertTitle>Warning</UiAlertTitle>
+              <UiAlertDescription>
+                Indefinite retention will cause the database to grow continuously. This may eventually impact performance.
+              </UiAlertDescription>
+            </UiAlert>
+          </UiCardContent>
+        </UiCard>
+
+        <!-- Default Disk Group Thresholds -->
+        <UiCard
+          v-motion
+          :initial="{ opacity: 0, y: 12 }"
+          :enter="{ opacity: 1, y: 0, transition: { delay: 200 } }"
+          class="overflow-hidden"
+        >
+          <UiCardHeader class="border-b border-border">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center">
+                <component :is="HardDriveIcon" class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <UiCardTitle class="text-base">Default Disk Group Thresholds</UiCardTitle>
+                <UiCardDescription>Applied when new disk groups are discovered</UiCardDescription>
+              </div>
+            </div>
+          </UiCardHeader>
+          <UiCardContent class="pt-5 space-y-4">
+            <div class="grid grid-cols-2 gap-4 max-w-sm">
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-2">
+                  <UiLabel>Threshold %</UiLabel>
+                  <SaveIndicator :status="saveStatus.defaultThreshold" />
+                </div>
+                <UiInput
+                  v-model.number="defaultThreshold"
+                  type="number"
+                  min="50"
+                  max="99"
+                  @change="autoSavePreference('defaultThreshold', 'defaultThresholdPct', defaultThreshold)"
+                />
+              </div>
+              <div class="space-y-1.5">
+                <div class="flex items-center gap-2">
+                  <UiLabel>Target %</UiLabel>
+                  <SaveIndicator :status="saveStatus.defaultTarget" />
+                </div>
+                <UiInput
+                  v-model.number="defaultTarget"
+                  type="number"
+                  min="50"
+                  max="98"
+                  @change="autoSavePreference('defaultTarget', 'defaultTargetPct', defaultTarget)"
+                />
+              </div>
+            </div>
+            <p class="text-xs text-muted-foreground/70">
+              Threshold triggers cleanup. Target is the desired usage level after cleanup.
+              Threshold must be greater than target.
+            </p>
           </UiCardContent>
         </UiCard>
       </UiTabsContent>
@@ -493,7 +599,7 @@ import {
   TvIcon, FilmIcon, PlayCircleIcon, ServerIcon,
   DatabaseIcon, MonitorIcon, ActivityIcon,
   InboxIcon, MusicIcon, TimerIcon, ShieldIcon,
-  CheckIcon
+  CheckIcon, UserIcon
 } from 'lucide-vue-next'
 import { formatRelativeTime } from '~/utils/format'
 
@@ -555,6 +661,8 @@ const retentionStr = computed({
 const saveStatus = reactive<Record<string, 'idle' | 'saving' | 'saved' | 'error'>>({
   pollInterval: 'idle',
   retention: 'idle',
+  defaultThreshold: 'idle',
+  defaultTarget: 'idle',
 })
 
 // Password change state
@@ -565,6 +673,18 @@ const passwordForm = reactive({
 })
 const passwordError = ref('')
 const savingPassword = ref(false)
+
+// Username change state
+const usernameForm = reactive({
+  newUsername: '',
+  password: ''
+})
+const usernameError = ref('')
+const savingUsername = ref(false)
+
+// Default threshold state
+const defaultThreshold = ref(85)
+const defaultTarget = ref(75)
 
 // API Key state
 const apiKey = ref('')
@@ -840,6 +960,44 @@ async function changePassword() {
     addToast(passwordError.value, 'error')
   } finally {
     savingPassword.value = false
+  }
+}
+
+// ─── Username Change ─────────────────────────────────────────────────────────
+async function changeUsername() {
+  usernameError.value = ''
+
+  if (!usernameForm.newUsername || !usernameForm.password) {
+    usernameError.value = 'All fields are required'
+    return
+  }
+  if (usernameForm.newUsername.length < 3) {
+    usernameError.value = 'Username must be at least 3 characters'
+    return
+  }
+  if (/\s/.test(usernameForm.newUsername)) {
+    usernameError.value = 'Username cannot contain spaces'
+    return
+  }
+
+  savingUsername.value = true
+  try {
+    await api('/api/v1/auth/username', {
+      method: 'PUT',
+      body: {
+        newUsername: usernameForm.newUsername,
+        currentPassword: usernameForm.password
+      }
+    })
+    addToast('Username changed — please log in again', 'success')
+    usernameForm.newUsername = ''
+    usernameForm.password = ''
+    setTimeout(() => { navigateTo('/login') }, 1500)
+  } catch (e: any) {
+    usernameError.value = e?.data?.error || 'Failed to change username'
+    addToast(usernameError.value, 'error')
+  } finally {
+    savingUsername.value = false
   }
 }
 
