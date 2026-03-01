@@ -19,4 +19,13 @@ if (import.meta.client) {
   useAppColorMode()
   useTheme()
 }
+
+// Remove splash screen on mount
+onMounted(() => {
+  const splash = document.getElementById('capacitarr-splash')
+  if (splash) {
+    splash.classList.add('fade-out')
+    setTimeout(() => splash.remove(), 300)
+  }
+})
 </script>
