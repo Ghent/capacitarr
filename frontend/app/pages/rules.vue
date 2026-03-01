@@ -305,12 +305,14 @@
         </div>
         <div v-else class="space-y-2">
           <div
-            v-for="rule in rules"
+            v-for="(rule, ruleIdx) in rules"
             :key="rule.id"
             class="flex items-center justify-between px-4 py-2.5 rounded-lg border bg-muted/50"
             :class="ruleConflicts(rule).length > 0 ? 'border-amber-400/50' : 'border-border'"
           >
             <div class="flex items-center gap-2 text-sm flex-wrap">
+              <!-- Rule number -->
+              <span class="text-xs font-mono tabular-nums text-muted-foreground w-5 shrink-0">{{ ruleIdx + 1 }}.</span>
               <!-- Conflict indicator -->
               <UiTooltipProvider v-if="ruleConflicts(rule).length > 0">
                 <UiTooltip>

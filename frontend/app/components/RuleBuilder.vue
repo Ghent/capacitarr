@@ -14,7 +14,7 @@
               :key="svc.id"
               :value="String(svc.id)"
             >
-              {{ svc.name }}
+              {{ capitalize(svc.type) }}: {{ svc.name }}
             </UiSelectItem>
           </UiSelectContent>
         </UiSelect>
@@ -255,6 +255,11 @@ const arrTypes = ['sonarr', 'radarr', 'lidarr', 'readarr']
 const arrIntegrations = computed(() =>
   props.integrations.filter(i => i.enabled && arrTypes.includes(i.type))
 )
+
+function capitalize(str: string): string {
+  if (!str) return ''
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
 
 // Operator labels mapping
 const operatorLabels: Record<string, string> = {
