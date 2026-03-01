@@ -633,8 +633,15 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 
 	var bytesFreed int64
 
-	// Track actioned shows to skip their child seasons (deduplication)
-	actionedShows := make(map[string]bool)
+	// Pre-build set of shows that have show-level entries in the evaluation results.
+	// When a show-level item exists, its size includes all seasons, so logging
+	// individual seasons would create duplicates.
+	showsInResults := make(map[string]bool)
+	for _, ev := range evaluated {
+		if ev.Item.Type == integrations.MediaTypeShow {
+			showsInResults[ev.Item.Title] = true
+		}
+	}
 
 	for _, ev := range evaluated {
 		if bytesFreed >= targetBytesToFree {
@@ -644,16 +651,12 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 			continue
 		}
 
-		// Dedup: if this is a season and we already actioned the parent show, skip it
+		// Dedup: skip season entries when a show-level entry exists for the same parent.
+		// The show entry already covers all seasons in its size total.
 		if ev.Item.Type == integrations.MediaTypeSeason && ev.Item.ShowTitle != "" {
-			if actionedShows[ev.Item.ShowTitle] {
+			if showsInResults[ev.Item.ShowTitle] {
 				continue
 			}
-		}
-
-		// Dedup: if this is a show, mark it so child seasons are skipped
-		if ev.Item.Type == integrations.MediaTypeShow {
-			actionedShows[ev.Item.Title] = true
 		}
 
 		actionName := "Dry-Run"
@@ -694,7 +697,29 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 			SizeBytes:    ev.Item.SizeBytes,
 			CreatedAt:    time.Now(),
 		}
-		db.DB.Create(&logEntry)
+
+		// Dry-run dedup: upsert instead of creating duplicates. Each media item
+		// appears only once in the audit log; timestamp reflects the most recent evaluation.
+		if actionName == "Dry-Run" {
+			var existing db.AuditLog
+			result := db.DB.Where(
+				"media_name = ? AND media_type = ? AND action = ?",
+				ev.Item.Title, string(ev.Item.Type), "Dry-Run",
+			).First(&existing)
+			if result.Error == nil {
+				db.DB.Model(&existing).Updates(map[string]interface{}{
+					"reason":        logEntry.Reason,
+					"score_details": logEntry.ScoreDetails,
+					"size_bytes":    logEntry.SizeBytes,
+					"created_at":    logEntry.CreatedAt,
+				})
+			} else {
+				db.DB.Create(&logEntry)
+			}
+		} else {
+			// Auto/approval modes always create new entries (real actions)
+			db.DB.Create(&logEntry)
+		}
 
 		bytesFreed += ev.Item.SizeBytes
 		atomic.AddInt64(&lastRunFlagged, 1)
