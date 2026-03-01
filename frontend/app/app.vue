@@ -1,7 +1,7 @@
 <template>
     <div data-slot="app-shell" class="min-h-screen bg-background text-foreground transition-colors duration-300">
     <Navbar v-if="isAuthenticated" />
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main data-slot="page-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-8">
       <NuxtPage />
     </main>
   </div>

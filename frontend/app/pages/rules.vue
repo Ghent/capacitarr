@@ -234,10 +234,12 @@
           <button
             v-for="mode in executionModes"
             :key="mode.value"
+            data-slot="execution-mode-card"
+            :data-active="prefs.executionMode === mode.value"
             class="flex-1 px-4 py-3 rounded-xl border-2 text-left transition-all"
             :class="prefs.executionMode === mode.value
-              ? 'border-primary bg-primary/10'
-              : 'border-input hover:hover:border-border'"
+              ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+              : 'border-input hover:border-border'"
             @click="prefs.executionMode = mode.value; savePreferences()"
           >
             <div class="text-sm font-medium" :class="prefs.executionMode === mode.value ? 'text-primary' : ''">

@@ -61,10 +61,13 @@ const chartOptions = computed(() => {
       toolbar: { show: false },
       zoom: { enabled: false },
       background: 'transparent',
-      fontFamily: 'Inter, system-ui, sans-serif',
+      fontFamily: 'Geist Sans, Geist, system-ui, sans-serif',
       animations: { enabled: true, easing: 'easeinout', speed: 400 }
     },
-    colors: isPercent ? ['#8b5cf6'] : ['#8b5cf6', '#10b981'],
+    // Theme-aware colors: primary for used, success green for total
+    colors: isPercent
+      ? [getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#8b5cf6']
+      : [getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#8b5cf6', '#10b981'],
     fill: {
       type: 'gradient',
       gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 90, 100] }

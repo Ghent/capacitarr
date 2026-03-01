@@ -44,7 +44,11 @@ export default defineNuxtConfig({
     }
   },
 
-  css: ['~/assets/css/main.css'],
+  css: [
+    'geist/dist/geist-sans/style.css',
+    'geist/dist/geist-mono/style.css',
+    '~/assets/css/main.css',
+  ],
 
   runtimeConfig: {
     public: {
