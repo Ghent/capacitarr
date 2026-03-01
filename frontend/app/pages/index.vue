@@ -53,7 +53,162 @@
       </div>
     </div>
 
-    <!-- Summary Cards -->
+    <!-- Engine Activity (prominent, first card) -->
+    <UiCard
+      v-if="engineStats"
+      v-motion
+      :initial="{ opacity: 0, y: 12 }"
+      :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } }"
+      class="mb-8"
+      :class="engineIsRunning ? 'engine-running-glow' : ''"
+    >
+      <UiCardContent class="pt-5">
+        <!-- Status banner -->
+        <div
+          class="rounded-lg px-3 py-2 mb-4 flex items-center gap-2 text-sm font-medium"
+          :class="engineStatusBannerClass"
+        >
+          <LoaderCircleIcon v-if="engineIsRunning" class="w-4 h-4 animate-spin shrink-0" />
+          <component :is="engineIsRunning ? ActivityIcon : CheckCircle2Icon" v-else class="w-4 h-4 shrink-0" />
+          <span>{{ engineStatusText }}</span>
+          <span v-if="!engineIsRunning && countdownText" class="ml-auto text-xs font-normal text-muted-foreground">
+            {{ countdownText }}
+          </span>
+        </div>
+
+        <!-- Top row: title, run now, mode badge, evaluated/flagged -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <div class="flex items-center gap-1.5 text-primary font-medium text-sm">
+            <component :is="ActivityIcon" class="w-4 h-4" />
+            Engine Activity
+          </div>
+          <UiButton
+            variant="outline"
+            size="sm"
+            :disabled="engineRunNowLoading"
+            @click="engineTriggerRunNow"
+          >
+            <LoaderCircleIcon v-if="engineRunNowLoading" class="w-3.5 h-3.5 animate-spin" />
+            <PlayIcon v-else class="w-3.5 h-3.5" />
+            Run Now
+          </UiButton>
+          <span class="text-xs text-muted-foreground">
+            <template v-if="engineIsRunning">
+              🔄 Engine running…
+            </template>
+            <template v-else>
+              {{ engineLastRunEpoch ? `Last run: ${formatRelativeTime(new Date(engineLastRunEpoch * 1000).toISOString())}` : 'No runs yet' }}
+            </template>
+          </span>
+          <UiBadge
+            :variant="engineExecutionMode === 'auto' ? 'destructive' : engineExecutionMode === 'approval' ? 'outline' : 'secondary'"
+            class="ml-auto"
+          >
+            {{ engineModeLabel(engineExecutionMode) }}
+          </UiBadge>
+          <span class="text-xs text-muted-foreground">
+            Evaluated {{ engineLastRunEvaluated?.toLocaleString() ?? 0 }} · Flagged {{ engineLastRunFlagged?.toLocaleString() ?? 0 }}
+          </span>
+        </div>
+
+        <!-- Sparkline: items flagged + deleted per engine run -->
+        <div v-if="flaggedSeries.length > 0 || deletedSeries.length > 0" class="mb-3">
+          <div class="flex items-center gap-3 mb-1">
+            <span class="text-[11px] text-muted-foreground/70">
+              Engine Activity · {{ dateRangeLabel }}
+            </span>
+            <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <span class="w-2 h-2 rounded-full bg-primary" /> Flagged
+            </span>
+            <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+              <span class="w-2 h-2 rounded-full bg-destructive" /> Deleted
+            </span>
+          </div>
+          <ClientOnly>
+            <apexchart
+              type="area"
+              height="120"
+              :options="sparklineOptions"
+              :series="sparklineSeries"
+            />
+          </ClientOnly>
+        </div>
+
+        <!-- Stats row: 3 compact boxes -->
+        <div class="grid grid-cols-3 gap-3 mb-3">
+          <!-- Would Free / Freed -->
+          <div class="rounded-lg bg-muted px-3 py-2">
+            <div class="text-[11px] text-muted-foreground mb-0.5">
+              {{ engineExecutionMode === 'auto' ? 'Freed' : 'Would free' }}
+            </div>
+            <div class="text-sm font-bold tabular-nums">
+              {{ formatBytes(engineStats.lastRunFreedBytes ?? 0) }}
+            </div>
+          </div>
+
+          <!-- Queue -->
+          <div class="rounded-lg bg-muted px-3 py-2">
+            <div class="text-[11px] text-muted-foreground mb-0.5">Queue</div>
+            <div class="flex items-center gap-1.5">
+              <span
+                class="w-2 h-2 rounded-full shrink-0"
+                :class="(engineStats.queueDepth ?? 0) > 0 ? 'bg-warning' : 'bg-success'"
+              />
+              <span class="text-sm font-bold tabular-nums">{{ engineStats.queueDepth ?? 0 }}</span>
+              <span class="text-[11px] text-muted-foreground">items</span>
+            </div>
+          </div>
+
+          <!-- Active Delete -->
+          <div class="rounded-lg bg-muted px-3 py-2">
+            <div class="text-[11px] text-muted-foreground mb-0.5">Active Delete</div>
+            <div class="text-sm">
+              <template v-if="engineStats.currentlyDeleting">
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
+                  <span class="font-medium truncate max-w-[120px]" :title="engineStats.currentlyDeleting">
+                    {{ engineStats.currentlyDeleting }}
+                  </span>
+                </span>
+              </template>
+              <template v-else-if="engineExecutionMode === 'dry_run' || engineExecutionMode === 'dry-run'">
+                <span class="text-muted-foreground text-xs">Dry-Run — no deletions</span>
+              </template>
+              <template v-else-if="(engineStats.queueDepth ?? 0) === 0">
+                <span class="text-muted-foreground">Idle</span>
+              </template>
+              <template v-else>
+                <span class="text-muted-foreground">Waiting…</span>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer link -->
+        <NuxtLink
+          to="/audit"
+          class="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+        >
+          View full audit log →
+        </NuxtLink>
+      </UiCardContent>
+    </UiCard>
+
+    <!-- Per-Disk-Group Sections -->
+    <div v-if="diskGroups.length > 0" class="space-y-6 mb-8">
+      <DiskGroupSection
+        v-for="group in diskGroups"
+        :key="group.id"
+        :group="group"
+        :chart-mode="chartMode"
+        :date-range="dateRange"
+        :date-range-label="dateRangeLabel"
+        :refresh-key="refreshKey"
+        @updated="fetchDashboardData"
+      />
+    </div>
+
+    <!-- Summary Cards (informational, at the bottom) -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8" data-stagger>
       <!-- Total Storage -->
       <UiCard
@@ -119,145 +274,9 @@
       </UiCard>
     </div>
 
-    <!-- Per-Disk-Group Sections -->
-    <div v-if="diskGroups.length > 0" class="space-y-6 mb-8">
-      <DiskGroupSection
-        v-for="group in diskGroups"
-        :key="group.id"
-        :group="group"
-        :chart-mode="chartMode"
-        :date-range="dateRange"
-        :date-range-label="dateRangeLabel"
-        :refresh-key="refreshKey"
-        @updated="fetchDashboardData"
-      />
-    </div>
-
-    <!-- Engine Activity -->
-    <UiCard
-      v-if="workerStats"
-      v-motion
-      :initial="{ opacity: 0, y: 12 }"
-      :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } }"
-      class="mb-8"
-    >
-      <UiCardContent class="pt-5">
-        <!-- Top row: last run, mode badge, evaluated/flagged -->
-        <div class="flex flex-wrap items-center gap-2 mb-3">
-          <div class="flex items-center gap-1.5 text-primary font-medium text-sm">
-            <component :is="ActivityIcon" class="w-4 h-4" />
-            Engine Activity
-          </div>
-          <UiButton
-            variant="outline"
-            size="sm"
-            :disabled="runNowLoading"
-            @click="triggerRunNow"
-          >
-            <LoaderCircleIcon v-if="runNowLoading" class="w-3.5 h-3.5 animate-spin" />
-            <PlayIcon v-else class="w-3.5 h-3.5" />
-            Run Now
-          </UiButton>
-          <span class="text-xs text-muted-foreground">
-            {{ workerStats.lastRunEpoch ? `Last run: ${formatRelativeTime(new Date(workerStats.lastRunEpoch * 1000).toISOString())}` : 'No runs yet' }}
-          </span>
-          <UiBadge
-            :variant="workerStats.executionMode === 'auto' ? 'destructive' : workerStats.executionMode === 'approval' ? 'outline' : 'secondary'"
-            class="ml-auto"
-          >
-            {{ modeLabel(workerStats.executionMode) }}
-          </UiBadge>
-          <span class="text-xs text-muted-foreground">
-            Evaluated {{ workerStats.lastRunEvaluated?.toLocaleString() ?? 0 }} · Flagged {{ workerStats.lastRunFlagged?.toLocaleString() ?? 0 }}
-          </span>
-        </div>
-
-        <!-- Sparkline: items flagged + deleted per engine run -->
-        <div v-if="flaggedSeries.length > 0 || deletedSeries.length > 0" class="mb-3">
-          <div class="flex items-center gap-3 mb-1">
-            <span class="text-[11px] text-muted-foreground/70">
-              Engine Activity · {{ dateRangeLabel }}
-            </span>
-            <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <span class="w-2 h-2 rounded-full bg-primary" /> Flagged
-            </span>
-            <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <span class="w-2 h-2 rounded-full bg-destructive" /> Deleted
-            </span>
-          </div>
-          <ClientOnly>
-            <apexchart
-              type="area"
-              height="60"
-              :options="sparklineOptions"
-              :series="sparklineSeries"
-            />
-          </ClientOnly>
-        </div>
-
-        <!-- Stats row: 3 compact boxes -->
-        <div class="grid grid-cols-3 gap-3 mb-3">
-          <!-- Would Free / Freed -->
-          <div class="rounded-lg bg-muted px-3 py-2">
-            <div class="text-[11px] text-muted-foreground mb-0.5">
-              {{ workerStats.executionMode === 'auto' ? 'Freed' : 'Would free' }}
-            </div>
-            <div class="text-sm font-bold tabular-nums">
-              {{ formatBytes(workerStats.lastRunFreedBytes ?? 0) }}
-            </div>
-          </div>
-
-          <!-- Queue -->
-          <div class="rounded-lg bg-muted px-3 py-2">
-            <div class="text-[11px] text-muted-foreground mb-0.5">Queue</div>
-            <div class="flex items-center gap-1.5">
-              <span
-                class="w-2 h-2 rounded-full shrink-0"
-                :class="(workerStats.queueDepth ?? 0) > 0 ? 'bg-warning' : 'bg-success'"
-              />
-              <span class="text-sm font-bold tabular-nums">{{ workerStats.queueDepth ?? 0 }}</span>
-              <span class="text-[11px] text-muted-foreground">items</span>
-            </div>
-          </div>
-
-          <!-- Active Delete -->
-          <div class="rounded-lg bg-muted px-3 py-2">
-            <div class="text-[11px] text-muted-foreground mb-0.5">Active Delete</div>
-            <div class="text-sm">
-              <template v-if="workerStats.currentlyDeleting">
-                <span class="inline-flex items-center gap-1.5">
-                  <span class="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
-                  <span class="font-medium truncate max-w-[120px]" :title="workerStats.currentlyDeleting">
-                    {{ workerStats.currentlyDeleting }}
-                  </span>
-                </span>
-              </template>
-              <template v-else-if="workerStats.executionMode === 'dry_run' || workerStats.executionMode === 'dry-run'">
-                <span class="text-muted-foreground text-xs">Dry-Run — no deletions</span>
-              </template>
-              <template v-else-if="(workerStats.queueDepth ?? 0) === 0">
-                <span class="text-muted-foreground">Idle</span>
-              </template>
-              <template v-else>
-                <span class="text-muted-foreground">Waiting…</span>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer link -->
-        <NuxtLink
-          to="/audit"
-          class="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
-        >
-          View full audit log →
-        </NuxtLink>
-      </UiCardContent>
-    </UiCard>
-
     <!-- Empty State -->
     <div
-      v-else-if="!loading"
+      v-if="!engineStats && !loading"
       v-motion
       :initial="{ opacity: 0, y: 8 }"
       :enter="{ opacity: 1, y: 0 }"
@@ -294,11 +313,26 @@
 </template>
 
 <script setup lang="ts">
-import { ServerIcon, ChartPieIcon, HardDriveIcon, LoaderCircleIcon, RefreshCwIcon, ActivityIcon, PlayIcon } from 'lucide-vue-next'
+import { ServerIcon, ChartPieIcon, HardDriveIcon, LoaderCircleIcon, RefreshCwIcon, ActivityIcon, PlayIcon, CheckCircle2Icon } from 'lucide-vue-next'
 import { formatBytes, formatRelativeTime } from '~/utils/format'
 
 const api = useApi()
 const { primaryColor, destructiveColor } = useThemeColors()
+
+// Use shared engine control composable for isRunning detection + toast on completion
+const {
+  workerStats: engineControlStats,
+  executionMode: engineExecutionMode,
+  lastRunEpoch: engineLastRunEpoch,
+  lastRunEvaluated: engineLastRunEvaluated,
+  lastRunFlagged: engineLastRunFlagged,
+  isRunning: engineIsRunning,
+  pollIntervalSeconds: enginePollInterval,
+  runNowLoading: engineRunNowLoading,
+  modeLabel: engineModeLabel,
+  fetchStats: engineFetchStats,
+  triggerRunNow: engineTriggerRunNow,
+} = useEngineControl()
 
 // Pull-to-refresh for touch devices
 const { isRefreshing, pullProgress, pullDistance } = usePullToRefresh(async () => {
@@ -338,14 +372,15 @@ const refreshIntervalStr = ref('15000')
 const refreshInterval = computed(() => Number(refreshIntervalStr.value))
 const diskGroups = ref<any[]>([])
 const allIntegrations = ref<any[]>([])
-const workerStats = ref<any>(null)
 const flaggedSeries = ref<{ x: string; y: number }[]>([])
 const deletedSeries = ref<{ x: string; y: number }[]>([])
 const loading = ref(true)
 const lastUpdated = ref<Date | null>(null)
 const isAutoRefreshing = ref(false)
 const refreshKey = ref(0)
-const runNowLoading = ref(false)
+
+// Engine stats — alias from shared composable
+const engineStats = computed(() => engineControlStats.value)
 
 const enabledIntegrations = computed(() => allIntegrations.value.filter((i: any) => i.enabled))
 
@@ -362,6 +397,56 @@ const totalUsed = computed(() =>
   diskGroups.value.reduce((sum: number, g: any) => sum + (g.usedBytes || 0), 0)
 )
 
+// --- Status banner ---
+const engineStatusBannerClass = computed(() => {
+  if (engineIsRunning.value) {
+    return 'bg-primary/10 text-primary border border-primary/20'
+  }
+  return 'bg-muted text-muted-foreground'
+})
+
+const engineStatusText = computed(() => {
+  if (engineIsRunning.value) {
+    return 'Engine is running — evaluating media items…'
+  }
+  if (!engineLastRunEpoch.value) return 'Engine idle — no runs yet'
+  return `Engine idle — last run ${formatRelativeTime(new Date(engineLastRunEpoch.value * 1000).toISOString())}`
+})
+
+// --- Countdown to next run ---
+const nowEpoch = ref(Math.floor(Date.now() / 1000))
+let countdownTimer: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  countdownTimer = setInterval(() => {
+    nowEpoch.value = Math.floor(Date.now() / 1000)
+  }, 1000)
+})
+
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer)
+})
+
+const countdownText = computed(() => {
+  if (engineIsRunning.value) return ''
+  if (!engineLastRunEpoch.value || !enginePollInterval.value) return ''
+
+  const nextRunEpoch = engineLastRunEpoch.value + enginePollInterval.value
+  const remaining = nextRunEpoch - nowEpoch.value
+
+  if (remaining <= 0) return 'Next run imminent'
+  if (remaining < 60) return `Next run in ${remaining}s`
+  if (remaining < 3600) {
+    const mins = Math.floor(remaining / 60)
+    const secs = remaining % 60
+    return `Next run in ${mins}m ${secs}s`
+  }
+  const hours = Math.floor(remaining / 3600)
+  const mins = Math.floor((remaining % 3600) / 60)
+  return `Next run in ${hours}h ${mins}m`
+})
+
+// --- Auto refresh ---
 let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
 
 function startAutoRefresh() {
@@ -399,44 +484,21 @@ onUnmounted(() => {
 async function fetchDashboardData(silent = false) {
   if (!silent) loading.value = true
   try {
-    const [groups, integrations, stats] = await Promise.all([
+    const [groups, integrations] = await Promise.all([
       api('/api/v1/disk-groups'),
       api('/api/v1/integrations'),
-      api('/api/v1/worker/stats').catch(() => null)
     ])
+    // Fetch engine stats via the shared composable (handles toast on completion)
+    engineFetchStats()
     // Fetch sparkline activity data in parallel (non-blocking)
     fetchActivityData()
     diskGroups.value = groups as any[]
     allIntegrations.value = integrations as any[]
-    if (stats) workerStats.value = stats
     lastUpdated.value = new Date()
   } catch (e) {
     console.error('Failed to fetch dashboard data:', e)
   } finally {
     if (!silent) loading.value = false
-  }
-}
-
-async function triggerRunNow() {
-  runNowLoading.value = true
-  try {
-    await api('/api/v1/engine/run', { method: 'POST' })
-    // Give the engine a moment to start, then refresh dashboard
-    await new Promise(r => setTimeout(r, 2000))
-    await fetchDashboardData(true)
-    refreshKey.value++
-  } catch (e) {
-    console.error('Failed to trigger engine run:', e)
-  } finally {
-    runNowLoading.value = false
-  }
-}
-
-function modeLabel(mode: string): string {
-  switch (mode) {
-    case 'auto': return 'Auto'
-    case 'approval': return 'Approval'
-    default: return 'Dry-Run'
   }
 }
 

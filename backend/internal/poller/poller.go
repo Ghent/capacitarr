@@ -510,13 +510,15 @@ func GetWorkerMetrics() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"executionMode":     mode,
-		"queueDepth":        len(deleteQueue),
-		"lastRunEvaluated":  lastRunEval,
-		"lastRunFlagged":    lastRunFlag,
-		"lastRunFreedBytes": lastRunFreed,
-		"lastRunEpoch":      lastRunEpochVal,
-		"currentlyDeleting": currentlyDeletion,
+		"executionMode":      mode,
+		"isRunning":          pollRunning.Load(),
+		"pollIntervalSeconds": prefs.PollIntervalSeconds,
+		"queueDepth":         len(deleteQueue),
+		"lastRunEvaluated":   lastRunEval,
+		"lastRunFlagged":     lastRunFlag,
+		"lastRunFreedBytes":  lastRunFreed,
+		"lastRunEpoch":       lastRunEpochVal,
+		"currentlyDeleting":  currentlyDeletion,
 		// Cumulative totals from DB
 		"evaluated":  totals.TotalEvaluated,
 		"actioned":   totals.TotalFlagged,

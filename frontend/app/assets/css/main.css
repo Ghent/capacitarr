@@ -999,6 +999,21 @@ table tr {
   }
 }
 
+/* Engine Activity — pulsing border glow when engine is running */
+@keyframes engine-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
+  }
+  50% {
+    box-shadow: 0 0 12px 4px hsl(var(--primary) / 0.25);
+  }
+}
+
+.engine-running-glow {
+  animation: engine-pulse 2s ease-in-out infinite;
+  border-color: hsl(var(--primary) / 0.5);
+}
+
 /* Page transitions (Nuxt pageTransition: 'page') */
 .page-enter-active,
 .page-leave-active {

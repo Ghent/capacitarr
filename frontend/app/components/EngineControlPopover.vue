@@ -1,13 +1,19 @@
 <template>
   <UiPopover>
     <UiPopoverTrigger as-child>
-      <UiButton variant="ghost" size="icon" aria-label="Engine controls" class="relative">
+      <UiButton
+        variant="ghost"
+        size="icon"
+        aria-label="Engine controls"
+        class="relative"
+        :class="isRunning ? 'text-primary animate-pulse' : ''"
+      >
         <!-- Mode icon: shield=dry-run, hand=approval, zap=auto -->
-        <component :is="modeIcon" class="w-5 h-5" />
+        <component :is="isRunning ? LoaderCircleIcon : modeIcon" :class="['w-5 h-5', isRunning ? 'animate-spin' : '']" />
         <!-- Health status dot -->
         <span
           class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-background"
-          :class="[statusDotColor, runNowLoading ? 'animate-pulse' : '']"
+          :class="[statusDotColor, (isRunning || runNowLoading) ? 'animate-pulse' : '']"
         />
       </UiButton>
     </UiPopoverTrigger>
@@ -99,7 +105,7 @@ import { formatRelativeTime } from '~/utils/format'
 
 const {
   executionMode, lastRunEpoch, lastRunEvaluated, lastRunFlagged,
-  queueDepth, runNowLoading, changingMode,
+  queueDepth, isRunning, runNowLoading, changingMode,
   modeLabel, fetchStats, setMode, triggerRunNow
 } = useEngineControl()
 
@@ -120,11 +126,11 @@ const modeIcon = computed(() => {
   }
 })
 
-// Health status dot — green=healthy, green+pulse=running, red=error
+// Health status dot — green=healthy, green+pulse=running, amber=loading
 const statusDotColor = computed(() => {
-  if (runNowLoading.value) return 'bg-green-500' // pulsing green when running
-  // TODO: detect last run error from workerStats when available
-  return 'bg-green-500' // healthy/idle
+  if (isRunning.value) return 'bg-primary'
+  if (runNowLoading.value) return 'bg-amber-500'
+  return 'bg-green-500'
 })
 
 const lastRunText = computed(() => {

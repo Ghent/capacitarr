@@ -10,11 +10,17 @@ export function useEngineControl() {
   const runNowLoading = ref(false)
   const changingMode = ref(false)
 
+  // Track previous isRunning state for run-completion detection
+  const prevIsRunning = useState<boolean>('enginePrevIsRunning', () => false)
+
   const executionMode = computed(() => workerStats.value?.executionMode || 'dry_run')
   const lastRunEpoch = computed(() => workerStats.value?.lastRunEpoch || 0)
   const lastRunEvaluated = computed(() => workerStats.value?.lastRunEvaluated || 0)
   const lastRunFlagged = computed(() => workerStats.value?.lastRunFlagged || 0)
+  const lastRunFreedBytes = computed(() => workerStats.value?.lastRunFreedBytes || 0)
   const queueDepth = computed(() => workerStats.value?.queueDepth || 0)
+  const isRunning = computed(() => workerStats.value?.isRunning === true)
+  const pollIntervalSeconds = computed(() => workerStats.value?.pollIntervalSeconds || 300)
 
   function modeLabel(mode: string): string {
     switch (mode) {
@@ -27,7 +33,23 @@ export function useEngineControl() {
   async function fetchStats() {
     try {
       const stats = await api('/api/v1/worker/stats')
-      if (stats) workerStats.value = stats
+      if (stats) {
+        const wasRunning = prevIsRunning.value
+        workerStats.value = stats
+        const nowRunning = (stats as any).isRunning === true
+
+        // Detect run completion: was running → now idle
+        if (wasRunning && !nowRunning) {
+          const evaluated = (stats as any).lastRunEvaluated ?? 0
+          const flagged = (stats as any).lastRunFlagged ?? 0
+          addToast(
+            `Engine run complete — evaluated ${evaluated.toLocaleString()} items, flagged ${flagged.toLocaleString()}`,
+            'success',
+          )
+        }
+
+        prevIsRunning.value = nowRunning
+      }
     } catch {
       // Silent — stats are a nice-to-have
     }
@@ -74,7 +96,10 @@ export function useEngineControl() {
     lastRunEpoch,
     lastRunEvaluated,
     lastRunFlagged,
+    lastRunFreedBytes,
     queueDepth,
+    isRunning,
+    pollIntervalSeconds,
     runNowLoading: readonly(runNowLoading),
     changingMode: readonly(changingMode),
     modeLabel,
