@@ -405,7 +405,7 @@
                     </span>
                   </UiTableCell>
                   <UiTableCell class="font-medium">
-                    <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
                       <span class="truncate">{{ group.entry.item.title }}</span>
                       <button v-if="group.seasons.length > 0" class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5" @click.stop="togglePreviewGroup(group.key)">
                         <ChevronRightIcon class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-90': expandedPreviewGroups.has(group.key) }" />
@@ -888,39 +888,94 @@ interface PreviewGroup {
 const groupedPreview = computed<PreviewGroup[]>(() => {
   const items = preview.value.slice(0, 50)
   const groups: PreviewGroup[] = []
+  // Map from show name → index in groups array
   const showMap = new Map<string, number>()
 
+  // Two-pass approach: first pass collects shows, second pass groups seasons
+  // Pass 1: identify all show entries and create groups for them
   for (const item of items) {
-    // Detect season items: type === 'season' and title matches "ShowName - Season N"
+    if (item.item?.type === 'show') {
+      const key = `preview-${item.item.title}-show`
+      showMap.set(item.item.title, groups.length)
+      groups.push({ key, entry: item, seasons: [] })
+    }
+  }
+
+  // Pass 2: attach seasons to their parent show, or create a synthetic show group
+  for (const item of items) {
     if (item.item?.type === 'season' && item.item?.title?.includes(' - Season ')) {
       const showName = item.item.title.split(' - Season ')[0]
       const groupIdx = showMap.get(showName)
       if (groupIdx !== undefined && groups[groupIdx]) {
         groups[groupIdx].seasons.push(item)
-        continue
+      } else {
+        // Season without a parent show entry — create a synthetic group using the season as the parent
+        const syntheticKey = `preview-${showName}-show-synthetic`
+        if (!showMap.has(showName)) {
+          showMap.set(showName, groups.length)
+          // Use the first season as the group entry but display the show name
+          const syntheticEntry = {
+            ...item,
+            item: { ...item.item, title: showName, type: 'show' },
+          }
+          groups.push({ key: syntheticKey, entry: syntheticEntry, seasons: [item] })
+        } else {
+          // Already created a synthetic group, just add the season
+          const existingIdx = showMap.get(showName)!
+          groups[existingIdx].seasons.push(item)
+        }
       }
+    } else if (item.item?.type !== 'show') {
+      // Non-show, non-season items (movies, artists, books, etc.)
+      const key = `preview-${item.item?.title}-${item.item?.type}`
+      groups.push({ key, entry: item, seasons: [] })
     }
-
-    const key = `preview-${item.item?.title}-${item.item?.type}`
-    if (item.item?.type === 'show') {
-      showMap.set(item.item.title, groups.length)
-    }
-    groups.push({ key, entry: item, seasons: [] })
+    // Shows already handled in pass 1
   }
 
+  // Sort groups by the entry's score (highest first = most likely to be deleted)
+  // Preserve the original order from the backend (already sorted)
   return groups
 })
 
-const expandedPreviewGroups = ref(new Set<string>())
+// Start with all groups expanded so seasons are always visible
+const expandedPreviewGroups = computed(() => {
+  const expanded = new Set<string>()
+  for (const group of groupedPreview.value) {
+    if (group.seasons.length > 0) {
+      expanded.add(group.key)
+    }
+  }
+  // Merge with manually toggled state
+  for (const key of manuallyCollapsed.value) {
+    expanded.delete(key)
+  }
+  for (const key of manuallyExpanded.value) {
+    expanded.add(key)
+  }
+  return expanded
+})
+const manuallyCollapsed = ref(new Set<string>())
+const manuallyExpanded = ref(new Set<string>())
 
 function togglePreviewGroup(key: string) {
-  const next = new Set(expandedPreviewGroups.value)
-  if (next.has(key)) {
-    next.delete(key)
+  if (expandedPreviewGroups.value.has(key)) {
+    // Currently expanded → collapse it
+    const nextCollapsed = new Set(manuallyCollapsed.value)
+    nextCollapsed.add(key)
+    manuallyCollapsed.value = nextCollapsed
+    const nextExpanded = new Set(manuallyExpanded.value)
+    nextExpanded.delete(key)
+    manuallyExpanded.value = nextExpanded
   } else {
-    next.add(key)
+    // Currently collapsed → expand it
+    const nextExpanded = new Set(manuallyExpanded.value)
+    nextExpanded.add(key)
+    manuallyExpanded.value = nextExpanded
+    const nextCollapsed = new Set(manuallyCollapsed.value)
+    nextCollapsed.delete(key)
+    manuallyCollapsed.value = nextCollapsed
   }
-  expandedPreviewGroups.value = next
 }
 
 function extractPreviewSeasonLabel(title: string): string {
