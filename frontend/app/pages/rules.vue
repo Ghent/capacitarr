@@ -334,7 +334,10 @@
                 :class="effectBadgeClass(rule.effect || legacyEffect(rule.type, rule.intensity))"
                 class="shrink-0"
               >
-                {{ effectLabel(rule.effect || legacyEffect(rule.type, rule.intensity)) }}
+                <span class="inline-flex items-center gap-1">
+                  <span class="text-xs">{{ effectIconMap[rule.effect || legacyEffect(rule.type, rule.intensity)] || '' }}</span>
+                  {{ effectLabel(rule.effect || legacyEffect(rule.type, rule.intensity)) }}
+                </span>
               </UiBadge>
               <!-- Service name -->
               <span v-if="rule.integrationId" class="text-muted-foreground">
@@ -697,11 +700,20 @@ const effectLabelMap: Record<string, string> = {
 
 const effectBadgeClassMap: Record<string, string> = {
   always_keep: 'bg-emerald-500 text-white hover:bg-emerald-500',
-  prefer_keep: 'bg-emerald-400 text-white hover:bg-emerald-400',
-  lean_keep: 'bg-emerald-300 text-emerald-900 hover:bg-emerald-300',
+  prefer_keep: 'bg-teal-400 text-white hover:bg-teal-400',
+  lean_keep: 'bg-sky-400 text-white hover:bg-sky-400',
   lean_remove: 'bg-amber-400 text-amber-900 hover:bg-amber-400',
-  prefer_remove: 'bg-red-400 text-white hover:bg-red-400',
+  prefer_remove: 'bg-orange-500 text-white hover:bg-orange-500',
   always_remove: 'bg-red-500 text-white hover:bg-red-500',
+}
+
+const effectIconMap: Record<string, string> = {
+  always_keep: '🛡️',
+  prefer_keep: '🟢',
+  lean_keep: '🔵',
+  lean_remove: '🟡',
+  prefer_remove: '🟠',
+  always_remove: '🔴',
 }
 
 // Field label mapping for human-readable display

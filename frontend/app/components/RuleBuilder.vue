@@ -182,7 +182,7 @@
               :value="eff.value"
             >
               <span class="inline-flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full shrink-0" :class="eff.colorClass" />
+                <span class="text-sm shrink-0">{{ eff.icon }}</span>
                 {{ eff.label }}
               </span>
             </UiSelectItem>
@@ -275,12 +275,12 @@ const operatorLabels: Record<string, string> = {
 
 // Effect options with color coding
 const effectOptions = [
-  { value: 'always_keep', label: 'Always keep', colorClass: 'bg-emerald-500' },
-  { value: 'prefer_keep', label: 'Prefer to keep', colorClass: 'bg-emerald-400' },
-  { value: 'lean_keep', label: 'Lean toward keeping', colorClass: 'bg-emerald-300' },
-  { value: 'lean_remove', label: 'Lean toward removing', colorClass: 'bg-amber-400' },
-  { value: 'prefer_remove', label: 'Prefer to remove', colorClass: 'bg-red-400' },
-  { value: 'always_remove', label: 'Always remove', colorClass: 'bg-red-500' },
+  { value: 'always_keep', label: 'Always keep', colorClass: 'bg-emerald-500', icon: '🛡️' },
+  { value: 'prefer_keep', label: 'Prefer to keep', colorClass: 'bg-teal-400', icon: '🟢' },
+  { value: 'lean_keep', label: 'Lean toward keeping', colorClass: 'bg-sky-400', icon: '🔵' },
+  { value: 'lean_remove', label: 'Lean toward removing', colorClass: 'bg-amber-400', icon: '🟡' },
+  { value: 'prefer_remove', label: 'Prefer to remove', colorClass: 'bg-orange-500', icon: '🟠' },
+  { value: 'always_remove', label: 'Always remove', colorClass: 'bg-red-500', icon: '🔴' },
 ]
 
 // Form state
