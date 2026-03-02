@@ -10,6 +10,12 @@ services:
       - DEBUG=true
     volumes:
       - capacitarr-config:/config
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2187/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
     restart: unless-stopped
 
 volumes:
