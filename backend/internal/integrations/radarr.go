@@ -16,6 +16,7 @@ type RadarrClient struct {
 	APIKey string
 }
 
+// NewRadarrClient creates a new Radarr movie management API client.
 func NewRadarrClient(url, apiKey string) *RadarrClient {
 	return &RadarrClient{
 		URL:    strings.TrimRight(url, "/"),

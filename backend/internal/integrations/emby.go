@@ -15,6 +15,7 @@ type EmbyClient struct {
 	APIKey string
 }
 
+// NewEmbyClient creates a new Emby media server API client.
 func NewEmbyClient(url, apiKey string) *EmbyClient {
 	return &EmbyClient{
 		URL:    strings.TrimRight(url, "/"),

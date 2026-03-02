@@ -38,6 +38,7 @@ func validateAPIKey(database *gorm.DB, plaintextKey string) *db.AuthConfig {
 	return nil
 }
 
+// RequireAuth returns Echo middleware that authenticates requests via trusted proxy header, JWT, or API key.
 func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {

@@ -17,6 +17,7 @@ type LidarrClient struct {
 	APIKey string
 }
 
+// NewLidarrClient creates a new Lidarr music management API client.
 func NewLidarrClient(url, apiKey string) *LidarrClient {
 	return &LidarrClient{
 		URL:    strings.TrimRight(url, "/"),

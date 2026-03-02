@@ -12,6 +12,7 @@ import (
 
 var DB *gorm.DB
 
+// Init opens the SQLite database, runs migrations, and stores the connection in the package-level DB variable.
 func Init(cfg *config.Config) error {
 	logLevel := gormlogger.Warn
 	if cfg.Debug {

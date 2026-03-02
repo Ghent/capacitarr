@@ -19,6 +19,7 @@ type Config struct {
 	AuthHeader    string // Trusted reverse proxy auth header (e.g. "Remote-User", "X-authentik-username")
 }
 
+// Load reads environment variables and returns a populated Config.
 func Load() *Config {
 	debug := strings.ToLower(os.Getenv("DEBUG")) == "true"
 

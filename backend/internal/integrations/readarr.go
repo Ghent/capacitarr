@@ -16,6 +16,7 @@ type ReadarrClient struct {
 	APIKey string
 }
 
+// NewReadarrClient creates a new Readarr book management API client.
 func NewReadarrClient(url, apiKey string) *ReadarrClient {
 	return &ReadarrClient{
 		URL:    strings.TrimRight(url, "/"),

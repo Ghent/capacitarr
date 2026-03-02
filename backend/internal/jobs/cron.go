@@ -8,6 +8,7 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// Start creates and starts the background cron scheduler for time-series rollup and pruning jobs.
 func Start() *cron.Cron {
 	c := cron.New()
 

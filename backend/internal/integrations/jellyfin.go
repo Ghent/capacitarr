@@ -16,6 +16,7 @@ type JellyfinClient struct {
 	APIKey string
 }
 
+// NewJellyfinClient creates a new Jellyfin media server API client.
 func NewJellyfinClient(url, apiKey string) *JellyfinClient {
 	return &JellyfinClient{
 		URL:    strings.TrimRight(url, "/"),

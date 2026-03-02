@@ -16,6 +16,7 @@ type SonarrClient struct {
 	APIKey string
 }
 
+// NewSonarrClient creates a new Sonarr TV series management API client.
 func NewSonarrClient(url, apiKey string) *SonarrClient {
 	return &SonarrClient{
 		URL:    strings.TrimRight(url, "/"),

@@ -13,6 +13,7 @@ type PlexClient struct {
 	Token string // X-Plex-Token
 }
 
+// NewPlexClient creates a new Plex media server API client.
 func NewPlexClient(url, token string) *PlexClient {
 	return &PlexClient{
 		URL:   strings.TrimRight(url, "/"),
