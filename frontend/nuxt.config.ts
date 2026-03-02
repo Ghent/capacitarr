@@ -1,5 +1,20 @@
+import { readFileSync, existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import pkg from './package.json'
+
+// Parse CONTRIBUTORS.md at build time to embed contributor names
+function parseContributors(): string[] {
+  const contributorsPath = resolve(__dirname, '../CONTRIBUTORS.md')
+  if (!existsSync(contributorsPath)) return []
+  const content = readFileSync(contributorsPath, 'utf-8')
+  const names: string[] = []
+  // Match lines like "- **Name** ..." under any section
+  for (const match of content.matchAll(/^- \*\*(.+?)\*\*/gm)) {
+    if (match[1]) names.push(match[1].trim())
+  }
+  return names
+}
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -101,7 +116,8 @@ export default defineNuxtConfig({
     public: {
       apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL ?? '',
       appVersion: pkg.version || '0.0.0',
-      appBuildDate: new Date().toISOString()
+      appBuildDate: new Date().toISOString(),
+      contributors: parseContributors()
     }
   },
 

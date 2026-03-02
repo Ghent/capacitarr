@@ -382,23 +382,23 @@
               <span class="text-muted-foreground">Description</span>
               <span class="text-foreground">Intelligent Media Capacity Management</span>
 
-              <span class="text-muted-foreground">Version</span>
+              <span class="text-muted-foreground">UI Version</span>
               <span class="text-foreground">
-                UI v{{ uiVersion }}
-                <template v-if="apiVersion">
-                  · API {{ apiVersion }}
+                v{{ uiVersion }}
+                <template v-if="uiBuildDate">
+                  <span class="text-muted-foreground text-xs ml-1">({{ uiBuildDate }})</span>
                 </template>
               </span>
 
-              <span class="text-muted-foreground">Build Date</span>
+              <span class="text-muted-foreground">API Version</span>
               <span class="text-foreground">
-                <template v-if="uiBuildDate">
-                  UI {{ uiBuildDate }}
+                <template v-if="apiVersion">
+                  {{ apiVersion }}
+                  <template v-if="apiBuildDate">
+                    <span class="text-muted-foreground text-xs ml-1">({{ apiBuildDate }})</span>
+                  </template>
                 </template>
-                <template v-if="apiBuildDate">
-                  · API {{ apiBuildDate }}
-                </template>
-                <template v-if="!uiBuildDate && !apiBuildDate">
+                <template v-else>
                   —
                 </template>
               </span>
@@ -429,18 +429,25 @@
               <span class="text-foreground">PolyForm Noncommercial 1.0.0</span>
 
               <span class="text-muted-foreground">Author</span>
-              <span class="text-foreground font-medium">Starshadow</span>
+              <span class="text-foreground font-medium">Ghent Starshadow</span>
 
               <span class="text-muted-foreground">Contributors</span>
-              <a
-                href="https://gitlab.com/starshadow/software/capacitarr/-/blob/main/CONTRIBUTING.md"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="inline-flex items-center gap-1 text-primary hover:underline"
-              >
-                See CONTRIBUTING.md
-                <ExternalLinkIcon class="w-3 h-3" />
-              </a>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <template v-if="contributors.length > 0">
+                  <span
+                    v-for="(name, idx) in contributors"
+                    :key="name"
+                    class="text-foreground"
+                  >{{ name }}<span
+                    v-if="idx < contributors.length - 1"
+                    class="text-muted-foreground/50"
+                  >, </span></span>
+                </template>
+                <span
+                  v-else
+                  class="text-muted-foreground italic"
+                >No contributors yet</span>
+              </div>
             </div>
           </div>
 
@@ -522,6 +529,8 @@
 import { ChevronRightIcon, ExternalLinkIcon, ShieldIcon, SparklesIcon } from 'lucide-vue-next'
 
 const { uiVersion, uiBuildDate, apiVersion, apiBuildDate } = useVersion()
+const config = useRuntimeConfig()
+const contributors = computed(() => (config.public.contributors as string[]) || [])
 
 const scoringFactors = [
   { nameKey: 'help.factor.watchHistory', descKey: 'help.factor.watchHistoryDesc' },

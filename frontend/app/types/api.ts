@@ -59,7 +59,7 @@ export interface PreferenceSet {
 }
 
 // ---------------------------------------------------------------------------
-// Protection Rule
+// Custom Rule (API endpoint: /api/v1/protections — legacy naming)
 // ---------------------------------------------------------------------------
 
 export interface ProtectionRule {

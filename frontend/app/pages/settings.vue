@@ -35,7 +35,7 @@
         </UiTabsTrigger>
         <UiTabsTrigger
           value="advanced"
-          class="text-destructive data-[state=active]:text-destructive"
+          class="text-destructive data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground"
         >
           {{ $t('settings.advanced') }}
         </UiTabsTrigger>
@@ -945,13 +945,12 @@
               <!-- Toggle with label -->
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                  <div @click.prevent="onDeletionToggle(!deletionsEnabled)">
-                    <UiSwitch
-                      :model-value="deletionsEnabled"
-                      aria-label="Enable actual file deletion"
-                      :class="deletionsEnabled ? '[&[data-state=checked]]:bg-destructive' : ''"
-                    />
-                  </div>
+                  <UiSwitch
+                    :model-value="deletionsEnabled"
+                    aria-label="Enable actual file deletion"
+                    :class="deletionsEnabled ? '[&[data-state=checked]]:bg-destructive' : ''"
+                    @update:model-value="(v: boolean) => onDeletionToggle(v)"
+                  />
                   <div>
                     <span class="text-sm font-medium">
                       {{ $t('settings.enableDeletions') }}

@@ -97,3 +97,19 @@ environment:
 ```
 
 See the [Deployment Guide](deployment.md#proxy-authentication-authelia--authentik--organizr) for details on proxy authentication setup.
+
+## Data & Backup
+
+All persistent data is stored in a single SQLite database file:
+
+| File | Default Path | Description |
+|------|-------------|-------------|
+| `capacitarr.db` | `/config/capacitarr.db` | All application data: integrations, rules, preferences, audit logs, engine stats, disk groups, notification channels, and authentication credentials. |
+
+The `/config` directory (mapped via Docker volumes) is the **only directory that needs to be backed up**. No other files or directories contain user data.
+
+### Backup Recommendations
+
+- **Stop the container** before copying the database to ensure consistency: `docker compose stop && cp /path/to/volume/capacitarr.db backup.db && docker compose start`
+- Alternatively, use [SQLite's `.backup` command](https://www.sqlite.org/cli.html#special_commands_to_sqlite3_dot_commands_) for online backups.
+- The database path can be customized via the `DB_PATH` environment variable.
