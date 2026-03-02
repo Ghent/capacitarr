@@ -942,12 +942,13 @@
               <!-- Toggle with label -->
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                  <UiSwitch
-                    :checked="deletionsEnabled"
-                    aria-label="Enable actual file deletion"
-                    :class="deletionsEnabled ? '[&[data-state=checked]]:bg-destructive' : ''"
-                    @update:checked="onDeletionToggle"
-                  />
+                  <div @click.prevent="onDeletionToggle(!deletionsEnabled)">
+                    <UiSwitch
+                      :checked="deletionsEnabled"
+                      aria-label="Enable actual file deletion"
+                      :class="deletionsEnabled ? '[&[data-state=checked]]:bg-destructive' : ''"
+                    />
+                  </div>
                   <div>
                     <span class="text-sm font-medium">
                       {{ $t('settings.enableDeletions') }}
