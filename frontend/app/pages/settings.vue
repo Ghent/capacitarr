@@ -939,31 +939,33 @@
                   {{ $t('settings.deletionsActiveAlertDesc') }}
                 </UiAlertDescription>
               </UiAlert>
-              <!-- Current state indicator -->
-              <p
-                v-if="deletionsEnabled"
-                class="text-sm font-medium text-amber-600 dark:text-amber-400"
-              >
-                ⚠️ Actual deletions are ENABLED
-              </p>
-              <p
-                v-else
-                class="text-sm font-medium text-emerald-600 dark:text-emerald-400"
-              >
-                ✓ Deletions are simulated (Dry-Delete)
-              </p>
-              <div class="flex items-center gap-3">
-                <UiButton
-                  :variant="deletionsEnabled ? 'outline' : 'destructive'"
-                  @click="onDeletionToggle(!deletionsEnabled)"
-                >
-                  <component
-                    v-if="!deletionsEnabled"
-                    :is="Trash2Icon"
-                    class="w-4 h-4"
+              <!-- Toggle with label -->
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <UiSwitch
+                    :checked="deletionsEnabled"
+                    aria-label="Enable actual file deletion"
+                    :class="deletionsEnabled ? '[&[data-state=checked]]:bg-destructive' : ''"
+                    @update:checked="onDeletionToggle"
                   />
-                  {{ deletionsEnabled ? $t('settings.disableDeletions') : $t('settings.enableDeletions') }}
-                </UiButton>
+                  <div>
+                    <span class="text-sm font-medium">
+                      {{ $t('settings.enableDeletions') }}
+                    </span>
+                    <p
+                      v-if="deletionsEnabled"
+                      class="text-xs font-medium text-amber-600 dark:text-amber-400"
+                    >
+                      ⚠️ Actual deletions are active
+                    </p>
+                    <p
+                      v-else
+                      class="text-xs text-muted-foreground"
+                    >
+                      All deletions are simulated
+                    </p>
+                  </div>
+                </div>
                 <SaveIndicator :status="saveStatus.deletionsEnabled" />
               </div>
             </div>
@@ -1184,7 +1186,7 @@
             Deleted files cannot be recovered. Make sure you have backups before proceeding.
           </UiDialogDescription>
         </UiDialogHeader>
-        <div class="space-y-3 py-2">
+        <div class="py-2">
           <UiAlert variant="destructive">
             <component
               :is="AlertTriangleIcon"
@@ -1192,18 +1194,9 @@
             />
             <UiAlertTitle>Warning</UiAlertTitle>
             <UiAlertDescription>
-              Once enabled, any media flagged by the scoring engine will be permanently removed from disk during the next engine run.
+              Once enabled, any media flagged by the scoring engine will be permanently removed from disk. This action cannot be undone. Make sure your scoring rules and thresholds are configured correctly before enabling.
             </UiAlertDescription>
           </UiAlert>
-          <div class="space-y-1.5">
-            <UiLabel>Type <span class="font-mono font-bold">DELETE</span> to confirm</UiLabel>
-            <UiInput
-              v-model="deletionConfirmText"
-              type="text"
-              placeholder="Type DELETE here"
-              autocomplete="off"
-            />
-          </div>
         </div>
         <UiDialogFooter class="flex gap-2 justify-end">
           <UiButton
@@ -1214,7 +1207,6 @@
           </UiButton>
           <UiButton
             variant="destructive"
-            :disabled="deletionConfirmText !== 'DELETE'"
             @click="confirmEnableDeletions"
           >
             Enable Deletions
@@ -1629,7 +1621,6 @@ const defaultTarget = ref(75)
 // Deletion safety state
 const deletionsEnabled = ref(true)
 const showDeletionConfirmDialog = ref(false)
-const deletionConfirmText = ref('')
 
 // Data reset state
 const showResetDialog = ref(false)
@@ -1996,7 +1987,6 @@ function onDeletionToggle(checked: boolean) {
   if (checked) {
     // Show confirmation dialog when enabling
     showDeletionConfirmDialog.value = true
-    deletionConfirmText.value = ''
   } else {
     // Disable immediately without confirmation
     deletionsEnabled.value = false
@@ -2008,14 +1998,12 @@ function onDeletionToggle(checked: boolean) {
 function confirmEnableDeletions() {
   deletionsEnabled.value = true
   showDeletionConfirmDialog.value = false
-  deletionConfirmText.value = ''
   autoSavePreference('deletionsEnabled', 'deletionsEnabled', true)
   addToast('File deletions enabled — flagged items will be permanently removed', 'warning')
 }
 
 function cancelEnableDeletions() {
   showDeletionConfirmDialog.value = false
-  deletionConfirmText.value = ''
 }
 
 // Watch tiebreaker — immediate save on select change
