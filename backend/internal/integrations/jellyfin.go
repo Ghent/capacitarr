@@ -94,6 +94,73 @@ func (j *JellyfinClient) GetWatchHistory(jellyfinID, userID string) (*JellyfinWa
 	return data, nil
 }
 
+// MediaServerWatchData contains aggregated watch data from a media server (Jellyfin or Emby).
+// Used for bulk enrichment — keyed by normalized title in the lookup map.
+type MediaServerWatchData struct {
+	PlayCount  int
+	LastPlayed *time.Time
+	Played     bool
+}
+
+// GetBulkWatchData fetches all movies and series from Jellyfin's library with their
+// watch data (PlayCount, LastPlayedDate) in a single paginated API call.
+// Returns a map from normalized (lowercase) title to watch data.
+func (j *JellyfinClient) GetBulkWatchData(userID string) (map[string]*MediaServerWatchData, error) {
+	result := make(map[string]*MediaServerWatchData)
+	startIndex := 0
+	pageSize := 500
+
+	for {
+		endpoint := fmt.Sprintf(
+			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=UserData&StartIndex=%d&Limit=%d",
+			userID, startIndex, pageSize,
+		)
+		body, err := j.doRequest(endpoint)
+		if err != nil {
+			return result, fmt.Errorf("failed to fetch Jellyfin items: %w", err)
+		}
+
+		var resp struct {
+			Items            []jellyfinItem `json:"Items"`
+			TotalRecordCount int            `json:"TotalRecordCount"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return result, fmt.Errorf("failed to parse Jellyfin items: %w", err)
+		}
+
+		for _, item := range resp.Items {
+			key := strings.ToLower(strings.TrimSpace(item.Name))
+			if key == "" {
+				continue
+			}
+			data := &MediaServerWatchData{
+				PlayCount: item.UserData.PlayCount,
+				Played:    item.UserData.Played,
+			}
+			if item.UserData.LastPlayedDate != "" {
+				if t, err := time.Parse(time.RFC3339, item.UserData.LastPlayedDate); err == nil {
+					data.LastPlayed = &t
+				}
+			}
+			// Keep the entry with the highest play count if there are duplicates
+			if existing, ok := result[key]; ok {
+				if data.PlayCount > existing.PlayCount {
+					result[key] = data
+				}
+			} else {
+				result[key] = data
+			}
+		}
+
+		startIndex += len(resp.Items)
+		if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
+			break
+		}
+	}
+
+	return result, nil
+}
+
 // GetAdminUserID returns the first admin user's ID for making user-specific queries.
 func (j *JellyfinClient) GetAdminUserID() (string, error) {
 	body, err := j.doRequest("/Users")

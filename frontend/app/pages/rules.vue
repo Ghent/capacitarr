@@ -412,15 +412,20 @@
           </div>
 
           <!-- Results count -->
-          <div v-if="previewSearch || previewTypeFilter || previewStatusFilter !== 'all'" class="text-xs text-muted-foreground mb-2">
-            {{ filteredGroupedPreview.length }} of {{ groupedPreview.length }} items
+          <div class="text-xs text-muted-foreground mb-2">
+            <template v-if="previewSearch || previewTypeFilter || previewStatusFilter !== 'all'">
+              {{ filteredGroupedPreview.length }} of {{ groupedPreview.length }} items
+            </template>
+            <template v-else>
+              {{ groupedPreview.length }} items
+            </template>
           </div>
 
           <div v-if="filteredGroupedPreview.length === 0" class="text-center py-8 text-muted-foreground text-sm">
             No items match filters.
           </div>
 
-          <div v-else class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
+          <div v-else ref="tableScrollRef" class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
           <UiTable>
             <UiTableHeader class="sticky top-0 z-10 bg-background">
               <UiTableRow>
@@ -482,7 +487,7 @@
               </UiTableRow>
             </UiTableHeader>
             <UiTableBody>
-              <template v-for="(group, groupIdx) in filteredGroupedPreview" :key="group.key">
+              <template v-for="(group, groupIdx) in renderedGroups" :key="group.key">
                 <!-- Deletion line: inserted before the first item that falls below the cutoff -->
                 <UiTableRow v-if="deletionLineIndex !== null && deletionLineIndex === groupIdx" class="pointer-events-none">
                   <UiTableCell :colspan="5" class="!p-0">
@@ -549,7 +554,12 @@
               </template>
             </UiTableBody>
           </UiTable>
-          </div>
+           <!-- Progressive rendering indicator -->
+           <div v-if="renderedGroups.length < filteredGroupedPreview.length" class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2">
+             <component :is="LoaderCircleIcon" class="w-3.5 h-3.5 animate-spin" />
+             Showing {{ renderedGroups.length }} of {{ filteredGroupedPreview.length }} — scroll for more
+           </div>
+         </div>
         </div>
       </UiCardContent>
     </UiCard>
@@ -570,6 +580,7 @@
 </template>
 
 <script setup lang="ts">
+import { useInfiniteScroll } from '@vueuse/core'
 import { PlusIcon, XIcon, RefreshCwIcon, LoaderCircleIcon, SaveIcon, CheckIcon, ChevronRightIcon, HardDriveIcon, AlertTriangleIcon, SearchIcon, ShieldCheckIcon, FilterIcon, ArrowUpIcon, ArrowDownIcon, ArrowUpDownIcon } from 'lucide-vue-next'
 import {
   formatBytes,
@@ -1040,7 +1051,7 @@ interface PreviewGroup {
 }
 
 const groupedPreview = computed<PreviewGroup[]>(() => {
-  const items = preview.value.slice(0, 50)
+  const items = preview.value
   const groups: PreviewGroup[] = []
   // Map from show name → index in groups array
   const showMap = new Map<string, number>()
@@ -1208,6 +1219,24 @@ const deletionLineIndex = computed<number | null>(() => {
     }
   }
   return null // Not enough items to reach the target
+})
+
+// ─── Progressive Rendering (Virtual Scroll) ─────────────────────────────────
+// Render rows incrementally as user scrolls to avoid DOM overload with 1000+ groups.
+const tableScrollRef = ref<HTMLElement | null>(null)
+const visibleCount = ref(100)
+
+const renderedGroups = computed(() => filteredGroupedPreview.value.slice(0, visibleCount.value))
+
+useInfiniteScroll(tableScrollRef, () => {
+  if (visibleCount.value < filteredGroupedPreview.value.length) {
+    visibleCount.value = Math.min(visibleCount.value + 100, filteredGroupedPreview.value.length)
+  }
+}, { distance: 200, canLoadMore: () => visibleCount.value < filteredGroupedPreview.value.length })
+
+// Reset visible count when filters or data change
+watch([previewSearch, previewTypeFilter, previewStatusFilter, previewSortBy, previewSortDir, preview], () => {
+  visibleCount.value = 100
 })
 
 // Seasons collapsed by default — user clicks to expand

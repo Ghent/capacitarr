@@ -124,6 +124,8 @@ func poll() {
 	// Track enrichment-only clients separately (not full Integration implementations)
 	var tautulliClient *integrations.TautulliClient
 	var overseerrClient *integrations.OverseerrClient
+	var jellyfinClient *integrations.JellyfinClient
+	var embyClient *integrations.EmbyClient
 
 	for _, cfg := range configs {
 		// Tautulli is an enrichment-only service, not a full Integration
@@ -150,6 +152,42 @@ func poll() {
 			now := time.Now()
 			if err := overseerrClient.TestConnection(); err != nil {
 				slog.Warn("Poller: Overseerr connection failed", "error", err)
+				db.DB.Model(&cfg).Updates(map[string]interface{}{
+					"last_error": err.Error(),
+				})
+			} else {
+				db.DB.Model(&cfg).Updates(map[string]interface{}{
+					"last_sync":  &now,
+					"last_error": "",
+				})
+			}
+			continue
+		}
+
+		// Jellyfin is an enrichment-only service for watch history
+		if cfg.Type == "jellyfin" {
+			jellyfinClient = integrations.NewJellyfinClient(cfg.URL, cfg.APIKey)
+			now := time.Now()
+			if err := jellyfinClient.TestConnection(); err != nil {
+				slog.Warn("Poller: Jellyfin connection failed", "error", err)
+				db.DB.Model(&cfg).Updates(map[string]interface{}{
+					"last_error": err.Error(),
+				})
+			} else {
+				db.DB.Model(&cfg).Updates(map[string]interface{}{
+					"last_sync":  &now,
+					"last_error": "",
+				})
+			}
+			continue
+		}
+
+		// Emby is an enrichment-only service for watch history
+		if cfg.Type == "emby" {
+			embyClient = integrations.NewEmbyClient(cfg.URL, cfg.APIKey)
+			now := time.Now()
+			if err := embyClient.TestConnection(); err != nil {
+				slog.Warn("Poller: Emby connection failed", "error", err)
 				db.DB.Model(&cfg).Updates(map[string]interface{}{
 					"last_error": err.Error(),
 				})
@@ -305,6 +343,72 @@ func poll() {
 						item.RequestCount = 1
 					}
 				}
+			}
+		}
+	}
+
+	// ─── Enrichment: Jellyfin watch history ─────────────────────────────────
+	if jellyfinClient != nil && len(allItems) > 0 {
+		slog.Info("Poller: enriching items with Jellyfin watch data")
+		userID, err := jellyfinClient.GetAdminUserID()
+		if err != nil {
+			slog.Warn("Poller: failed to get Jellyfin admin user", "error", err)
+		} else {
+			watchMap, err := jellyfinClient.GetBulkWatchData(userID)
+			if err != nil {
+				slog.Warn("Poller: failed to fetch Jellyfin watch data", "error", err)
+			} else {
+				matched := 0
+				for i := range allItems {
+					item := &allItems[i]
+					// Match by normalized title (show title for seasons, direct title otherwise)
+					titleKey := strings.ToLower(strings.TrimSpace(item.Title))
+					if item.ShowTitle != "" {
+						titleKey = strings.ToLower(strings.TrimSpace(item.ShowTitle))
+					}
+					if wd, ok := watchMap[titleKey]; ok {
+						// Only enrich if we don't already have watch data (Tautulli takes priority)
+						if item.PlayCount == 0 {
+							item.PlayCount = wd.PlayCount
+							item.LastPlayed = wd.LastPlayed
+							matched++
+						}
+					}
+				}
+				slog.Info("Poller: Jellyfin enrichment complete", "libraryItems", len(watchMap), "matched", matched)
+			}
+		}
+	}
+
+	// ─── Enrichment: Emby watch history ─────────────────────────────────────
+	if embyClient != nil && len(allItems) > 0 {
+		slog.Info("Poller: enriching items with Emby watch data")
+		userID, err := embyClient.GetAdminUserID()
+		if err != nil {
+			slog.Warn("Poller: failed to get Emby admin user", "error", err)
+		} else {
+			watchMap, err := embyClient.GetBulkWatchData(userID)
+			if err != nil {
+				slog.Warn("Poller: failed to fetch Emby watch data", "error", err)
+			} else {
+				matched := 0
+				for i := range allItems {
+					item := &allItems[i]
+					// Match by normalized title (show title for seasons, direct title otherwise)
+					titleKey := strings.ToLower(strings.TrimSpace(item.Title))
+					if item.ShowTitle != "" {
+						titleKey = strings.ToLower(strings.TrimSpace(item.ShowTitle))
+					}
+					if wd, ok := watchMap[titleKey]; ok {
+						// Only enrich if we don't already have watch data
+						if item.PlayCount == 0 {
+							item.PlayCount = wd.PlayCount
+							item.LastPlayed = wd.LastPlayed
+							matched++
+						}
+					}
+				}
+				slog.Info("Poller: Emby enrichment complete", "libraryItems", len(watchMap), "matched", matched)
 			}
 		}
 	}

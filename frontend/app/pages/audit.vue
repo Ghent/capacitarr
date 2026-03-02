@@ -56,7 +56,7 @@
         <span class="text-sm font-medium">No history found</span>
       </div>
 
-      <div v-else class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
+      <div v-else ref="auditScrollRef" class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
         <UiTable>
           <UiTableHeader class="sticky top-0 z-10 bg-background">
             <UiTableRow>
@@ -109,7 +109,7 @@
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
-            <template v-for="group in groupedLogs" :key="group.key">
+            <template v-for="group in renderedAuditGroups" :key="group.key">
               <UiTableRow class="cursor-pointer" @click="selectItem(group.entry); group.seasons.length > 0 && toggleGroup(group.key)">
                 <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap">{{ formatTimestamp(group.entry.createdAt) }}</UiTableCell>
                 <UiTableCell class="font-medium whitespace-nowrap">
@@ -156,14 +156,20 @@
             </template>
           </UiTableBody>
         </UiTable>
+        <!-- Progressive rendering indicator -->
+        <div v-if="renderedAuditGroups.length < groupedLogs.length" class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2">
+          <LoaderCircleIcon class="w-3.5 h-3.5 animate-spin" />
+          Showing {{ renderedAuditGroups.length }} of {{ groupedLogs.length }} — scroll for more
+        </div>
+        <!-- Load more from server indicator -->
+        <div v-else-if="logs.length < total && !loadingMore" class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2">
+          <LoaderCircleIcon class="w-3.5 h-3.5 animate-spin" />
+          Loading more…
+        </div>
       </div>
 
-      <div v-if="total > limit" class="flex items-center justify-between px-5 py-3 border-t border-border">
-        <span class="text-xs text-muted-foreground">{{ offset + 1 }}&ndash;{{ Math.min(offset + limit, total) }} of {{ total }}</span>
-        <div class="flex gap-1">
-          <UiButton variant="outline" size="sm" :disabled="page <= 1" @click="page--">Previous</UiButton>
-          <UiButton variant="outline" size="sm" :disabled="offset + limit >= total" @click="page++">Next</UiButton>
-        </div>
+      <div v-if="logs.length > 0" class="flex items-center justify-between px-5 py-3 border-t border-border">
+        <span class="text-xs text-muted-foreground">{{ groupedLogs.length }} groups from {{ logs.length }} of {{ total }} entries</span>
       </div>
     </UiCard>
 
@@ -183,6 +189,7 @@
 </template>
 
 <script setup lang="ts">
+import { useInfiniteScroll } from '@vueuse/core'
 import { RefreshCwIcon, LoaderCircleIcon, ClockIcon, ChevronRightIcon, SearchIcon, ArrowUpIcon, ArrowDownIcon, ArrowUpDownIcon } from 'lucide-vue-next'
 
 const api = useApi()
@@ -190,14 +197,14 @@ const { formatTimestamp } = useDisplayPrefs()
 
 // Pull-to-refresh for touch devices
 const { isRefreshing, pullProgress, pullDistance } = usePullToRefresh(async () => {
-  await fetchLogs()
+  await resetAndFetch()
 })
 
 const logs = ref<any[]>([])
 const total = ref(0)
 const pending = ref(false)
-const page = ref(1)
-const limit = 50
+const loadingMore = ref(false)
+const batchSize = 100
 const selectedItem = ref<any | null>(null)
 
 // Audit filters
@@ -218,8 +225,7 @@ function toggleAuditSort(column: AuditSortColumn) {
     auditSortBy.value = column
     auditSortDir.value = column === 'created_at' || column === 'size_bytes' ? 'desc' : 'asc'
   }
-  page.value = 1
-  fetchLogs()
+  resetAndFetch()
 }
 
 function selectItem(entry: any) {
@@ -228,14 +234,17 @@ function selectItem(entry: any) {
   selectedItem.value = { ...entry, _score: score }
 }
 
-const offset = computed(() => (page.value - 1) * limit)
-
-async function fetchLogs() {
-  pending.value = true
+// ─── Data Fetching (Infinite Scroll) ──────────────────────────────────────────
+async function fetchLogs(append = false) {
+  if (append) {
+    loadingMore.value = true
+  } else {
+    pending.value = true
+  }
   try {
     const params = new URLSearchParams({
-      limit: String(limit),
-      offset: String(offset.value),
+      limit: String(batchSize),
+      offset: String(append ? logs.value.length : 0),
     })
     if (auditSearch.value.trim()) {
       params.set('search', auditSearch.value.trim())
@@ -247,33 +256,41 @@ async function fetchLogs() {
     params.set('sort_dir', auditSortDir.value)
     const data = await api(`/api/v1/audit?${params.toString()}`) as any
     if (data?.data) {
-      logs.value = data.data
+      if (append) {
+        logs.value = [...logs.value, ...data.data]
+      } else {
+        logs.value = data.data
+      }
       total.value = data.total
     }
   } catch (err) {
     console.error(err)
   } finally {
     pending.value = false
+    loadingMore.value = false
   }
+}
+
+async function resetAndFetch() {
+  logs.value = []
+  visibleCount.value = 100
+  await fetchLogs(false)
 }
 
 function onSearchInput(value: string | number) {
   auditSearch.value = String(value)
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
   searchDebounceTimer = setTimeout(() => {
-    page.value = 1
-    fetchLogs()
+    resetAndFetch()
   }, 400)
 }
 
 function toggleActionFilter(action: string) {
   auditActionFilter.value = auditActionFilter.value === action ? null : action
-  page.value = 1
-  fetchLogs()
+  resetAndFetch()
 }
 
-watch(page, fetchLogs)
-onMounted(fetchLogs)
+onMounted(() => fetchLogs(false))
 
 // ─── Show/Season Grouping ─────────────────────────────────────────────────────
 interface AuditGroup {
@@ -313,6 +330,29 @@ const groupedLogs = computed<AuditGroup[]>(() => {
   }
 
   return groups
+})
+
+// ─── Progressive Rendering (Virtual Scroll) ─────────────────────────────────
+// Render groups incrementally and fetch more from server as user scrolls.
+const auditScrollRef = ref<HTMLElement | null>(null)
+const visibleCount = ref(100)
+
+const renderedAuditGroups = computed(() => groupedLogs.value.slice(0, visibleCount.value))
+
+useInfiniteScroll(auditScrollRef, async () => {
+  // First: render more already-fetched groups
+  if (visibleCount.value < groupedLogs.value.length) {
+    visibleCount.value = Math.min(visibleCount.value + 100, groupedLogs.value.length)
+    return
+  }
+  // Second: if all fetched groups are rendered, load more from server
+  if (logs.value.length < total.value && !loadingMore.value) {
+    await fetchLogs(true)
+    visibleCount.value = groupedLogs.value.length
+  }
+}, {
+  distance: 200,
+  canLoadMore: () => visibleCount.value < groupedLogs.value.length || logs.value.length < total.value,
 })
 
 // ─── Expand/Collapse state ────────────────────────────────────────────────────

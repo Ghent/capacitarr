@@ -85,6 +85,72 @@ func (e *EmbyClient) GetWatchHistory(embyID, userID string) (*EmbyWatchData, err
 	return data, nil
 }
 
+// GetBulkWatchData fetches all movies and series from Emby's library with their
+// watch data (PlayCount, LastPlayedDate) in a single paginated API call.
+// Returns a map from normalized (lowercase) title to MediaServerWatchData.
+func (e *EmbyClient) GetBulkWatchData(userID string) (map[string]*MediaServerWatchData, error) {
+	result := make(map[string]*MediaServerWatchData)
+	startIndex := 0
+	pageSize := 500
+
+	for {
+		endpoint := fmt.Sprintf(
+			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=UserData&StartIndex=%d&Limit=%d",
+			userID, startIndex, pageSize,
+		)
+		body, err := e.doRequest(endpoint)
+		if err != nil {
+			return result, fmt.Errorf("failed to fetch Emby items: %w", err)
+		}
+
+		var resp struct {
+			Items []struct {
+				Name     string `json:"Name"`
+				UserData struct {
+					PlayCount      int    `json:"PlayCount"`
+					LastPlayedDate string `json:"LastPlayedDate"`
+					Played         bool   `json:"Played"`
+				} `json:"UserData"`
+			} `json:"Items"`
+			TotalRecordCount int `json:"TotalRecordCount"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return result, fmt.Errorf("failed to parse Emby items: %w", err)
+		}
+
+		for _, item := range resp.Items {
+			key := strings.ToLower(strings.TrimSpace(item.Name))
+			if key == "" {
+				continue
+			}
+			data := &MediaServerWatchData{
+				PlayCount: item.UserData.PlayCount,
+				Played:    item.UserData.Played,
+			}
+			if item.UserData.LastPlayedDate != "" {
+				if t, err := time.Parse(time.RFC3339, item.UserData.LastPlayedDate); err == nil {
+					data.LastPlayed = &t
+				}
+			}
+			// Keep the entry with the highest play count if there are duplicates
+			if existing, ok := result[key]; ok {
+				if data.PlayCount > existing.PlayCount {
+					result[key] = data
+				}
+			} else {
+				result[key] = data
+			}
+		}
+
+		startIndex += len(resp.Items)
+		if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
+			break
+		}
+	}
+
+	return result, nil
+}
+
 // GetAdminUserID returns the first admin user's ID for making user-specific queries.
 func (e *EmbyClient) GetAdminUserID() (string, error) {
 	body, err := e.doRequest("/Users")

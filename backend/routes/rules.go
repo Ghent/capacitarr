@@ -472,24 +472,30 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		}
 
 		var allItems []integrations.MediaItem
+		slog.Info("Preview: fetching media from integrations", "configCount", len(configs))
 		for _, cfg := range configs {
-			if cfg.Type == "plex" {
-				continue // For now, only delete from Radarr/Sonarr
+			slog.Info("Preview: checking integration", "name", cfg.Name, "type", cfg.Type, "enabled", cfg.Enabled)
+			if cfg.Type == "plex" || cfg.Type == "tautulli" || cfg.Type == "overseerr" || cfg.Type == "jellyfin" || cfg.Type == "emby" {
+				slog.Info("Preview: skipping non-arr integration", "type", cfg.Type)
+				continue
 			}
 			client := CreateClient(cfg.Type, cfg.URL, cfg.APIKey)
 			if client == nil {
+				slog.Warn("Preview: CreateClient returned nil", "type", cfg.Type)
 				continue
 			}
 			items, err := client.GetMediaItems()
 			if err != nil {
-				slog.Warn("Preview: media fetch failed", "error", err)
+				slog.Warn("Preview: media fetch failed", "integration", cfg.Name, "type", cfg.Type, "error", err)
 				continue
 			}
+			slog.Info("Preview: fetched items", "integration", cfg.Name, "type", cfg.Type, "count", len(items))
 			for i := range items {
 				items[i].IntegrationID = cfg.ID
 			}
 			allItems = append(allItems, items...)
 		}
+		slog.Info("Preview: total items collected", "count", len(allItems))
 
 		var prefs db.PreferenceSet
 		database.FirstOrCreate(&prefs, db.PreferenceSet{ID: 1})
@@ -498,11 +504,12 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		database.Find(&rules)
 
 		evaluated := engine.EvaluateMedia(allItems, prefs, rules)
+		slog.Info("Preview: evaluated items", "count", len(evaluated))
 
 		// Sort by score descending with tiebreaker
 		engine.SortEvaluated(evaluated, prefs.TiebreakerMethod)
 
-		// Build disk context from disk groups (needed for dynamic limit)
+		// Build disk context from disk groups (needed for deletion line in UI)
 		var diskGroups []db.DiskGroup
 		database.Find(&diskGroups)
 
@@ -515,7 +522,6 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		}
 
 		var diskCtx *diskContextPayload
-		var bytesToFree int64
 		if len(diskGroups) > 0 {
 			// Pick the disk group that is over threshold with the most bytes to free.
 			// If none are over threshold, pick the one with the most potential bytes to free.
@@ -539,7 +545,6 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 			}
 
 			if bestGroup != nil {
-				bytesToFree = bestBytesToFree
 				diskCtx = &diskContextPayload{
 					TotalBytes:   bestGroup.TotalBytes,
 					UsedBytes:    bestGroup.UsedBytes,
@@ -550,33 +555,10 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 			}
 		}
 
-		// Dynamic limit: return items until cumulative size exceeds 1.5× bytesToFree
-		// so the user can see items well beyond the deletion cutoff line.
-		limit := 100 // default / minimum
-		if bytesToFree > 0 {
-			targetBytes := bytesToFree * 3 / 2 // 1.5× buffer
-			cumulative := int64(0)
-			dynamicLimit := 0
-			for i, ev := range evaluated {
-				cumulative += ev.Item.SizeBytes
-				dynamicLimit = i + 1
-				if cumulative >= targetBytes && dynamicLimit >= 20 {
-					break
-				}
-			}
-			if dynamicLimit > limit {
-				limit = dynamicLimit
-			}
-		}
-		if limit > 500 {
-			limit = 500 // absolute maximum to prevent unbounded responses
-		}
-		if len(evaluated) < limit {
-			limit = len(evaluated)
-		}
+		slog.Info("Preview: returning all evaluated items", "evaluatedCount", len(evaluated))
 
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"items":       evaluated[:limit],
+			"items":       evaluated,
 			"diskContext": diskCtx,
 		})
 	})
