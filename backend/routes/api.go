@@ -2,9 +2,11 @@ package routes
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -21,6 +23,26 @@ import (
 // operations. The Go default is 10; we use 12 for stronger brute-force
 // resistance while keeping hashing under ~250ms on typical hardware.
 const bcryptCost = 12
+
+// apiKeyHashPrefix marks a stored API key as already hashed with SHA-256.
+// Legacy plaintext keys (without this prefix) are transparently upgraded
+// on first use.
+const apiKeyHashPrefix = "sha256:"
+
+// HashAPIKey produces a deterministic SHA-256 hash of the given plaintext
+// API key, prefixed with "sha256:" so we can distinguish hashed from legacy
+// plaintext keys in the database. SHA-256 (without salt) is appropriate here
+// because API keys are 256-bit random values — effectively unguessable and
+// immune to rainbow table attacks.
+func HashAPIKey(plaintext string) string {
+	h := sha256.Sum256([]byte(plaintext))
+	return apiKeyHashPrefix + hex.EncodeToString(h[:])
+}
+
+// IsHashedAPIKey returns true if the stored key already uses the hashed format.
+func IsHashedAPIKey(stored string) bool {
+	return strings.HasPrefix(stored, apiKeyHashPrefix)
+}
 
 type LoginRequest struct {
 	Username string `json:"username"`
@@ -223,17 +245,20 @@ func RegisterAPIRoutes(g *echo.Group, database *gorm.DB, cfg *config.Config, app
 			return echo.ErrUnauthorized
 		}
 
-		bytes := make([]byte, 32)
-		if _, err := rand.Read(bytes); err != nil {
+		// Generate a cryptographically random API key (256 bits of entropy)
+		keyBytes := make([]byte, 32)
+		if _, err := rand.Read(keyBytes); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error generating API key"})
 		}
-		apiKey := hex.EncodeToString(bytes)
+		plaintextKey := hex.EncodeToString(keyBytes)
 
-		if err := database.Model(&db.AuthConfig{}).Where("username = ?", username).Update("api_key", apiKey).Error; err != nil {
+		// Store only the SHA-256 hash — the plaintext is returned once and never stored
+		hashedKey := HashAPIKey(plaintextKey)
+		if err := database.Model(&db.AuthConfig{}).Where("username = ?", username).Update("api_key", hashedKey).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database error"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]string{"api_key": apiKey})
+		return c.JSON(http.StatusOK, map[string]string{"api_key": plaintextKey})
 	})
 
 	protected.GET("/auth/apikey", func(c echo.Context) error {
@@ -247,7 +272,10 @@ func RegisterAPIRoutes(g *echo.Group, database *gorm.DB, cfg *config.Config, app
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]string{"api_key": user.APIKey})
+		// Never return the actual API key (it's hashed in the DB). Instead
+		// return whether a key has been generated so the UI can show status.
+		hasKey := user.APIKey != ""
+		return c.JSON(http.StatusOK, map[string]interface{}{"has_key": hasKey})
 	})
 
 	protected.GET("/metrics/history", func(c echo.Context) error {

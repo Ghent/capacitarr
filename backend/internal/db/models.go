@@ -4,12 +4,15 @@ import (
 	"time"
 )
 
-// AuthConfig stores credentials for web UI sessions
+// AuthConfig stores credentials for web UI sessions.
+// The Password field stores a bcrypt hash. The APIKey field stores a SHA-256
+// hash (prefixed with "sha256:") — plaintext keys are shown once on generation
+// and never stored. Legacy plaintext keys are transparently upgraded on first use.
 type AuthConfig struct {
 	ID        uint   `gorm:"primarykey"`
 	Username  string `gorm:"uniqueIndex;not null"`
-	Password  string `gorm:"not null"` // Hashed password
-	APIKey    string `gorm:"index"`
+	Password  string `gorm:"not null"` // bcrypt hash
+	APIKey    string `gorm:"index"`    // SHA-256 hash (sha256:<hex>) or legacy plaintext
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

@@ -13,6 +13,31 @@ import (
 	"capacitarr/internal/db"
 )
 
+// validateAPIKey checks the given plaintext API key against stored (hashed or
+// legacy plaintext) keys. If a legacy plaintext key matches, it is
+// transparently upgraded to a SHA-256 hash in the database. Returns the
+// matching AuthConfig on success, or nil if no match.
+func validateAPIKey(database *gorm.DB, plaintextKey string) *db.AuthConfig {
+	hashedKey := HashAPIKey(plaintextKey)
+
+	// Fast path: look up by the hashed value (new-style keys)
+	var auth db.AuthConfig
+	if err := database.Where("api_key = ?", hashedKey).First(&auth).Error; err == nil {
+		return &auth
+	}
+
+	// Slow path: legacy plaintext key — look up directly and upgrade in-place
+	if err := database.Where("api_key = ?", plaintextKey).First(&auth).Error; err == nil {
+		if !IsHashedAPIKey(auth.APIKey) {
+			database.Model(&auth).Update("api_key", hashedKey)
+			slog.Info("Upgraded legacy plaintext API key to SHA-256 hash", "username", auth.Username)
+		}
+		return &auth
+	}
+
+	return nil
+}
+
 func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
@@ -50,13 +75,11 @@ func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
 				if parts[0] == "Bearer" {
 					tokenStr = parts[1]
 				} else if parts[0] == "ApiKey" {
-					apiKey := parts[1]
-					var auth db.AuthConfig
-					if err := database.Where("api_key = ?", apiKey).First(&auth).Error; err != nil {
-						return echo.ErrUnauthorized
+					if auth := validateAPIKey(database, parts[1]); auth != nil {
+						c.Set("user", auth.Username)
+						return next(c)
 					}
-					c.Set("user", auth.Username)
-					return next(c)
+					return echo.ErrUnauthorized
 				} else {
 					return echo.ErrUnauthorized
 				}
@@ -69,12 +92,11 @@ func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
 					apiKey = c.QueryParam("apikey")
 				}
 				if apiKey != "" {
-					var auth db.AuthConfig
-					if err := database.Where("api_key = ?", apiKey).First(&auth).Error; err != nil {
-						return echo.ErrUnauthorized
+					if auth := validateAPIKey(database, apiKey); auth != nil {
+						c.Set("user", auth.Username)
+						return next(c)
 					}
-					c.Set("user", auth.Username)
-					return next(c)
+					return echo.ErrUnauthorized
 				}
 			}
 
