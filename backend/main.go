@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"fmt"
 	"io"
@@ -111,6 +112,13 @@ func spaHandler(fsys fs.FS, stripPrefix string) echo.HandlerFunc {
 	}
 }
 
+// generateRequestID produces a short random hex ID for request tracing.
+func generateRequestID() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return fmt.Sprintf("%x", b)
+}
+
 // Build-time injected via -ldflags
 var (
 	version   = "dev"
@@ -122,10 +130,26 @@ func main() {
 	cfg := config.Load()
 	logger.Init(cfg.Debug)
 
-	slog.Info("Starting Capacitarr backend", "port", cfg.Port, "base_url", cfg.BaseURL)
+	// ─── Startup configuration logging ──────────────────────────────────────
+	slog.Info("Starting Capacitarr backend",
+		"component", "main",
+		"version", version,
+		"commit", commit,
+		"buildDate", buildDate,
+		"port", cfg.Port,
+		"baseURL", cfg.BaseURL,
+		"debug", cfg.Debug,
+		"dbPath", cfg.Database,
+	)
+	if len(cfg.CORSOrigins) > 0 {
+		slog.Info("CORS origins configured", "component", "main", "origins", cfg.CORSOrigins)
+	}
+	if cfg.AuthHeader != "" {
+		slog.Info("Reverse proxy auth header enabled", "component", "main", "header", cfg.AuthHeader)
+	}
 
 	if err := db.Init(cfg); err != nil {
-		slog.Error("Failed to initialize database", "error", err)
+		slog.Error("Failed to initialize database", "component", "main", "operation", "init_database", "error", err)
 		os.Exit(1)
 	}
 
@@ -136,14 +160,32 @@ func main() {
 	// Initialize Echo instance
 	e := echo.New()
 
-	// Middleware
+	// Request ID middleware — generates a unique ID for each request
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			reqID := c.Request().Header.Get("X-Request-ID")
+			if reqID == "" {
+				reqID = generateRequestID()
+			}
+			c.Set("requestId", reqID)
+			c.Response().Header().Set("X-Request-ID", reqID)
+			return next(c)
+		}
+	})
+
+	// Request logger middleware
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogURI:    true,
 		LogStatus: true,
+		LogMethod: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
+			reqID, _ := c.Get("requestId").(string)
 			slog.Info("request",
+				"component", "middleware",
+				"method", v.Method,
 				"uri", v.URI,
 				"status", v.Status,
+				"requestId", reqID,
 			)
 			return nil
 		},
@@ -180,12 +222,14 @@ func main() {
 		e.GET("/*", spaHandler(fsys, ""))
 	}
 
+	slog.Info("Server initialized, starting listener", "component", "main", "port", cfg.Port)
+
 	// Graceful shutdown
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		sig := <-sigChan
-		slog.Info("Received shutdown signal", "signal", sig)
+		slog.Info("Received shutdown signal", "component", "main", "signal", sig)
 
 		// Stop background jobs
 		pollerStop()
@@ -196,15 +240,15 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := e.Shutdown(ctx); err != nil {
-			slog.Error("Server shutdown error", "error", err)
+			slog.Error("Server shutdown error", "component", "main", "operation", "shutdown", "error", err)
 		}
 	}()
 
 	// Start Server
 	if err := e.Start(":" + cfg.Port); err != nil && err != http.ErrServerClosed {
-		slog.Error("Server error", "error", err)
+		slog.Error("Server error", "component", "main", "operation", "start_server", "error", err)
 		os.Exit(1)
 	}
 
-	slog.Info("Capacitarr shut down gracefully")
+	slog.Info("Capacitarr shut down gracefully", "component", "main")
 }
