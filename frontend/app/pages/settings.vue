@@ -947,7 +947,7 @@
                 <div class="flex items-center gap-3">
                   <div @click.prevent="onDeletionToggle(!deletionsEnabled)">
                     <UiSwitch
-                      :checked="deletionsEnabled"
+                      :model-value="deletionsEnabled"
                       aria-label="Enable actual file deletion"
                       :class="deletionsEnabled ? '[&[data-state=checked]]:bg-destructive' : ''"
                     />
@@ -1068,8 +1068,8 @@
                   </div>
                 </div>
                 <UiSwitch
-                  :checked="channel.enabled"
-                  @update:checked="(val: boolean) => toggleChannelEnabled(channel, val)"
+                  :model-value="channel.enabled"
+                  @update:model-value="(val: boolean) => toggleChannelEnabled(channel, val)"
                 />
               </div>
             </UiCardHeader>
@@ -1082,33 +1082,33 @@
               <div class="space-y-2">
                 <label class="flex items-center gap-2 text-sm">
                   <UiSwitch
-                    :checked="channel.onThresholdBreach"
+                    :model-value="channel.onThresholdBreach"
                     size="sm"
-                    @update:checked="(val: boolean) => updateChannelEvent(channel, 'onThresholdBreach', val)"
+                    @update:model-value="(val: boolean) => updateChannelEvent(channel, 'onThresholdBreach', val)"
                   />
                   <span>Threshold Breach</span>
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                   <UiSwitch
-                    :checked="channel.onDeletionExecuted"
+                    :model-value="channel.onDeletionExecuted"
                     size="sm"
-                    @update:checked="(val: boolean) => updateChannelEvent(channel, 'onDeletionExecuted', val)"
+                    @update:model-value="(val: boolean) => updateChannelEvent(channel, 'onDeletionExecuted', val)"
                   />
                   <span>Deletion Executed</span>
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                   <UiSwitch
-                    :checked="channel.onEngineError"
+                    :model-value="channel.onEngineError"
                     size="sm"
-                    @update:checked="(val: boolean) => updateChannelEvent(channel, 'onEngineError', val)"
+                    @update:model-value="(val: boolean) => updateChannelEvent(channel, 'onEngineError', val)"
                   />
                   <span>Engine Error</span>
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                   <UiSwitch
-                    :checked="channel.onEngineComplete"
+                    :model-value="channel.onEngineComplete"
                     size="sm"
-                    @update:checked="(val: boolean) => updateChannelEvent(channel, 'onEngineComplete', val)"
+                    @update:model-value="(val: boolean) => updateChannelEvent(channel, 'onEngineComplete', val)"
                   />
                   <span>Engine Complete</span>
                 </label>
@@ -1287,29 +1287,29 @@
             </p>
             <label class="flex items-center gap-2 text-sm">
               <UiSwitch
-                :checked="channelForm.onThresholdBreach"
-                @update:checked="(val: boolean) => { channelForm.onThresholdBreach = val }"
+                :model-value="channelForm.onThresholdBreach"
+                @update:model-value="(val: boolean) => { channelForm.onThresholdBreach = val }"
               />
               <span>Threshold Breach</span>
             </label>
             <label class="flex items-center gap-2 text-sm">
               <UiSwitch
-                :checked="channelForm.onDeletionExecuted"
-                @update:checked="(val: boolean) => { channelForm.onDeletionExecuted = val }"
+                :model-value="channelForm.onDeletionExecuted"
+                @update:model-value="(val: boolean) => { channelForm.onDeletionExecuted = val }"
               />
               <span>Deletion Executed</span>
             </label>
             <label class="flex items-center gap-2 text-sm">
               <UiSwitch
-                :checked="channelForm.onEngineError"
-                @update:checked="(val: boolean) => { channelForm.onEngineError = val }"
+                :model-value="channelForm.onEngineError"
+                @update:model-value="(val: boolean) => { channelForm.onEngineError = val }"
               />
               <span>Engine Error</span>
             </label>
             <label class="flex items-center gap-2 text-sm">
               <UiSwitch
-                :checked="channelForm.onEngineComplete"
-                @update:checked="(val: boolean) => { channelForm.onEngineComplete = val }"
+                :model-value="channelForm.onEngineComplete"
+                @update:model-value="(val: boolean) => { channelForm.onEngineComplete = val }"
               />
               <span>Engine Complete</span>
             </label>

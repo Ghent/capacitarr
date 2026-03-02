@@ -92,10 +92,10 @@
         <template v-else-if="valueInputMode === 'boolean'">
           <div class="flex items-center gap-3 h-9">
             <UiSwitch
-              :checked="form.value === 'true'"
+              :model-value="form.value === 'true'"
               :disabled="!form.operator"
               aria-label="Rule value toggle"
-              @update:checked="(v: boolean) => form.value = String(v)"
+              @update:model-value="(v: boolean) => form.value = String(v)"
             />
             <span class="text-sm text-muted-foreground">{{ form.value === 'true' ? 'Yes' : 'No' }}</span>
           </div>

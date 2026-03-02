@@ -375,10 +375,10 @@
               <span class="text-xs font-mono tabular-nums text-muted-foreground w-5 shrink-0">{{ ruleIdx + 1 }}.</span>
               <!-- Enable/Disable toggle -->
               <UiSwitch
-                :checked="rule.enabled !== false"
+                :model-value="rule.enabled !== false"
                 :aria-label="rule.enabled !== false ? 'Disable rule' : 'Enable rule'"
                 class="shrink-0"
-                @update:checked="(v: boolean) => toggleRuleEnabled(rule, v)"
+                @update:model-value="(v: boolean) => toggleRuleEnabled(rule, v)"
               />
               <!-- Conflict indicator -->
               <UiTooltipProvider v-if="ruleConflicts(rule).length > 0">
