@@ -6,12 +6,14 @@
 |----------|---------|-------------|
 | `PORT` | `2187` | HTTP listen port |
 | `BASE_URL` | `/` | Base URL path for reverse proxy subdirectory deployments |
-| `DB_PATH` | `capacitarr.db` | SQLite database file path |
+| `DB_PATH` | `/config/capacitarr.db` | SQLite database file path |
 | `JWT_SECRET` | (auto-generated) | Secret for signing JWT tokens. Set for persistent sessions across restarts |
 | `SECURE_COOKIES` | `false` | Set to `true` when serving over HTTPS |
 | `CORS_ORIGINS` | (none) | Comma-separated CORS origins (e.g. `http://localhost:3000`) |
 | `DEBUG` | `false` | Enable debug logging |
 | `AUTH_HEADER` | (none) | Trusted reverse proxy authentication header name |
+| `PUID` | `1000` | User ID for the container process (Docker only) |
+| `PGID` | `1000` | Group ID for the container process (Docker only) |
 | `NUXT_APP_BASE_URL` | `/` | Frontend base URL path (build-time, must match `BASE_URL`) |
 
 ---

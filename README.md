@@ -79,22 +79,64 @@ go build -o capacitarr main.go
 ./capacitarr
 ```
 
-## Docker Depolyment
+## Docker Deployment
 
-We've provided a highly optimized multi-stage `Dockerfile` that executes the Nuxt generation task automatically right before constructing the Go executable, generating a final scratch container that only houses `alpine` dependencies and our resulting binary execution runtime. 
+We've provided a highly optimized multi-stage `Dockerfile` that executes the Nuxt generation task automatically right before constructing the Go executable, generating a final Alpine container that only houses runtime dependencies and the resulting binary.
 
+**Docker Compose (recommended):**
+```yaml
+services:
+  capacitarr:
+    build: .
+    container_name: capacitarr
+    ports:
+      - "2187:2187"
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - capacitarr-config:/config
+    restart: unless-stopped
+
+volumes:
+  capacitarr-config:
+```
+
+**Docker CLI:**
 ```bash
 docker build -t capacitarr .
-docker run -p 2187:2187 capacitarr 
+docker run -p 2187:2187 -v capacitarr-config:/config capacitarr
 ```
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `2187` | HTTP server listen port |
+| `BASE_URL` | `/` | Base URL path for reverse proxy subdirectory deployments |
+| `DB_PATH` | `/config/capacitarr.db` | SQLite database file path |
+| `DEBUG` | `false` | Enable debug logging and permissive CORS (`*`) |
+| `JWT_SECRET` | *(auto-generated)* | Secret for signing JWT tokens. Set for persistent sessions across restarts |
+| `CORS_ORIGINS` | *(none)* | Comma-separated list of allowed CORS origins (e.g. `http://localhost:3000,https://app.example.com`) |
+| `SECURE_COOKIES` | `false` | Enable the `Secure` flag on cookies. Set to `true` when serving over HTTPS |
+| `AUTH_HEADER` | *(none)* | Trusted reverse proxy authentication header name (e.g. `Remote-User`) |
+| `PUID` | `1000` | User ID for the container process *(Docker only)* |
+| `PGID` | `1000` | Group ID for the container process *(Docker only)* |
+| `NUXT_APP_BASE_URL` | `/` | Frontend base URL path *(build-time; must match `BASE_URL`)* |
+
+> **Note:** `PUID` and `PGID` are handled by the container entrypoint, not the Go application. `NUXT_APP_BASE_URL` is a build-time variable baked into the frontend at Docker image build time.
+
+---
 
 ### Advanced Reverse Proxying (Subdirectory Deployment)
 
-If deploying behind Nginx or similar to intercept traffic towards a specific application route (e.g. `/system/metrics`), you must notify both Nuxt (via ENV) and Go (via ENV) to offset their routing architecture globally. 
+If deploying behind Nginx or similar to intercept traffic towards a specific application route (e.g. `/system/metrics`), you must notify both Nuxt (via ENV) and Go (via ENV) to offset their routing architecture globally.
 
 **Docker Execution Example:**
 ```bash
-docker run -e NUXT_APP_BASE_URL=/system/metrics/ -e BASE_URL=/system/metrics -p 2187:2187 capacitarr 
+docker run -e NUXT_APP_BASE_URL=/system/metrics/ -e BASE_URL=/system/metrics -p 2187:2187 capacitarr
 ```
 
 **Nginx Configuration Mapping Example:**
@@ -103,10 +145,12 @@ location /system/metrics/ {
     proxy_pass http://localhost:2187/;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_addrs;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
+
+For extensive deployment and reverse proxy examples (Traefik, Caddy, nginx, proxy authentication), see the [Deployment Guide](docs/deployment.md).
 
 ## Licensing
 
