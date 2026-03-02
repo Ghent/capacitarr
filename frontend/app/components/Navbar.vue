@@ -18,6 +18,9 @@
               <span class="text-[10px] text-muted-foreground/50 leading-none font-mono">
                 UI v{{ uiVersion }} · API {{ apiVersion || '···' }}
               </span>
+              <span class="text-[10px] text-muted-foreground/40 leading-none italic mt-0.5">
+                You paid for that disk, use it!
+              </span>
             </div>
           </NuxtLink>
 
