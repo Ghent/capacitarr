@@ -138,7 +138,7 @@ const FACTOR_COLORS: Record<string, string> = {
   'File Size': '#f59e0b',
   'Rating': '#10b981',
   'Time in Library': '#f97316',
-  'SeriesStatus': '#ec4899',
+  'Series Status': '#ec4899',
   // Legacy short names
   'Watch': '#8b5cf6',
   'Recency': '#3b82f6',
@@ -153,7 +153,7 @@ const FACTOR_ABBRS: Record<string, string> = {
   'File Size': 'S:',
   'Rating': 'Rt:',
   'Time in Library': 'A:',
-  'SeriesStatus': 'St:'
+  'Series Status': 'St:'
 }
 
 const LEGACY_LABELS: Record<string, string> = {
@@ -162,7 +162,7 @@ const LEGACY_LABELS: Record<string, string> = {
   Size: 'File Size',
   Rating: 'Rating',
   Age: 'Time in Library',
-  Status: 'SeriesStatus'
+  Status: 'Series Status'
 }
 
 function factorColor(name: string): string {

@@ -166,7 +166,7 @@ const FACTOR_COLORS: Record<string, string> = {
   'File Size': '#f59e0b',
   'Rating': '#10b981',
   'Time in Library': '#f97316',
-  'SeriesStatus': '#ec4899'
+  'Series Status': '#ec4899'
 }
 
 function factorColor(name: string): string {

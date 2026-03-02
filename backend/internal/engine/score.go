@@ -166,7 +166,7 @@ func calculateScore(item integrations.MediaItem, prefs db.PreferenceSet) (float6
 		{Name: "File Size", RawScore: fileSizeScore, Weight: prefs.FileSizeWeight, Contribution: sizeContrib / totalWeight, Type: "weight"},
 		{Name: "Rating", RawScore: ratingScore, Weight: prefs.RatingWeight, Contribution: ratingContrib / totalWeight, Type: "weight"},
 		{Name: "Time in Library", RawScore: timeInLibraryScore, Weight: prefs.TimeInLibraryWeight, Contribution: ageContrib / totalWeight, Type: "weight"},
-		{Name: "SeriesStatus", RawScore: seriesStatusScore, Weight: prefs.SeriesStatusWeight, Contribution: statusContrib / totalWeight, Type: "weight"},
+		{Name: "Series Status", RawScore: seriesStatusScore, Weight: prefs.SeriesStatusWeight, Contribution: statusContrib / totalWeight, Type: "weight"},
 	}
 
 	// Build per-factor breakdown showing each factor's normalized contribution (backward compat)

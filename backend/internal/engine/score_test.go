@@ -24,7 +24,7 @@ func isolatedPrefs(weight string, value int) db.PreferenceSet { //nolint:unparam
 		p.RatingWeight = value
 	case "TimeInLibrary":
 		p.TimeInLibraryWeight = value
-	case "SeriesStatus":
+	case "Series Status":
 		p.SeriesStatusWeight = value
 	}
 	return p
@@ -243,14 +243,14 @@ func TestCalculateScore_SeriesStatus(t *testing.T) {
 				Type:       tc.mediaType,
 				SeriesStatus: tc.seriesStatus,
 			}
-			prefs := isolatedPrefs("SeriesStatus", 10)
+			prefs := isolatedPrefs("Series Status", 10)
 
 			score, _, factors := calculateScore(item, prefs)
 			if score < tc.expected-0.001 || score > tc.expected+0.001 {
 				t.Errorf("Expected score ~%v, got %v", tc.expected, score)
 			}
 			for _, f := range factors {
-				if f.Name == "SeriesStatus" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
+				if f.Name == "Series Status" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
 					t.Errorf("SeriesStatus raw score out of bounds: %v", f.RawScore)
 				}
 			}
