@@ -116,8 +116,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Multiple cascading modifiers",
 			item: baseItem,
 			rules: []db.ProtectionRule{
-				{Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},             // ×0.2
-				{Field: "title", Operator: "contains", Value: "matrix", Effect: "lean_keep"},       // ×0.5
+				{Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},        // ×0.2
+				{Field: "title", Operator: "contains", Value: "matrix", Effect: "lean_keep"}, // ×0.5
 			},
 			isAbs:    false,
 			modifier: 0.1, // 0.2 × 0.5
@@ -126,8 +126,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Lean keep + lean remove partially cancel",
 			item: baseItem,
 			rules: []db.ProtectionRule{
-				{Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},                // ×0.5
-				{Field: "availability", Operator: "==", Value: "ended", Effect: "lean_remove"},     // ×1.2
+				{Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},            // ×0.5
+				{Field: "availability", Operator: "==", Value: "ended", Effect: "lean_remove"}, // ×1.2
 			},
 			isAbs:    false,
 			modifier: 0.6, // 0.5 × 1.2
@@ -156,8 +156,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Prefer keep + prefer remove = net protection",
 			item: baseItem,
 			rules: []db.ProtectionRule{
-				{Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},              // ×0.2
-				{Field: "availability", Operator: "==", Value: "ended", Effect: "prefer_remove"},   // ×2.0
+				{Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},            // ×0.2
+				{Field: "availability", Operator: "==", Value: "ended", Effect: "prefer_remove"}, // ×2.0
 			},
 			isAbs:    false,
 			modifier: 0.4, // 0.2 × 2.0
@@ -166,8 +166,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Stacked prefer remove",
 			item: baseItem,
 			rules: []db.ProtectionRule{
-				{Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},            // ×2.0
-				{Field: "availability", Operator: "==", Value: "ended", Effect: "prefer_remove"},   // ×2.0
+				{Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},          // ×2.0
+				{Field: "availability", Operator: "==", Value: "ended", Effect: "prefer_remove"}, // ×2.0
 			},
 			isAbs:    false,
 			modifier: 4.0, // 2.0 × 2.0

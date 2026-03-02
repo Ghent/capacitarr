@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -239,7 +240,7 @@ func (l *LidarrClient) GetLanguages() ([]NameValue, error) {
 
 func (l *LidarrClient) DeleteMediaItem(item MediaItem) error {
 	endpoint := fmt.Sprintf("/api/v1/artist/%s?deleteFiles=true", item.ExternalID)
-	req, err := http.NewRequest("DELETE", l.URL+endpoint, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "DELETE", l.URL+endpoint, nil)
 	if err != nil {
 		return err
 	}

@@ -49,7 +49,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		}
 
 		// When service_type is specified, add type-specific fields
-		if serviceType == "sonarr" || serviceType == "" {
+		if serviceType == intTypeSonarr || serviceType == "" {
 			// Sonarr-specific fields (TV)
 			sonarrFields := []map[string]interface{}{
 				{"field": "availability", "label": "Show Status", "type": "string", "operators": []string{"==", "!="}},
@@ -57,7 +57,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 				{"field": "episodecount", "label": "Episode Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
 			}
 
-			if serviceType == "sonarr" {
+			if serviceType == intTypeSonarr {
 				fields = append(fields, sonarrFields...)
 			} else {
 				// No service_type filter: conditionally add based on enabled integrations
@@ -65,7 +65,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 				database.Where("enabled = ?", true).Find(&configs)
 				hasTV := false
 				for _, cfg := range configs {
-					if cfg.Type == "sonarr" {
+					if cfg.Type == intTypeSonarr {
 						hasTV = true
 						break
 					}
@@ -87,11 +87,11 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 			hasMediaServer := false
 			for _, cfg := range configs {
 				switch cfg.Type {
-				case "tautulli":
+				case intTypeTautulli:
 					hasTautulli = true
-				case "overseerr":
+				case intTypeOverseerr:
 					hasOverseerr = true
-				case "plex", "jellyfin", "emby":
+				case intTypePlex, intTypeJellyfin, intTypeEmby:
 					hasMediaServer = true
 				}
 			}
@@ -108,7 +108,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 			}
 		} else {
 			// service_type is specified — enrichment fields always available for *arr services
-			arrTypes := map[string]bool{"sonarr": true, "radarr": true, "lidarr": true, "readarr": true}
+			arrTypes := map[string]bool{intTypeSonarr: true, intTypeRadarr: true, intTypeLidarr: true, intTypeReadarr: true}
 			if arrTypes[serviceType] {
 				var configs []db.IntegrationConfig
 				database.Where("enabled = ?", true).Find(&configs)
@@ -117,11 +117,11 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 				hasMediaServer := false
 				for _, cfg := range configs {
 					switch cfg.Type {
-					case "tautulli":
+					case intTypeTautulli:
 						hasTautulli = true
-					case "overseerr":
+					case intTypeOverseerr:
 						hasOverseerr = true
-					case "plex", "jellyfin", "emby":
+					case intTypePlex, intTypeJellyfin, intTypeEmby:
 						hasMediaServer = true
 					}
 				}
@@ -351,7 +351,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		}
 
 		// New payload: require effect field
-		if newRule.Effect != "" {
+		if newRule.Effect != "" { //nolint:gocritic // branches test different payload shapes
 			validEffects := map[string]bool{
 				"always_keep": true, "prefer_keep": true, "lean_keep": true,
 				"lean_remove": true, "prefer_remove": true, "always_remove": true,

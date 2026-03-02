@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -48,7 +49,7 @@ func (r *ReadarrClient) GetDiskSpace() ([]DiskSpace, error) {
 	if err := json.Unmarshal(body, &disks); err != nil {
 		return nil, fmt.Errorf("failed to parse Readarr diskspace: %w", err)
 	}
-	var result []DiskSpace
+	result := make([]DiskSpace, 0, len(disks))
 	for _, d := range disks {
 		result = append(result, DiskSpace{
 			Path:       d.Path,
@@ -71,7 +72,7 @@ func (r *ReadarrClient) GetRootFolders() ([]string, error) {
 	if err := json.Unmarshal(body, &folders); err != nil {
 		return nil, fmt.Errorf("failed to parse Readarr root folders: %w", err)
 	}
-	var paths []string
+	paths := make([]string, 0, len(folders))
 	for _, f := range folders {
 		paths = append(paths, f.Path)
 	}
@@ -80,10 +81,10 @@ func (r *ReadarrClient) GetRootFolders() ([]string, error) {
 
 // readarrBook maps a Readarr book response
 type readarrBook struct {
-	ID        int    `json:"id"`
-	Title     string `json:"title"`
-	AuthorID  int    `json:"authorId"`
-	Author    struct {
+	ID       int    `json:"id"`
+	Title    string `json:"title"`
+	AuthorID int    `json:"authorId"`
+	Author   struct {
 		AuthorName string `json:"authorName"`
 	} `json:"author"`
 	SizeOnDisk int64  `json:"sizeOnDisk"`
@@ -103,7 +104,7 @@ func (r *ReadarrClient) GetMediaItems() ([]MediaItem, error) {
 		return nil, fmt.Errorf("failed to parse Readarr books: %w", err)
 	}
 
-	var items []MediaItem
+	items := make([]MediaItem, 0, len(books))
 	for _, b := range books {
 		if b.SizeOnDisk == 0 {
 			continue
@@ -192,7 +193,7 @@ func (r *ReadarrClient) GetLanguages() ([]NameValue, error) {
 // DeleteMediaItem removes a book from Readarr and optionally deletes files
 func (r *ReadarrClient) DeleteMediaItem(item MediaItem) error {
 	endpoint := fmt.Sprintf("/api/v1/book/%s?deleteFiles=true&addImportExclusion=false", item.ExternalID)
-	req, err := http.NewRequest("DELETE", r.URL+endpoint, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "DELETE", r.URL+endpoint, nil)
 	if err != nil {
 		return err
 	}

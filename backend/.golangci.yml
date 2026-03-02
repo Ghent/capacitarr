@@ -1,7 +1,3 @@
-run:
-  timeout: 5m
-  tests: false # Don't lint test files for now
-
 linters:
   enable:
     - gofmt
@@ -13,8 +9,26 @@ linters:
     - misspell
     - unparam
     - unused
+    - gosec
+    - gocritic
+    - revive
+    - nilerr
+    - bodyclose
+    - goconst
+    - prealloc
+    - noctx
+
+run:
+  timeout: 5m
+  tests: true
+
+linters-settings:
+  goconst:
+    min-occurrences: 4
 
 issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
   exclude-rules:
     - path: _test\.go
       linters:

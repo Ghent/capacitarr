@@ -24,7 +24,7 @@ func RegisterPreviewRoutes(protected *echo.Group, database *gorm.DB) {
 		slog.Debug("Preview: fetching media from integrations", "component", "api", "configCount", len(configs))
 		for _, cfg := range configs {
 			slog.Debug("Preview: checking integration", "component", "api", "name", cfg.Name, "type", cfg.Type)
-			if cfg.Type == "plex" || cfg.Type == "tautulli" || cfg.Type == "overseerr" || cfg.Type == "jellyfin" || cfg.Type == "emby" {
+			if cfg.Type == intTypePlex || cfg.Type == intTypeTautulli || cfg.Type == intTypeOverseerr || cfg.Type == intTypeJellyfin || cfg.Type == intTypeEmby {
 				slog.Debug("Preview: skipping non-arr integration", "component", "api", "type", cfg.Type)
 				continue
 			}

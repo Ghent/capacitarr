@@ -24,9 +24,9 @@ func NewOverseerrClient(url, apiKey string) *OverseerrClient {
 
 // OverseerrMediaRequest contains a media request from Overseerr.
 type OverseerrMediaRequest struct {
-	MediaType   string `json:"mediaType"`   // "movie" or "tv"
+	MediaType   string `json:"mediaType"` // "movie" or "tv"
 	TMDbID      int    `json:"tmdbId"`
-	Status      int    `json:"status"`      // 1=pending, 2=approved, 3=declined, 4=available
+	Status      int    `json:"status"` // 1=pending, 2=approved, 3=declined, 4=available
 	RequestedBy string `json:"requestedBy"`
 }
 
@@ -77,7 +77,7 @@ type overseerrRequest struct {
 	Status    int    `json:"status"` // 1=pending, 2=approved, 3=declined, 4=available
 	MediaType string `json:"type"`   // "movie" or "tv"
 	Media     struct {
-		TmdbID    int `json:"tmdbId"`
+		TmdbID    int    `json:"tmdbId"`
 		MediaType string `json:"mediaType"`
 	} `json:"media"`
 	RequestedBy struct {

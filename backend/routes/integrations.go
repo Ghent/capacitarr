@@ -13,6 +13,19 @@ import (
 	"capacitarr/internal/integrations"
 )
 
+// Integration type constants used across route handlers.
+const (
+	intTypeSonarr    = "sonarr"
+	intTypeRadarr    = "radarr"
+	intTypeLidarr    = "lidarr"
+	intTypeReadarr   = "readarr"
+	intTypePlex      = "plex"
+	intTypeTautulli  = "tautulli"
+	intTypeOverseerr = "overseerr"
+	intTypeJellyfin  = "jellyfin"
+	intTypeEmby      = "emby"
+)
+
 // RegisterIntegrationRoutes adds integration management endpoints
 func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 	// List all integrations
@@ -76,9 +89,9 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 
 		// Validate type
 		validTypes := map[string]bool{
-			"plex": true, "sonarr": true, "radarr": true, "lidarr": true,
-			"readarr": true, "tautulli": true, "overseerr": true,
-			"jellyfin": true, "emby": true,
+			intTypePlex: true, intTypeSonarr: true, intTypeRadarr: true, intTypeLidarr: true,
+			intTypeReadarr: true, intTypeTautulli: true, intTypeOverseerr: true,
+			intTypeJellyfin: true, intTypeEmby: true,
 		}
 		if !validTypes[config.Type] {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "type must be one of: plex, sonarr, radarr, lidarr, readarr, tautulli, overseerr, jellyfin, emby"})
@@ -162,7 +175,7 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 
 		// Tautulli and Overseerr don't implement the full Integration interface,
 		// so handle their test connections separately
-		if req.Type == "tautulli" {
+		if req.Type == intTypeTautulli {
 			tautulli := integrations.NewTautulliClient(req.URL, req.APIKey)
 			if err := tautulli.TestConnection(); err != nil {
 				return c.JSON(http.StatusOK, map[string]interface{}{
@@ -176,7 +189,7 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 			})
 		}
 
-		if req.Type == "overseerr" {
+		if req.Type == intTypeOverseerr {
 			overseerr := integrations.NewOverseerrClient(req.URL, req.APIKey)
 			if err := overseerr.TestConnection(); err != nil {
 				return c.JSON(http.StatusOK, map[string]interface{}{
@@ -277,15 +290,15 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 // CreateClient creates the appropriate integration client based on type
 func CreateClient(intType, url, apiKey string) integrations.Integration {
 	switch intType {
-	case "sonarr":
+	case intTypeSonarr:
 		return integrations.NewSonarrClient(url, apiKey)
-	case "radarr":
+	case intTypeRadarr:
 		return integrations.NewRadarrClient(url, apiKey)
-	case "lidarr":
+	case intTypeLidarr:
 		return integrations.NewLidarrClient(url, apiKey)
-	case "readarr":
+	case intTypeReadarr:
 		return integrations.NewReadarrClient(url, apiKey)
-	case "plex":
+	case intTypePlex:
 		return integrations.NewPlexClient(url, apiKey)
 	default:
 		return nil

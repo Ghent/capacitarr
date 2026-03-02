@@ -49,15 +49,15 @@ func (j *JellyfinClient) TestConnection() error {
 
 // jellyfinItem represents a media item from the Jellyfin API
 type jellyfinItem struct {
-	ID                string `json:"Id"`
-	Name              string `json:"Name"`
-	Type              string `json:"Type"` // "Movie", "Series", "Episode", "Audio"
-	Path              string `json:"Path"`
-	RunTimeTicks      int64  `json:"RunTimeTicks"`
-	UserData          struct {
-		PlayCount       int    `json:"PlayCount"`
-		LastPlayedDate  string `json:"LastPlayedDate"`
-		Played          bool   `json:"Played"`
+	ID           string `json:"Id"`
+	Name         string `json:"Name"`
+	Type         string `json:"Type"` // "Movie", "Series", "Episode", "Audio"
+	Path         string `json:"Path"`
+	RunTimeTicks int64  `json:"RunTimeTicks"`
+	UserData     struct {
+		PlayCount      int    `json:"PlayCount"`
+		LastPlayedDate string `json:"LastPlayedDate"`
+		Played         bool   `json:"Played"`
 	} `json:"UserData"`
 }
 

@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -259,7 +260,7 @@ func (r *RadarrClient) GetLanguages() ([]NameValue, error) {
 
 func (r *RadarrClient) DeleteMediaItem(item MediaItem) error {
 	endpoint := fmt.Sprintf("/api/v3/movie/%s?deleteFiles=true", item.ExternalID)
-	req, err := http.NewRequest("DELETE", r.URL+endpoint, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "DELETE", r.URL+endpoint, nil)
 	if err != nil {
 		return err
 	}

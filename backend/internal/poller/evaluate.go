@@ -122,7 +122,6 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 					score:   ev.Score,
 					factors: ev.Factors,
 				}:
-					actionName = "Queued for Deletion"
 					bytesFreed += ev.Item.SizeBytes
 					continue // Skip the synchronous DB insert below, worker handles it
 				default:

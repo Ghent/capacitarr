@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -21,7 +22,7 @@ func DoAPIRequest(url, headerKey, headerValue string) ([]byte, error) {
 	start := time.Now()
 	sanitizedURL := logger.SanitizeURL(url)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 	if err != nil {
 		return nil, err
 	}

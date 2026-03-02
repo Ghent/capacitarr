@@ -35,7 +35,7 @@ func Load() *Config {
 		baseURL = "/" + baseURL
 	}
 	if !strings.HasSuffix(baseURL, "/") {
-		baseURL = baseURL + "/"
+		baseURL += "/"
 	}
 
 	dbPath := os.Getenv("DB_PATH")

@@ -54,9 +54,9 @@ func handleDataReset(database *gorm.DB) echo.HandlerFunc {
 		// 5. Reset transient fields on integration_configs
 		res = database.Model(&db.IntegrationConfig{}).Where("1 = 1").Updates(map[string]interface{}{
 			"media_size_bytes": 0,
-			"media_count":     0,
-			"last_sync":       nil,
-			"last_error":      "",
+			"media_count":      0,
+			"last_sync":        nil,
+			"last_error":       "",
 		})
 		if res.Error != nil {
 			slog.Error("Failed to reset integration stats", "component", "api", "operation", "reset_integration_stats", "error", res.Error)

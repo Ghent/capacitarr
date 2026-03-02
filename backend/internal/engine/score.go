@@ -33,7 +33,7 @@ type EvaluatedItem struct {
 // EvaluateMedia calculates deletion scores for a list of items based on preferences and protections.
 // Higher score = More likely to be deleted.
 func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.ProtectionRule) []EvaluatedItem {
-	var evaluated []EvaluatedItem
+	evaluated := make([]EvaluatedItem, 0, len(items))
 
 	for _, item := range items {
 		slog.Debug("Evaluating item", "component", "engine", "title", item.Title,
@@ -54,7 +54,9 @@ func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules
 		finalScore := score * modifier
 
 		// Merge weight factors with rule factors
-		allFactors := append(scoreFactors, ruleFactors...)
+		allFactors := make([]ScoreFactor, 0, len(scoreFactors)+len(ruleFactors))
+		allFactors = append(allFactors, scoreFactors...)
+		allFactors = append(allFactors, ruleFactors...)
 
 		var combinedReasons string
 		if ruleReasons != "" {

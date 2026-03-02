@@ -72,7 +72,7 @@ func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
 					return echo.ErrUnauthorized
 				}
 
-				if parts[0] == "Bearer" {
+				if parts[0] == "Bearer" { //nolint:gocritic // auth method branches test different conditions
 					tokenStr = parts[1]
 				} else if parts[0] == "ApiKey" {
 					if auth := validateAPIKey(database, parts[1]); auth != nil {

@@ -58,17 +58,17 @@ type tautulliHistoryData struct {
 
 // tautulliHistoryEntry represents one play record from Tautulli history.
 type tautulliHistoryEntry struct {
-	Date            int64  `json:"date"`             // Unix epoch of play start
-	Duration        int64  `json:"duration"`         // Duration of item (seconds)
-	PlayDuration    int64  `json:"play_duration"`    // Actual time played (seconds)
-	PausedCounter   int64  `json:"paused_counter"`   // Time spent paused (seconds)
-	WatchedStatus   int    `json:"watched_status"`   // 0=unwatched, 0.5=partial, 1=watched
-	User            string `json:"user"`             // Username
-	RatingKey       string `json:"rating_key"`       // Plex rating key
-	ParentRatingKey string `json:"parent_rating_key"`
+	Date                 int64  `json:"date"`           // Unix epoch of play start
+	Duration             int64  `json:"duration"`       // Duration of item (seconds)
+	PlayDuration         int64  `json:"play_duration"`  // Actual time played (seconds)
+	PausedCounter        int64  `json:"paused_counter"` // Time spent paused (seconds)
+	WatchedStatus        int    `json:"watched_status"` // 0=unwatched, 0.5=partial, 1=watched
+	User                 string `json:"user"`           // Username
+	RatingKey            string `json:"rating_key"`     // Plex rating key
+	ParentRatingKey      string `json:"parent_rating_key"`
 	GrandparentRatingKey string `json:"grandparent_rating_key"`
-	Title           string `json:"title"`
-	MediaType       string `json:"media_type"` // movie, episode, track
+	Title                string `json:"title"`
+	MediaType            string `json:"media_type"` // movie, episode, track
 }
 
 // TestConnection verifies the Tautulli URL and API key are valid

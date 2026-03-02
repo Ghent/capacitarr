@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -168,7 +169,7 @@ func (s *SonarrClient) GetMediaItems() ([]MediaItem, error) {
 		return nil, fmt.Errorf("failed to parse series: %w", err)
 	}
 
-	var items []MediaItem
+	items := make([]MediaItem, 0, len(seriesList)*2)
 	for _, show := range seriesList {
 		if show.Statistics.SizeOnDisk == 0 {
 			continue
@@ -291,7 +292,7 @@ func (s *SonarrClient) GetLanguages() ([]NameValue, error) {
 
 func (s *SonarrClient) DeleteMediaItem(item MediaItem) error {
 	var endpoint string
-	if item.Type == MediaTypeShow {
+	if item.Type == MediaTypeShow { //nolint:gocritic // conditions test different fields, not a single value
 		// Delete the entire series and its files
 		endpoint = fmt.Sprintf("/api/v3/series/%s?deleteFiles=true", item.ExternalID)
 	} else if item.Type == MediaTypeSeason {
@@ -300,69 +301,69 @@ func (s *SonarrClient) DeleteMediaItem(item MediaItem) error {
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid season external ID format: %s", item.ExternalID)
 		}
-		
-		seriesIdStr := parts[0]
+
+		seriesIDStr := parts[0]
 		seasonNumStr := parts[1]
-		
+
 		// To delete a season, we fetch all episode files for the season...
-		filesBody, err := s.doRequest(fmt.Sprintf("/api/v3/episodefile?seriesId=%s&seasonNumber=%s", seriesIdStr, seasonNumStr))
+		filesBody, err := s.doRequest(fmt.Sprintf("/api/v3/episodefile?seriesId=%s&seasonNumber=%s", seriesIDStr, seasonNumStr))
 		if err != nil {
 			return fmt.Errorf("failed to fetch episode files for season: %w", err)
 		}
-		
+
 		var files []struct {
 			ID int `json:"id"`
 		}
 		if err := json.Unmarshal(filesBody, &files); err != nil {
 			return fmt.Errorf("failed to parse episode files: %w", err)
 		}
-		
+
 		// ...and delete them in bulk
-		fileIds := make([]int, len(files))
+		fileIDs := make([]int, len(files))
 		for i, f := range files {
-			fileIds[i] = f.ID
+			fileIDs[i] = f.ID
 		}
-		
-		if len(fileIds) == 0 {
+
+		if len(fileIDs) == 0 {
 			return nil // Nothing to delete
 		}
-		
+
 		payload, _ := json.Marshal(map[string]interface{}{
-			"episodeFileIds": fileIds,
+			"episodeFileIds": fileIDs,
 		})
-		
-		req, err := http.NewRequest("DELETE", s.URL+"/api/v3/episodefile/bulk", strings.NewReader(string(payload)))
+
+		req, err := http.NewRequestWithContext(context.Background(), "DELETE", s.URL+"/api/v3/episodefile/bulk", strings.NewReader(string(payload)))
 		if err != nil {
 			return err
 		}
 		req.Header.Set("X-Api-Key", s.APIKey)
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		resp, err := sharedHTTPClient.Do(req)
 		if err != nil {
 			return fmt.Errorf("connection failed: %w", err)
 		}
 		defer resp.Body.Close()
-		
+
 		if resp.StatusCode == 401 {
 			return fmt.Errorf("unauthorized: invalid API key")
 		}
 		if resp.StatusCode != 200 {
 			return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 		}
-		
+
 		return nil
 	} else {
 		return fmt.Errorf("unsupported media type for sonarr deletion: %s", item.Type)
 	}
 
-	req, err := http.NewRequest("DELETE", s.URL+endpoint, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "DELETE", s.URL+endpoint, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("X-Api-Key", s.APIKey)
 
-		resp, err := sharedHTTPClient.Do(req)
+	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("connection failed: %w", err)
 	}

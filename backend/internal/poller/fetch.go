@@ -12,7 +12,7 @@ import (
 // enrichmentClients holds optional enrichment-only service clients discovered
 // during the fetch phase. These are not full Integration implementations.
 type enrichmentClients struct {
-	tautulli *integrations.TautulliClient
+	tautulli  *integrations.TautulliClient
 	overseerr *integrations.OverseerrClient
 	jellyfin  *integrations.JellyfinClient
 	emby      *integrations.EmbyClient
@@ -165,7 +165,7 @@ func fetchAllIntegrations(configs []db.IntegrationConfig) fetchResult {
 			}
 			db.DB.Model(&cfg).Updates(map[string]interface{}{
 				"media_size_bytes": totalSize,
-				"media_count":     mediaCount,
+				"media_count":      mediaCount,
 			})
 			slog.Debug("Media items fetched", "component", "poller",
 				"integration", cfg.Name, "type", cfg.Type,

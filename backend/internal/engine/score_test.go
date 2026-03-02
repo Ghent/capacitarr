@@ -176,8 +176,8 @@ func TestCalculateScore(t *testing.T) {
 
 func TestCalculateScoreReasonFormat(t *testing.T) {
 	item := integrations.MediaItem{
-		PlayCount: 0,
-		Type:      integrations.MediaTypeShow,
+		PlayCount:  0,
+		Type:       integrations.MediaTypeShow,
 		ShowStatus: "ended",
 	}
 	prefs := db.PreferenceSet{

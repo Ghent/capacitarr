@@ -145,7 +145,7 @@ func plexMetadataToMediaItem(m plexMetadata) *MediaItem {
 	}
 
 	// Build genre string
-	var genres []string
+	genres := make([]string, 0, len(m.Genre))
 	for _, g := range m.Genre {
 		genres = append(genres, g.Tag)
 	}
@@ -311,7 +311,7 @@ type PlexServerInfo struct {
 // Ensure PlexClient implements Integration
 var _ Integration = (*PlexClient)(nil)
 
-func (p *PlexClient) DeleteMediaItem(item MediaItem) error {
+func (p *PlexClient) DeleteMediaItem(_ MediaItem) error {
 	// Plex is read-only for watch history in this architecture.
 	// Actual deletion happens via Radarr/Sonarr.
 	return nil

@@ -83,12 +83,12 @@ type PreferenceSet struct {
 
 // ProtectionRule stores custom rules that influence media scoring via keep/remove effects
 type ProtectionRule struct {
-	ID            uint      `gorm:"primarykey" json:"id"`
-	IntegrationID *uint     `gorm:"index" json:"integrationId"`        // FK to IntegrationConfig; nil = legacy global rule
-	Field         string    `gorm:"not null" json:"field"`             // e.g. "quality", "tag", "rating"
-	Operator      string    `gorm:"not null" json:"operator"`          // e.g. "==", "contains", ">"
-	Value         string    `gorm:"not null" json:"value"`             // e.g. "4K", "anime", "7.5"
-	Effect        string    `gorm:"not null" json:"effect"`            // e.g. "always_keep", "prefer_remove"
+	ID            uint   `gorm:"primarykey" json:"id"`
+	IntegrationID *uint  `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; nil = legacy global rule
+	Field         string `gorm:"not null" json:"field"`      // e.g. "quality", "tag", "rating"
+	Operator      string `gorm:"not null" json:"operator"`   // e.g. "==", "contains", ">"
+	Value         string `gorm:"not null" json:"value"`      // e.g. "4K", "anime", "7.5"
+	Effect        string `gorm:"not null" json:"effect"`     // e.g. "always_keep", "prefer_remove"
 	// Deprecated — kept for migration compatibility
 	Type      string    `json:"type,omitempty"`
 	Intensity string    `json:"intensity,omitempty"`
@@ -101,9 +101,9 @@ type AuditLog struct {
 	ID           uint      `gorm:"primarykey" json:"id"`
 	MediaName    string    `gorm:"index;not null" json:"mediaName"`
 	MediaType    string    `gorm:"not null" json:"mediaType"`
-	Reason       string    `gorm:"not null" json:"reason"`              // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)" — backward compat
-	ScoreDetails string    `gorm:"type:text" json:"scoreDetails"`       // JSON-encoded []ScoreFactor
-	Action       string    `gorm:"not null" json:"action"`              // "Deleted", "Dry-Run"
+	Reason       string    `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)" — backward compat
+	ScoreDetails string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
+	Action       string    `gorm:"not null" json:"action"`        // "Deleted", "Dry-Run"
 	SizeBytes    int64     `json:"sizeBytes"`
 	CreatedAt    time.Time `json:"createdAt"`
 }
