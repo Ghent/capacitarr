@@ -66,6 +66,6 @@ export function useThemeColors() {
     primaryColor: readonly(primaryColor),
     destructiveColor: readonly(destructiveColor),
     successColor: readonly(successColor),
-    refresh,
+    refresh
   }
 }

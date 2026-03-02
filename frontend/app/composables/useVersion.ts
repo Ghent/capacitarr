@@ -37,6 +37,6 @@ export function useVersion() {
     uiVersion,
     apiVersion: readonly(apiVersion),
     apiCommit: readonly(apiCommit),
-    apiBuildDate: readonly(apiBuildDate),
+    apiBuildDate: readonly(apiBuildDate)
   }
 }

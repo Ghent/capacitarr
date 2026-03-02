@@ -1,8 +1,13 @@
 <template>
   <div>
     <!-- Header -->
-    <div data-slot="page-header" class="mb-8">
-      <h1 class="text-3xl font-bold tracking-tight">Scoring Engine</h1>
+    <div
+      data-slot="page-header"
+      class="mb-8"
+    >
+      <h1 class="text-3xl font-bold tracking-tight">
+        Scoring Engine
+      </h1>
       <p class="text-muted-foreground mt-1.5">
         Adjust preference weights and set custom rules.
       </p>
@@ -33,12 +38,18 @@
             <div class="flex items-center gap-3">
               <div
                 class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                  :class="diskStatusBgClass(diskUsagePct(dg), thresholdEdits[dg.id]?.target ?? dg.targetPct, thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct)"
+                :class="diskStatusBgClass(diskUsagePct(dg), thresholdEdits[dg.id]?.target ?? dg.targetPct, thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct)"
               >
-                <component :is="HardDriveIcon" class="w-4.5 h-4.5 text-white" />
+                <component
+                  :is="HardDriveIcon"
+                  class="w-4.5 h-4.5 text-white"
+                />
               </div>
               <div>
-                <div class="text-sm font-medium text-foreground truncate" :title="dg.mountPath">
+                <div
+                  class="text-sm font-medium text-foreground truncate"
+                  :title="dg.mountPath"
+                >
                   {{ dg.mountPath }}
                 </div>
                 <span class="text-xs text-muted-foreground">
@@ -46,8 +57,11 @@
                 </span>
               </div>
             </div>
-            <span class="text-2xl font-bold tabular-nums" :class="diskStatusTextClass(diskUsagePct(dg), thresholdEdits[dg.id]?.target ?? dg.targetPct, thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct)">
-                {{ Math.round(diskUsagePct(dg)) }}%
+            <span
+              class="text-2xl font-bold tabular-nums"
+              :class="diskStatusTextClass(diskUsagePct(dg), thresholdEdits[dg.id]?.target ?? dg.targetPct, thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct)"
+            >
+              {{ Math.round(diskUsagePct(dg)) }}%
             </span>
           </div>
 
@@ -120,7 +134,9 @@
                 />
                 <span class="w-2 h-2 rounded-full bg-red-400 shrink-0" />
               </div>
-              <p class="text-[11px] text-muted-foreground">Begin cleanup when usage exceeds this %</p>
+              <p class="text-[11px] text-muted-foreground">
+                Begin cleanup when usage exceeds this %
+              </p>
             </div>
             <div class="space-y-1.5">
               <UiLabel>Cleanup Target %</UiLabel>
@@ -134,12 +150,17 @@
                 />
                 <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
               </div>
-              <p class="text-[11px] text-muted-foreground">Stop cleanup when usage drops to this %</p>
+              <p class="text-[11px] text-muted-foreground">
+                Stop cleanup when usage drops to this %
+              </p>
             </div>
           </div>
 
           <!-- Validation error -->
-          <p v-if="thresholdValidation(dg.id, dg)" class="text-xs text-red-500">
+          <p
+            v-if="thresholdValidation(dg.id, dg)"
+            class="text-xs text-red-500"
+          >
             {{ thresholdValidation(dg.id, dg) }}
           </p>
 
@@ -153,15 +174,30 @@
               leave-from-class="opacity-100 translate-y-0"
               leave-to-class="opacity-0 translate-y-1"
             >
-              <span v-if="thresholdEdits[dg.id]?.saving" class="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <component :is="LoaderCircleIcon" class="w-3.5 h-3.5 animate-spin" />
+              <span
+                v-if="thresholdEdits[dg.id]?.saving"
+                class="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+              >
+                <component
+                  :is="LoaderCircleIcon"
+                  class="w-3.5 h-3.5 animate-spin"
+                />
                 Saving…
               </span>
-              <span v-else-if="thresholdEdits[dg.id]?.success && thresholdEdits[dg.id]?.message" class="inline-flex items-center gap-1.5 text-xs text-emerald-500">
-                <component :is="CheckIcon" class="w-3.5 h-3.5" />
+              <span
+                v-else-if="thresholdEdits[dg.id]?.success && thresholdEdits[dg.id]?.message"
+                class="inline-flex items-center gap-1.5 text-xs text-emerald-500"
+              >
+                <component
+                  :is="CheckIcon"
+                  class="w-3.5 h-3.5"
+                />
                 Saved
               </span>
-              <span v-else-if="thresholdEdits[dg.id]?.message && !thresholdEdits[dg.id]?.success" class="inline-flex items-center gap-1.5 text-xs text-red-500">
+              <span
+                v-else-if="thresholdEdits[dg.id]?.message && !thresholdEdits[dg.id]?.success"
+                class="inline-flex items-center gap-1.5 text-xs text-red-500"
+              >
                 {{ thresholdEdits[dg.id]?.message }}
               </span>
             </Transition>
@@ -185,7 +221,10 @@
               Higher weights increase the attribute's influence on deletion score.
             </UiCardDescription>
           </div>
-          <UiButton size="sm" @click="savePreferences">
+          <UiButton
+            size="sm"
+            @click="savePreferences"
+          >
             Save Weights
           </UiButton>
         </div>
@@ -215,14 +254,21 @@
           leave-to-class="opacity-0 -translate-y-1"
           mode="out-in"
         >
-          <p :key="activePresetDescription" class="text-xs text-muted-foreground/70 mb-6 leading-relaxed">
+          <p
+            :key="activePresetDescription"
+            class="text-xs text-muted-foreground/70 mb-6 leading-relaxed"
+          >
             {{ activePresetDescription }}
           </p>
         </Transition>
 
         <!-- Two-Column Slider Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-          <div v-for="slider in sliders" :key="slider.key" class="space-y-1.5">
+          <div
+            v-for="slider in sliders"
+            :key="slider.key"
+            class="space-y-1.5"
+          >
             <div class="flex justify-between text-sm">
               <span class="font-medium text-foreground">{{ slider.label }}</span>
               <span class="text-muted-foreground font-mono tabular-nums">{{ prefs[slider.key as keyof typeof prefs] }} / 10</span>
@@ -235,7 +281,9 @@
               class="w-full"
               @update:model-value="(v: number[] | undefined) => { if (v) Object.assign(prefs, { [slider.key]: v[0] }) }"
             />
-            <p class="text-xs text-muted-foreground">{{ slider.description }}</p>
+            <p class="text-xs text-muted-foreground">
+              {{ slider.description }}
+            </p>
           </div>
         </div>
       </UiCardContent>
@@ -258,8 +306,14 @@
               "Always keep" is an absolute override and cannot be outweighed by any other rule.
             </UiCardDescription>
           </div>
-          <UiButton size="sm" @click="showAddRule = !showAddRule">
-            <component :is="PlusIcon" class="w-3.5 h-3.5" />
+          <UiButton
+            size="sm"
+            @click="showAddRule = !showAddRule"
+          >
+            <component
+              :is="PlusIcon"
+              class="w-3.5 h-3.5"
+            />
             Add Rule
           </UiButton>
         </div>
@@ -275,10 +329,16 @@
         />
 
         <!-- Rules List — Natural Language Display with Conflict Indicators -->
-        <div v-if="rules.length === 0 && !showAddRule" class="text-center py-6 text-muted-foreground text-sm">
+        <div
+          v-if="rules.length === 0 && !showAddRule"
+          class="text-center py-6 text-muted-foreground text-sm"
+        >
           No rules configured. Media will be ranked purely by preference weights.
         </div>
-        <div v-else class="space-y-2">
+        <div
+          v-else
+          class="space-y-2"
+        >
           <div
             v-for="(rule, ruleIdx) in rules"
             :key="rule.id"
@@ -293,11 +353,21 @@
                 <UiTooltip>
                   <UiTooltipTrigger as-child>
                     <span class="inline-flex items-center shrink-0 cursor-help">
-                      <component :is="AlertTriangleIcon" class="w-4 h-4 text-amber-500" />
+                      <component
+                        :is="AlertTriangleIcon"
+                        class="w-4 h-4 text-amber-500"
+                      />
                     </span>
                   </UiTooltipTrigger>
-                  <UiTooltipContent side="top" class="max-w-xs text-xs">
-                    <p v-for="(conflict, idx) in ruleConflicts(rule)" :key="idx" class="mb-1 last:mb-0">
+                  <UiTooltipContent
+                    side="top"
+                    class="max-w-xs text-xs"
+                  >
+                    <p
+                      v-for="(conflict, idx) in ruleConflicts(rule)"
+                      :key="idx"
+                      class="mb-1 last:mb-0"
+                    >
                       {{ conflict }}
                     </p>
                   </UiTooltipContent>
@@ -314,7 +384,10 @@
                 </span>
               </UiBadge>
               <!-- Service name -->
-              <span v-if="rule.integrationId" class="text-muted-foreground">
+              <span
+                v-if="rule.integrationId"
+                class="text-muted-foreground"
+              >
                 {{ integrationName(rule.integrationId) }} ·
               </span>
               <!-- Human-readable condition -->
@@ -328,7 +401,10 @@
               class="text-muted-foreground hover:text-red-500 shrink-0"
               @click="deleteRule(rule.id)"
             >
-              <component :is="XIcon" class="w-4 h-4" />
+              <component
+                :is="XIcon"
+                class="w-4 h-4"
+              />
             </UiButton>
           </div>
         </div>
@@ -345,26 +421,48 @@
         <div class="flex items-center justify-between">
           <div>
             <UiCardTitle>Deletion Priority</UiCardTitle>
-            <UiCardDescription class="mt-1">Items ranked by deletion priority. Only enough items are removed to reach the target disk threshold.</UiCardDescription>
+            <UiCardDescription class="mt-1">
+              Items ranked by deletion priority. Only enough items are removed to reach the target disk threshold.
+            </UiCardDescription>
           </div>
-          <UiButton variant="outline" size="sm" @click="fetchPreview">
-            <component :is="previewLoading ? LoaderCircleIcon : RefreshCwIcon" :class="{ 'animate-spin': previewLoading }" class="w-3.5 h-3.5" />
+          <UiButton
+            variant="outline"
+            size="sm"
+            @click="fetchPreview"
+          >
+            <component
+              :is="previewLoading ? LoaderCircleIcon : RefreshCwIcon"
+              :class="{ 'animate-spin': previewLoading }"
+              class="w-3.5 h-3.5"
+            />
             Refresh
           </UiButton>
         </div>
       </UiCardHeader>
       <UiCardContent>
         <!-- Disk below threshold banner -->
-        <div v-if="!previewLoading && preview.length > 0 && diskContext && diskContext.bytesToFree === 0" class="mb-4 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+        <div
+          v-if="!previewLoading && preview.length > 0 && diskContext && diskContext.bytesToFree === 0"
+          class="mb-4 rounded-md border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2"
+        >
           <CheckIcon class="w-4 h-4 shrink-0" />
           Disk usage is below threshold. No items would be removed.
         </div>
 
-        <div v-if="previewLoading" class="flex items-center justify-center py-12">
-          <component :is="LoaderCircleIcon" class="w-6 h-6 text-primary animate-spin" />
+        <div
+          v-if="previewLoading"
+          class="flex items-center justify-center py-12"
+        >
+          <component
+            :is="LoaderCircleIcon"
+            class="w-6 h-6 text-primary animate-spin"
+          />
         </div>
 
-        <div v-else-if="preview.length === 0" class="text-center py-8 text-muted-foreground text-sm">
+        <div
+          v-else-if="preview.length === 0"
+          class="text-center py-8 text-muted-foreground text-sm"
+        >
           No items to evaluate. Connect integrations and ensure media exists.
         </div>
 
@@ -390,7 +488,10 @@
               >
                 {{ mt }}
               </UiButton>
-              <UiSeparator orientation="vertical" class="h-5 mx-1" />
+              <UiSeparator
+                orientation="vertical"
+                class="h-5 mx-1"
+              />
               <UiButton
                 :variant="previewStatusFilter === 'protected' ? 'default' : 'outline'"
                 size="sm"
@@ -421,145 +522,242 @@
             </template>
           </div>
 
-          <div v-if="filteredGroupedPreview.length === 0" class="text-center py-8 text-muted-foreground text-sm">
+          <div
+            v-if="filteredGroupedPreview.length === 0"
+            class="text-center py-8 text-muted-foreground text-sm"
+          >
             No items match filters.
           </div>
 
-          <div v-else ref="tableScrollRef" class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
-          <UiTable>
-            <UiTableHeader class="sticky top-0 z-10 bg-background">
-              <UiTableRow>
-                <UiTableHead
-                  class="w-12 cursor-pointer select-none group"
-                  @click="togglePreviewSort('rank')"
-                >
-                  <span class="inline-flex items-center gap-1">
-                    #
-                    <ArrowUpIcon v-if="previewSortBy === 'rank' && previewSortDir === 'asc'" class="w-3 h-3" />
-                    <ArrowDownIcon v-else-if="previewSortBy === 'rank' && previewSortDir === 'desc'" class="w-3 h-3" />
-                    <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                  </span>
-                </UiTableHead>
-                <UiTableHead
-                  class="cursor-pointer select-none group"
-                  @click="togglePreviewSort('score')"
-                >
-                  <span class="inline-flex items-center gap-1">
-                    Score
-                    <ArrowUpIcon v-if="previewSortBy === 'score' && previewSortDir === 'asc'" class="w-3 h-3" />
-                    <ArrowDownIcon v-else-if="previewSortBy === 'score' && previewSortDir === 'desc'" class="w-3 h-3" />
-                    <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                  </span>
-                </UiTableHead>
-                <UiTableHead
-                  class="cursor-pointer select-none group"
-                  @click="togglePreviewSort('title')"
-                >
-                  <span class="inline-flex items-center gap-1">
-                    Title
-                    <ArrowUpIcon v-if="previewSortBy === 'title' && previewSortDir === 'asc'" class="w-3 h-3" />
-                    <ArrowDownIcon v-else-if="previewSortBy === 'title' && previewSortDir === 'desc'" class="w-3 h-3" />
-                    <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                  </span>
-                </UiTableHead>
-                <UiTableHead
-                  class="cursor-pointer select-none group"
-                  @click="togglePreviewSort('type')"
-                >
-                  <span class="inline-flex items-center gap-1">
-                    Type
-                    <ArrowUpIcon v-if="previewSortBy === 'type' && previewSortDir === 'asc'" class="w-3 h-3" />
-                    <ArrowDownIcon v-else-if="previewSortBy === 'type' && previewSortDir === 'desc'" class="w-3 h-3" />
-                    <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                  </span>
-                </UiTableHead>
-                <UiTableHead
-                  class="text-right cursor-pointer select-none group"
-                  @click="togglePreviewSort('size')"
-                >
-                  <span class="inline-flex items-center gap-1 justify-end">
-                    Size
-                    <ArrowUpIcon v-if="previewSortBy === 'size' && previewSortDir === 'asc'" class="w-3 h-3" />
-                    <ArrowDownIcon v-else-if="previewSortBy === 'size' && previewSortDir === 'desc'" class="w-3 h-3" />
-                    <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
-                  </span>
-                </UiTableHead>
-              </UiTableRow>
-            </UiTableHeader>
-            <UiTableBody>
-              <template v-for="(group, groupIdx) in renderedGroups" :key="group.key">
-                <!-- Deletion line: inserted before the first item that falls below the cutoff -->
-                <UiTableRow v-if="deletionLineIndex !== null && deletionLineIndex === groupIdx" class="pointer-events-none">
-                  <UiTableCell :colspan="5" class="!p-0">
-                    <div class="flex items-center gap-2 px-4 py-1.5 bg-destructive/10 border-y border-destructive/30">
-                      <div class="flex-1 h-px bg-destructive/40" />
-                      <span class="text-xs font-medium text-destructive whitespace-nowrap">Engine stops here (target reached)</span>
-                      <div class="flex-1 h-px bg-destructive/40" />
-                    </div>
-                  </UiTableCell>
-                </UiTableRow>
-                <UiTableRow
-                  class="cursor-pointer"
-                  :class="{ 'opacity-40': deletionLineIndex !== null && groupIdx >= deletionLineIndex }"
-                  @click="selectPreviewItem(group.entry); group.seasons.length > 0 && togglePreviewGroup(group.key)"
-                >
-                  <UiTableCell class="w-12 text-center">
-                    <span class="text-xs font-mono tabular-nums text-muted-foreground">{{ groupIdx + 1 }}</span>
-                  </UiTableCell>
-                  <UiTableCell>
-                    <span class="text-xs font-mono tabular-nums font-semibold" :class="group.entry.isProtected ? 'text-emerald-500' : 'text-primary'">
-                      {{ group.entry.isProtected ? 'Protected' : group.entry.score.toFixed(2) }}
-                    </span>
-                  </UiTableCell>
-                  <UiTableCell class="font-medium">
-                    <div class="flex items-center gap-2">
-                      <span class="truncate">{{ group.entry.item.title }}</span>
-                      <button v-if="group.seasons.length > 0" class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5" @click.stop="togglePreviewGroup(group.key)">
-                        <ChevronRightIcon class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-90': expandedPreviewGroups.has(group.key) }" />
-                        <span class="text-xs text-muted-foreground font-normal whitespace-nowrap">({{ group.seasons.length }} season{{ group.seasons.length !== 1 ? 's' : '' }})</span>
-                      </button>
-                    </div>
-                  </UiTableCell>
-                  <UiTableCell>
-                    <UiBadge variant="secondary" class="capitalize">{{ group.entry.item.type }}</UiBadge>
-                  </UiTableCell>
-                  <UiTableCell class="text-right font-mono text-xs tabular-nums">{{ formatBytes(group.entry.item.sizeBytes) }}</UiTableCell>
-                </UiTableRow>
-                <template v-if="expandedPreviewGroups.has(group.key)">
-                  <UiTableRow
-                    v-for="(season, sIdx) in group.seasons"
-                    :key="`${group.key}-s${sIdx}`"
-                    class="bg-muted/30 cursor-pointer"
-                    :class="{ 'opacity-40': deletionLineIndex !== null && groupIdx >= deletionLineIndex }"
-                    @click.stop="selectPreviewItem(season)"
+          <div
+            v-else
+            ref="tableScrollRef"
+            class="overflow-x-auto max-h-[600px] overflow-y-auto relative"
+          >
+            <UiTable>
+              <UiTableHeader class="sticky top-0 z-10 bg-background">
+                <UiTableRow>
+                  <UiTableHead
+                    class="w-12 cursor-pointer select-none group"
+                    @click="togglePreviewSort('rank')"
                   >
-                    <UiTableCell class="w-12" />
-                    <UiTableCell>
-                      <span class="text-xs font-mono tabular-nums font-semibold" :class="season.isProtected ? 'text-emerald-500' : 'text-primary'">
-                        {{ season.isProtected ? 'Protected' : season.score.toFixed(2) }}
-                      </span>
+                    <span class="inline-flex items-center gap-1">
+                      #
+                      <ArrowUpIcon
+                        v-if="previewSortBy === 'rank' && previewSortDir === 'asc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowDownIcon
+                        v-else-if="previewSortBy === 'rank' && previewSortDir === 'desc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowUpDownIcon
+                        v-else
+                        class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                      />
+                    </span>
+                  </UiTableHead>
+                  <UiTableHead
+                    class="cursor-pointer select-none group"
+                    @click="togglePreviewSort('score')"
+                  >
+                    <span class="inline-flex items-center gap-1">
+                      Score
+                      <ArrowUpIcon
+                        v-if="previewSortBy === 'score' && previewSortDir === 'asc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowDownIcon
+                        v-else-if="previewSortBy === 'score' && previewSortDir === 'desc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowUpDownIcon
+                        v-else
+                        class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                      />
+                    </span>
+                  </UiTableHead>
+                  <UiTableHead
+                    class="cursor-pointer select-none group"
+                    @click="togglePreviewSort('title')"
+                  >
+                    <span class="inline-flex items-center gap-1">
+                      Title
+                      <ArrowUpIcon
+                        v-if="previewSortBy === 'title' && previewSortDir === 'asc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowDownIcon
+                        v-else-if="previewSortBy === 'title' && previewSortDir === 'desc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowUpDownIcon
+                        v-else
+                        class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                      />
+                    </span>
+                  </UiTableHead>
+                  <UiTableHead
+                    class="cursor-pointer select-none group"
+                    @click="togglePreviewSort('type')"
+                  >
+                    <span class="inline-flex items-center gap-1">
+                      Type
+                      <ArrowUpIcon
+                        v-if="previewSortBy === 'type' && previewSortDir === 'asc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowDownIcon
+                        v-else-if="previewSortBy === 'type' && previewSortDir === 'desc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowUpDownIcon
+                        v-else
+                        class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                      />
+                    </span>
+                  </UiTableHead>
+                  <UiTableHead
+                    class="text-right cursor-pointer select-none group"
+                    @click="togglePreviewSort('size')"
+                  >
+                    <span class="inline-flex items-center gap-1 justify-end">
+                      Size
+                      <ArrowUpIcon
+                        v-if="previewSortBy === 'size' && previewSortDir === 'asc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowDownIcon
+                        v-else-if="previewSortBy === 'size' && previewSortDir === 'desc'"
+                        class="w-3 h-3"
+                      />
+                      <ArrowUpDownIcon
+                        v-else
+                        class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                      />
+                    </span>
+                  </UiTableHead>
+                </UiTableRow>
+              </UiTableHeader>
+              <UiTableBody>
+                <template
+                  v-for="(group, groupIdx) in renderedGroups"
+                  :key="group.key"
+                >
+                  <!-- Deletion line: inserted before the first item that falls below the cutoff -->
+                  <UiTableRow
+                    v-if="deletionLineIndex !== null && deletionLineIndex === groupIdx"
+                    class="pointer-events-none"
+                  >
+                    <UiTableCell
+                      :colspan="5"
+                      class="!p-0"
+                    >
+                      <div class="flex items-center gap-2 px-4 py-1.5 bg-destructive/10 border-y border-destructive/30">
+                        <div class="flex-1 h-px bg-destructive/40" />
+                        <span class="text-xs font-medium text-destructive whitespace-nowrap">Engine stops here (target reached)</span>
+                        <div class="flex-1 h-px bg-destructive/40" />
+                      </div>
                     </UiTableCell>
-                    <UiTableCell class="text-muted-foreground pl-8">
-                      <span class="inline-flex items-center gap-1.5">
-                        <UiSeparator orientation="horizontal" class="w-3" />
-                        {{ extractPreviewSeasonLabel(season.item.title) }}
-                      </span>
-                    </UiTableCell>
-                    <UiTableCell>
-                      <UiBadge variant="secondary" class="capitalize">{{ season.item.type }}</UiBadge>
-                    </UiTableCell>
-                    <UiTableCell class="text-right font-mono text-xs tabular-nums text-muted-foreground">{{ formatBytes(season.item.sizeBytes) }}</UiTableCell>
                   </UiTableRow>
+                  <UiTableRow
+                    class="cursor-pointer"
+                    :class="{ 'opacity-40': deletionLineIndex !== null && groupIdx >= deletionLineIndex }"
+                    @click="selectPreviewItem(group.entry); group.seasons.length > 0 && togglePreviewGroup(group.key)"
+                  >
+                    <UiTableCell class="w-12 text-center">
+                      <span class="text-xs font-mono tabular-nums text-muted-foreground">{{ groupIdx + 1 }}</span>
+                    </UiTableCell>
+                    <UiTableCell>
+                      <span
+                        class="text-xs font-mono tabular-nums font-semibold"
+                        :class="group.entry.isProtected ? 'text-emerald-500' : 'text-primary'"
+                      >
+                        {{ group.entry.isProtected ? 'Protected' : group.entry.score.toFixed(2) }}
+                      </span>
+                    </UiTableCell>
+                    <UiTableCell class="font-medium">
+                      <div class="flex items-center gap-2">
+                        <span class="truncate">{{ group.entry.item.title }}</span>
+                        <button
+                          v-if="group.seasons.length > 0"
+                          class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5"
+                          @click.stop="togglePreviewGroup(group.key)"
+                        >
+                          <ChevronRightIcon
+                            class="w-3.5 h-3.5 transition-transform duration-200"
+                            :class="{ 'rotate-90': expandedPreviewGroups.has(group.key) }"
+                          />
+                          <span class="text-xs text-muted-foreground font-normal whitespace-nowrap">({{ group.seasons.length }} season{{ group.seasons.length !== 1 ? 's' : '' }})</span>
+                        </button>
+                      </div>
+                    </UiTableCell>
+                    <UiTableCell>
+                      <UiBadge
+                        variant="secondary"
+                        class="capitalize"
+                      >
+                        {{ group.entry.item.type }}
+                      </UiBadge>
+                    </UiTableCell>
+                    <UiTableCell class="text-right font-mono text-xs tabular-nums">
+                      {{ formatBytes(group.entry.item.sizeBytes) }}
+                    </UiTableCell>
+                  </UiTableRow>
+                  <template v-if="expandedPreviewGroups.has(group.key)">
+                    <UiTableRow
+                      v-for="(season, sIdx) in group.seasons"
+                      :key="`${group.key}-s${sIdx}`"
+                      class="bg-muted/30 cursor-pointer"
+                      :class="{ 'opacity-40': deletionLineIndex !== null && groupIdx >= deletionLineIndex }"
+                      @click.stop="selectPreviewItem(season)"
+                    >
+                      <UiTableCell class="w-12" />
+                      <UiTableCell>
+                        <span
+                          class="text-xs font-mono tabular-nums font-semibold"
+                          :class="season.isProtected ? 'text-emerald-500' : 'text-primary'"
+                        >
+                          {{ season.isProtected ? 'Protected' : season.score.toFixed(2) }}
+                        </span>
+                      </UiTableCell>
+                      <UiTableCell class="text-muted-foreground pl-8">
+                        <span class="inline-flex items-center gap-1.5">
+                          <UiSeparator
+                            orientation="horizontal"
+                            class="w-3"
+                          />
+                          {{ extractPreviewSeasonLabel(season.item.title) }}
+                        </span>
+                      </UiTableCell>
+                      <UiTableCell>
+                        <UiBadge
+                          variant="secondary"
+                          class="capitalize"
+                        >
+                          {{ season.item.type }}
+                        </UiBadge>
+                      </UiTableCell>
+                      <UiTableCell class="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                        {{ formatBytes(season.item.sizeBytes) }}
+                      </UiTableCell>
+                    </UiTableRow>
+                  </template>
                 </template>
-              </template>
-            </UiTableBody>
-          </UiTable>
-           <!-- Progressive rendering indicator -->
-           <div v-if="renderedGroups.length < filteredGroupedPreview.length" class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2">
-             <component :is="LoaderCircleIcon" class="w-3.5 h-3.5 animate-spin" />
-             Showing {{ renderedGroups.length }} of {{ filteredGroupedPreview.length }} — scroll for more
-           </div>
-         </div>
+              </UiTableBody>
+            </UiTable>
+            <!-- Progressive rendering indicator -->
+            <div
+              v-if="renderedGroups.length < filteredGroupedPreview.length"
+              class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
+            >
+              <component
+                :is="LoaderCircleIcon"
+                class="w-3.5 h-3.5 animate-spin"
+              />
+              Showing {{ renderedGroups.length }} of {{ filteredGroupedPreview.length }} — scroll for more
+            </div>
+          </div>
         </div>
       </UiCardContent>
     </UiCard>
@@ -581,19 +779,17 @@
 
 <script setup lang="ts">
 import { useInfiniteScroll } from '@vueuse/core'
-import { PlusIcon, XIcon, RefreshCwIcon, LoaderCircleIcon, SaveIcon, CheckIcon, ChevronRightIcon, HardDriveIcon, AlertTriangleIcon, SearchIcon, ShieldCheckIcon, FilterIcon, ArrowUpIcon, ArrowDownIcon, ArrowUpDownIcon } from 'lucide-vue-next'
+import { PlusIcon, XIcon, RefreshCwIcon, LoaderCircleIcon, CheckIcon, ChevronRightIcon, HardDriveIcon, AlertTriangleIcon, SearchIcon, ShieldCheckIcon, ArrowUpIcon, ArrowDownIcon, ArrowUpDownIcon } from 'lucide-vue-next'
 import {
   formatBytes,
   diskUsageStatus,
   diskStatusBgClass,
   diskStatusTextClass,
-  diskStatusFillColor,
+  diskStatusFillColor
 } from '~/utils/format'
 import type { DiskGroup, IntegrationConfig, ProtectionRule, PreferenceSet, EvaluatedItem, PreviewResponse, SelectedDetailItem, ApiError } from '~/types/api'
 
 const api = useApi()
-const config = useRuntimeConfig()
-const apiBase = `${config.public.apiBaseUrl}/api/v1`
 const { addToast } = useToast()
 
 // Disk Groups
@@ -620,7 +816,7 @@ function ensureThresholdEdit(dgId: number, dg: DiskGroup) {
       target: dg.targetPct,
       saving: false,
       message: '',
-      success: false,
+      success: false
     }
   }
 }
@@ -672,8 +868,8 @@ async function saveThresholds(dg: DiskGroup) {
       method: 'PUT',
       body: {
         thresholdPct: edit.threshold,
-        targetPct: edit.target,
-      },
+        targetPct: edit.target
+      }
     }) as DiskGroup
 
     edit.success = true
@@ -688,7 +884,10 @@ async function saveThresholds(dg: DiskGroup) {
       diskGroups.value[idx].targetPct = edit.target
     }
 
-    setTimeout(() => { edit.message = ''; edit.success = false }, 2500)
+    setTimeout(() => {
+      edit.message = ''
+      edit.success = false
+    }, 2500)
   } catch (err: unknown) {
     edit.success = false
     const errMsg = (err as ApiError)?.message || 'Failed to save thresholds'
@@ -736,10 +935,10 @@ function isActivePreset(values: Record<string, number>): boolean {
 }
 
 const presetDescriptions: Record<string, string> = {
-  Balanced: 'A general-purpose profile that weighs all factors evenly. Good starting point.',
+  'Balanced': 'A general-purpose profile that weighs all factors evenly. Good starting point.',
   'Space Saver': 'Prioritizes freeing disk space. Targets large, old media with low ratings.',
-  Hoarder: 'Strongly resists deletion. Only removes media that\'s never been watched and poorly rated.',
-  'Watch-Based': 'Focuses on watch history. Unwatched and stale media is removed first.',
+  'Hoarder': 'Strongly resists deletion. Only removes media that\'s never been watched and poorly rated.',
+  'Watch-Based': 'Focuses on watch history. Unwatched and stale media is removed first.'
 }
 
 const activePresetDescription = computed(() => {
@@ -763,7 +962,7 @@ const operatorLabelMap: Record<string, string> = {
   '>': 'more than',
   '>=': 'at least',
   '<': 'less than',
-  '<=': 'at most',
+  '<=': 'at most'
 }
 
 // Effect label and badge style helpers
@@ -773,7 +972,7 @@ const effectLabelMap: Record<string, string> = {
   lean_keep: 'Lean toward keeping',
   lean_remove: 'Lean toward removing',
   prefer_remove: 'Prefer to remove',
-  always_remove: 'Always remove',
+  always_remove: 'Always remove'
 }
 
 const effectBadgeClassMap: Record<string, string> = {
@@ -782,7 +981,7 @@ const effectBadgeClassMap: Record<string, string> = {
   lean_keep: 'bg-sky-400 text-white hover:bg-sky-400',
   lean_remove: 'bg-amber-400 text-amber-900 hover:bg-amber-400',
   prefer_remove: 'bg-orange-500 text-white hover:bg-orange-500',
-  always_remove: 'bg-red-500 text-white hover:bg-red-500',
+  always_remove: 'bg-red-500 text-white hover:bg-red-500'
 }
 
 const effectIconMap: Record<string, string> = {
@@ -791,7 +990,7 @@ const effectIconMap: Record<string, string> = {
   lean_keep: '🔵',
   lean_remove: '🟡',
   prefer_remove: '🟠',
-  always_remove: '🔴',
+  always_remove: '🔴'
 }
 
 // Field label mapping for human-readable display
@@ -812,7 +1011,7 @@ const fieldLabelMap: Record<string, string> = {
   playcount: 'Play Count',
   requested: 'Is Requested',
   requestcount: 'Request Count',
-  type: 'Media Type',
+  type: 'Media Type'
 }
 
 function effectLabel(effect: string): string {
@@ -878,10 +1077,10 @@ function ruleConflicts(rule: ProtectionRule): string[] {
     if (otherDirection === 'unknown' || otherDirection === direction) continue
 
     // Check if they could overlap — same integration or one is global
-    const sameScope =
-      (!rule.integrationId && !other.integrationId) ||
-      (!rule.integrationId || !other.integrationId) ||
-      (rule.integrationId === other.integrationId)
+    const sameScope
+      = (!rule.integrationId && !other.integrationId)
+        || (!rule.integrationId || !other.integrationId)
+        || (rule.integrationId === other.integrationId)
 
     if (!sameScope) continue
 
@@ -903,7 +1102,7 @@ const preview = ref<EvaluatedItem[]>([])
 const previewLoading = ref(false)
 const previewFetchedAt = ref<string>('')
 const selectedPreviewItem = ref<SelectedDetailItem | null>(null)
-const diskContext = ref<{ totalBytes: number; usedBytes: number; targetPct: number; thresholdPct: number; bytesToFree: number } | null>(null)
+const diskContext = ref<{ totalBytes: number, usedBytes: number, targetPct: number, thresholdPct: number, bytesToFree: number } | null>(null)
 
 // Preview filters
 const previewSearch = ref('')
@@ -941,7 +1140,7 @@ function selectPreviewItem(entry: EvaluatedItem) {
     scoreDetails,
     sizeBytes: entry.item?.sizeBytes || 0,
     action: entry.isProtected ? 'Protected' : 'Preview',
-    createdAt: previewFetchedAt.value || new Date().toISOString(),
+    createdAt: previewFetchedAt.value || new Date().toISOString()
   }
 }
 
@@ -952,14 +1151,16 @@ onMounted(async () => {
 async function fetchDiskGroups() {
   try {
     diskGroups.value = await api('/api/v1/disk-groups') as DiskGroup[]
-  } catch (e) {
+  } catch {
+    // Silently ignored — UI has no further handling
   }
 }
 
 async function fetchIntegrations() {
   try {
     allIntegrations.value = await api('/api/v1/integrations') as IntegrationConfig[]
-  } catch (e) {
+  } catch {
+    // Silently ignored — UI has no further handling
   }
 }
 
@@ -969,7 +1170,8 @@ async function fetchPreferences() {
     if (data?.id) {
       Object.assign(prefs, data)
     }
-  } catch (e) {
+  } catch {
+    // Silently ignored — UI has no further handling
   }
 }
 
@@ -977,7 +1179,7 @@ async function savePreferences() {
   try {
     await api('/api/v1/preferences', { method: 'PUT', body: { ...prefs, id: 1 } })
     addToast('Settings saved', 'success')
-  } catch (e) {
+  } catch {
     addToast('Failed to save preferences', 'error')
   }
 }
@@ -990,18 +1192,19 @@ function applyPreset(values: Record<string, number>) {
 async function fetchRules() {
   try {
     rules.value = await api('/api/v1/protections') as ProtectionRule[]
-  } catch (e) {
+  } catch {
+    // Silently ignored — UI has no further handling
   }
 }
 
-async function addRule(rule: { integrationId: number; field: string; operator: string; value: string; effect: string }) {
+async function addRule(rule: { integrationId: number, field: string, operator: string, value: string, effect: string }) {
   try {
     await api('/api/v1/protections', { method: 'POST', body: rule })
     showAddRule.value = false
     addToast('Rule added', 'success')
     await fetchRules()
     await fetchPreview()
-  } catch (e) {
+  } catch {
     addToast('Failed to add rule', 'error')
   }
 }
@@ -1012,7 +1215,7 @@ async function deleteRule(id: number) {
     addToast('Rule removed', 'success')
     await fetchRules()
     await fetchPreview()
-  } catch (e) {
+  } catch {
     addToast('Failed to delete rule', 'error')
   }
 }
@@ -1024,18 +1227,12 @@ async function fetchPreview() {
     preview.value = data.items || []
     diskContext.value = data.diskContext || null
     previewFetchedAt.value = new Date().toISOString()
-  } catch (e) {
+  } catch {
+    // Silently ignored — UI has no further handling
   } finally {
     previewLoading.value = false
   }
 }
-
-function scoreColor(score: number) {
-  if (score >= 0.7) return 'bg-primary'
-  if (score >= 0.4) return 'bg-primary/70'
-  return 'bg-primary/40'
-}
-
 
 // ─── Preview Show/Season Grouping ─────────────────────────────────────────────
 interface PreviewGroup {
@@ -1075,7 +1272,7 @@ const groupedPreview = computed<PreviewGroup[]>(() => {
           // Use the first season as the group entry but display the show name
           const syntheticEntry = {
             ...item,
-            item: { ...item.item, title: showName, type: 'show' },
+            item: { ...item.item, title: showName, type: 'show' }
           }
           groups.push({ key: syntheticKey, entry: syntheticEntry, seasons: [item] })
         } else {

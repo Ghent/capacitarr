@@ -1,21 +1,21 @@
 <script setup lang="ts">
-import type { ListboxFilterProps } from "reka-ui"
-import type { HTMLAttributes } from "vue"
-import { reactiveOmit } from "@vueuse/core"
+import type { ListboxFilterProps } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
+import { reactiveOmit } from '@vueuse/core'
 import { MagnifyingGlassIcon } from '@radix-icons/vue'
-import { ListboxFilter, useForwardProps } from "reka-ui"
-import { cn } from "@/lib/utils"
-import { useCommand } from "."
+import { ListboxFilter, useForwardProps } from 'reka-ui'
+import { cn } from '@/lib/utils'
+import { useCommand } from '.'
 
 defineOptions({
-  inheritAttrs: false,
+  inheritAttrs: false
 })
 
 const props = defineProps<ListboxFilterProps & {
-  class?: HTMLAttributes["class"]
+  class?: HTMLAttributes['class']
 }>()
 
-const delegatedProps = reactiveOmit(props, "class")
+const delegatedProps = reactiveOmit(props, 'class')
 
 const forwardedProps = useForwardProps(delegatedProps)
 

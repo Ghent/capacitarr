@@ -2,7 +2,9 @@
   <div>
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-3xl font-bold tracking-tight">Help</h1>
+      <h1 class="text-3xl font-bold tracking-tight">
+        Help
+      </h1>
       <p class="text-muted-foreground mt-1.5">
         Learn how Capacitarr works and how to configure it effectively.
       </p>
@@ -19,7 +21,9 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">How Scoring Works</h3>
+          <h3 class="font-semibold text-primary">
+            How Scoring Works
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
           <p>
@@ -43,7 +47,9 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">Understanding the Sliders</h3>
+          <h3 class="font-semibold text-primary">
+            Understanding the Sliders
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
           <p>
@@ -51,8 +57,12 @@
             The six factors are:
           </p>
           <ul class="space-y-2 pl-1">
-            <li v-for="factor in scoringFactors" :key="factor.name" class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
+            <li
+              v-for="factor in scoringFactors"
+              :key="factor.name"
+              class="flex items-start gap-2"
+            >
+              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
               <span><strong class="text-foreground">{{ factor.name }}</strong> — {{ factor.desc }}</span>
             </li>
           </ul>
@@ -69,7 +79,9 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">Reading a Score Detail</h3>
+          <h3 class="font-semibold text-primary">
+            Reading a Score Detail
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-4">
           <p>
@@ -78,7 +90,9 @@
           </p>
 
           <div>
-            <p class="font-medium text-foreground mb-1">Raw Score (0.0 – 1.0)</p>
+            <p class="font-medium text-foreground mb-1">
+              Raw Score (0.0 – 1.0)
+            </p>
             <p>
               Represents how strongly this factor suggests the media should be cleaned up.
               <strong class="text-foreground">1.0</strong> = maximum cleanup signal; <strong class="text-foreground">0.0</strong> = minimum cleanup signal.
@@ -94,7 +108,9 @@
           </div>
 
           <div>
-            <p class="font-medium text-foreground mb-1">Weight (0 – 10)</p>
+            <p class="font-medium text-foreground mb-1">
+              Weight (0 – 10)
+            </p>
             <p>
               Set by you on the <strong class="text-foreground">Scoring Engine</strong> page. Higher weight = more influence on the final score.
               Each factor's contribution = <code class="px-1 py-0.5 rounded bg-muted text-xs">(rawScore × weight) / totalWeightSum</code>.
@@ -106,7 +122,9 @@
           </div>
 
           <div>
-            <p class="font-medium text-foreground mb-1">Contribution</p>
+            <p class="font-medium text-foreground mb-1">
+              Contribution
+            </p>
             <p>
               The actual portion of the final score this factor is responsible for. All contributions sum to the total score.
               These are shown as the colored segments in the stacked bar at the top of the modal.
@@ -125,7 +143,9 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">Threshold &amp; Target</h3>
+          <h3 class="font-semibold text-primary">
+            Threshold &amp; Target
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
           <p>
@@ -149,7 +169,9 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">Custom Rules</h3>
+          <h3 class="font-semibold text-primary">
+            Custom Rules
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
           <p>
@@ -175,7 +197,9 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">Score Tiebreaker</h3>
+          <h3 class="font-semibold text-primary">
+            Score Tiebreaker
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
           <p>
@@ -202,7 +226,9 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">Reading the Audit Log</h3>
+          <h3 class="font-semibold text-primary">
+            Reading the Audit Log
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
           <p>
@@ -228,20 +254,22 @@
       >
         <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
           <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
-          <h3 class="font-semibold text-primary">Execution Modes</h3>
+          <h3 class="font-semibold text-primary">
+            Execution Modes
+          </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
           <ul class="space-y-2 pl-1">
             <li class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0"></span>
+              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
               <span><strong class="text-foreground">Dry-Run</strong> — No files are deleted; the engine only logs what it would do. Safe for testing and tuning your weights.</span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-warning shrink-0"></span>
+              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
               <span><strong class="text-foreground">Approval</strong> — Items are flagged for manual approval before deletion. You review and confirm each removal.</span>
             </li>
             <li class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-destructive shrink-0"></span>
+              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
               <span><strong class="text-foreground">Auto</strong> — Items are automatically deleted when thresholds are breached. Use with caution.</span>
             </li>
           </ul>

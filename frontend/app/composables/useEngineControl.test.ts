@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ref, computed, readonly, type Ref } from 'vue'
 
+// Now import the composable under test (after all stubs are in place)
+import { useEngineControl } from './useEngineControl'
+
 // ---------------------------------------------------------------------------
 // Mock Nuxt auto-imports before importing the composable under test
 // ---------------------------------------------------------------------------
@@ -26,7 +29,7 @@ function mockUseToast() {
   return {
     toasts: ref([]),
     addToast: addToastSpy,
-    removeToast: vi.fn(),
+    removeToast: vi.fn()
   }
 }
 
@@ -40,9 +43,6 @@ vi.stubGlobal('useToast', mockUseToast)
 vi.stubGlobal('ref', ref)
 vi.stubGlobal('computed', computed)
 vi.stubGlobal('readonly', readonly)
-
-// Now import the composable under test (after all stubs are in place)
-import { useEngineControl } from './useEngineControl'
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -100,7 +100,7 @@ describe('useEngineControl', () => {
       ['approval', 'Approval'],
       ['dry_run', 'Dry-Run'],
       ['unknown', 'Dry-Run'],
-      ['', 'Dry-Run'],
+      ['', 'Dry-Run']
     ])('modeLabel("%s") → "%s"', (mode, expected) => {
       const ctrl = useEngineControl()
       expect(ctrl.modeLabel(mode)).toBe(expected)
@@ -120,7 +120,7 @@ describe('useEngineControl', () => {
         lastRunFreedBytes: 1073741824,
         queueDepth: 3,
         isRunning: false,
-        pollIntervalSeconds: 600,
+        pollIntervalSeconds: 600
       }
       mockApiFetch.mockResolvedValueOnce(statsData)
 
@@ -152,7 +152,7 @@ describe('useEngineControl', () => {
         isRunning: true,
         executionMode: 'auto',
         lastRunEvaluated: 0,
-        lastRunFlagged: 0,
+        lastRunFlagged: 0
       })
       const ctrl = useEngineControl()
       await ctrl.fetchStats()
@@ -163,7 +163,7 @@ describe('useEngineControl', () => {
         isRunning: false,
         executionMode: 'auto',
         lastRunEvaluated: 200,
-        lastRunFlagged: 10,
+        lastRunFlagged: 10
       })
       await ctrl.fetchStats()
       expect(ctrl.isRunning.value).toBe(false)
@@ -171,7 +171,7 @@ describe('useEngineControl', () => {
       // Should have shown a completion toast
       expect(addToastSpy).toHaveBeenCalledWith(
         expect.stringContaining('Engine run complete'),
-        'success',
+        'success'
       )
     })
 
@@ -201,7 +201,7 @@ describe('useEngineControl', () => {
       // 3rd call: fetchStats (inside setMode)
       mockApiFetch.mockResolvedValueOnce({
         executionMode: 'auto',
-        isRunning: false,
+        isRunning: false
       })
 
       const ctrl = useEngineControl()
@@ -210,18 +210,20 @@ describe('useEngineControl', () => {
       expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/preferences')
       expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/preferences', {
         method: 'PUT',
-        body: { ...existingPrefs, executionMode: 'auto' },
+        body: { ...existingPrefs, executionMode: 'auto' }
       })
       expect(addToastSpy).toHaveBeenCalledWith(
         'Execution mode set to Auto',
-        'success',
+        'success'
       )
       expect(ctrl.changingMode.value).toBe(false)
     })
 
     it('sets changingMode to true during API call', async () => {
       let resolvePrefs: (value: unknown) => void
-      const prefsPromise = new Promise(resolve => { resolvePrefs = resolve })
+      const prefsPromise = new Promise((resolve) => {
+        resolvePrefs = resolve
+      })
       mockApiFetch.mockReturnValueOnce(prefsPromise)
 
       const ctrl = useEngineControl()
@@ -247,7 +249,7 @@ describe('useEngineControl', () => {
 
       expect(addToastSpy).toHaveBeenCalledWith(
         'Failed to change execution mode',
-        'error',
+        'error'
       )
       expect(ctrl.changingMode.value).toBe(false)
     })
@@ -261,7 +263,7 @@ describe('useEngineControl', () => {
       mockApiFetch.mockResolvedValueOnce({}) // POST engine/run
       mockApiFetch.mockResolvedValueOnce({ // fetchStats
         executionMode: 'auto',
-        isRunning: true,
+        isRunning: true
       })
 
       const ctrl = useEngineControl()
@@ -287,7 +289,7 @@ describe('useEngineControl', () => {
 
       expect(addToastSpy).toHaveBeenCalledWith(
         'Failed to trigger engine run',
-        'error',
+        'error'
       )
       expect(ctrl.runNowLoading.value).toBe(false)
     })

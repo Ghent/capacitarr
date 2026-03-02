@@ -16,7 +16,7 @@ export function useToast() {
       id: nextId++,
       message,
       type,
-      duration: duration ?? defaultDuration,
+      duration: duration ?? defaultDuration
     }
     toasts.value.push(toast)
 

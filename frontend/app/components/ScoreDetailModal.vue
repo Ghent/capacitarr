@@ -1,13 +1,29 @@
 <template>
-  <UiDialog :open="visible" @update:open="(val: boolean) => { if (!val) $emit('close') }">
+  <UiDialog
+    :open="visible"
+    @update:open="(val: boolean) => { if (!val) $emit('close') }"
+  >
     <UiDialogContent class="max-w-lg">
       <!-- Header -->
       <UiDialogHeader>
         <span class="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Score Detail</span>
-        <UiDialogTitle class="truncate" :title="mediaName">{{ mediaName }}</UiDialogTitle>
+        <UiDialogTitle
+          class="truncate"
+          :title="mediaName"
+        >
+          {{ mediaName }}
+        </UiDialogTitle>
         <div class="flex items-center gap-2 mt-1">
-          <UiBadge variant="secondary" class="capitalize">{{ mediaType }}</UiBadge>
-          <span class="text-3xl font-bold tabular-nums tracking-tight" :class="scoreColorClass">
+          <UiBadge
+            variant="secondary"
+            class="capitalize"
+          >
+            {{ mediaType }}
+          </UiBadge>
+          <span
+            class="text-3xl font-bold tabular-nums tracking-tight"
+            :class="scoreColorClass"
+          >
             {{ score.toFixed(2) }}
           </span>
         </div>
@@ -26,19 +42,32 @@
 
         <!-- Factor Table -->
         <div v-if="weightFactors.length > 0">
-          <h3 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Score Factors</h3>
+          <h3 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+            Score Factors
+          </h3>
           <div class="rounded-lg border border-border/50 overflow-hidden bg-card/80">
             <UiTable>
               <UiTableHeader>
                 <UiTableRow class="bg-primary/5 dark:bg-primary/10">
-                  <UiTableHead class="text-xs">Factor</UiTableHead>
-                  <UiTableHead class="text-xs text-right">Raw</UiTableHead>
-                  <UiTableHead class="text-xs text-right">Weight</UiTableHead>
-                  <UiTableHead class="text-xs text-right">Contribution</UiTableHead>
+                  <UiTableHead class="text-xs">
+                    Factor
+                  </UiTableHead>
+                  <UiTableHead class="text-xs text-right">
+                    Raw
+                  </UiTableHead>
+                  <UiTableHead class="text-xs text-right">
+                    Weight
+                  </UiTableHead>
+                  <UiTableHead class="text-xs text-right">
+                    Contribution
+                  </UiTableHead>
                 </UiTableRow>
               </UiTableHeader>
               <UiTableBody>
-                <UiTableRow v-for="f in weightFactors" :key="f.name">
+                <UiTableRow
+                  v-for="f in weightFactors"
+                  :key="f.name"
+                >
                   <UiTableCell class="font-medium">
                     <span class="inline-flex items-center gap-1.5">
                       <span
@@ -65,7 +94,9 @@
 
         <!-- Custom Rules Section -->
         <div v-if="ruleFactors.length > 0">
-          <h3 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">Custom Rules</h3>
+          <h3 class="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+            Custom Rules
+          </h3>
           <div class="flex flex-wrap gap-1.5">
             <UiBadge
               v-for="f in ruleFactors"
@@ -84,11 +115,17 @@
           <span class="text-sm text-muted-foreground font-mono tabular-nums">
             {{ formatBytes(sizeBytes) }}
           </span>
-          <UiBadge v-if="action" :variant="actionBadgeVariant">
+          <UiBadge
+            v-if="action"
+            :variant="actionBadgeVariant"
+          >
             {{ action }}
           </UiBadge>
         </div>
-        <span v-if="createdAt" class="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        <span
+          v-if="createdAt"
+          class="inline-flex items-center gap-1 text-xs text-muted-foreground"
+        >
           <ClockIcon class="w-3 h-3" />
           {{ formatTime(createdAt) }}
         </span>
@@ -129,7 +166,7 @@ const FACTOR_COLORS: Record<string, string> = {
   'File Size': '#f59e0b',
   'Rating': '#10b981',
   'Time in Library': '#f97316',
-  'Availability': '#ec4899',
+  'Availability': '#ec4899'
 }
 
 function factorColor(name: string): string {

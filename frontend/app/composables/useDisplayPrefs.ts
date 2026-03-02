@@ -32,7 +32,7 @@ export function useDisplayPrefs() {
       hour12: clockFormat.value === '12h',
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
+      year: 'numeric'
     }
     if (timezone.value !== 'local') {
       options.timeZone = timezone.value

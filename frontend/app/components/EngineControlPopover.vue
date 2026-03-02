@@ -9,7 +9,10 @@
         :class="isRunning ? 'text-primary animate-pulse' : ''"
       >
         <!-- Mode icon: shield=dry-run, hand=approval, zap=auto -->
-        <component :is="isRunning ? LoaderCircleIcon : modeIcon" :class="['w-5 h-5', isRunning ? 'animate-spin' : '']" />
+        <component
+          :is="isRunning ? LoaderCircleIcon : modeIcon"
+          :class="['w-5 h-5', isRunning ? 'animate-spin' : '']"
+        />
         <!-- Health status dot -->
         <span
           class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-background"
@@ -17,11 +20,16 @@
         />
       </UiButton>
     </UiPopoverTrigger>
-    <UiPopoverContent align="end" class="w-72">
+    <UiPopoverContent
+      align="end"
+      class="w-72"
+    >
       <div class="space-y-4">
         <!-- Header -->
         <div class="flex items-center justify-between">
-          <h4 class="font-semibold text-sm">Engine Control</h4>
+          <h4 class="font-semibold text-sm">
+            Engine Control
+          </h4>
           <UiBadge
             :variant="executionMode === 'auto' ? 'destructive' : executionMode === 'approval' ? 'outline' : 'secondary'"
           >
@@ -50,20 +58,36 @@
         <!-- Stats -->
         <div class="grid grid-cols-2 gap-2 text-xs">
           <div class="rounded-lg bg-muted px-2.5 py-1.5">
-            <div class="text-muted-foreground">Last Run</div>
-            <div class="font-medium">{{ lastRunText }}</div>
+            <div class="text-muted-foreground">
+              Last Run
+            </div>
+            <div class="font-medium">
+              {{ lastRunText }}
+            </div>
           </div>
           <div class="rounded-lg bg-muted px-2.5 py-1.5">
-            <div class="text-muted-foreground">Queue</div>
-            <div class="font-medium">{{ queueDepth }} items</div>
+            <div class="text-muted-foreground">
+              Queue
+            </div>
+            <div class="font-medium">
+              {{ queueDepth }} items
+            </div>
           </div>
           <div class="rounded-lg bg-muted px-2.5 py-1.5">
-            <div class="text-muted-foreground">Evaluated</div>
-            <div class="font-medium">{{ lastRunEvaluated }}</div>
+            <div class="text-muted-foreground">
+              Evaluated
+            </div>
+            <div class="font-medium">
+              {{ lastRunEvaluated }}
+            </div>
           </div>
           <div class="rounded-lg bg-muted px-2.5 py-1.5">
-            <div class="text-muted-foreground">Flagged</div>
-            <div class="font-medium">{{ lastRunFlagged }}</div>
+            <div class="text-muted-foreground">
+              Flagged
+            </div>
+            <div class="font-medium">
+              {{ lastRunFlagged }}
+            </div>
           </div>
         </div>
 
@@ -73,8 +97,14 @@
           :disabled="runNowLoading"
           @click="triggerRunNow"
         >
-          <LoaderCircleIcon v-if="runNowLoading" class="w-4 h-4 animate-spin" />
-          <PlayIcon v-else class="w-4 h-4" />
+          <LoaderCircleIcon
+            v-if="runNowLoading"
+            class="w-4 h-4 animate-spin"
+          />
+          <PlayIcon
+            v-else
+            class="w-4 h-4"
+          />
           {{ executionMode === 'dry-run' ? 'Dry Run' : 'Run Now' }}
         </UiButton>
       </div>
@@ -82,18 +112,33 @@
   </UiPopover>
 
   <!-- Auto mode confirmation dialog -->
-  <UiDialog :open="showAutoConfirm" @update:open="(v: boolean) => showAutoConfirm = v">
+  <UiDialog
+    :open="showAutoConfirm"
+    @update:open="(v: boolean) => showAutoConfirm = v"
+  >
     <UiDialogContent class="max-w-sm">
       <UiDialogHeader>
-        <UiDialogTitle class="text-destructive">Enable Auto Mode?</UiDialogTitle>
+        <UiDialogTitle class="text-destructive">
+          Enable Auto Mode?
+        </UiDialogTitle>
       </UiDialogHeader>
       <p class="text-sm text-muted-foreground">
         Auto mode will <strong class="text-foreground">automatically delete</strong> media items that exceed the threshold.
         This action cannot be undone. Are you sure?
       </p>
       <UiDialogFooter>
-        <UiButton variant="ghost" @click="showAutoConfirm = false">Cancel</UiButton>
-        <UiButton variant="destructive" @click="confirmAutoMode">Enable Auto Mode</UiButton>
+        <UiButton
+          variant="ghost"
+          @click="showAutoConfirm = false"
+        >
+          Cancel
+        </UiButton>
+        <UiButton
+          variant="destructive"
+          @click="confirmAutoMode"
+        >
+          Enable Auto Mode
+        </UiButton>
       </UiDialogFooter>
     </UiDialogContent>
   </UiDialog>
@@ -120,9 +165,9 @@ const modes = [
 // Mode icon — distinct shape per mode, NOT color-coded
 const modeIcon = computed(() => {
   switch (executionMode.value) {
-    case 'auto': return ZapIcon      // ⚡ auto = lightning bolt
-    case 'approval': return HandIcon  // ✋ manual review
-    default: return ShieldIcon        // 🛡️ dry-run = protected/safe
+    case 'auto': return ZapIcon // ⚡ auto = lightning bolt
+    case 'approval': return HandIcon // ✋ manual review
+    default: return ShieldIcon // 🛡️ dry-run = protected/safe
   }
 })
 

@@ -7,7 +7,7 @@ import {
   diskStatusBgClass,
   diskStatusTextClass,
   diskStatusFillColor,
-  formatRelativeTime,
+  formatRelativeTime
 } from './format'
 
 // ---------------------------------------------------------------------------
@@ -19,7 +19,7 @@ describe('formatBytes', () => {
     [1, '1.0 B'],
     [100, '100 B'],
     [512, '512 B'],
-    [1023, '1023 B'],
+    [1023, '1023 B']
   ])('handles small values: formatBytes(%i) → %s', (input, expected) => {
     expect(formatBytes(input)).toBe(expected)
   })
@@ -29,7 +29,7 @@ describe('formatBytes', () => {
     [1536, '1.5 KB'],
     [10240, '10.0 KB'],
     [102400, '100 KB'],
-    [524288, '512 KB'],
+    [524288, '512 KB']
   ])('formats kilobytes: formatBytes(%i) → %s', (input, expected) => {
     expect(formatBytes(input)).toBe(expected)
   })
@@ -38,7 +38,7 @@ describe('formatBytes', () => {
     [1048576, '1.0 MB'],
     [1572864, '1.5 MB'],
     [104857600, '100 MB'],
-    [536870912, '512 MB'],
+    [536870912, '512 MB']
   ])('formats megabytes: formatBytes(%i) → %s', (input, expected) => {
     expect(formatBytes(input)).toBe(expected)
   })
@@ -46,14 +46,14 @@ describe('formatBytes', () => {
   it.each([
     [1073741824, '1.0 GB'],
     [5368709120, '5.0 GB'],
-    [107374182400, '100 GB'],
+    [107374182400, '100 GB']
   ])('formats gigabytes: formatBytes(%i) → %s', (input, expected) => {
     expect(formatBytes(input)).toBe(expected)
   })
 
   it.each([
     [1099511627776, '1.0 TB'],
-    [5497558138880, '5.0 TB'],
+    [5497558138880, '5.0 TB']
   ])('formats terabytes: formatBytes(%i) → %s', (input, expected) => {
     expect(formatBytes(input)).toBe(expected)
   })
@@ -142,7 +142,7 @@ describe('diskUsageStatus', () => {
     [85, 70, 85, 'danger'],
     [95, 70, 85, 'danger'],
     [100, 70, 85, 'danger'],
-    [0, 70, 85, 'ok'],
+    [0, 70, 85, 'ok']
   ] as const)('diskUsageStatus(%f, %f, %f) → %s', (usage, target, threshold, expected) => {
     expect(diskUsageStatus(usage, target, threshold)).toBe(expected)
   })

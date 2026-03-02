@@ -1,9 +1,14 @@
 <template>
   <div>
     <!-- Header -->
-    <div data-slot="page-header" class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div
+      data-slot="page-header"
+      class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4"
+    >
       <div>
-        <h1 class="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 class="text-3xl font-bold tracking-tight">
+          Settings
+        </h1>
         <p class="text-muted-foreground mt-1.5">
           Manage integrations, general preferences, and authentication.
         </p>
@@ -11,18 +16,32 @@
     </div>
 
     <!-- Tabs -->
-    <UiTabs default-value="general" class="w-full">
+    <UiTabs
+      default-value="general"
+      class="w-full"
+    >
       <UiTabsList class="mb-6">
-        <UiTabsTrigger value="general">General</UiTabsTrigger>
-        <UiTabsTrigger value="integrations">Integrations</UiTabsTrigger>
-        <UiTabsTrigger value="security">Security</UiTabsTrigger>
-        <UiTabsTrigger value="advanced">Advanced</UiTabsTrigger>
+        <UiTabsTrigger value="general">
+          General
+        </UiTabsTrigger>
+        <UiTabsTrigger value="integrations">
+          Integrations
+        </UiTabsTrigger>
+        <UiTabsTrigger value="security">
+          Security
+        </UiTabsTrigger>
+        <UiTabsTrigger value="advanced">
+          Advanced
+        </UiTabsTrigger>
       </UiTabsList>
 
       <!-- ═══════════════════════════════════════════════════════
            GENERAL TAB
            ═══════════════════════════════════════════════════════ -->
-      <UiTabsContent value="general" class="space-y-6">
+      <UiTabsContent
+        value="general"
+        class="space-y-6"
+      >
         <!-- Display Preferences Section -->
         <UiCard
           v-motion
@@ -33,10 +52,15 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center">
-                <component :is="MonitorIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="MonitorIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">Display</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  Display
+                </UiCardTitle>
                 <UiCardDescription>Timezone and clock format preferences (saved locally)</UiCardDescription>
               </div>
             </div>
@@ -45,13 +69,20 @@
             <!-- Timezone -->
             <div class="space-y-1.5">
               <UiLabel>Timezone</UiLabel>
-              <UiSelect :model-value="displayTimezone" @update:model-value="(v: string) => setTimezone(String(v))">
+              <UiSelect
+                :model-value="displayTimezone"
+                @update:model-value="(v: string) => setTimezone(String(v))"
+              >
                 <UiSelectTrigger class="w-full max-w-xs">
                   <UiSelectValue placeholder="Select timezone" />
                 </UiSelectTrigger>
                 <UiSelectContent>
-                  <UiSelectItem value="local">Local (Browser)</UiSelectItem>
-                  <UiSelectItem value="UTC">Remote (Server / UTC)</UiSelectItem>
+                  <UiSelectItem value="local">
+                    Local (Browser)
+                  </UiSelectItem>
+                  <UiSelectItem value="UTC">
+                    Remote (Server / UTC)
+                  </UiSelectItem>
                 </UiSelectContent>
               </UiSelect>
             </div>
@@ -97,7 +128,9 @@
               </div>
             </div>
 
-            <p class="text-xs text-muted-foreground/70">Changes apply immediately and are stored in your browser.</p>
+            <p class="text-xs text-muted-foreground/70">
+              Changes apply immediately and are stored in your browser.
+            </p>
           </UiCardContent>
         </UiCard>
 
@@ -111,10 +144,15 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <component :is="CogIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="CogIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">Engine Behavior</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  Engine Behavior
+                </UiCardTitle>
                 <UiCardDescription>Control how the scoring engine acts on results</UiCardDescription>
               </div>
             </div>
@@ -138,10 +176,15 @@
                     : 'border-border hover:border-border'"
                   @click="setExecutionMode(mode.value)"
                 >
-                  <div class="text-sm font-medium" :class="engineExecutionMode === mode.value ? 'text-primary' : ''">
+                  <div
+                    class="text-sm font-medium"
+                    :class="engineExecutionMode === mode.value ? 'text-primary' : ''"
+                  >
                     {{ mode.label }}
                   </div>
-                  <div class="text-xs text-muted-foreground mt-0.5">{{ mode.description }}</div>
+                  <div class="text-xs text-muted-foreground mt-0.5">
+                    {{ mode.description }}
+                  </div>
                 </button>
               </div>
             </div>
@@ -152,17 +195,29 @@
                 <UiLabel>Score Tiebreaker</UiLabel>
                 <SaveIndicator :status="saveStatus.tiebreaker" />
               </div>
-              <p class="text-xs text-muted-foreground mb-1">When items have the same score, how should they be ordered?</p>
+              <p class="text-xs text-muted-foreground mb-1">
+                When items have the same score, how should they be ordered?
+              </p>
               <UiSelect v-model="engineTiebreakerMethod">
                 <UiSelectTrigger class="w-full max-w-xs">
                   <UiSelectValue placeholder="Select tiebreaker" />
                 </UiSelectTrigger>
                 <UiSelectContent>
-                  <UiSelectItem value="size_desc">Largest first (free more space)</UiSelectItem>
-                  <UiSelectItem value="size_asc">Smallest first</UiSelectItem>
-                  <UiSelectItem value="name_asc">Alphabetical (A → Z)</UiSelectItem>
-                  <UiSelectItem value="oldest_first">Oldest in library first</UiSelectItem>
-                  <UiSelectItem value="newest_first">Newest in library first</UiSelectItem>
+                  <UiSelectItem value="size_desc">
+                    Largest first (free more space)
+                  </UiSelectItem>
+                  <UiSelectItem value="size_asc">
+                    Smallest first
+                  </UiSelectItem>
+                  <UiSelectItem value="name_asc">
+                    Alphabetical (A → Z)
+                  </UiSelectItem>
+                  <UiSelectItem value="oldest_first">
+                    Oldest in library first
+                  </UiSelectItem>
+                  <UiSelectItem value="newest_first">
+                    Newest in library first
+                  </UiSelectItem>
                 </UiSelectContent>
               </UiSelect>
             </div>
@@ -176,14 +231,23 @@
       <UiTabsContent value="integrations">
         <div class="flex justify-end mb-6">
           <UiButton @click="openAddModal">
-            <component :is="PlusIcon" class="w-4 h-4" />
+            <component
+              :is="PlusIcon"
+              class="w-4 h-4"
+            />
             Add Integration
           </UiButton>
         </div>
 
         <!-- Loading -->
-        <div v-if="loading" class="flex justify-center py-16">
-          <component :is="LoaderCircleIcon" class="w-8 h-8 text-primary animate-spin" />
+        <div
+          v-if="loading"
+          class="flex justify-center py-16"
+        >
+          <component
+            :is="LoaderCircleIcon"
+            class="w-8 h-8 text-primary animate-spin"
+          />
         </div>
 
         <!-- Empty state -->
@@ -194,19 +258,33 @@
           :enter="{ opacity: 1, y: 0 }"
           class="text-center py-20"
         >
-          <component :is="HardDriveIcon" class="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
-          <h3 class="text-lg font-medium text-foreground mb-2">No integrations configured</h3>
+          <component
+            :is="HardDriveIcon"
+            class="w-16 h-16 text-muted-foreground/40 mx-auto mb-4"
+          />
+          <h3 class="text-lg font-medium text-foreground mb-2">
+            No integrations configured
+          </h3>
           <p class="text-muted-foreground mb-6">
             Connect your Plex, Sonarr, Radarr, or Tautulli instances to get started.
           </p>
-          <UiButton size="lg" @click="openAddModal">
-            <component :is="PlusIcon" class="w-4 h-4" />
+          <UiButton
+            size="lg"
+            @click="openAddModal"
+          >
+            <component
+              :is="PlusIcon"
+              class="w-4 h-4"
+            />
             Add Your First Integration
           </UiButton>
         </div>
 
         <!-- Integration Cards Grid -->
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div
+          v-else
+          class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+        >
           <UiCard
             v-for="(integration, idx) in integrations"
             :key="integration.id"
@@ -220,11 +298,19 @@
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div :class="['w-10 h-10 rounded-lg flex items-center justify-center', typeColor(integration.type)]">
-                    <component :is="typeIcon(integration.type)" class="w-5 h-5 text-white" />
+                    <component
+                      :is="typeIcon(integration.type)"
+                      class="w-5 h-5 text-white"
+                    />
                   </div>
                   <div>
-                    <UiCardTitle class="text-base">{{ integration.name }}</UiCardTitle>
-                    <span class="text-xs uppercase tracking-wider font-medium" :class="typeTextColor(integration.type)">
+                    <UiCardTitle class="text-base">
+                      {{ integration.name }}
+                    </UiCardTitle>
+                    <span
+                      class="text-xs uppercase tracking-wider font-medium"
+                      :class="typeTextColor(integration.type)"
+                    >
                       {{ integration.type }}
                     </span>
                   </div>
@@ -238,19 +324,37 @@
             <!-- Card Body -->
             <UiCardContent class="pt-4 space-y-2 text-sm text-muted-foreground">
               <div class="flex items-center gap-2">
-                <component :is="LinkIcon" class="w-3.5 h-3.5 shrink-0" />
+                <component
+                  :is="LinkIcon"
+                  class="w-3.5 h-3.5 shrink-0"
+                />
                 <span class="truncate">{{ integration.url }}</span>
               </div>
               <div class="flex items-center gap-2">
-                <component :is="KeyIcon" class="w-3.5 h-3.5 shrink-0" />
+                <component
+                  :is="KeyIcon"
+                  class="w-3.5 h-3.5 shrink-0"
+                />
                 <span class="font-mono text-xs">{{ integration.apiKey }}</span>
               </div>
-              <div v-if="integration.lastSync" class="flex items-center gap-2">
-                <component :is="ClockIcon" class="w-3.5 h-3.5 shrink-0" />
+              <div
+                v-if="integration.lastSync"
+                class="flex items-center gap-2"
+              >
+                <component
+                  :is="ClockIcon"
+                  class="w-3.5 h-3.5 shrink-0"
+                />
                 <span>Synced {{ formatRelativeTime(integration.lastSync) }}</span>
               </div>
-              <div v-if="integration.lastError" class="flex items-center gap-2 text-red-500">
-                <component :is="AlertTriangleIcon" class="w-3.5 h-3.5 shrink-0" />
+              <div
+                v-if="integration.lastError"
+                class="flex items-center gap-2 text-red-500"
+              >
+                <component
+                  :is="AlertTriangleIcon"
+                  class="w-3.5 h-3.5 shrink-0"
+                />
                 <span class="text-xs">{{ integration.lastError }}</span>
               </div>
             </UiCardContent>
@@ -258,14 +362,26 @@
             <!-- Card Footer -->
             <UiCardFooter class="border-t border-border flex items-center justify-between">
               <div class="flex gap-2">
-                <UiButton variant="outline" size="sm" @click="testConnection(integration)">
+                <UiButton
+                  variant="outline"
+                  size="sm"
+                  @click="testConnection(integration)"
+                >
                   Test
                 </UiButton>
-                <UiButton variant="outline" size="sm" @click="openEditModal(integration)">
+                <UiButton
+                  variant="outline"
+                  size="sm"
+                  @click="openEditModal(integration)"
+                >
                   Edit
                 </UiButton>
               </div>
-              <UiButton variant="destructive" size="sm" @click="deleteIntegration(integration)">
+              <UiButton
+                variant="destructive"
+                size="sm"
+                @click="deleteIntegration(integration)"
+              >
                 Delete
               </UiButton>
             </UiCardFooter>
@@ -276,7 +392,10 @@
       <!-- ═══════════════════════════════════════════════════════
            SECURITY TAB
            ═══════════════════════════════════════════════════════ -->
-      <UiTabsContent value="security" class="space-y-6">
+      <UiTabsContent
+        value="security"
+        class="space-y-6"
+      >
         <!-- Username Change -->
         <UiCard
           v-motion
@@ -287,17 +406,24 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center">
-                <component :is="UserIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="UserIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">Change Username</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  Change Username
+                </UiCardTitle>
                 <UiCardDescription>Update your admin username for better security</UiCardDescription>
               </div>
             </div>
           </UiCardHeader>
           <UiCardContent class="pt-5 space-y-4 max-w-md">
             <div class="space-y-1.5">
-              <UiLabel for="new-username">New Username</UiLabel>
+              <UiLabel for="new-username">
+                New Username
+              </UiLabel>
               <UiInput
                 id="new-username"
                 v-model="usernameForm.newUsername"
@@ -306,7 +432,9 @@
               />
             </div>
             <div class="space-y-1.5">
-              <UiLabel for="username-password">Current Password</UiLabel>
+              <UiLabel for="username-password">
+                Current Password
+              </UiLabel>
               <UiInput
                 id="username-password"
                 v-model="usernameForm.password"
@@ -314,11 +442,17 @@
                 placeholder="Confirm with current password"
               />
             </div>
-            <UiAlert v-if="usernameError" variant="destructive">
+            <UiAlert
+              v-if="usernameError"
+              variant="destructive"
+            >
               <UiAlertDescription>{{ usernameError }}</UiAlertDescription>
             </UiAlert>
             <div>
-              <UiButton :disabled="savingUsername" @click="changeUsername">
+              <UiButton
+                :disabled="savingUsername"
+                @click="changeUsername"
+              >
                 {{ savingUsername ? 'Changing…' : 'Change Username' }}
               </UiButton>
             </div>
@@ -335,17 +469,24 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center">
-                <component :is="ShieldIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="ShieldIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">Change Password</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  Change Password
+                </UiCardTitle>
                 <UiCardDescription>Update your admin password</UiCardDescription>
               </div>
             </div>
           </UiCardHeader>
           <UiCardContent class="pt-5 space-y-4 max-w-md">
             <div class="space-y-1.5">
-              <UiLabel for="current-password">Current Password</UiLabel>
+              <UiLabel for="current-password">
+                Current Password
+              </UiLabel>
               <UiInput
                 id="current-password"
                 v-model="passwordForm.currentPassword"
@@ -354,7 +495,9 @@
               />
             </div>
             <div class="space-y-1.5">
-              <UiLabel for="new-password">New Password</UiLabel>
+              <UiLabel for="new-password">
+                New Password
+              </UiLabel>
               <UiInput
                 id="new-password"
                 v-model="passwordForm.newPassword"
@@ -363,7 +506,9 @@
               />
             </div>
             <div class="space-y-1.5">
-              <UiLabel for="confirm-password">Confirm New Password</UiLabel>
+              <UiLabel for="confirm-password">
+                Confirm New Password
+              </UiLabel>
               <UiInput
                 id="confirm-password"
                 v-model="passwordForm.confirmPassword"
@@ -371,11 +516,17 @@
                 placeholder="Confirm new password"
               />
             </div>
-            <UiAlert v-if="passwordError" variant="destructive">
+            <UiAlert
+              v-if="passwordError"
+              variant="destructive"
+            >
               <UiAlertDescription>{{ passwordError }}</UiAlertDescription>
             </UiAlert>
             <div>
-              <UiButton :disabled="savingPassword" @click="changePassword">
+              <UiButton
+                :disabled="savingPassword"
+                @click="changePassword"
+              >
                 {{ savingPassword ? 'Changing…' : 'Change Password' }}
               </UiButton>
             </div>
@@ -392,24 +543,44 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center">
-                <component :is="KeyIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="KeyIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">API Key</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  API Key
+                </UiCardTitle>
                 <UiCardDescription>For external tool integration</UiCardDescription>
               </div>
             </div>
           </UiCardHeader>
           <UiCardContent class="pt-5 space-y-4">
-            <div v-if="apiKey" class="flex items-center gap-2">
+            <div
+              v-if="apiKey"
+              class="flex items-center gap-2"
+            >
               <code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono break-all">{{ apiKey }}</code>
-              <UiButton variant="outline" size="sm" @click="copyApiKey">
+              <UiButton
+                variant="outline"
+                size="sm"
+                @click="copyApiKey"
+              >
                 Copy
               </UiButton>
             </div>
-            <div v-else class="text-sm text-muted-foreground">No API key generated yet.</div>
+            <div
+              v-else
+              class="text-sm text-muted-foreground"
+            >
+              No API key generated yet.
+            </div>
             <div>
-              <UiButton :disabled="generatingApiKey" @click="generateApiKey">
+              <UiButton
+                :disabled="generatingApiKey"
+                @click="generateApiKey"
+              >
                 {{ apiKey ? 'Regenerate API Key' : 'Generate API Key' }}
               </UiButton>
             </div>
@@ -420,7 +591,10 @@
       <!-- ═══════════════════════════════════════════════════════
            ADVANCED TAB
            ═══════════════════════════════════════════════════════ -->
-      <UiTabsContent value="advanced" class="space-y-6">
+      <UiTabsContent
+        value="advanced"
+        class="space-y-6"
+      >
         <!-- Poll Interval -->
         <UiCard
           v-motion
@@ -431,10 +605,15 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
-                <component :is="TimerIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="TimerIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">Poll Interval</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  Poll Interval
+                </UiCardTitle>
                 <UiCardDescription>How often Capacitarr checks your integrations</UiCardDescription>
               </div>
             </div>
@@ -450,15 +629,29 @@
                   <UiSelectValue placeholder="Select interval" />
                 </UiSelectTrigger>
                 <UiSelectContent>
-                  <UiSelectItem value="30">30 seconds</UiSelectItem>
-                  <UiSelectItem value="60">1 minute</UiSelectItem>
-                  <UiSelectItem value="300">5 minutes (default)</UiSelectItem>
-                  <UiSelectItem value="900">15 minutes</UiSelectItem>
-                  <UiSelectItem value="1800">30 minutes</UiSelectItem>
-                  <UiSelectItem value="3600">1 hour</UiSelectItem>
+                  <UiSelectItem value="30">
+                    30 seconds
+                  </UiSelectItem>
+                  <UiSelectItem value="60">
+                    1 minute
+                  </UiSelectItem>
+                  <UiSelectItem value="300">
+                    5 minutes (default)
+                  </UiSelectItem>
+                  <UiSelectItem value="900">
+                    15 minutes
+                  </UiSelectItem>
+                  <UiSelectItem value="1800">
+                    30 minutes
+                  </UiSelectItem>
+                  <UiSelectItem value="3600">
+                    1 hour
+                  </UiSelectItem>
                 </UiSelectContent>
               </UiSelect>
-              <p class="text-xs text-muted-foreground/70">The poller adjusts dynamically — no restart required.</p>
+              <p class="text-xs text-muted-foreground/70">
+                The poller adjusts dynamically — no restart required.
+              </p>
             </div>
           </UiCardContent>
         </UiCard>
@@ -473,10 +666,15 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <component :is="DatabaseIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="DatabaseIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">Data Management</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  Data Management
+                </UiCardTitle>
                 <UiCardDescription>Configure audit log retention</UiCardDescription>
               </div>
             </div>
@@ -492,18 +690,37 @@
                   <UiSelectValue placeholder="Select retention" />
                 </UiSelectTrigger>
                 <UiSelectContent>
-                  <UiSelectItem value="7">7 days</UiSelectItem>
-                  <UiSelectItem value="14">14 days</UiSelectItem>
-                  <UiSelectItem value="30">30 days (default)</UiSelectItem>
-                  <UiSelectItem value="60">60 days</UiSelectItem>
-                  <UiSelectItem value="90">90 days</UiSelectItem>
-                  <UiSelectItem value="180">180 days</UiSelectItem>
-                  <UiSelectItem value="365">365 days</UiSelectItem>
-                  <UiSelectItem value="0">Indefinite</UiSelectItem>
+                  <UiSelectItem value="7">
+                    7 days
+                  </UiSelectItem>
+                  <UiSelectItem value="14">
+                    14 days
+                  </UiSelectItem>
+                  <UiSelectItem value="30">
+                    30 days (default)
+                  </UiSelectItem>
+                  <UiSelectItem value="60">
+                    60 days
+                  </UiSelectItem>
+                  <UiSelectItem value="90">
+                    90 days
+                  </UiSelectItem>
+                  <UiSelectItem value="180">
+                    180 days
+                  </UiSelectItem>
+                  <UiSelectItem value="365">
+                    365 days
+                  </UiSelectItem>
+                  <UiSelectItem value="0">
+                    Indefinite
+                  </UiSelectItem>
                 </UiSelectContent>
               </UiSelect>
             </div>
-            <UiAlert v-if="retentionDays === 0" variant="destructive">
+            <UiAlert
+              v-if="retentionDays === 0"
+              variant="destructive"
+            >
               <UiAlertTitle>Warning</UiAlertTitle>
               <UiAlertDescription>
                 Indefinite retention will cause the database to grow continuously. This may eventually impact performance.
@@ -522,10 +739,15 @@
           <UiCardHeader class="border-b border-border">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-amber-500 flex items-center justify-center">
-                <component :is="HardDriveIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="HardDriveIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base">Default Disk Group Thresholds</UiCardTitle>
+                <UiCardTitle class="text-base">
+                  Default Disk Group Thresholds
+                </UiCardTitle>
                 <UiCardDescription>Applied when new disk groups are discovered</UiCardDescription>
               </div>
             </div>
@@ -576,10 +798,15 @@
           <UiCardHeader class="border-b border-destructive/30">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-destructive flex items-center justify-center">
-                <component :is="AlertTriangleIcon" class="w-5 h-5 text-white" />
+                <component
+                  :is="AlertTriangleIcon"
+                  class="w-5 h-5 text-white"
+                />
               </div>
               <div>
-                <UiCardTitle class="text-base text-destructive">Reset Scraped Data</UiCardTitle>
+                <UiCardTitle class="text-base text-destructive">
+                  Reset Scraped Data
+                </UiCardTitle>
                 <UiCardDescription>
                   Clear all audit logs, capacity history, engine stats, and disk group data.
                   Integration configurations, preferences, and custom rules are preserved.
@@ -589,7 +816,11 @@
             </div>
           </UiCardHeader>
           <UiCardContent class="pt-5">
-            <UiButton variant="destructive" :disabled="resettingData" @click="showResetDialog = true">
+            <UiButton
+              variant="destructive"
+              :disabled="resettingData"
+              @click="showResetDialog = true"
+            >
               {{ resettingData ? 'Clearing…' : 'Clear All Scraped Data' }}
             </UiButton>
           </UiCardContent>
@@ -598,7 +829,10 @@
     </UiTabs>
 
     <!-- Data Reset Confirmation Dialog -->
-    <UiDialog :open="showResetDialog" @update:open="(val: boolean) => { showResetDialog = val }">
+    <UiDialog
+      :open="showResetDialog"
+      @update:open="(val: boolean) => { showResetDialog = val }"
+    >
       <UiDialogContent class="max-w-md">
         <UiDialogHeader>
           <UiDialogTitle>Are you sure?</UiDialogTitle>
@@ -607,10 +841,17 @@
           </UiDialogDescription>
         </UiDialogHeader>
         <UiDialogFooter class="flex gap-2 justify-end">
-          <UiButton variant="outline" @click="showResetDialog = false">
+          <UiButton
+            variant="outline"
+            @click="showResetDialog = false"
+          >
             Cancel
           </UiButton>
-          <UiButton variant="destructive" :disabled="resettingData" @click="confirmResetData">
+          <UiButton
+            variant="destructive"
+            :disabled="resettingData"
+            @click="confirmResetData"
+          >
             {{ resettingData ? 'Clearing…' : 'Yes, clear all data' }}
           </UiButton>
         </UiDialogFooter>
@@ -618,7 +859,10 @@
     </UiDialog>
 
     <!-- Integration Modal -->
-    <UiDialog :open="showModal" @update:open="(val: boolean) => { showModal = val }">
+    <UiDialog
+      :open="showModal"
+      @update:open="(val: boolean) => { showModal = val }"
+    >
       <UiDialogContent class="max-w-md">
         <UiDialogHeader>
           <UiDialogTitle>
@@ -626,23 +870,47 @@
           </UiDialogTitle>
         </UiDialogHeader>
 
-        <form class="space-y-4" @submit.prevent="onSubmit">
+        <form
+          class="space-y-4"
+          @submit.prevent="onSubmit"
+        >
           <div class="space-y-1.5">
             <UiLabel>Type</UiLabel>
-            <UiSelect v-model="formState.type" :disabled="!!editingIntegration">
+            <UiSelect
+              v-model="formState.type"
+              :disabled="!!editingIntegration"
+            >
               <UiSelectTrigger class="w-full">
                 <UiSelectValue placeholder="Select type" />
               </UiSelectTrigger>
               <UiSelectContent>
-                <UiSelectItem value="sonarr">Sonarr</UiSelectItem>
-                <UiSelectItem value="radarr">Radarr</UiSelectItem>
-                <UiSelectItem value="lidarr">Lidarr</UiSelectItem>
-                <UiSelectItem value="readarr">Readarr</UiSelectItem>
-                <UiSelectItem value="plex">Plex</UiSelectItem>
-                <UiSelectItem value="jellyfin">Jellyfin</UiSelectItem>
-                <UiSelectItem value="emby">Emby</UiSelectItem>
-                <UiSelectItem value="tautulli">Tautulli</UiSelectItem>
-                <UiSelectItem value="overseerr">Overseerr</UiSelectItem>
+                <UiSelectItem value="sonarr">
+                  Sonarr
+                </UiSelectItem>
+                <UiSelectItem value="radarr">
+                  Radarr
+                </UiSelectItem>
+                <UiSelectItem value="lidarr">
+                  Lidarr
+                </UiSelectItem>
+                <UiSelectItem value="readarr">
+                  Readarr
+                </UiSelectItem>
+                <UiSelectItem value="plex">
+                  Plex
+                </UiSelectItem>
+                <UiSelectItem value="jellyfin">
+                  Jellyfin
+                </UiSelectItem>
+                <UiSelectItem value="emby">
+                  Emby
+                </UiSelectItem>
+                <UiSelectItem value="tautulli">
+                  Tautulli
+                </UiSelectItem>
+                <UiSelectItem value="overseerr">
+                  Overseerr
+                </UiSelectItem>
               </UiSelectContent>
             </UiSelect>
           </div>
@@ -663,7 +931,9 @@
               type="text"
               :placeholder="urlPlaceholder"
             />
-            <p class="text-xs text-muted-foreground/70">{{ urlHelp }}</p>
+            <p class="text-xs text-muted-foreground/70">
+              {{ urlHelp }}
+            </p>
           </div>
 
           <div class="space-y-1.5">
@@ -675,26 +945,41 @@
               type="password"
               placeholder="Enter API key or token"
             />
-            <p v-if="formState.type === 'plex'" class="text-xs text-muted-foreground/70">
+            <p
+              v-if="formState.type === 'plex'"
+              class="text-xs text-muted-foreground/70"
+            >
               To find your Plex token: open any library item in Plex Web → Get Info → View XML → look for <code class="font-mono text-[11px]">X-Plex-Token</code> in the URL.
             </p>
           </div>
 
           <!-- Error -->
-          <UiAlert v-if="formError" variant="destructive">
+          <UiAlert
+            v-if="formError"
+            variant="destructive"
+          >
             <UiAlertDescription>{{ formError }}</UiAlertDescription>
           </UiAlert>
         </form>
 
         <UiDialogFooter class="flex items-center justify-between">
-          <UiButton variant="outline" @click="testFormConnection">
+          <UiButton
+            variant="outline"
+            @click="testFormConnection"
+          >
             Test Connection
           </UiButton>
           <div class="flex gap-2">
-            <UiButton variant="ghost" @click="showModal = false">
+            <UiButton
+              variant="ghost"
+              @click="showModal = false"
+            >
               Cancel
             </UiButton>
-            <UiButton :disabled="saving" @click="onSubmit">
+            <UiButton
+              :disabled="saving"
+              @click="onSubmit"
+            >
               {{ editingIntegration ? 'Save' : 'Add' }}
             </UiButton>
           </div>
@@ -788,7 +1073,7 @@ const saveStatus = reactive<Record<string, 'idle' | 'saving' | 'saved' | 'error'
   defaultThreshold: 'idle',
   defaultTarget: 'idle',
   executionMode: 'idle',
-  tiebreaker: 'idle',
+  tiebreaker: 'idle'
 })
 
 // Password change state
@@ -912,13 +1197,15 @@ function typeTextColor(type: string) {
 }
 
 // ─── Auto-save helpers ───────────────────────────────────────────────────────
-let saveTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+const saveTimers: Record<string, ReturnType<typeof setTimeout>> = {}
 
 function showSaveStatus(field: string, status: 'saving' | 'saved' | 'error') {
   saveStatus[field] = status
   if (status === 'saved') {
     if (saveTimers[field]) clearTimeout(saveTimers[field])
-    saveTimers[field] = setTimeout(() => { saveStatus[field] = 'idle' }, 2000)
+    saveTimers[field] = setTimeout(() => {
+      saveStatus[field] = 'idle'
+    }, 2000)
   }
 }
 
@@ -931,7 +1218,7 @@ async function autoSavePreference(field: string, key: string, value: string | nu
       body: { ...currentPrefs, [key]: value }
     })
     showSaveStatus(field, 'saved')
-  } catch (e) {
+  } catch {
     showSaveStatus(field, 'error')
     addToast(`Failed to save ${field} setting`, 'error')
   }
@@ -956,7 +1243,7 @@ async function fetchIntegrations() {
   loading.value = true
   try {
     integrations.value = await api('/api/v1/integrations') as IntegrationConfig[]
-  } catch (e) {
+  } catch {
     addToast('Failed to load integrations', 'error')
   } finally {
     loading.value = false
@@ -1015,7 +1302,7 @@ async function deleteIntegration(integration: IntegrationConfig) {
     await api(`/api/v1/integrations/${integration.id}`, { method: 'DELETE' })
     addToast('Integration deleted', 'success')
     await fetchIntegrations()
-  } catch (e) {
+  } catch {
     addToast('Failed to delete integration', 'error')
   }
 }
@@ -1067,7 +1354,8 @@ async function fetchPreferences() {
     if (prefs?.tiebreakerMethod) {
       engineTiebreakerMethod.value = prefs.tiebreakerMethod
     }
-  } catch (e) {
+  } catch {
+    // Silently ignored — UI has no further handling
   }
 }
 
@@ -1114,7 +1402,9 @@ async function changePassword() {
     passwordForm.newPassword = ''
     passwordForm.confirmPassword = ''
     // Redirect to login after short delay
-    setTimeout(() => { navigateTo('/login') }, 1500)
+    setTimeout(() => {
+      navigateTo('/login')
+    }, 1500)
   } catch (e: unknown) {
     passwordError.value = (e as ApiError)?.data?.error || 'Failed to change password'
     addToast(passwordError.value, 'error')
@@ -1152,7 +1442,9 @@ async function changeUsername() {
     addToast('Username changed — please log in again', 'success')
     usernameForm.newUsername = ''
     usernameForm.password = ''
-    setTimeout(() => { navigateTo('/login') }, 1500)
+    setTimeout(() => {
+      navigateTo('/login')
+    }, 1500)
   } catch (e: unknown) {
     usernameError.value = (e as ApiError)?.data?.error || 'Failed to change username'
     addToast(usernameError.value, 'error')
@@ -1168,7 +1460,7 @@ async function generateApiKey() {
     const result = await api('/api/v1/auth/apikey', { method: 'POST' }) as ApiKeyResponse
     apiKey.value = result.api_key
     addToast('API key generated', 'success')
-  } catch (e) {
+  } catch {
     addToast('Failed to generate API key', 'error')
   } finally {
     generatingApiKey.value = false

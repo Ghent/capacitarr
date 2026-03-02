@@ -1,5 +1,8 @@
 <template>
-  <div v-if="factors.length > 0" class="flex flex-col gap-1">
+  <div
+    v-if="factors.length > 0"
+    class="flex flex-col gap-1"
+  >
     <div class="flex items-center gap-2">
       <span :class="['font-semibold tabular-nums text-foreground', size === 'sm' ? 'text-xs' : 'text-sm']">
         {{ scoreDisplay }}
@@ -15,13 +18,16 @@
           :style="{
             width: totalContrib > 0 ? `${(f.contribution / totalContrib) * 100}%` : '0%',
             backgroundColor: factorColor(f.name),
-            minWidth: f.contribution > 0 ? '2px' : '0px',
+            minWidth: f.contribution > 0 ? '2px' : '0px'
           }"
           :title="`${f.name}: ${f.contribution.toFixed(2)}`"
-        ></div>
+        />
       </div>
     </div>
-    <div v-if="weightFactors.length > 0" class="flex flex-wrap gap-x-2 gap-y-0.5">
+    <div
+      v-if="weightFactors.length > 0"
+      class="flex flex-wrap gap-x-2 gap-y-0.5"
+    >
       <span
         v-for="f in visibleWeightFactors"
         :key="f.name"
@@ -31,11 +37,14 @@
         <span
           class="w-1.5 h-1.5 rounded-full flex-shrink-0"
           :style="{ backgroundColor: factorColor(f.name) }"
-        ></span>
+        />
         <span>{{ factorAbbr(f.name) }}{{ f.contribution.toFixed(2) }}</span>
       </span>
     </div>
-    <div v-if="ruleFactors.length > 0" class="flex flex-wrap gap-1 mt-0.5">
+    <div
+      v-if="ruleFactors.length > 0"
+      class="flex flex-wrap gap-1 mt-0.5"
+    >
       <span
         v-for="f in ruleFactors"
         :key="f.name"
@@ -47,7 +56,10 @@
       </span>
     </div>
   </div>
-  <div v-else-if="legacyParsed.score" class="flex flex-col gap-1">
+  <div
+    v-else-if="legacyParsed.score"
+    class="flex flex-col gap-1"
+  >
     <div class="flex items-center gap-2">
       <span :class="['font-semibold tabular-nums', size === 'sm' ? 'text-xs' : 'text-sm']">
         {{ legacyParsed.score }}
@@ -63,13 +75,16 @@
           :style="{
             width: legacyTotalContrib > 0 ? `${(f.value / legacyTotalContrib) * 100}%` : '0%',
             backgroundColor: factorColor(f.name),
-            minWidth: f.value > 0 ? '2px' : '0px',
+            minWidth: f.value > 0 ? '2px' : '0px'
           }"
           :title="`${f.label}: ${f.value.toFixed(2)}`"
-        ></div>
+        />
       </div>
     </div>
-    <div v-if="legacyParsed.factors.length > 0" class="flex flex-wrap gap-x-2 gap-y-0.5">
+    <div
+      v-if="legacyParsed.factors.length > 0"
+      class="flex flex-wrap gap-x-2 gap-y-0.5"
+    >
       <span
         v-for="f in legacyVisibleFactors"
         :key="f.name"
@@ -79,7 +94,7 @@
         <span
           class="w-1.5 h-1.5 rounded-full flex-shrink-0"
           :style="{ backgroundColor: factorColor(f.name) }"
-        ></span>
+        />
         <span>{{ f.abbr }}{{ f.value.toFixed(2) }}</span>
       </span>
     </div>
@@ -91,7 +106,11 @@
       {{ legacyParsed.rawBreakdown }}
     </span>
   </div>
-  <span v-else class="text-xs text-zinc-500 max-w-xs truncate block" :title="reason">
+  <span
+    v-else
+    class="text-xs text-zinc-500 max-w-xs truncate block"
+    :title="reason"
+  >
     {{ reason }}
   </span>
 </template>
@@ -121,11 +140,11 @@ const FACTOR_COLORS: Record<string, string> = {
   'Time in Library': '#f97316',
   'Availability': '#ec4899',
   // Legacy short names
-  Watch: '#8b5cf6',
-  Recency: '#3b82f6',
-  Size: '#f59e0b',
-  Age: '#f97316',
-  Status: '#ec4899',
+  'Watch': '#8b5cf6',
+  'Recency': '#3b82f6',
+  'Size': '#f59e0b',
+  'Age': '#f97316',
+  'Status': '#ec4899'
 }
 
 const FACTOR_ABBRS: Record<string, string> = {
@@ -134,7 +153,7 @@ const FACTOR_ABBRS: Record<string, string> = {
   'File Size': 'S:',
   'Rating': 'Rt:',
   'Time in Library': 'A:',
-  'Availability': 'St:',
+  'Availability': 'St:'
 }
 
 const LEGACY_LABELS: Record<string, string> = {
@@ -143,7 +162,7 @@ const LEGACY_LABELS: Record<string, string> = {
   Size: 'File Size',
   Rating: 'Rating',
   Age: 'Time in Library',
-  Status: 'Availability',
+  Status: 'Availability'
 }
 
 function factorColor(name: string): string {
@@ -225,7 +244,7 @@ function parseLegacyReason(reason: string): LegacyParsed {
       name,
       label: LEGACY_LABELS[name] || name,
       abbr: name.slice(0, 1).toUpperCase() + ':',
-      value,
+      value
     })
   }
 

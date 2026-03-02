@@ -7,9 +7,18 @@
       <div class="flex items-center justify-between h-16">
         <!-- Brand -->
         <div class="flex items-center gap-6">
-          <NuxtLink to="/" class="flex items-center gap-2.5 group">
-            <div data-slot="brand-icon" class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <component :is="DatabaseIcon" class="w-4.5 h-4.5 text-primary-foreground" />
+          <NuxtLink
+            to="/"
+            class="flex items-center gap-2.5 group"
+          >
+            <div
+              data-slot="brand-icon"
+              class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
+            >
+              <component
+                :is="DatabaseIcon"
+                class="w-4.5 h-4.5 text-primary-foreground"
+              />
             </div>
             <div class="flex flex-col">
               <span class="text-lg font-bold tracking-tight text-foreground leading-tight">
@@ -51,11 +60,21 @@
           <!-- Theme selector -->
           <UiDropdownMenu>
             <UiDropdownMenuTrigger as-child>
-              <UiButton variant="ghost" size="icon" aria-label="Change theme">
-                <component :is="PaletteIcon" class="w-5 h-5" />
+              <UiButton
+                variant="ghost"
+                size="icon"
+                aria-label="Change theme"
+              >
+                <component
+                  :is="PaletteIcon"
+                  class="w-5 h-5"
+                />
               </UiButton>
             </UiDropdownMenuTrigger>
-            <UiDropdownMenuContent align="end" class="w-40">
+            <UiDropdownMenuContent
+              align="end"
+              class="w-40"
+            >
               <UiDropdownMenuLabel>Theme</UiDropdownMenuLabel>
               <UiDropdownMenuSeparator />
               <UiDropdownMenuItem
@@ -71,8 +90,8 @@
                 />
                 <span>{{ t.label }}</span>
                 <component
-                  v-if="theme === t.id"
                   :is="CheckIcon"
+                  v-if="theme === t.id"
                   class="w-4 h-4 ml-auto text-primary"
                 />
               </UiDropdownMenuItem>
@@ -86,27 +105,52 @@
             :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
             @click="toggle"
           >
-            <component :is="isDark ? SunIcon : MoonIcon" class="w-5 h-5" />
+            <component
+              :is="isDark ? SunIcon : MoonIcon"
+              class="w-5 h-5"
+            />
           </UiButton>
 
           <!-- Help -->
-          <UiButton variant="ghost" size="icon" as-child>
-            <NuxtLink to="/help" aria-label="Help">
-              <component :is="CircleHelpIcon" class="w-5 h-5" />
+          <UiButton
+            variant="ghost"
+            size="icon"
+            as-child
+          >
+            <NuxtLink
+              to="/help"
+              aria-label="Help"
+            >
+              <component
+                :is="CircleHelpIcon"
+                class="w-5 h-5"
+              />
             </NuxtLink>
           </UiButton>
 
           <!-- About -->
           <UiPopover>
             <UiPopoverTrigger as-child>
-              <UiButton variant="ghost" size="icon" aria-label="About Capacitarr">
-                <component :is="InfoIcon" class="w-5 h-5" />
+              <UiButton
+                variant="ghost"
+                size="icon"
+                aria-label="About Capacitarr"
+              >
+                <component
+                  :is="InfoIcon"
+                  class="w-5 h-5"
+                />
               </UiButton>
             </UiPopoverTrigger>
-            <UiPopoverContent align="end" class="w-72">
+            <UiPopoverContent
+              align="end"
+              class="w-72"
+            >
               <div class="space-y-3">
                 <div>
-                  <h4 class="font-semibold text-sm">Capacitarr</h4>
+                  <h4 class="font-semibold text-sm">
+                    Capacitarr
+                  </h4>
                   <span class="text-xs text-muted-foreground font-mono">v{{ uiVersion }}</span>
                 </div>
                 <p class="text-sm text-muted-foreground leading-snug">
@@ -117,12 +161,28 @@
                   <p>Built by the Capacitarr team</p>
                   <p>
                     Inspired by
-                    <a href="https://github.com/jorenn92/Maintainerr" target="_blank" rel="noopener" class="text-primary hover:underline inline-flex items-center gap-0.5">
-                      Maintainerr <component :is="ExternalLinkIcon" class="w-3 h-3" />
+                    <a
+                      href="https://github.com/jorenn92/Maintainerr"
+                      target="_blank"
+                      rel="noopener"
+                      class="text-primary hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Maintainerr <component
+                        :is="ExternalLinkIcon"
+                        class="w-3 h-3"
+                      />
                     </a>
                     and the
-                    <a href="https://wiki.servarr.com/" target="_blank" rel="noopener" class="text-primary hover:underline inline-flex items-center gap-0.5">
-                      *arr <component :is="ExternalLinkIcon" class="w-3 h-3" />
+                    <a
+                      href="https://wiki.servarr.com/"
+                      target="_blank"
+                      rel="noopener"
+                      class="text-primary hover:underline inline-flex items-center gap-0.5"
+                    >
+                      *arr <component
+                        :is="ExternalLinkIcon"
+                        class="w-3 h-3"
+                      />
                     </a>
                     ecosystem
                   </p>
@@ -130,8 +190,16 @@
                 <UiSeparator />
                 <div class="flex items-center justify-between">
                   <span class="text-[10px] text-muted-foreground/60">Go · Nuxt · shadcn-vue · SQLite</span>
-                  <a href="https://github.com/capacitarr/capacitarr" target="_blank" rel="noopener" class="text-xs text-primary hover:underline inline-flex items-center gap-1">
-                    GitHub <component :is="ExternalLinkIcon" class="w-3 h-3" />
+                  <a
+                    href="https://github.com/capacitarr/capacitarr"
+                    target="_blank"
+                    rel="noopener"
+                    class="text-xs text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    GitHub <component
+                      :is="ExternalLinkIcon"
+                      class="w-3 h-3"
+                    />
                   </a>
                 </div>
               </div>
@@ -146,7 +214,10 @@
             class="hover:text-destructive"
             @click="logout"
           >
-            <component :is="LogOutIcon" class="w-5 h-5" />
+            <component
+              :is="LogOutIcon"
+              class="w-5 h-5"
+            />
           </UiButton>
         </div>
       </div>

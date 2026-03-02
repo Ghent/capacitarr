@@ -3,8 +3,13 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
       <!-- ① Service Instance -->
       <div class="space-y-1.5">
-        <UiLabel class="text-xs text-muted-foreground">Service</UiLabel>
-        <UiSelect v-model="form.integrationId" @update:model-value="onServiceChange">
+        <UiLabel class="text-xs text-muted-foreground">
+          Service
+        </UiLabel>
+        <UiSelect
+          v-model="form.integrationId"
+          @update:model-value="onServiceChange"
+        >
           <UiSelectTrigger>
             <UiSelectValue placeholder="Select service…" />
           </UiSelectTrigger>
@@ -22,8 +27,14 @@
 
       <!-- ② Action (Field) -->
       <div class="space-y-1.5">
-        <UiLabel class="text-xs text-muted-foreground">Action</UiLabel>
-        <UiSelect v-model="form.field" :disabled="!form.integrationId" @update:model-value="onFieldChange">
+        <UiLabel class="text-xs text-muted-foreground">
+          Action
+        </UiLabel>
+        <UiSelect
+          v-model="form.field"
+          :disabled="!form.integrationId"
+          @update:model-value="onFieldChange"
+        >
           <UiSelectTrigger>
             <UiSelectValue placeholder="Select field…" />
           </UiSelectTrigger>
@@ -41,8 +52,13 @@
 
       <!-- ③ Operator -->
       <div class="space-y-1.5">
-        <UiLabel class="text-xs text-muted-foreground">Operator</UiLabel>
-        <UiSelect v-model="form.operator" :disabled="!form.field">
+        <UiLabel class="text-xs text-muted-foreground">
+          Operator
+        </UiLabel>
+        <UiSelect
+          v-model="form.operator"
+          :disabled="!form.field"
+        >
           <UiSelectTrigger>
             <UiSelectValue placeholder="Select…" />
           </UiSelectTrigger>
@@ -60,10 +76,15 @@
 
       <!-- ④ Value — Dynamic input based on action type -->
       <div class="space-y-1.5">
-        <UiLabel class="text-xs text-muted-foreground">Value</UiLabel>
+        <UiLabel class="text-xs text-muted-foreground">
+          Value
+        </UiLabel>
 
         <!-- Loading state -->
-        <div v-if="valueLoading" class="flex items-center justify-center h-9 rounded-md border border-input bg-background px-3">
+        <div
+          v-if="valueLoading"
+          class="flex items-center justify-center h-9 rounded-md border border-input bg-background px-3"
+        >
           <span class="text-xs text-muted-foreground animate-pulse">Loading…</span>
         </div>
 
@@ -72,8 +93,8 @@
           <div class="flex items-center gap-3 h-9">
             <UiSwitch
               :checked="form.value === 'true'"
-              @update:checked="(v: boolean) => form.value = String(v)"
               :disabled="!form.operator"
+              @update:checked="(v: boolean) => form.value = String(v)"
             />
             <span class="text-sm text-muted-foreground">{{ form.value === 'true' ? 'Yes' : 'No' }}</span>
           </div>
@@ -81,7 +102,10 @@
 
         <!-- Closed-set select (quality profiles, languages, show status, media type) -->
         <template v-else-if="valueInputMode === 'closed'">
-          <UiSelect v-model="form.value" :disabled="!form.operator">
+          <UiSelect
+            v-model="form.value"
+            :disabled="!form.operator"
+          >
             <UiSelectTrigger>
               <UiSelectValue placeholder="Select…" />
             </UiSelectTrigger>
@@ -114,7 +138,10 @@
                 <ChevronsUpDownIcon class="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </UiButton>
             </UiPopoverTrigger>
-            <UiPopoverContent class="w-[--reka-popover-trigger-width] p-0" align="start">
+            <UiPopoverContent
+              class="w-[--reka-popover-trigger-width] p-0"
+              align="start"
+            >
               <UiCommand>
                 <UiCommandInput
                   v-model="comboboxSearch"
@@ -129,7 +156,10 @@
                     >
                       Use "{{ comboboxSearch }}"
                     </button>
-                    <span v-else class="text-muted-foreground text-xs">No results</span>
+                    <span
+                      v-else
+                      class="text-muted-foreground text-xs"
+                    >No results</span>
                   </UiCommandEmpty>
                   <UiCommandGroup>
                     <UiCommandItem
@@ -157,12 +187,18 @@
               :placeholder="freeInputPlaceholder"
               class="flex-1"
             />
-            <span v-if="freeInputSuffix" class="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+            <span
+              v-if="freeInputSuffix"
+              class="text-xs text-muted-foreground whitespace-nowrap shrink-0"
+            >
               {{ freeInputSuffix }}
             </span>
           </div>
           <!-- Validation warning for size field: show GB equivalent -->
-          <p v-if="form.field === 'sizebytes' && form.value" class="text-[11px] text-muted-foreground mt-1">
+          <p
+            v-if="form.field === 'sizebytes' && form.value"
+            class="text-[11px] text-muted-foreground mt-1"
+          >
             ≈ {{ (Number(form.value) / 1073741824).toFixed(2) }} GB
           </p>
         </template>
@@ -170,8 +206,13 @@
 
       <!-- ⑤ Effect -->
       <div class="space-y-1.5">
-        <UiLabel class="text-xs text-muted-foreground">Effect</UiLabel>
-        <UiSelect v-model="form.effect" :disabled="!form.value">
+        <UiLabel class="text-xs text-muted-foreground">
+          Effect
+        </UiLabel>
+        <UiSelect
+          v-model="form.effect"
+          :disabled="!form.value"
+        >
           <UiSelectTrigger>
             <UiSelectValue placeholder="Select effect…" />
           </UiSelectTrigger>
@@ -192,10 +233,18 @@
     </div>
 
     <div class="flex items-center gap-3">
-      <UiButton size="sm" :disabled="!isFormValid" @click="submitRule">
+      <UiButton
+        size="sm"
+        :disabled="!isFormValid"
+        @click="submitRule"
+      >
         Save Rule
       </UiButton>
-      <UiButton variant="ghost" size="sm" @click="$emit('cancel')">
+      <UiButton
+        variant="ghost"
+        size="sm"
+        @click="$emit('cancel')"
+      >
         Cancel
       </UiButton>
     </div>
@@ -270,7 +319,7 @@ const operatorLabels: Record<string, string> = {
   '>': 'more than',
   '>=': 'at least',
   '<': 'less than',
-  '<=': 'at most',
+  '<=': 'at most'
 }
 
 // Effect options with color coding
@@ -280,7 +329,7 @@ const effectOptions = [
   { value: 'lean_keep', label: 'Lean toward keeping', colorClass: 'bg-sky-400', icon: '🔵' },
   { value: 'lean_remove', label: 'Lean toward removing', colorClass: 'bg-amber-400', icon: '🟡' },
   { value: 'prefer_remove', label: 'Prefer to remove', colorClass: 'bg-orange-500', icon: '🟠' },
-  { value: 'always_remove', label: 'Always remove', colorClass: 'bg-red-500', icon: '🔴' },
+  { value: 'always_remove', label: 'Always remove', colorClass: 'bg-red-500', icon: '🔴' }
 ]
 
 // Form state
@@ -289,7 +338,7 @@ const form = reactive({
   field: '',
   operator: '',
   value: '',
-  effect: '',
+  effect: ''
 })
 
 // Dynamic fields fetched based on selected service type
@@ -322,7 +371,7 @@ const availableOperators = computed(() => {
   if (!selectedField.value) return []
   return selectedField.value.operators.map(op => ({
     value: op,
-    label: operatorLabels[op] ?? op,
+    label: operatorLabels[op] ?? op
   }))
 })
 
@@ -386,11 +435,11 @@ const freeInputSuffix = computed(() => {
 })
 
 const isFormValid = computed(() =>
-  form.integrationId !== '' &&
-  form.field !== '' &&
-  form.operator !== '' &&
-  form.value !== '' &&
-  form.effect !== ''
+  form.integrationId !== ''
+  && form.field !== ''
+  && form.operator !== ''
+  && form.value !== ''
+  && form.effect !== ''
 )
 
 // Cascade: when service changes, reset downstream fields and fetch field definitions
@@ -455,7 +504,7 @@ function submitRule() {
     field: form.field,
     operator: form.operator,
     value: form.value,
-    effect: form.effect,
+    effect: form.effect
   })
   // Reset form
   form.integrationId = ''

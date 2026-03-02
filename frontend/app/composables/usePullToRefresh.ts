@@ -84,6 +84,6 @@ export function usePullToRefresh(onRefresh: () => Promise<void>) {
   return {
     isRefreshing: readonly(isRefreshing),
     pullProgress: readonly(pullProgress),
-    pullDistance: readonly(pullDistance),
+    pullDistance: readonly(pullDistance)
   }
 }

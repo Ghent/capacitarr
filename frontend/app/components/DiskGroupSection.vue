@@ -13,10 +13,16 @@
             class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
             :class="statusBgColor"
           >
-            <component :is="HardDriveIcon" class="w-5 h-5 text-white" />
+            <component
+              :is="HardDriveIcon"
+              class="w-5 h-5 text-white"
+            />
           </div>
           <div>
-            <h3 class="font-semibold text-sm truncate" :title="group.mountPath">
+            <h3
+              class="font-semibold text-sm truncate"
+              :title="group.mountPath"
+            >
               {{ group.mountPath }}
             </h3>
             <span class="text-xs text-muted-foreground">
@@ -24,7 +30,10 @@
             </span>
           </div>
         </div>
-        <span class="text-2xl font-bold tabular-nums" :class="statusTextColor">
+        <span
+          class="text-2xl font-bold tabular-nums"
+          :class="statusTextColor"
+        >
           {{ usagePercent }}%
         </span>
       </div>
@@ -114,7 +123,7 @@ import {
   diskUsageStatus,
   diskStatusBgClass,
   diskStatusTextClass,
-  diskStatusFillColor,
+  diskStatusFillColor
 } from '~/utils/format'
 
 interface DiskGroup {
@@ -148,15 +157,15 @@ const rawUsagePct = computed(() => {
 const usagePercent = computed(() => Math.round(rawUsagePct.value))
 
 const statusBgColor = computed(() =>
-  diskStatusBgClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
+  diskStatusBgClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct)
 )
 
 const statusTextColor = computed(() =>
-  diskStatusTextClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
+  diskStatusTextClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct)
 )
 
 /** Inline fill color for the progress bar (bypasses Tailwind alpha issues). */
 const barFillColor = computed(() =>
-  diskStatusFillColor(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
+  diskStatusFillColor(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct)
 )
 </script>

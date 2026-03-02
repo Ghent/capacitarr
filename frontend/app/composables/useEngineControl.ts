@@ -46,7 +46,7 @@ export function useEngineControl() {
           const flagged = stats.lastRunFlagged ?? 0
           addToast(
             `Engine run complete — evaluated ${evaluated.toLocaleString()} items, flagged ${flagged.toLocaleString()}`,
-            'success',
+            'success'
           )
         }
 
@@ -105,6 +105,6 @@ export function useEngineControl() {
     modeLabel,
     fetchStats,
     setMode,
-    triggerRunNow,
+    triggerRunNow
   }
 }

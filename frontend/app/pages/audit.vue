@@ -7,19 +7,40 @@
       :is-refreshing="isRefreshing"
     />
 
-    <div data-slot="page-header" class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div
+      data-slot="page-header"
+      class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4"
+    >
       <div>
-        <h1 class="text-3xl font-bold tracking-tight">Audit History</h1>
-        <p class="text-muted-foreground mt-1.5">Historical log of all scoring engine decisions and space reclaimed.</p>
+        <h1 class="text-3xl font-bold tracking-tight">
+          Audit History
+        </h1>
+        <p class="text-muted-foreground mt-1.5">
+          Historical log of all scoring engine decisions and space reclaimed.
+        </p>
       </div>
-      <UiButton variant="outline" @click="fetchLogs">
-        <LoaderCircleIcon v-if="pending" class="w-4 h-4 animate-spin" />
-        <RefreshCwIcon v-else class="w-4 h-4" />
+      <UiButton
+        variant="outline"
+        @click="fetchLogs"
+      >
+        <LoaderCircleIcon
+          v-if="pending"
+          class="w-4 h-4 animate-spin"
+        />
+        <RefreshCwIcon
+          v-else
+          class="w-4 h-4"
+        />
         Refresh
       </UiButton>
     </div>
 
-    <UiCard v-motion :initial="{ opacity: 0, y: 8 }" :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } }" class="overflow-hidden">
+    <UiCard
+      v-motion
+      :initial="{ opacity: 0, y: 8 }"
+      :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } }"
+      class="overflow-hidden"
+    >
       <!-- Search & Action Filters -->
       <div class="px-5 pt-5 pb-3 space-y-3 border-b border-border">
         <div class="flex flex-col sm:flex-row gap-3">
@@ -47,16 +68,29 @@
         </div>
       </div>
 
-      <div v-if="pending && logs.length === 0" class="p-4">
-        <SkeletonTable :rows="8" :column-widths="['28%', '10%', '10%', '15%', '22%', '8%']" />
+      <div
+        v-if="pending && logs.length === 0"
+        class="p-4"
+      >
+        <SkeletonTable
+          :rows="8"
+          :column-widths="['28%', '10%', '10%', '15%', '22%', '8%']"
+        />
       </div>
 
-      <div v-else-if="!pending && logs.length === 0" class="flex flex-col items-center justify-center py-20 text-muted-foreground">
+      <div
+        v-else-if="!pending && logs.length === 0"
+        class="flex flex-col items-center justify-center py-20 text-muted-foreground"
+      >
         <ClockIcon class="w-10 h-10 mb-3" />
         <span class="text-sm font-medium">No history found</span>
       </div>
 
-      <div v-else ref="auditScrollRef" class="overflow-x-auto max-h-[600px] overflow-y-auto relative">
+      <div
+        v-else
+        ref="auditScrollRef"
+        class="overflow-x-auto max-h-[600px] overflow-y-auto relative"
+      >
         <UiTable>
           <UiTableHeader class="sticky top-0 z-10 bg-background">
             <UiTableRow>
@@ -66,9 +100,18 @@
               >
                 <span class="inline-flex items-center gap-1">
                   Timestamp
-                  <ArrowUpIcon v-if="auditSortBy === 'created_at' && auditSortDir === 'asc'" class="w-3 h-3" />
-                  <ArrowDownIcon v-else-if="auditSortBy === 'created_at' && auditSortDir === 'desc'" class="w-3 h-3" />
-                  <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                  <ArrowUpIcon
+                    v-if="auditSortBy === 'created_at' && auditSortDir === 'asc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowDownIcon
+                    v-else-if="auditSortBy === 'created_at' && auditSortDir === 'desc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowUpDownIcon
+                    v-else
+                    class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                  />
                 </span>
               </UiTableHead>
               <UiTableHead
@@ -77,9 +120,18 @@
               >
                 <span class="inline-flex items-center gap-1">
                   Title
-                  <ArrowUpIcon v-if="auditSortBy === 'media_name' && auditSortDir === 'asc'" class="w-3 h-3" />
-                  <ArrowDownIcon v-else-if="auditSortBy === 'media_name' && auditSortDir === 'desc'" class="w-3 h-3" />
-                  <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                  <ArrowUpIcon
+                    v-if="auditSortBy === 'media_name' && auditSortDir === 'asc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowDownIcon
+                    v-else-if="auditSortBy === 'media_name' && auditSortDir === 'desc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowUpDownIcon
+                    v-else
+                    class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                  />
                 </span>
               </UiTableHead>
               <UiTableHead>Type</UiTableHead>
@@ -89,9 +141,18 @@
               >
                 <span class="inline-flex items-center gap-1">
                   Result
-                  <ArrowUpIcon v-if="auditSortBy === 'action' && auditSortDir === 'asc'" class="w-3 h-3" />
-                  <ArrowDownIcon v-else-if="auditSortBy === 'action' && auditSortDir === 'desc'" class="w-3 h-3" />
-                  <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                  <ArrowUpIcon
+                    v-if="auditSortBy === 'action' && auditSortDir === 'asc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowDownIcon
+                    v-else-if="auditSortBy === 'action' && auditSortDir === 'desc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowUpDownIcon
+                    v-else
+                    class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                  />
                 </span>
               </UiTableHead>
               <UiTableHead>Score</UiTableHead>
@@ -101,74 +162,139 @@
               >
                 <span class="inline-flex items-center gap-1 justify-end">
                   Space
-                  <ArrowUpIcon v-if="auditSortBy === 'size_bytes' && auditSortDir === 'asc'" class="w-3 h-3" />
-                  <ArrowDownIcon v-else-if="auditSortBy === 'size_bytes' && auditSortDir === 'desc'" class="w-3 h-3" />
-                  <ArrowUpDownIcon v-else class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                  <ArrowUpIcon
+                    v-if="auditSortBy === 'size_bytes' && auditSortDir === 'asc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowDownIcon
+                    v-else-if="auditSortBy === 'size_bytes' && auditSortDir === 'desc'"
+                    class="w-3 h-3"
+                  />
+                  <ArrowUpDownIcon
+                    v-else
+                    class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
+                  />
                 </span>
               </UiTableHead>
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
-            <template v-for="group in renderedAuditGroups" :key="group.key">
-              <UiTableRow class="cursor-pointer" @click="selectItem(group.entry); group.seasons.length > 0 && toggleGroup(group.key)">
-                <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap">{{ formatTimestamp(group.entry.createdAt) }}</UiTableCell>
+            <template
+              v-for="group in renderedAuditGroups"
+              :key="group.key"
+            >
+              <UiTableRow
+                class="cursor-pointer"
+                @click="selectItem(group.entry); group.seasons.length > 0 && toggleGroup(group.key)"
+              >
+                <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap">
+                  {{ formatTimestamp(group.entry.createdAt) }}
+                </UiTableCell>
                 <UiTableCell class="font-medium whitespace-nowrap">
                   <div class="flex items-center gap-2">
                     <span class="truncate">{{ group.entry.mediaName }}</span>
-                    <button v-if="group.seasons.length > 0" class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5" @click.stop="toggleGroup(group.key)">
-                      <ChevronRightIcon class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-90': expandedGroups.has(group.key) }" />
+                    <button
+                      v-if="group.seasons.length > 0"
+                      class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5"
+                      @click.stop="toggleGroup(group.key)"
+                    >
+                      <ChevronRightIcon
+                        class="w-3.5 h-3.5 transition-transform duration-200"
+                        :class="{ 'rotate-90': expandedGroups.has(group.key) }"
+                      />
                       <span class="text-xs text-muted-foreground font-normal whitespace-nowrap">({{ group.seasons.length }} season{{ group.seasons.length !== 1 ? 's' : '' }})</span>
                     </button>
                   </div>
                 </UiTableCell>
                 <UiTableCell>
-                  <UiBadge variant="secondary" class="capitalize">{{ group.entry.mediaType }}</UiBadge>
+                  <UiBadge
+                    variant="secondary"
+                    class="capitalize"
+                  >
+                    {{ group.entry.mediaType }}
+                  </UiBadge>
                 </UiTableCell>
                 <UiTableCell>
-                  <UiBadge :variant="actionBadgeVariant(group.entry.action)">{{ group.entry.action }}</UiBadge>
+                  <UiBadge :variant="actionBadgeVariant(group.entry.action)">
+                    {{ group.entry.action }}
+                  </UiBadge>
                 </UiTableCell>
                 <UiTableCell>
-                  <ScoreBreakdown :reason="group.entry.reason" :score-details="group.entry.scoreDetails || ''" />
+                  <ScoreBreakdown
+                    :reason="group.entry.reason"
+                    :score-details="group.entry.scoreDetails || ''"
+                  />
                 </UiTableCell>
-                <UiTableCell class="text-right font-mono text-xs tabular-nums">{{ (group.entry.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB</UiTableCell>
+                <UiTableCell class="text-right font-mono text-xs tabular-nums">
+                  {{ (group.entry.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB
+                </UiTableCell>
               </UiTableRow>
               <template v-if="expandedGroups.has(group.key)">
-                <UiTableRow v-for="season in group.seasons" :key="season.id" class="bg-muted/30 cursor-pointer" @click.stop="selectItem(season)">
-                  <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap pl-8">{{ formatTimestamp(season.createdAt) }}</UiTableCell>
+                <UiTableRow
+                  v-for="season in group.seasons"
+                  :key="season.id"
+                  class="bg-muted/30 cursor-pointer"
+                  @click.stop="selectItem(season)"
+                >
+                  <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap pl-8">
+                    {{ formatTimestamp(season.createdAt) }}
+                  </UiTableCell>
                   <UiTableCell class="text-muted-foreground whitespace-nowrap pl-8">
                     <span class="inline-flex items-center gap-1.5">
-                      <span class="w-3 h-px bg-border inline-block"></span>
+                      <span class="w-3 h-px bg-border inline-block" />
                       {{ extractSeasonLabel(season.mediaName) }}
                     </span>
                   </UiTableCell>
                   <UiTableCell>
-                    <UiBadge variant="secondary" class="capitalize">{{ season.mediaType }}</UiBadge>
+                    <UiBadge
+                      variant="secondary"
+                      class="capitalize"
+                    >
+                      {{ season.mediaType }}
+                    </UiBadge>
                   </UiTableCell>
                   <UiTableCell>
-                    <UiBadge :variant="actionBadgeVariant(season.action)">{{ season.action }}</UiBadge>
+                    <UiBadge :variant="actionBadgeVariant(season.action)">
+                      {{ season.action }}
+                    </UiBadge>
                   </UiTableCell>
                   <UiTableCell>
-                    <ScoreBreakdown :reason="season.reason" :score-details="season.scoreDetails || ''" size="sm" />
+                    <ScoreBreakdown
+                      :reason="season.reason"
+                      :score-details="season.scoreDetails || ''"
+                      size="sm"
+                    />
                   </UiTableCell>
-                  <UiTableCell class="text-right font-mono text-xs tabular-nums text-muted-foreground">{{ (season.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB</UiTableCell>
+                  <UiTableCell class="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                    {{ (season.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB
+                  </UiTableCell>
                 </UiTableRow>
               </template>
             </template>
           </UiTableBody>
         </UiTable>
         <!-- Progressive rendering indicator -->
-        <div v-if="renderedAuditGroups.length < groupedLogs.length" class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2">
+        <div
+          v-if="renderedAuditGroups.length < groupedLogs.length"
+          class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
+        >
           <LoaderCircleIcon class="w-3.5 h-3.5 animate-spin" />
           Showing {{ renderedAuditGroups.length }} of {{ groupedLogs.length }} — scroll for more
         </div>
         <!-- Load more from server indicator -->
-        <div v-else-if="logs.length < total && !loadingMore" class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2">
+        <div
+          v-else-if="logs.length < total && !loadingMore"
+          class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
+        >
           <LoaderCircleIcon class="w-3.5 h-3.5 animate-spin" />
           Loading more…
         </div>
       </div>
 
-      <div v-if="logs.length > 0" class="flex items-center justify-between px-5 py-3 border-t border-border">
+      <div
+        v-if="logs.length > 0"
+        class="flex items-center justify-between px-5 py-3 border-t border-border"
+      >
         <span class="text-xs text-muted-foreground">{{ groupedLogs.length }} groups from {{ logs.length }} of {{ total }} entries</span>
       </div>
     </UiCard>
@@ -239,7 +365,7 @@ function selectItem(entry: AuditLog) {
     scoreDetails: entry.scoreDetails || '',
     sizeBytes: entry.sizeBytes,
     action: entry.action,
-    createdAt: entry.createdAt,
+    createdAt: entry.createdAt
   }
 }
 
@@ -253,7 +379,7 @@ async function fetchLogs(append = false) {
   try {
     const params = new URLSearchParams({
       limit: String(batchSize),
-      offset: String(append ? logs.value.length : 0),
+      offset: String(append ? logs.value.length : 0)
     })
     if (auditSearch.value.trim()) {
       params.set('search', auditSearch.value.trim())
@@ -272,7 +398,8 @@ async function fetchLogs(append = false) {
       }
       total.value = data.total
     }
-  } catch (err) {
+  } catch {
+    // Silently ignored — UI has no further handling
   } finally {
     pending.value = false
     loadingMore.value = false
@@ -360,7 +487,7 @@ useInfiniteScroll(auditScrollRef, async () => {
   }
 }, {
   distance: 200,
-  canLoadMore: () => visibleCount.value < groupedLogs.value.length || logs.value.length < total.value,
+  canLoadMore: () => visibleCount.value < groupedLogs.value.length || logs.value.length < total.value
 })
 
 // ─── Expand/Collapse state ────────────────────────────────────────────────────

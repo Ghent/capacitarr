@@ -7,14 +7,6 @@ export default defineNuxtConfig({
 
   ssr: false,
 
-  devtools: {
-    enabled: true
-  },
-
-  vite: {
-    plugins: [tailwindcss()]
-  },
-
   // Prevent Nuxt from scanning index.ts barrel files in ui/ directories
   // (shadcn-vue generates both .vue + index.ts which causes duplicate warnings)
   components: [
@@ -30,6 +22,10 @@ export default defineNuxtConfig({
       ignore: ['**/ui/**']
     }
   ],
+
+  devtools: {
+    enabled: true
+  },
 
   app: {
     baseURL: process.env.NUXT_APP_BASE_URL || '/',
@@ -61,7 +57,7 @@ export default defineNuxtConfig({
     '@fontsource/geist-mono/400.css',
     '@fontsource/geist-mono/500.css',
     '@fontsource/geist-mono/600.css',
-    '~/assets/css/main.css',
+    '~/assets/css/main.css'
   ],
 
   runtimeConfig: {
@@ -76,6 +72,10 @@ export default defineNuxtConfig({
   },
 
   compatibilityDate: '2025-01-15',
+
+  vite: {
+    plugins: [tailwindcss()]
+  },
 
   eslint: {
     config: {

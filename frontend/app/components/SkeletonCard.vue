@@ -23,7 +23,10 @@
     </div>
 
     <!-- Chart area placeholder -->
-    <div v-if="showChart" class="px-5 pb-4">
+    <div
+      v-if="showChart"
+      class="px-5 pb-4"
+    >
       <div class="h-3 w-28 rounded bg-muted mb-2" />
       <div class="h-48 rounded-lg bg-muted" />
     </div>

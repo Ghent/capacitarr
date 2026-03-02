@@ -8,13 +8,25 @@
     />
 
     <!-- Header -->
-    <div data-slot="page-header" class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div
+      data-slot="page-header"
+      class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4"
+    >
       <div>
-        <h1 class="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 class="text-3xl font-bold tracking-tight">
+          Dashboard
+        </h1>
         <p class="text-muted-foreground mt-1.5">
           Capacity overview across your media storage.
-          <span v-if="lastUpdated" class="inline-flex items-center gap-1 ml-2 text-xs text-muted-foreground/70">
-            <component :is="RefreshCwIcon" class="w-3 h-3" :class="{ 'animate-spin': isAutoRefreshing }" />
+          <span
+            v-if="lastUpdated"
+            class="inline-flex items-center gap-1 ml-2 text-xs text-muted-foreground/70"
+          >
+            <component
+              :is="RefreshCwIcon"
+              class="w-3 h-3"
+              :class="{ 'animate-spin': isAutoRefreshing }"
+            />
             Updated {{ formatRelativeTime(lastUpdated.toISOString()) }}
           </span>
         </p>
@@ -25,7 +37,11 @@
             <UiSelectValue placeholder="Time range" />
           </UiSelectTrigger>
           <UiSelectContent>
-            <UiSelectItem v-for="opt in dateRangeOptions" :key="opt.value" :value="opt.value">
+            <UiSelectItem
+              v-for="opt in dateRangeOptions"
+              :key="opt.value"
+              :value="opt.value"
+            >
               {{ opt.label }}
             </UiSelectItem>
           </UiSelectContent>
@@ -35,7 +51,11 @@
             <UiSelectValue placeholder="Chart mode" />
           </UiSelectTrigger>
           <UiSelectContent>
-            <UiSelectItem v-for="opt in chartModeOptions" :key="opt.value" :value="opt.value">
+            <UiSelectItem
+              v-for="opt in chartModeOptions"
+              :key="opt.value"
+              :value="opt.value"
+            >
               {{ opt.label }}
             </UiSelectItem>
           </UiSelectContent>
@@ -45,7 +65,11 @@
             <UiSelectValue placeholder="Refresh" />
           </UiSelectTrigger>
           <UiSelectContent>
-            <UiSelectItem v-for="opt in refreshOptions" :key="opt.value" :value="String(opt.value)">
+            <UiSelectItem
+              v-for="opt in refreshOptions"
+              :key="opt.value"
+              :value="String(opt.value)"
+            >
               {{ opt.label }}
             </UiSelectItem>
           </UiSelectContent>
@@ -68,10 +92,20 @@
           class="rounded-lg px-3 py-2 mb-4 flex items-center gap-2 text-sm font-medium"
           :class="engineStatusBannerClass"
         >
-          <LoaderCircleIcon v-if="engineIsRunning" class="w-4 h-4 animate-spin shrink-0" />
-          <component :is="engineIsRunning ? ActivityIcon : CheckCircle2Icon" v-else class="w-4 h-4 shrink-0" />
+          <LoaderCircleIcon
+            v-if="engineIsRunning"
+            class="w-4 h-4 animate-spin shrink-0"
+          />
+          <component
+            :is="engineIsRunning ? ActivityIcon : CheckCircle2Icon"
+            v-else
+            class="w-4 h-4 shrink-0"
+          />
           <span>{{ engineStatusText }}</span>
-          <span v-if="!engineIsRunning && countdownText" class="ml-auto text-xs font-normal text-muted-foreground">
+          <span
+            v-if="!engineIsRunning && countdownText"
+            class="ml-auto text-xs font-normal text-muted-foreground"
+          >
             {{ countdownText }}
           </span>
         </div>
@@ -79,7 +113,10 @@
         <!-- Top row: title, run now, mode badge, evaluated/flagged -->
         <div class="flex flex-wrap items-center gap-2 mb-3">
           <div class="flex items-center gap-1.5 text-primary font-medium text-sm">
-            <component :is="ActivityIcon" class="w-4 h-4" />
+            <component
+              :is="ActivityIcon"
+              class="w-4 h-4"
+            />
             Engine Activity
           </div>
           <UiButton
@@ -88,8 +125,14 @@
             :disabled="engineRunNowLoading"
             @click="engineTriggerRunNow"
           >
-            <LoaderCircleIcon v-if="engineRunNowLoading" class="w-3.5 h-3.5 animate-spin" />
-            <PlayIcon v-else class="w-3.5 h-3.5" />
+            <LoaderCircleIcon
+              v-if="engineRunNowLoading"
+              class="w-3.5 h-3.5 animate-spin"
+            />
+            <PlayIcon
+              v-else
+              class="w-3.5 h-3.5"
+            />
             Run Now
           </UiButton>
           <span class="text-xs text-muted-foreground">
@@ -112,7 +155,10 @@
         </div>
 
         <!-- Sparkline: items flagged + deleted per engine run -->
-        <div v-if="flaggedSeries.length > 0 || deletedSeries.length > 0" class="mb-3">
+        <div
+          v-if="flaggedSeries.length > 0 || deletedSeries.length > 0"
+          class="mb-3"
+        >
           <div class="flex items-center gap-3 mb-1">
             <span class="text-[11px] text-muted-foreground/70">
               Engine Activity · {{ dateRangeLabel }}
@@ -148,7 +194,9 @@
 
           <!-- Queue -->
           <div class="rounded-lg bg-muted px-3 py-2">
-            <div class="text-[11px] text-muted-foreground mb-0.5">Queue</div>
+            <div class="text-[11px] text-muted-foreground mb-0.5">
+              Queue
+            </div>
             <div class="flex items-center gap-1.5">
               <span
                 class="w-2 h-2 rounded-full shrink-0"
@@ -161,12 +209,17 @@
 
           <!-- Active Delete -->
           <div class="rounded-lg bg-muted px-3 py-2">
-            <div class="text-[11px] text-muted-foreground mb-0.5">Active Delete</div>
+            <div class="text-[11px] text-muted-foreground mb-0.5">
+              Active Delete
+            </div>
             <div class="text-sm">
               <template v-if="engineStats.currentlyDeleting">
                 <span class="inline-flex items-center gap-1.5">
                   <span class="w-2 h-2 rounded-full bg-primary animate-pulse shrink-0" />
-                  <span class="font-medium truncate max-w-[120px]" :title="engineStats.currentlyDeleting">
+                  <span
+                    class="font-medium truncate max-w-[120px]"
+                    :title="engineStats.currentlyDeleting"
+                  >
                     {{ engineStats.currentlyDeleting }}
                   </span>
                 </span>
@@ -195,7 +248,10 @@
     </UiCard>
 
     <!-- Per-Disk-Group Sections -->
-    <div v-if="diskGroups.length > 0" class="space-y-6 mb-8">
+    <div
+      v-if="diskGroups.length > 0"
+      class="space-y-6 mb-8"
+    >
       <DiskGroupSection
         v-for="group in diskGroups"
         :key="group.id"
@@ -209,7 +265,10 @@
     </div>
 
     <!-- Summary Cards (informational, at the bottom) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8" data-stagger>
+    <div
+      class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8"
+      data-stagger
+    >
       <!-- Total Storage -->
       <UiCard
         v-motion
@@ -220,11 +279,16 @@
         <UiCardContent class="pt-5">
           <div class="flex items-center gap-3 font-medium text-sm mb-3">
             <div data-slot="stat-icon">
-              <component :is="ServerIcon" class="w-4 h-4" />
+              <component
+                :is="ServerIcon"
+                class="w-4 h-4"
+              />
             </div>
             <span class="text-primary">Total Storage</span>
           </div>
-          <div class="text-3xl font-bold tabular-nums">{{ formatBytes(totalCapacity) }}</div>
+          <div class="text-3xl font-bold tabular-nums">
+            {{ formatBytes(totalCapacity) }}
+          </div>
           <p class="text-sm text-muted-foreground mt-1">
             {{ diskGroups.length }} disk group{{ diskGroups.length !== 1 ? 's' : '' }} mapped
           </p>
@@ -241,11 +305,16 @@
         <UiCardContent class="pt-5">
           <div class="flex items-center gap-3 font-medium text-sm mb-3">
             <div data-slot="stat-icon">
-              <component :is="ChartPieIcon" class="w-4 h-4" />
+              <component
+                :is="ChartPieIcon"
+                class="w-4 h-4"
+              />
             </div>
             <span class="text-primary">Used Capacity</span>
           </div>
-          <div class="text-3xl font-bold tabular-nums">{{ formatBytes(totalUsed) }}</div>
+          <div class="text-3xl font-bold tabular-nums">
+            {{ formatBytes(totalUsed) }}
+          </div>
           <p class="text-sm text-muted-foreground mt-1">
             {{ totalCapacity > 0 ? Math.round((totalUsed / totalCapacity) * 100) : 0 }}% utilization
           </p>
@@ -262,11 +331,16 @@
         <UiCardContent class="pt-5">
           <div class="flex items-center gap-3 font-medium text-sm mb-3">
             <div data-slot="stat-icon">
-              <component :is="HardDriveIcon" class="w-4 h-4" />
+              <component
+                :is="HardDriveIcon"
+                class="w-4 h-4"
+              />
             </div>
             <span class="text-primary">Integrations</span>
           </div>
-          <div class="text-3xl font-bold tabular-nums">{{ enabledIntegrations.length }}</div>
+          <div class="text-3xl font-bold tabular-nums">
+            {{ enabledIntegrations.length }}
+          </div>
           <p class="text-sm text-muted-foreground mt-1">
             {{ enabledIntegrations.filter(i => i.lastSync).length }} synced recently
           </p>
@@ -275,7 +349,10 @@
     </div>
 
     <!-- Lifetime Stats Cards (Row 2) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8" data-stagger>
+    <div
+      class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8"
+      data-stagger
+    >
       <!-- Total Space Reclaimed -->
       <UiCard
         v-motion
@@ -286,7 +363,10 @@
         <UiCardContent class="pt-5">
           <div class="flex items-center gap-3 font-medium text-sm mb-3">
             <div data-slot="stat-icon">
-              <component :is="Trash2Icon" class="w-4 h-4" />
+              <component
+                :is="Trash2Icon"
+                class="w-4 h-4"
+              />
             </div>
             <span class="text-primary">Total Space Reclaimed</span>
           </div>
@@ -309,7 +389,10 @@
         <UiCardContent class="pt-5">
           <div class="flex items-center gap-3 font-medium text-sm mb-3">
             <div data-slot="stat-icon">
-              <component :is="ShieldCheckIcon" class="w-4 h-4" />
+              <component
+                :is="ShieldCheckIcon"
+                class="w-4 h-4"
+              />
             </div>
             <span class="text-primary">Protected Items</span>
           </div>
@@ -332,7 +415,10 @@
         <UiCardContent class="pt-5">
           <div class="flex items-center gap-3 font-medium text-sm mb-3">
             <div data-slot="stat-icon">
-              <component :is="TrendingUpIcon" class="w-4 h-4" />
+              <component
+                :is="TrendingUpIcon"
+                class="w-4 h-4"
+              />
             </div>
             <span class="text-primary">Library Growth Rate</span>
           </div>
@@ -354,13 +440,19 @@
       :enter="{ opacity: 1, y: 0 }"
       class="rounded-xl border-2 border-dashed border-border p-12 text-center mb-8"
     >
-      <component :is="HardDriveIcon" class="w-12 h-12 text-muted-foreground/40 mx-auto mb-4" />
+      <component
+        :is="HardDriveIcon"
+        class="w-12 h-12 text-muted-foreground/40 mx-auto mb-4"
+      />
       <h3 class="text-muted-foreground font-medium mb-1.5">
         No disk groups yet
       </h3>
       <p class="text-sm text-muted-foreground/70 mb-4 max-w-md mx-auto">
         Add integrations in
-        <NuxtLink to="/settings" class="text-primary hover:underline">Settings</NuxtLink>
+        <NuxtLink
+          to="/settings"
+          class="text-primary hover:underline"
+        >Settings</NuxtLink>
         and data will appear on the next poll cycle.
       </p>
     </div>
@@ -368,7 +460,11 @@
     <!-- Skeleton Loading State -->
     <template v-if="loading">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-        <UiCard v-for="i in 3" :key="i" class="animate-pulse">
+        <UiCard
+          v-for="i in 3"
+          :key="i"
+          class="animate-pulse"
+        >
           <UiCardContent class="pt-5">
             <div class="flex items-center gap-2 mb-3">
               <div class="w-4 h-4 rounded bg-muted" />
@@ -404,7 +500,7 @@ const {
   runNowLoading: engineRunNowLoading,
   modeLabel: engineModeLabel,
   fetchStats: engineFetchStats,
-  triggerRunNow: engineTriggerRunNow,
+  triggerRunNow: engineTriggerRunNow
 } = useEngineControl()
 
 // Pull-to-refresh for touch devices
@@ -445,8 +541,8 @@ const refreshIntervalStr = ref('15000')
 const refreshInterval = computed(() => Number(refreshIntervalStr.value))
 const diskGroups = ref<DiskGroup[]>([])
 const allIntegrations = ref<IntegrationConfig[]>([])
-const flaggedSeries = ref<{ x: string; y: number }[]>([])
-const deletedSeries = ref<{ x: string; y: number }[]>([])
+const flaggedSeries = ref<{ x: string, y: number }[]>([])
+const deletedSeries = ref<{ x: string, y: number }[]>([])
 const dashboardStats = ref<DashboardStats | null>(null)
 const loading = ref(true)
 const lastUpdated = ref<Date | null>(null)
@@ -568,7 +664,7 @@ async function fetchDashboardData(silent = false) {
     const [groups, integrations, dStats] = await Promise.all([
       api('/api/v1/disk-groups'),
       api('/api/v1/integrations'),
-      api('/api/v1/dashboard-stats').catch(() => null),
+      api('/api/v1/dashboard-stats').catch(() => null)
     ])
     // Fetch engine stats via the shared composable (handles toast on completion)
     engineFetchStats()
@@ -578,7 +674,8 @@ async function fetchDashboardData(silent = false) {
     allIntegrations.value = integrations as IntegrationConfig[]
     if (dStats) dashboardStats.value = dStats as DashboardStats
     lastUpdated.value = new Date()
-  } catch (e) {
+  } catch {
+    // Silently ignored — UI has no further handling
   } finally {
     if (!silent) loading.value = false
   }
@@ -637,7 +734,7 @@ watch(dateRange, () => {
 async function fetchActivityData() {
   const since = dateRange.value === 'all' ? '30d' : dateRange.value
   try {
-    const data = await api(`/api/v1/audit/activity?since=${since}`) as { timestamp: string; flagged: number; deleted: number }[]
+    const data = await api(`/api/v1/audit/activity?since=${since}`) as { timestamp: string, flagged: number, deleted: number }[]
     flaggedSeries.value = (data || []).map(p => ({ x: p.timestamp, y: p.flagged }))
     deletedSeries.value = (data || []).map(p => ({ x: p.timestamp, y: p.deleted }))
   } catch {

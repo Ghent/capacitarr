@@ -6,21 +6,37 @@
       :enter="{ opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 25 } }"
       class="w-full max-w-sm"
     >
-      <UiCard data-slot="login-card" class="overflow-hidden">
+      <UiCard
+        data-slot="login-card"
+        class="overflow-hidden"
+      >
         <!-- Header -->
         <UiCardHeader class="pb-2 text-center">
-          <div data-slot="login-icon" class="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-5">
-            <component :is="LockKeyholeIcon" class="w-7 h-7 text-primary-foreground" />
+          <div
+            data-slot="login-icon"
+            class="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-5"
+          >
+            <component
+              :is="LockKeyholeIcon"
+              class="w-7 h-7 text-primary-foreground"
+            />
           </div>
-          <UiCardTitle class="text-2xl">Welcome Back</UiCardTitle>
+          <UiCardTitle class="text-2xl">
+            Welcome Back
+          </UiCardTitle>
           <UiCardDescription>Sign in to Capacitarr</UiCardDescription>
         </UiCardHeader>
 
         <!-- Form -->
         <UiCardContent>
-          <form class="space-y-5" @submit.prevent="onSubmit">
+          <form
+            class="space-y-5"
+            @submit.prevent="onSubmit"
+          >
             <div class="space-y-2">
-              <UiLabel for="username">Username</UiLabel>
+              <UiLabel for="username">
+                Username
+              </UiLabel>
               <UiInput
                 id="username"
                 v-model="state.username"
@@ -31,7 +47,9 @@
             </div>
 
             <div class="space-y-2">
-              <UiLabel for="password">Password</UiLabel>
+              <UiLabel for="password">
+                Password
+              </UiLabel>
               <UiInput
                 id="password"
                 v-model="state.password"
@@ -56,8 +74,14 @@
               :disabled="loading"
               class="w-full shadow-lg shadow-primary/25 hover:shadow-primary/40"
             >
-              <span v-if="loading" class="flex items-center justify-center gap-2">
-                <component :is="LoaderCircleIcon" class="w-4 h-4 animate-spin" />
+              <span
+                v-if="loading"
+                class="flex items-center justify-center gap-2"
+              >
+                <component
+                  :is="LoaderCircleIcon"
+                  class="w-4 h-4 animate-spin"
+                />
                 Signing in...
               </span>
               <span v-else>Sign In</span>

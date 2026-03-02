@@ -1,25 +1,48 @@
 <template>
   <div class="h-full w-full">
     <!-- Loading -->
-    <div v-if="loading" class="h-full flex items-center justify-center">
-      <component :is="LoaderCircleIcon" class="w-6 h-6 text-primary animate-spin" />
+    <div
+      v-if="loading"
+      class="h-full flex items-center justify-center"
+    >
+      <component
+        :is="LoaderCircleIcon"
+        class="w-6 h-6 text-primary animate-spin"
+      />
     </div>
 
     <!-- Error -->
-    <div v-else-if="error" class="h-full flex flex-col items-center justify-center text-red-500">
-      <component :is="AlertTriangleIcon" class="w-6 h-6 mb-2" />
+    <div
+      v-else-if="error"
+      class="h-full flex flex-col items-center justify-center text-red-500"
+    >
+      <component
+        :is="AlertTriangleIcon"
+        class="w-6 h-6 mb-2"
+      />
       <span class="text-sm">Error loading metrics</span>
     </div>
 
     <!-- No data -->
-    <div v-else-if="noData" class="h-full flex flex-col items-center justify-center text-muted-foreground/70">
-      <component :is="BarChart3Icon" class="w-6 h-6 mb-2" />
+    <div
+      v-else-if="noData"
+      class="h-full flex flex-col items-center justify-center text-muted-foreground/70"
+    >
+      <component
+        :is="BarChart3Icon"
+        class="w-6 h-6 mb-2"
+      />
       <span class="text-sm">Waiting for data…</span>
     </div>
 
     <!-- Chart -->
     <ClientOnly v-else>
-      <apexchart type="area" height="100%" :options="chartOptions" :series="series" />
+      <apexchart
+        type="area"
+        height="100%"
+        :options="chartOptions"
+        :series="series"
+      />
     </ClientOnly>
   </div>
 </template>

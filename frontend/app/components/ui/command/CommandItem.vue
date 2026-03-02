@@ -1,16 +1,16 @@
 <script setup lang="ts">
-import type { ListboxItemEmits, ListboxItemProps } from "reka-ui"
-import type { HTMLAttributes } from "vue"
-import { reactiveOmit, useCurrentElement } from "@vueuse/core"
-import { ListboxItem, useForwardPropsEmits, useId } from "reka-ui"
-import { computed, onMounted, onUnmounted, ref } from "vue"
-import { cn } from "@/lib/utils"
-import { useCommand, useCommandGroup } from "."
+import type { ListboxItemEmits, ListboxItemProps } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
+import { reactiveOmit, useCurrentElement } from '@vueuse/core'
+import { ListboxItem, useForwardPropsEmits, useId } from 'reka-ui'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { cn } from '@/lib/utils'
+import { useCommand, useCommandGroup } from '.'
 
-const props = defineProps<ListboxItemProps & { class?: HTMLAttributes["class"] }>()
+const props = defineProps<ListboxItemProps & { class?: HTMLAttributes['class'] }>()
 const emits = defineEmits<ListboxItemEmits>()
 
-const delegatedProps = reactiveOmit(props, "class")
+const delegatedProps = reactiveOmit(props, 'class')
 
 const forwarded = useForwardPropsEmits(delegatedProps, emits)
 
@@ -21,8 +21,7 @@ const groupContext = useCommandGroup()
 const isRender = computed(() => {
   if (!filterState.search) {
     return true
-  }
-  else {
+  } else {
     const filteredCurrentItem = filterState.filtered.items.get(id)
     // If the filtered items is undefined means not in the all times map yet
     // Do the first render to add into the map
@@ -42,14 +41,13 @@ onMounted(() => {
     return
 
   // textValue to perform filter
-  allItems.value.set(id, currentElement.value.textContent ?? (props.value?.toString() ?? ""))
+  allItems.value.set(id, currentElement.value.textContent ?? (props.value?.toString() ?? ''))
 
   const groupId = groupContext?.id
   if (groupId) {
     if (!allGroups.value.has(groupId)) {
       allGroups.value.set(groupId, new Set([id]))
-    }
-    else {
+    } else {
       allGroups.value.get(groupId)?.add(id)
     }
   }
