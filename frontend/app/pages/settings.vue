@@ -1368,8 +1368,9 @@
             </UiLabel>
             <UiInput
               v-model="formState.apiKey"
-              type="password"
+              :type="editingIntegration && formState.apiKey.includes('•') ? 'text' : 'password'"
               :placeholder="editingIntegration ? 'Enter new API key to change, or leave as-is' : 'Enter API key or token'"
+              @focus="onApiKeyFocus"
             />
 
             <!-- Plex OAuth Sign-in Button -->
@@ -1795,6 +1796,15 @@ function openAddModal() {
   formState.apiKey = ''
   formError.value = ''
   showModal.value = true
+}
+
+function onApiKeyFocus() {
+  // When user clicks into the API key field while it shows a masked value,
+  // clear it so they can type a new key. If they leave it empty, the backend
+  // will preserve the existing key.
+  if (formState.apiKey.includes('•')) {
+    formState.apiKey = ''
+  }
 }
 
 function openEditModal(integration: IntegrationConfig) {
