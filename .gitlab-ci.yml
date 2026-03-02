@@ -1,0 +1,87 @@
+# Capacitarr GitLab CI/CD Pipeline
+# Runs lint, test, build, and security stages on every push and merge request.
+
+stages:
+  - lint
+  - test
+  - build
+  - security
+
+# ── Shared variables ──────────────────────────────────────────────────────────
+
+variables:
+  # CGO is required for mattn/go-sqlite3
+  CGO_ENABLED: "1"
+
+# ── Lint ──────────────────────────────────────────────────────────────────────
+
+lint:go:
+  stage: lint
+  image: golangci/golangci-lint:latest
+  before_script:
+    - apk add --no-cache gcc musl-dev sqlite-dev
+  script:
+    - cd backend && golangci-lint run ./...
+
+lint:frontend:
+  stage: lint
+  image: node:22-alpine
+  before_script:
+    - corepack enable
+    - cd frontend && pnpm install --frozen-lockfile
+  script:
+    - cd frontend && pnpm lint
+
+# ── Test ──────────────────────────────────────────────────────────────────────
+
+test:go:
+  stage: test
+  image: golang:1.25-alpine
+  before_script:
+    - apk add --no-cache gcc musl-dev sqlite-dev
+  script:
+    - cd backend && go test ./... -race -count=1
+
+test:frontend:
+  stage: test
+  image: node:22-alpine
+  before_script:
+    - corepack enable
+    - cd frontend && pnpm install --frozen-lockfile
+  script:
+    - cd frontend && pnpm test
+
+# ── Build ─────────────────────────────────────────────────────────────────────
+
+build:docker:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build .
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+# ── Security ──────────────────────────────────────────────────────────────────
+
+security:govulncheck:
+  stage: security
+  image: golang:1.25-alpine
+  before_script:
+    - apk add --no-cache gcc musl-dev sqlite-dev
+    - go install golang.org/x/vuln/cmd/govulncheck@latest
+  script:
+    - cd backend && govulncheck ./...
+  allow_failure: true
+
+security:pnpm-audit:
+  stage: security
+  image: node:22-alpine
+  before_script:
+    - corepack enable
+    - cd frontend && pnpm install --frozen-lockfile
+  script:
+    - cd frontend && pnpm audit
+  allow_failure: true
