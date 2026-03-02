@@ -35,7 +35,7 @@ func RegisterPreferenceRoutes(protected *echo.Group, database *gorm.DB) {
 		weights := []int{
 			payload.WatchHistoryWeight, payload.LastWatchedWeight,
 			payload.FileSizeWeight, payload.RatingWeight,
-			payload.TimeInLibraryWeight, payload.AvailabilityWeight,
+			payload.TimeInLibraryWeight, payload.SeriesStatusWeight,
 		}
 		for _, w := range weights {
 			if w < 0 || w > 10 {

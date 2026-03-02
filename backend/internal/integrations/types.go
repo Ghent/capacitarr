@@ -56,7 +56,7 @@ type MediaItem struct {
 	SeasonNumber int    `json:"seasonNumber,omitempty"`
 	EpisodeCount int    `json:"episodeCount,omitempty"`
 	ShowTitle    string `json:"showTitle,omitempty"`
-	ShowStatus   string `json:"showStatus,omitempty"` // continuing, ended
+	SeriesStatus   string `json:"seriesStatus,omitempty"` // continuing, ended
 
 	// Quality / metadata
 	QualityProfile string  `json:"qualityProfile,omitempty"`

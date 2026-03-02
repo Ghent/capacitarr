@@ -49,7 +49,7 @@ func RegisterPreviewRoutes(protected *echo.Group, database *gorm.DB) {
 		var prefs db.PreferenceSet
 		database.FirstOrCreate(&prefs, db.PreferenceSet{ID: 1})
 
-		var rules []db.ProtectionRule
+		var rules []db.CustomRule
 		database.Order("sort_order ASC, id ASC").Find(&rules)
 
 		evaluated := engine.EvaluateMedia(allItems, prefs, rules)

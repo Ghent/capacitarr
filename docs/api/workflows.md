@@ -99,7 +99,7 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ## Workflow 2: Configure Capacity Management
 
-Set up thresholds, scoring weights, protection rules, and verify the configuration with a preview.
+Set up thresholds, scoring weights, custom rules, and verify the configuration with a preview.
 
 ### Step 1: View disk groups
 
@@ -145,7 +145,7 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 Start with `executionMode: "dry-run"` so nothing is deleted while you tune the configuration.
 
-### Step 4: Add protection rules
+### Step 4: Add custom rules
 
 Protect media that should never be deleted:
 
@@ -153,7 +153,7 @@ Protect media that should never be deleted:
 # Protect anything with "Star Wars" in the title
 curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
-  "$CAPACITARR_URL/protections" \
+  "$CAPACITARR_URL/custom-rules" \
   -d '{
     "field": "title",
     "operator": "contains",

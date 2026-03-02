@@ -62,7 +62,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		FileSizeWeight:        6,
 		RatingWeight:          5,
 		TimeInLibraryWeight:   4,
-		AvailabilityWeight:    3,
+		SeriesStatusWeight:    3,
 		TiebreakerMethod:      "size_desc",
 	}
 	if err := database.FirstOrCreate(&pref, db.PreferenceSet{ID: 1}).Error; err != nil {

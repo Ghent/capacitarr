@@ -167,7 +167,7 @@ Capacitarr uses a two-layer system to decide which items to remove:
 | **File Size** | Disk space consumed | Larger files → delete first |
 | **Rating** | Community/critic rating | Low-rated → delete first |
 | **Time in Library** | How long the item has been in the library | Older items → delete first |
-| **Availability** | Show status (continuing vs. ended) | Ended shows → delete first |
+| **Series Status** | Series status (continuing vs. ended) | Ended shows → delete first |
 
 Each factor's contribution is normalized against the total configured weight, producing a final score between 0.0 (keep) and 1.0 (delete). Protection rules then apply modifiers or absolute overrides to the calculated score.
 

@@ -821,7 +821,7 @@ import {
   diskStatusTextClass,
   diskStatusFillColor
 } from '~/utils/format'
-import type { DiskGroup, IntegrationConfig, ProtectionRule, PreferenceSet, EvaluatedItem, PreviewResponse, SelectedDetailItem, ApiError } from '~/types/api'
+import type { DiskGroup, IntegrationConfig, CustomRule, PreferenceSet, EvaluatedItem, PreviewResponse, SelectedDetailItem, ApiError } from '~/types/api'
 
 const api = useApi()
 const { addToast } = useToast()
@@ -939,7 +939,7 @@ const prefs = reactive({
   fileSizeWeight: 6,
   ratingWeight: 5,
   timeInLibraryWeight: 4,
-  availabilityWeight: 3,
+  seriesStatusWeight: 3,
   executionMode: 'dry-run',
   tiebreakerMethod: 'size_desc',
   logLevel: 'info',
@@ -952,14 +952,14 @@ const sliders = [
   { key: 'fileSizeWeight', label: 'File Size', description: 'Larger files score higher to free more space.' },
   { key: 'ratingWeight', label: 'Rating', description: 'Low-rated content scores higher for deletion.' },
   { key: 'timeInLibraryWeight', label: 'Time in Library', description: 'Older content may be less valuable.' },
-  { key: 'availabilityWeight', label: 'Series Status', description: 'Ended or canceled shows score higher for removal since no new episodes are expected.' }
+  { key: 'seriesStatusWeight', label: 'Series Status', description: 'Ended or canceled shows score higher for removal since no new episodes are expected.' }
 ]
 
 const presets = [
-  { name: 'Balanced', values: { watchHistoryWeight: 8, lastWatchedWeight: 7, fileSizeWeight: 6, ratingWeight: 5, timeInLibraryWeight: 4, availabilityWeight: 3 } },
-  { name: 'Space Saver', values: { watchHistoryWeight: 3, lastWatchedWeight: 3, fileSizeWeight: 10, ratingWeight: 2, timeInLibraryWeight: 8, availabilityWeight: 5 } },
-  { name: 'Hoarder', values: { watchHistoryWeight: 10, lastWatchedWeight: 10, fileSizeWeight: 2, ratingWeight: 8, timeInLibraryWeight: 2, availabilityWeight: 2 } },
-  { name: 'Watch-Based', values: { watchHistoryWeight: 10, lastWatchedWeight: 9, fileSizeWeight: 4, ratingWeight: 3, timeInLibraryWeight: 3, availabilityWeight: 5 } }
+  { name: 'Balanced', values: { watchHistoryWeight: 8, lastWatchedWeight: 7, fileSizeWeight: 6, ratingWeight: 5, timeInLibraryWeight: 4, seriesStatusWeight: 3 } },
+  { name: 'Space Saver', values: { watchHistoryWeight: 3, lastWatchedWeight: 3, fileSizeWeight: 10, ratingWeight: 2, timeInLibraryWeight: 8, seriesStatusWeight: 5 } },
+  { name: 'Hoarder', values: { watchHistoryWeight: 10, lastWatchedWeight: 10, fileSizeWeight: 2, ratingWeight: 8, timeInLibraryWeight: 2, seriesStatusWeight: 2 } },
+  { name: 'Watch-Based', values: { watchHistoryWeight: 10, lastWatchedWeight: 9, fileSizeWeight: 4, ratingWeight: 3, timeInLibraryWeight: 3, seriesStatusWeight: 5 } }
 ]
 
 function isActivePreset(values: Record<string, number>): boolean {
@@ -983,7 +983,7 @@ const activePresetDescription = computed(() => {
 // ---------------------------------------------------------------------------
 // Custom Rules (Cascading Rule Builder)
 // ---------------------------------------------------------------------------
-const rules = ref<ProtectionRule[]>([])
+const rules = ref<CustomRule[]>([])
 const showAddRule = ref(false)
 const allIntegrations = ref<IntegrationConfig[]>([])
 
@@ -1039,7 +1039,7 @@ const fieldLabelMap: Record<string, string> = {
   monitored: 'Monitored',
   year: 'Year',
   language: 'Language',
-  availability: 'Show Status',
+  seriesstatus: 'Series Status',
   seasoncount: 'Season Count',
   episodecount: 'Episode Count',
   playcount: 'Play Count',
@@ -1099,7 +1099,7 @@ const numericFields = new Set(['rating', 'sizebytes', 'timeinlibrary', 'year', '
 // Fields that use boolean values
 const booleanFields = new Set(['monitored', 'requested'])
 
-function ruleEffectDirection(rule: ProtectionRule): 'keep' | 'remove' | 'unknown' {
+function ruleEffectDirection(rule: CustomRule): 'keep' | 'remove' | 'unknown' {
   const eff = rule.effect || legacyEffect(rule.type, rule.intensity)
   if (keepEffects.has(eff)) return 'keep'
   if (removeEffects.has(eff)) return 'remove'
@@ -1110,7 +1110,7 @@ function ruleEffectDirection(rule: ProtectionRule): 'keep' | 'remove' | 'unknown
  * Check if two rules targeting the same field could ever match the same item.
  * Returns true if the rules' conditions could overlap, false if they're mutually exclusive.
  */
-function rulesCouldOverlap(a: ProtectionRule, b: ProtectionRule): boolean {
+function rulesCouldOverlap(a: CustomRule, b: CustomRule): boolean {
   // Different fields target independent dimensions — a single media item can
   // match both (e.g., old AND well-rated), so they're not in conflict.
   if (a.field !== b.field) return false
@@ -1166,7 +1166,7 @@ function numericToRange(op: string, val: number): [number, number] {
   }
 }
 
-function ruleConflicts(rule: ProtectionRule): string[] {
+function ruleConflicts(rule: CustomRule): string[] {
   const direction = ruleEffectDirection(rule)
   if (direction === 'unknown') return []
   const eff = rule.effect || legacyEffect(rule.type, rule.intensity)
@@ -1295,7 +1295,7 @@ function applyPreset(values: Record<string, number>) {
 
 async function fetchRules() {
   try {
-    rules.value = await api('/api/v1/protections') as ProtectionRule[]
+    rules.value = await api('/api/v1/custom-rules') as CustomRule[]
   } catch {
     // Silently ignored — UI has no further handling
   }
@@ -1303,7 +1303,7 @@ async function fetchRules() {
 
 async function addRule(rule: { integrationId: number, field: string, operator: string, value: string, effect: string }) {
   try {
-    await api('/api/v1/protections', { method: 'POST', body: rule })
+    await api('/api/v1/custom-rules', { method: 'POST', body: rule })
     showAddRule.value = false
     addToast('Rule added', 'success')
     await fetchRules()
@@ -1315,7 +1315,7 @@ async function addRule(rule: { integrationId: number, field: string, operator: s
 
 async function deleteRule(id: number) {
   try {
-    await api(`/api/v1/protections/${id}`, { method: 'DELETE' })
+    await api(`/api/v1/custom-rules/${id}`, { method: 'DELETE' })
     addToast('Rule removed', 'success')
     await fetchRules()
     await fetchPreview()
@@ -1325,11 +1325,11 @@ async function deleteRule(id: number) {
 }
 
 // ─── Rule Enable/Disable Toggle ────────────────────────────────────────────────
-async function toggleRuleEnabled(rule: ProtectionRule, enabled: boolean) {
+async function toggleRuleEnabled(rule: CustomRule, enabled: boolean) {
   // Optimistically update local state
   rule.enabled = enabled
   try {
-    await api(`/api/v1/protections/${rule.id}`, {
+    await api(`/api/v1/custom-rules/${rule.id}`, {
       method: 'PUT',
       body: { ...rule, enabled }
     })
@@ -1382,7 +1382,7 @@ async function onDrop(_event: DragEvent, targetIdx: number) {
   // Send new order to backend
   const order = reordered.map(r => r.id)
   try {
-    await api('/api/v1/protections/reorder', {
+    await api('/api/v1/custom-rules/reorder', {
       method: 'PUT',
       body: { order }
     })

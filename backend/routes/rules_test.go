@@ -16,10 +16,10 @@ import (
 
 // ---------- helpers ----------
 
-// seedRule creates a single ProtectionRule in the database and returns it.
-func seedRule(t *testing.T, database *gorm.DB, field, operator, value, effect string, sortOrder int) db.ProtectionRule {
+// seedRule creates a single CustomRule in the database and returns it.
+func seedRule(t *testing.T, database *gorm.DB, field, operator, value, effect string, sortOrder int) db.CustomRule {
 	t.Helper()
-	rule := db.ProtectionRule{
+	rule := db.CustomRule{
 		Field:     field,
 		Operator:  operator,
 		Value:     value,
@@ -34,9 +34,9 @@ func seedRule(t *testing.T, database *gorm.DB, field, operator, value, effect st
 }
 
 // seedRules inserts n protection rules with sequential sort orders.
-func seedRules(t *testing.T, database *gorm.DB, n int) []db.ProtectionRule {
+func seedRules(t *testing.T, database *gorm.DB, n int) []db.CustomRule {
 	t.Helper()
-	rules := make([]db.ProtectionRule, 0, n)
+	rules := make([]db.CustomRule, 0, n)
 	for i := 0; i < n; i++ {
 		r := seedRule(t, database, "title", "contains", fmt.Sprintf("value_%d", i), "always_keep", i)
 		rules = append(rules, r)
@@ -44,13 +44,13 @@ func seedRules(t *testing.T, database *gorm.DB, n int) []db.ProtectionRule {
 	return rules
 }
 
-// ---------- GET /api/protections ----------
+// ---------- GET /api/custom-rules ----------
 
 func TestGetProtections_Empty(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/protections", nil)
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/custom-rules", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -58,7 +58,7 @@ func TestGetProtections_Empty(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rules []db.ProtectionRule
+	var rules []db.CustomRule
 	if err := json.Unmarshal(rec.Body.Bytes(), &rules); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestGetProtections_WithSeededRules(t *testing.T) {
 
 	seedRules(t, database, 3)
 
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/protections", nil)
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/custom-rules", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -81,7 +81,7 @@ func TestGetProtections_WithSeededRules(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rules []db.ProtectionRule
+	var rules []db.CustomRule
 	if err := json.Unmarshal(rec.Body.Bytes(), &rules); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestGetProtections_OrderedBySortOrder(t *testing.T) {
 	seedRule(t, database, "title", "contains", "Star", "prefer_keep", 0)
 	seedRule(t, database, "genre", "==", "Horror", "prefer_remove", 1)
 
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/protections", nil)
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/custom-rules", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -107,7 +107,7 @@ func TestGetProtections_OrderedBySortOrder(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rules []db.ProtectionRule
+	var rules []db.CustomRule
 	if err := json.Unmarshal(rec.Body.Bytes(), &rules); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -133,7 +133,7 @@ func TestGetProtections_Unauthenticated(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/protections", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/custom-rules", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -142,14 +142,14 @@ func TestGetProtections_Unauthenticated(t *testing.T) {
 	}
 }
 
-// ---------- POST /api/protections ----------
+// ---------- POST /api/custom-rules ----------
 
 func TestCreateProtection_ValidWithEffect(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
 	body := `{"field":"title","operator":"contains","value":"Star Wars","effect":"always_keep"}`
-	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/protections", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -157,7 +157,7 @@ func TestCreateProtection_ValidWithEffect(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rule db.ProtectionRule
+	var rule db.CustomRule
 	if err := json.Unmarshal(rec.Body.Bytes(), &rule); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestCreateProtection_ValidWithLegacyTypeIntensity(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	body := `{"field":"genre","operator":"==","value":"Horror","type":"target","intensity":"strong"}`
-	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/protections", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -185,7 +185,7 @@ func TestCreateProtection_ValidWithLegacyTypeIntensity(t *testing.T) {
 		t.Fatalf("Expected 201, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var rule db.ProtectionRule
+	var rule db.CustomRule
 	if err := json.Unmarshal(rec.Body.Bytes(), &rule); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestCreateProtection_MissingRequiredFields(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/protections", strings.NewReader(tc.body))
+			req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(tc.body))
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)
 
@@ -228,7 +228,7 @@ func TestCreateProtection_MissingEffectAndTypeIntensity(t *testing.T) {
 
 	// Has field/operator/value but no effect and no type+intensity
 	body := `{"field":"title","operator":"contains","value":"test"}`
-	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/protections", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -242,7 +242,7 @@ func TestCreateProtection_InvalidEffect(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	body := `{"field":"title","operator":"==","value":"test","effect":"invalid_effect"}`
-	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/protections", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -260,7 +260,7 @@ func TestCreateProtection_AllValidEffects(t *testing.T) {
 	for _, effect := range effects {
 		t.Run(effect, func(t *testing.T) {
 			body := fmt.Sprintf(`{"field":"title","operator":"contains","value":"test-%s","effect":"%s"}`, effect, effect)
-			req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/protections", strings.NewReader(body))
+			req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)
 
@@ -271,7 +271,7 @@ func TestCreateProtection_AllValidEffects(t *testing.T) {
 	}
 }
 
-// ---------- PUT /api/protections/:id ----------
+// ---------- PUT /api/custom-rules/:id ----------
 
 func TestUpdateProtection_Existing(t *testing.T) {
 	database := testutil.SetupTestDB(t)
@@ -280,7 +280,7 @@ func TestUpdateProtection_Existing(t *testing.T) {
 	rule := seedRule(t, database, "title", "contains", "Old Value", "always_keep", 0)
 
 	body := `{"field":"genre","operator":"==","value":"Comedy","effect":"prefer_remove","enabled":true}`
-	path := fmt.Sprintf("/api/protections/%d", rule.ID)
+	path := fmt.Sprintf("/api/custom-rules/%d", rule.ID)
 	req := testutil.AuthenticatedRequest(t, http.MethodPut, path, strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -289,7 +289,7 @@ func TestUpdateProtection_Existing(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var updated db.ProtectionRule
+	var updated db.CustomRule
 	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -309,7 +309,7 @@ func TestUpdateProtection_NotFound(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	body := `{"field":"title","operator":"==","value":"test","effect":"always_keep"}`
-	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/protections/99999", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/custom-rules/99999", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -318,7 +318,7 @@ func TestUpdateProtection_NotFound(t *testing.T) {
 	}
 }
 
-// ---------- DELETE /api/protections/:id ----------
+// ---------- DELETE /api/custom-rules/:id ----------
 
 func TestDeleteProtection_Existing(t *testing.T) {
 	database := testutil.SetupTestDB(t)
@@ -326,7 +326,7 @@ func TestDeleteProtection_Existing(t *testing.T) {
 
 	rule := seedRule(t, database, "title", "contains", "Delete Me", "always_keep", 0)
 
-	path := fmt.Sprintf("/api/protections/%d", rule.ID)
+	path := fmt.Sprintf("/api/custom-rules/%d", rule.ID)
 	req := testutil.AuthenticatedRequest(t, http.MethodDelete, path, nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -337,7 +337,7 @@ func TestDeleteProtection_Existing(t *testing.T) {
 
 	// Verify rule was deleted
 	var count int64
-	database.Model(&db.ProtectionRule{}).Where("id = ?", rule.ID).Count(&count)
+	database.Model(&db.CustomRule{}).Where("id = ?", rule.ID).Count(&count)
 	if count != 0 {
 		t.Errorf("Expected rule to be deleted, but found %d matching rows", count)
 	}
@@ -349,7 +349,7 @@ func TestDeleteProtection_NonExistentID(t *testing.T) {
 
 	// GORM's Delete with a non-existent ID doesn't error — it just affects 0 rows.
 	// The handler returns 204 regardless.
-	req := testutil.AuthenticatedRequest(t, http.MethodDelete, "/api/protections/99999", nil)
+	req := testutil.AuthenticatedRequest(t, http.MethodDelete, "/api/custom-rules/99999", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -358,7 +358,7 @@ func TestDeleteProtection_NonExistentID(t *testing.T) {
 	}
 }
 
-// ---------- PUT /api/protections/reorder ----------
+// ---------- PUT /api/custom-rules/reorder ----------
 
 func TestReorderProtections_Valid(t *testing.T) {
 	database := testutil.SetupTestDB(t)
@@ -368,7 +368,7 @@ func TestReorderProtections_Valid(t *testing.T) {
 
 	// Reverse the order
 	body := fmt.Sprintf(`{"order":[%d,%d,%d]}`, rules[2].ID, rules[1].ID, rules[0].ID)
-	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/protections/reorder", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/custom-rules/reorder", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -377,7 +377,7 @@ func TestReorderProtections_Valid(t *testing.T) {
 	}
 
 	// Verify sort_order was updated
-	var reordered []db.ProtectionRule
+	var reordered []db.CustomRule
 	database.Order("sort_order ASC").Find(&reordered)
 
 	if len(reordered) != 3 {
@@ -397,7 +397,7 @@ func TestReorderProtections_EmptyOrder(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	body := `{"order":[]}`
-	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/protections/reorder", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/custom-rules/reorder", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -411,7 +411,7 @@ func TestReorderProtections_InvalidPayload(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	body := `not json`
-	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/protections/reorder", strings.NewReader(body))
+	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/custom-rules/reorder", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -499,7 +499,7 @@ func TestGetRuleFields_SonarrFilter(t *testing.T) {
 	}
 
 	// Sonarr-specific fields
-	sonarrFields := []string{"availability", "seasoncount", "episodecount"}
+	sonarrFields := []string{"seriesstatus", "seasoncount", "episodecount"}
 	for _, sf := range sonarrFields {
 		if !fieldNames[sf] {
 			t.Errorf("Expected sonarr-specific field %q to be present with service_type=sonarr", sf)
@@ -590,7 +590,7 @@ func TestGetRuleValues_StaticActions(t *testing.T) {
 		action     string
 		expectType string // "closed" or "free"
 	}{
-		{"availability", "availability", "closed"},
+		{"seriesstatus", "seriesstatus", "closed"},
 		{"monitored", "monitored", "closed"},
 		{"requested", "requested", "closed"},
 		{"type", "type", "closed"},
@@ -637,7 +637,7 @@ func TestGetRuleValues_ClosedOptionsHaveValues(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	// Test that closed-type static actions return options
-	closedActions := []string{"availability", "monitored", "type"}
+	closedActions := []string{"seriesstatus", "monitored", "type"}
 
 	for _, action := range closedActions {
 		t.Run(action, func(t *testing.T) {

@@ -51,7 +51,7 @@ func Init(cfg *config.Config) error {
 		FileSizeWeight:        6,
 		RatingWeight:          5,
 		TimeInLibraryWeight:   4,
-		AvailabilityWeight:    3,
+		SeriesStatusWeight:    3,
 	}).Error; err != nil {
 		slog.Error("Failed to seed default preferences", "component", "db", "operation", "seed_preferences", "error", err)
 	}

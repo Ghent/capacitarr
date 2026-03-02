@@ -32,7 +32,7 @@ type EvaluatedItem struct {
 
 // EvaluateMedia calculates deletion scores for a list of items based on preferences and protections.
 // Higher score = More likely to be deleted.
-func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.ProtectionRule) []EvaluatedItem {
+func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.CustomRule) []EvaluatedItem {
 	evaluated := make([]EvaluatedItem, 0, len(items))
 
 	for _, item := range items {
@@ -81,7 +81,7 @@ func calculateScore(item integrations.MediaItem, prefs db.PreferenceSet) (float6
 	var totalScore float64
 
 	// Max total weight to normalize the score
-	totalWeight := float64(prefs.WatchHistoryWeight + prefs.LastWatchedWeight + prefs.FileSizeWeight + prefs.RatingWeight + prefs.TimeInLibraryWeight + prefs.AvailabilityWeight)
+	totalWeight := float64(prefs.WatchHistoryWeight + prefs.LastWatchedWeight + prefs.FileSizeWeight + prefs.RatingWeight + prefs.TimeInLibraryWeight + prefs.SeriesStatusWeight)
 	if totalWeight == 0 {
 		return 0.0, "All preference weights are zero", nil
 	}
@@ -141,16 +141,16 @@ func calculateScore(item integrations.MediaItem, prefs db.PreferenceSet) (float6
 	ageContrib := timeInLibraryScore * float64(prefs.TimeInLibraryWeight)
 	totalScore += ageContrib
 
-	// Status/Availability (Ended shows = higher deletion score vs continuing shows)
-	availabilityScore := 0.5
+	// Series Status (Ended shows = higher deletion score vs continuing shows)
+	seriesStatusScore := 0.5
 	if item.Type == integrations.MediaTypeShow || item.Type == integrations.MediaTypeSeason {
-		if strings.ToLower(item.ShowStatus) == "ended" {
-			availabilityScore = 1.0
-		} else if strings.ToLower(item.ShowStatus) == "continuing" {
-			availabilityScore = 0.2
+		if strings.ToLower(item.SeriesStatus) == "ended" {
+			seriesStatusScore = 1.0
+		} else if strings.ToLower(item.SeriesStatus) == "continuing" {
+			seriesStatusScore = 0.2
 		}
 	}
-	statusContrib := availabilityScore * float64(prefs.AvailabilityWeight)
+	statusContrib := seriesStatusScore * float64(prefs.SeriesStatusWeight)
 	totalScore += statusContrib
 
 	// Normalize to 0.0 - 1.0
@@ -166,7 +166,7 @@ func calculateScore(item integrations.MediaItem, prefs db.PreferenceSet) (float6
 		{Name: "File Size", RawScore: fileSizeScore, Weight: prefs.FileSizeWeight, Contribution: sizeContrib / totalWeight, Type: "weight"},
 		{Name: "Rating", RawScore: ratingScore, Weight: prefs.RatingWeight, Contribution: ratingContrib / totalWeight, Type: "weight"},
 		{Name: "Time in Library", RawScore: timeInLibraryScore, Weight: prefs.TimeInLibraryWeight, Contribution: ageContrib / totalWeight, Type: "weight"},
-		{Name: "Availability", RawScore: availabilityScore, Weight: prefs.AvailabilityWeight, Contribution: statusContrib / totalWeight, Type: "weight"},
+		{Name: "SeriesStatus", RawScore: seriesStatusScore, Weight: prefs.SeriesStatusWeight, Contribution: statusContrib / totalWeight, Type: "weight"},
 	}
 
 	// Build per-factor breakdown showing each factor's normalized contribution (backward compat)

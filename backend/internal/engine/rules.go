@@ -18,7 +18,7 @@ import (
 //   - All other effects multiply together.
 //
 // Returns (isAbsolutelyProtected, scoreModifier, reasonString, ruleFactors)
-func applyRules(item integrations.MediaItem, rules []db.ProtectionRule) (bool, float64, string, []ScoreFactor) {
+func applyRules(item integrations.MediaItem, rules []db.CustomRule) (bool, float64, string, []ScoreFactor) {
 	var reasons []string
 	var ruleFactors []ScoreFactor
 	modifier := 1.0
@@ -139,7 +139,7 @@ func legacyEffect(ruleType, intensity string) string {
 	}
 }
 
-func matchesRule(item integrations.MediaItem, rule db.ProtectionRule) bool {
+func matchesRule(item integrations.MediaItem, rule db.CustomRule) bool {
 	prop := strings.ToLower(rule.Field)
 	cond := strings.ToLower(rule.Operator)
 	val := strings.ToLower(rule.Value)
@@ -149,9 +149,9 @@ func matchesRule(item integrations.MediaItem, rule db.ProtectionRule) bool {
 		return stringMatch(strings.ToLower(item.Title), cond, val)
 	case "quality":
 		return stringMatch(strings.ToLower(item.QualityProfile), cond, val)
-	case "availability":
+	case "seriesstatus":
 		// Match against status (e.g., Ended, Continuing)
-		return stringMatch(strings.ToLower(item.ShowStatus), cond, val)
+		return stringMatch(strings.ToLower(item.SeriesStatus), cond, val)
 	case "tag":
 		for _, tag := range item.Tags {
 			if stringMatch(strings.ToLower(tag), cond, val) {

@@ -58,7 +58,7 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 	slog.Debug("Items on disk mount", "component", "poller",
 		"mount", group.MountPath, "itemCount", len(diskItems))
 
-	var rules []db.ProtectionRule
+	var rules []db.CustomRule
 	db.DB.Order("sort_order ASC, id ASC").Find(&rules)
 
 	// Evaluate

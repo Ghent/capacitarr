@@ -24,8 +24,8 @@ func isolatedPrefs(weight string, value int) db.PreferenceSet { //nolint:unparam
 		p.RatingWeight = value
 	case "TimeInLibrary":
 		p.TimeInLibraryWeight = value
-	case "Availability":
-		p.AvailabilityWeight = value
+	case "SeriesStatus":
+		p.SeriesStatusWeight = value
 	}
 	return p
 }
@@ -219,11 +219,11 @@ func TestCalculateScore_TimeInLibrary(t *testing.T) {
 	}
 }
 
-func TestCalculateScore_Availability(t *testing.T) {
+func TestCalculateScore_SeriesStatus(t *testing.T) {
 	tests := []struct {
 		name       string
 		mediaType  integrations.MediaType
-		showStatus string
+		seriesStatus string
 		expected   float64
 	}{
 		{"ended show = 1.0", integrations.MediaTypeShow, "ended", 1.0},
@@ -241,17 +241,17 @@ func TestCalculateScore_Availability(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			item := integrations.MediaItem{
 				Type:       tc.mediaType,
-				ShowStatus: tc.showStatus,
+				SeriesStatus: tc.seriesStatus,
 			}
-			prefs := isolatedPrefs("Availability", 10)
+			prefs := isolatedPrefs("SeriesStatus", 10)
 
 			score, _, factors := calculateScore(item, prefs)
 			if score < tc.expected-0.001 || score > tc.expected+0.001 {
 				t.Errorf("Expected score ~%v, got %v", tc.expected, score)
 			}
 			for _, f := range factors {
-				if f.Name == "Availability" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
-					t.Errorf("Availability raw score out of bounds: %v", f.RawScore)
+				if f.Name == "SeriesStatus" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
+					t.Errorf("SeriesStatus raw score out of bounds: %v", f.RawScore)
 				}
 			}
 		})
@@ -264,7 +264,7 @@ func TestCalculateScore_CombinedWeights(t *testing.T) {
 		SizeBytes:  50 * 1024 * 1024 * 1024, // max file size score = 1.0
 		Rating:     1.0,                     // worst rating score = 0.9
 		Type:       integrations.MediaTypeShow,
-		ShowStatus: "ended", // availability = 1.0
+		SeriesStatus: "ended", // seriesstatus = 1.0
 	}
 
 	// All weights equal at 5
@@ -274,7 +274,7 @@ func TestCalculateScore_CombinedWeights(t *testing.T) {
 		FileSizeWeight:      5,
 		RatingWeight:        5,
 		TimeInLibraryWeight: 5,
-		AvailabilityWeight:  5,
+		SeriesStatusWeight:  5,
 	}
 
 	score, _, factors := calculateScore(item, prefs)
@@ -304,7 +304,7 @@ func TestCalculateScoreReasonFormat(t *testing.T) {
 	item := integrations.MediaItem{
 		PlayCount:  0,
 		Type:       integrations.MediaTypeShow,
-		ShowStatus: "ended",
+		SeriesStatus: "ended",
 	}
 	prefs := db.PreferenceSet{
 		WatchHistoryWeight:  5,
@@ -312,7 +312,7 @@ func TestCalculateScoreReasonFormat(t *testing.T) {
 		FileSizeWeight:      2,
 		RatingWeight:        4,
 		TimeInLibraryWeight: 1,
-		AvailabilityWeight:  5,
+		SeriesStatusWeight:  5,
 	}
 
 	_, reason, _ := calculateScore(item, prefs)
@@ -336,7 +336,7 @@ func TestCalculateScore_FactorContributionsNormalized(t *testing.T) {
 		SizeBytes:  20 * 1024 * 1024 * 1024,
 		Rating:     7.0,
 		Type:       integrations.MediaTypeShow,
-		ShowStatus: "ended",
+		SeriesStatus: "ended",
 	}
 	prefs := db.PreferenceSet{
 		WatchHistoryWeight:  10,
@@ -344,7 +344,7 @@ func TestCalculateScore_FactorContributionsNormalized(t *testing.T) {
 		FileSizeWeight:      6,
 		RatingWeight:        5,
 		TimeInLibraryWeight: 4,
-		AvailabilityWeight:  3,
+		SeriesStatusWeight:  3,
 	}
 
 	_, _, factors := calculateScore(item, prefs)
@@ -382,7 +382,7 @@ func TestEvaluateMedia_ProtectedItemHasZeroScore(t *testing.T) {
 		{Title: "Protected Movie", IntegrationID: 1},
 	}
 	prefs := db.PreferenceSet{WatchHistoryWeight: 10}
-	rules := []db.ProtectionRule{
+	rules := []db.CustomRule{
 		{Field: "title", Operator: "==", Value: "protected movie", Effect: "always_keep"},
 	}
 
@@ -403,7 +403,7 @@ func TestEvaluateMedia_RuleModifiersApplied(t *testing.T) {
 		{Title: "Target Movie", IntegrationID: 1, Rating: 3.0},
 	}
 	prefs := db.PreferenceSet{RatingWeight: 10}
-	rules := []db.ProtectionRule{
+	rules := []db.CustomRule{
 		{Field: "rating", Operator: "<", Value: "5", Effect: "prefer_remove"}, // ×2.0
 	}
 

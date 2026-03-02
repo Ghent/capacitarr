@@ -347,7 +347,7 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ### Get available rule fields
 
-Returns the fields and operators you can use when creating protection rules.
+Returns the fields and operators you can use when creating custom rules.
 
 ```bash
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
@@ -369,11 +369,11 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ]
 ```
 
-### List all protection rules
+### List all custom rules
 
 ```bash
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/protections" | jq
+  "$CAPACITARR_URL/custom-rules" | jq
 ```
 
 ```json
@@ -394,7 +394,7 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ```bash
 curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
-  "$CAPACITARR_URL/protections" \
+  "$CAPACITARR_URL/custom-rules" \
   -d '{
     "field": "title",
     "operator": "contains",
@@ -408,7 +408,7 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ```bash
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/protections/1" | jq
+  "$CAPACITARR_URL/custom-rules/1" | jq
 ```
 
 ### Update a protection rule
@@ -416,7 +416,7 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ```bash
 curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
-  "$CAPACITARR_URL/protections/1" \
+  "$CAPACITARR_URL/custom-rules/1" \
   -d '{
     "field": "title",
     "operator": "contains",
@@ -430,7 +430,7 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ```bash
 curl -s -X DELETE -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/protections/1" | jq
+  "$CAPACITARR_URL/custom-rules/1" | jq
 ```
 
 ---

@@ -761,7 +761,7 @@ paths:
           description: |
             The rule field name to get values for (e.g., `quality`, `tag`,
             `genre`, `language`, `title`, `rating`, `sizebytes`, `timeinlibrary`,
-            `year`, `monitored`, `requested`, `type`, `availability`,
+            `year`, `monitored`, `requested`, `type`, `seriesstatus`,
             `seasoncount`, `episodecount`, `playcount`, `requestcount`)
           schema:
             type: string
@@ -790,11 +790,11 @@ paths:
           $ref: "#/components/responses/InternalServerError"
 
   # ===========================================================================
-  # Protection Rules
+  # Custom Rules
   # ===========================================================================
-  /protections:
+  /custom-rules:
     get:
-      operationId: listProtectionRules
+      operationId: listCustomRules
       tags: [Rules]
       summary: List all protection/targeting rules
       description: Returns all configured protection and targeting rules.
@@ -806,14 +806,14 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/ProtectionRule"
+                  $ref: "#/components/schemas/CustomRule"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
           $ref: "#/components/responses/InternalServerError"
 
     post:
-      operationId: createProtectionRule
+      operationId: createCustomRule
       tags: [Rules]
       summary: Create a protection/targeting rule
       description: |
@@ -829,14 +829,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ProtectionRuleCreate"
+              $ref: "#/components/schemas/CustomRuleCreate"
       responses:
         "201":
           description: Rule created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProtectionRule"
+                $ref: "#/components/schemas/CustomRule"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -844,9 +844,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /protections/{id}:
+  /custom-rules/{id}:
     delete:
-      operationId: deleteProtectionRule
+      operationId: deleteCustomRule
       tags: [Rules]
       summary: Delete a protection/targeting rule
       description: Permanently deletes a rule.
@@ -1457,7 +1457,7 @@ components:
           minimum: 0
           maximum: 10
           default: 4
-        availabilityWeight:
+        seriesStatusWeight:
           type: integer
           minimum: 0
           maximum: 10
@@ -1479,7 +1479,7 @@ components:
         - tiebreakerMethod
 
     # ---- Rules ----
-    ProtectionRule:
+    CustomRule:
       type: object
       properties:
         id:
@@ -1520,7 +1520,7 @@ components:
           format: date-time
       required: [id, field, operator, value, effect]
 
-    ProtectionRuleCreate:
+    CustomRuleCreate:
       type: object
       properties:
         integrationId:
@@ -1652,7 +1652,7 @@ components:
         showTitle:
           type: string
           description: TV-specific — parent show title
-        showStatus:
+        seriesStatus:
           type: string
           description: "TV-specific — e.g., continuing, ended"
         qualityProfile:

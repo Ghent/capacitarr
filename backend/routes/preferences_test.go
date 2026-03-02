@@ -50,7 +50,7 @@ func TestSavePreferences(t *testing.T) {
 		"fileSizeWeight": 2,
 		"ratingWeight": 4,
 		"timeInLibraryWeight": 1,
-		"availabilityWeight": 7,
+		"seriesStatusWeight": 7,
 		"executionMode": "approval",
 		"tiebreakerMethod": "name_asc",
 		"logLevel": "debug",
@@ -79,8 +79,8 @@ func TestSavePreferences(t *testing.T) {
 	if pref.WatchHistoryWeight != 5 {
 		t.Errorf("Expected WatchHistoryWeight 5, got %d", pref.WatchHistoryWeight)
 	}
-	if pref.AvailabilityWeight != 7 {
-		t.Errorf("Expected AvailabilityWeight 7, got %d", pref.AvailabilityWeight)
+	if pref.SeriesStatusWeight != 7 {
+		t.Errorf("Expected SeriesStatusWeight 7, got %d", pref.SeriesStatusWeight)
 	}
 	if pref.ExecutionMode != "approval" {
 		t.Errorf("Expected ExecutionMode 'approval', got %q", pref.ExecutionMode)

@@ -52,7 +52,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		if serviceType == intTypeSonarr || serviceType == "" {
 			// Sonarr-specific fields (TV)
 			sonarrFields := []map[string]interface{}{
-				{"field": "availability", "label": "Show Status", "type": "string", "operators": []string{"==", "!="}},
+				{"field": "seriesstatus", "label": "Show Status", "type": "string", "operators": []string{"==", "!="}},
 				{"field": "seasoncount", "label": "Season Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
 				{"field": "episodecount", "label": "Episode Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
 			}
@@ -172,7 +172,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 
 		// Handle static/built-in value types that don't need an API call
 		switch action {
-		case "availability": // Show Status
+		case "seriesstatus": // Show Status
 			result := map[string]interface{}{
 				"type": "closed",
 				"options": []integrations.NameValue{
@@ -331,15 +331,15 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 	// ---------------------------------------------------------
 	// CUSTOM RULES (protection/targeting)
 	// ---------------------------------------------------------
-	protected.GET("/protections", func(c echo.Context) error {
-		var rules []db.ProtectionRule
+	protected.GET("/custom-rules", func(c echo.Context) error {
+		var rules []db.CustomRule
 		if err := database.Order("sort_order ASC, id ASC").Find(&rules).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch custom rules"})
 		}
 		return c.JSON(http.StatusOK, rules)
 	})
 
-	protected.PUT("/protections/reorder", func(c echo.Context) error {
+	protected.PUT("/custom-rules/reorder", func(c echo.Context) error {
 		var payload struct {
 			Order []uint `json:"order"`
 		}
@@ -352,7 +352,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 
 		tx := database.Begin()
 		for idx, ruleID := range payload.Order {
-			if err := tx.Model(&db.ProtectionRule{}).Where("id = ?", ruleID).Update("sort_order", idx).Error; err != nil {
+			if err := tx.Model(&db.CustomRule{}).Where("id = ?", ruleID).Update("sort_order", idx).Error; err != nil {
 				tx.Rollback()
 				slog.Error("Failed to update rule sort order", "component", "api", "ruleId", ruleID, "error", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to reorder rules"})
@@ -362,14 +362,14 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	protected.PUT("/protections/:id", func(c echo.Context) error {
+	protected.PUT("/custom-rules/:id", func(c echo.Context) error {
 		id := c.Param("id")
-		var existing db.ProtectionRule
+		var existing db.CustomRule
 		if err := database.First(&existing, id).Error; err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Rule not found"})
 		}
 
-		var updated db.ProtectionRule
+		var updated db.CustomRule
 		if err := c.Bind(&updated); err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 		}
@@ -383,8 +383,8 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		return c.JSON(http.StatusOK, updated)
 	})
 
-	protected.POST("/protections", func(c echo.Context) error {
-		var newRule db.ProtectionRule
+	protected.POST("/custom-rules", func(c echo.Context) error {
+		var newRule db.CustomRule
 		if err := c.Bind(&newRule); err != nil {
 			slog.Debug("Failed to bind rule payload", "component", "api", "operation", "create_rule", "error", err)
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload: " + err.Error()})
@@ -435,9 +435,9 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 		return c.JSON(http.StatusCreated, newRule)
 	})
 
-	protected.DELETE("/protections/:id", func(c echo.Context) error {
+	protected.DELETE("/custom-rules/:id", func(c echo.Context) error {
 		id := c.Param("id")
-		if err := database.Delete(&db.ProtectionRule{}, id).Error; err != nil {
+		if err := database.Delete(&db.CustomRule{}, id).Error; err != nil {
 			slog.Error("Failed to delete custom rule", "component", "api", "operation", "delete_rule", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete rule"})
 		}

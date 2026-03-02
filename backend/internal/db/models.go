@@ -75,15 +75,15 @@ type PreferenceSet struct {
 	FileSizeWeight        int       `gorm:"default:6" json:"fileSizeWeight"`
 	RatingWeight          int       `gorm:"default:5" json:"ratingWeight"`
 	TimeInLibraryWeight   int       `gorm:"default:4" json:"timeInLibraryWeight"`
-	AvailabilityWeight    int       `gorm:"default:3" json:"availabilityWeight"`
+	SeriesStatusWeight    int       `gorm:"default:3" json:"seriesStatusWeight"`
 	ExecutionMode         string    `gorm:"default:'dry-run';not null" json:"executionMode"`      // "dry-run", "approval", "auto"
 	TiebreakerMethod      string    `gorm:"default:'size_desc';not null" json:"tiebreakerMethod"` // "size_desc", "size_asc", "name_asc", "oldest_first", "newest_first"
 	DeletionsEnabled      bool      `gorm:"default:true;not null" json:"deletionsEnabled"`        // Safety guard: actual deletions only when true
 	UpdatedAt             time.Time `json:"updatedAt"`
 }
 
-// ProtectionRule stores custom rules that influence media scoring via keep/remove effects
-type ProtectionRule struct {
+// CustomRule stores custom rules that influence media scoring via keep/remove effects
+type CustomRule struct {
 	ID            uint   `gorm:"primarykey" json:"id"`
 	IntegrationID *uint  `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; nil = legacy global rule
 	Field         string `gorm:"not null" json:"field"`      // e.g. "quality", "tag", "rating"

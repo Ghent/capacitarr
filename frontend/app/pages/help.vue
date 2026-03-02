@@ -538,7 +538,7 @@ const scoringFactors = [
   { nameKey: 'help.factor.fileSize', descKey: 'help.factor.fileSizeDesc' },
   { nameKey: 'help.factor.rating', descKey: 'help.factor.ratingDesc' },
   { nameKey: 'help.factor.timeInLibrary', descKey: 'help.factor.timeInLibraryDesc' },
-  { nameKey: 'help.factor.availability', descKey: 'help.factor.availabilityDesc' }
+  { nameKey: 'help.factor.seriesStatus', descKey: 'help.factor.seriesStatusDesc' }
 ]
 
 const rawScoreExamples = [
@@ -547,7 +547,7 @@ const rawScoreExamples = [
   { nameKey: 'help.factor.fileSize', descKey: 'help.rawScore.fileSizeDesc' },
   { nameKey: 'help.factor.rating', descKey: 'help.rawScore.ratingDesc' },
   { nameKey: 'help.factor.timeInLibrary', descKey: 'help.rawScore.timeInLibraryDesc' },
-  { nameKey: 'help.factor.availability', descKey: 'help.rawScore.availabilityDesc' }
+  { nameKey: 'help.factor.seriesStatus', descKey: 'help.rawScore.seriesStatusDesc' }
 ]
 
 const effectLevels = [

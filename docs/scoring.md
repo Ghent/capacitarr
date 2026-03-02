@@ -103,7 +103,7 @@ The score is inverted: `1.0 - (rating / 10.0)`. High-rated content scores low (k
 
 Calculated as `daysSinceAdded / 365`, capped at 1.0. Older content scores higher than recently added content.
 
-### Availability (Show Status)
+### Series Status
 
 **What it measures:** Whether a show is still producing new episodes.
 
@@ -168,7 +168,7 @@ Rules match media items by comparing a **field** against a **value** using an **
 |-------|----------------|-------------------|
 | `title` | Item title | `==`, `!=`, `contains`, `!contains` |
 | `quality` | Quality profile name | `==`, `!=`, `contains`, `!contains` |
-| `availability` | Show status (ended, continuing) | `==`, `!=`, `contains`, `!contains` |
+| `seriesstatus` | Show status (ended, continuing) | `==`, `!=`, `contains`, `!contains` |
 | `tag` | Any tag on the item | `==`, `!=`, `contains`, `!contains` |
 | `genre` | Genre name | `==`, `!=`, `contains`, `!contains` |
 | `language` | Language | `==`, `!=`, `contains`, `!contains` |

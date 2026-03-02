@@ -51,7 +51,7 @@ export interface PreferenceSet {
   fileSizeWeight: number
   ratingWeight: number
   timeInLibraryWeight: number
-  availabilityWeight: number
+  seriesStatusWeight: number
   executionMode: string
   tiebreakerMethod: string
   deletionsEnabled: boolean
@@ -59,10 +59,10 @@ export interface PreferenceSet {
 }
 
 // ---------------------------------------------------------------------------
-// Custom Rule (API endpoint: /api/v1/protections — legacy naming)
+// Custom Rule (API endpoint: /api/v1/custom-rules)
 // ---------------------------------------------------------------------------
 
-export interface ProtectionRule {
+export interface CustomRule {
   id: number
   integrationId?: number | null
   field: string
@@ -151,7 +151,7 @@ export interface MediaItem {
   seasonNumber?: number
   episodeCount?: number
   showTitle?: string
-  showStatus?: string
+  seriesStatus?: string
   qualityProfile?: string
   rating?: number
   genre?: string

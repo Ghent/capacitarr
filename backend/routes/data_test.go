@@ -232,12 +232,12 @@ func TestDataReset_Unauthenticated(t *testing.T) {
 	}
 }
 
-func TestDataReset_PreservesProtectionRules(t *testing.T) {
+func TestDataReset_PreservesCustomRules(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
 	// Seed a protection rule
-	rule := db.ProtectionRule{
+	rule := db.CustomRule{
 		Field:    "title",
 		Operator: "contains",
 		Value:    "Star Wars",
@@ -266,7 +266,7 @@ func TestDataReset_PreservesProtectionRules(t *testing.T) {
 
 	// Protection rules should NOT be deleted by data reset
 	var ruleCount int64
-	database.Model(&db.ProtectionRule{}).Count(&ruleCount)
+	database.Model(&db.CustomRule{}).Count(&ruleCount)
 	if ruleCount != 1 {
 		t.Errorf("Expected 1 protection rule preserved after reset, got %d", ruleCount)
 	}
