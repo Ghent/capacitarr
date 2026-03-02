@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"log/slog"
 	"math"
 	"sort"
 	"strings"
@@ -35,6 +36,8 @@ func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules
 	var evaluated []EvaluatedItem
 
 	for _, item := range items {
+		slog.Debug("Evaluating item", "component", "engine", "title", item.Title,
+			"type", item.Type, "size", item.SizeBytes)
 		isAbsProtected, modifier, ruleReasons, ruleFactors := applyRules(item, rules)
 		if isAbsProtected {
 			evaluated = append(evaluated, EvaluatedItem{
@@ -173,6 +176,15 @@ func calculateScore(item integrations.MediaItem, prefs db.PreferenceSet) (float6
 		ageContrib/totalWeight,
 		statusContrib/totalWeight,
 	)
+	slog.Debug("Score calculated", "component", "engine",
+		"title", item.Title, "finalScore", fmt.Sprintf("%.4f", finalScore),
+		"watchHistory", fmt.Sprintf("%.2f", watchHistoryContrib/totalWeight),
+		"recency", fmt.Sprintf("%.2f", recencyContrib/totalWeight),
+		"size", fmt.Sprintf("%.2f", sizeContrib/totalWeight),
+		"rating", fmt.Sprintf("%.2f", ratingContrib/totalWeight),
+		"age", fmt.Sprintf("%.2f", ageContrib/totalWeight),
+		"status", fmt.Sprintf("%.2f", statusContrib/totalWeight))
+
 	return finalScore, reason, factors
 }
 

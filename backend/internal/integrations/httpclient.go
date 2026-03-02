@@ -3,8 +3,11 @@ package integrations
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
+
+	"capacitarr/internal/logger"
 )
 
 // sharedHTTPClient is a package-level HTTP client with a 30-second timeout.
@@ -15,6 +18,9 @@ var sharedHTTPClient = &http.Client{
 // DoAPIRequest creates a GET request to the given URL, sets the specified header,
 // executes with the shared client, checks for 401/non-200, and reads the body.
 func DoAPIRequest(url, headerKey, headerValue string) ([]byte, error) {
+	start := time.Now()
+	sanitizedURL := logger.SanitizeURL(url)
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -25,9 +31,14 @@ func DoAPIRequest(url, headerKey, headerValue string) ([]byte, error) {
 
 	resp, err := sharedHTTPClient.Do(req)
 	if err != nil {
+		slog.Debug("Integration API request failed", "component", "integrations",
+			"url", sanitizedURL, "error", err, "duration", time.Since(start).String())
 		return nil, fmt.Errorf("connection failed: %w", err)
 	}
 	defer resp.Body.Close()
+
+	slog.Debug("Integration API response", "component", "integrations",
+		"url", sanitizedURL, "status", resp.StatusCode, "duration", time.Since(start).String())
 
 	if resp.StatusCode == 401 {
 		return nil, fmt.Errorf("unauthorized: invalid API key or token")

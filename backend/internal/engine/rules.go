@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -28,7 +29,11 @@ func applyRules(item integrations.MediaItem, rules []db.ProtectionRule) (bool, f
 			continue
 		}
 
-		if matchesRule(item, rule) {
+		matched := matchesRule(item, rule)
+		slog.Debug("Rule evaluation", "component", "engine",
+			"title", item.Title, "rule", fmt.Sprintf("%s %s %s", rule.Field, rule.Operator, rule.Value),
+			"matched", matched)
+		if matched {
 			ruleName := fmt.Sprintf("%s %s %s", rule.Field, rule.Operator, rule.Value)
 
 			// Use the new effect field if set; fall back to legacy type+intensity

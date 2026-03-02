@@ -3,6 +3,7 @@
 package cache
 
 import (
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -40,8 +41,10 @@ func (c *TTLCache) Get(key string) (interface{}, bool) {
 	entry, ok := c.items[key]
 	c.mu.RUnlock()
 	if !ok || time.Now().After(entry.ExpiresAt) {
+		slog.Debug("Cache miss", "component", "cache", "key", key)
 		return nil, false
 	}
+	slog.Debug("Cache hit", "component", "cache", "key", key)
 	return entry.Value, true
 }
 
@@ -94,13 +97,18 @@ func (c *TTLCache) janitor() {
 		select {
 		case <-ticker.C:
 			now := time.Now()
+			evicted := 0
 			c.mu.Lock()
 			for k, v := range c.items {
 				if now.After(v.ExpiresAt) {
 					delete(c.items, k)
+					evicted++
 				}
 			}
 			c.mu.Unlock()
+			if evicted > 0 {
+				slog.Debug("Cache janitor evicted expired entries", "component", "cache", "evicted", evicted)
+			}
 		case <-c.closeCh:
 			return
 		}
