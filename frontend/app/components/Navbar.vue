@@ -149,47 +149,6 @@
             </UiPopoverContent>
           </UiPopover>
 
-          <!-- Theme selector -->
-          <UiDropdownMenu>
-            <UiDropdownMenuTrigger as-child>
-              <UiButton
-                variant="ghost"
-                size="icon"
-                aria-label="Change theme"
-              >
-                <component
-                  :is="PaletteIcon"
-                  class="w-5 h-5"
-                />
-              </UiButton>
-            </UiDropdownMenuTrigger>
-            <UiDropdownMenuContent
-              align="end"
-              class="w-40"
-            >
-              <UiDropdownMenuLabel>{{ $t('nav.theme') }}</UiDropdownMenuLabel>
-              <UiDropdownMenuSeparator />
-              <UiDropdownMenuItem
-                v-for="t in themes"
-                :key="t.id"
-                class="flex items-center gap-2.5 cursor-pointer"
-                @click="setTheme(t.id)"
-              >
-                <span
-                  class="w-4 h-4 rounded-full border-2 shrink-0"
-                  :class="theme === t.id ? 'border-primary' : 'border-transparent'"
-                  :style="{ backgroundColor: themeSwatchColor(t) }"
-                />
-                <span>{{ t.label }}</span>
-                <component
-                  :is="CheckIcon"
-                  v-if="theme === t.id"
-                  class="w-4 h-4 ml-auto text-primary"
-                />
-              </UiDropdownMenuItem>
-            </UiDropdownMenuContent>
-          </UiDropdownMenu>
-
           <!-- Language selector -->
           <UiDropdownMenu>
             <UiDropdownMenuTrigger as-child>
@@ -226,18 +185,97 @@
             </UiDropdownMenuContent>
           </UiDropdownMenu>
 
-          <!-- Dark mode toggle -->
-          <UiButton
-            variant="ghost"
-            size="icon"
-            :aria-label="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
-            @click="toggle"
-          >
-            <component
-              :is="isDark ? SunIcon : MoonIcon"
-              class="w-5 h-5"
-            />
-          </UiButton>
+          <!-- Theme & Mode selector (merged) -->
+          <UiDropdownMenu>
+            <UiDropdownMenuTrigger as-child>
+              <UiButton
+                variant="ghost"
+                size="icon"
+                aria-label="Change theme and mode"
+              >
+                <component
+                  :is="PaletteIcon"
+                  class="w-5 h-5"
+                />
+              </UiButton>
+            </UiDropdownMenuTrigger>
+            <UiDropdownMenuContent
+              align="end"
+              class="w-44"
+            >
+              <!-- Color Mode Section -->
+              <UiDropdownMenuLabel>{{ $t('nav.mode') }}</UiDropdownMenuLabel>
+              <UiDropdownMenuSeparator />
+              <UiDropdownMenuItem
+                class="flex items-center gap-2.5 cursor-pointer"
+                @click="setMode('light')"
+              >
+                <component
+                  :is="SunIcon"
+                  class="w-4 h-4"
+                />
+                <span>{{ $t('nav.modeLight') }}</span>
+                <component
+                  :is="CheckIcon"
+                  v-if="colorMode === 'light'"
+                  class="w-4 h-4 ml-auto text-primary"
+                />
+              </UiDropdownMenuItem>
+              <UiDropdownMenuItem
+                class="flex items-center gap-2.5 cursor-pointer"
+                @click="setMode('dark')"
+              >
+                <component
+                  :is="MoonIcon"
+                  class="w-4 h-4"
+                />
+                <span>{{ $t('nav.modeDark') }}</span>
+                <component
+                  :is="CheckIcon"
+                  v-if="colorMode === 'dark'"
+                  class="w-4 h-4 ml-auto text-primary"
+                />
+              </UiDropdownMenuItem>
+              <UiDropdownMenuItem
+                class="flex items-center gap-2.5 cursor-pointer"
+                @click="setMode('system')"
+              >
+                <component
+                  :is="MonitorIcon"
+                  class="w-4 h-4"
+                />
+                <span>{{ $t('nav.modeSystem') }}</span>
+                <component
+                  :is="CheckIcon"
+                  v-if="colorMode === 'system'"
+                  class="w-4 h-4 ml-auto text-primary"
+                />
+              </UiDropdownMenuItem>
+
+              <!-- Theme Color Section -->
+              <UiDropdownMenuSeparator />
+              <UiDropdownMenuLabel>{{ $t('nav.theme') }}</UiDropdownMenuLabel>
+              <UiDropdownMenuSeparator />
+              <UiDropdownMenuItem
+                v-for="t in themes"
+                :key="t.id"
+                class="flex items-center gap-2.5 cursor-pointer"
+                @click="setTheme(t.id)"
+              >
+                <span
+                  class="w-4 h-4 rounded-full border-2 shrink-0"
+                  :class="theme === t.id ? 'border-primary' : 'border-transparent'"
+                  :style="{ backgroundColor: themeSwatchColor(t) }"
+                />
+                <span>{{ t.label }}</span>
+                <component
+                  :is="CheckIcon"
+                  v-if="theme === t.id"
+                  class="w-4 h-4 ml-auto text-primary"
+                />
+              </UiDropdownMenuItem>
+            </UiDropdownMenuContent>
+          </UiDropdownMenu>
 
           <!-- Help -->
           <UiButton
@@ -255,100 +293,6 @@
               />
             </NuxtLink>
           </UiButton>
-
-          <!-- About -->
-          <UiPopover>
-            <UiPopoverTrigger as-child>
-              <UiButton
-                variant="ghost"
-                size="icon"
-                aria-label="About Capacitarr"
-              >
-                <component
-                  :is="InfoIcon"
-                  class="w-5 h-5"
-                />
-              </UiButton>
-            </UiPopoverTrigger>
-            <UiPopoverContent
-              align="end"
-              class="w-72"
-            >
-              <div class="space-y-3">
-                <div>
-                  <h4 class="font-semibold text-sm">
-                    Capacitarr
-                  </h4>
-                </div>
-                <p class="text-sm text-muted-foreground leading-snug">
-                  Automated media library capacity management — score, rank, and clean up your *arr libraries.
-                </p>
-                <UiSeparator />
-                <div class="space-y-1.5 text-xs text-muted-foreground font-mono">
-                  <div class="flex items-baseline justify-between gap-2">
-                    <span>UI v{{ uiVersion }}</span>
-                    <span
-                      v-if="uiBuildDate"
-                      class="text-muted-foreground/60"
-                    >{{ formatBuildDate(uiBuildDate) }}</span>
-                  </div>
-                  <div class="flex items-baseline justify-between gap-2">
-                    <span>API {{ apiVersion || '···' }}</span>
-                    <span
-                      v-if="apiBuildDate"
-                      class="text-muted-foreground/60"
-                    >{{ formatBuildDate(apiBuildDate) }}</span>
-                  </div>
-                </div>
-                <UiSeparator />
-                <div class="space-y-1.5 text-xs text-muted-foreground">
-                  <p>Built by <span class="font-semibold text-foreground">Ghent Starshadow</span></p>
-                  <p>
-                    Inspired by
-                    <a
-                      href="https://github.com/jorenn92/Maintainerr"
-                      target="_blank"
-                      rel="noopener"
-                      class="text-primary hover:underline inline-flex items-center gap-0.5"
-                    >
-                      Maintainerr <component
-                        :is="ExternalLinkIcon"
-                        class="w-3 h-3"
-                      />
-                    </a>
-                    and the
-                    <a
-                      href="https://wiki.servarr.com/"
-                      target="_blank"
-                      rel="noopener"
-                      class="text-primary hover:underline inline-flex items-center gap-0.5"
-                    >
-                      *arr <component
-                        :is="ExternalLinkIcon"
-                        class="w-3 h-3"
-                      />
-                    </a>
-                    ecosystem
-                  </p>
-                </div>
-                <UiSeparator />
-                <div class="flex items-center justify-between">
-                  <span class="text-[10px] text-muted-foreground/60">Go · Nuxt · shadcn-vue · SQLite</span>
-                  <a
-                    href="https://gitlab.com/starshadow/software/capacitarr"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-xs text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    GitLab <component
-                      :is="ExternalLinkIcon"
-                      class="w-3 h-3"
-                    />
-                  </a>
-                </div>
-              </div>
-            </UiPopoverContent>
-          </UiPopover>
 
           <!-- Logout -->
           <UiButton
@@ -371,17 +315,17 @@
 
 <script setup lang="ts">
 import {
-  DatabaseIcon, MoonIcon, SunIcon, LogOutIcon, CircleHelpIcon, PaletteIcon,
-  CheckIcon, InfoIcon, ExternalLinkIcon, BellIcon, LoaderCircleIcon,
-  AlertTriangleIcon, XCircleIcon, CheckCircleIcon, GlobeIcon
+  DatabaseIcon, MoonIcon, SunIcon, MonitorIcon, LogOutIcon, CircleHelpIcon, PaletteIcon,
+  CheckIcon, BellIcon, LoaderCircleIcon,
+  AlertTriangleIcon, XCircleIcon, CheckCircleIcon, InfoIcon, GlobeIcon
 } from 'lucide-vue-next'
 import { formatRelativeTime } from '~/utils/format'
 import type { ThemeMeta } from '~/composables/useTheme'
 import type { InAppNotification } from '~/types/api'
 
-const { isDark, toggle } = useAppColorMode()
+const { mode: colorMode, setMode } = useAppColorMode()
 const { theme, setTheme, themes } = useTheme()
-const { uiVersion, uiBuildDate, apiVersion, apiBuildDate } = useVersion()
+const { uiVersion, apiVersion } = useVersion()
 const {
   unreadCount,
   notifications,
@@ -437,13 +381,6 @@ onUnmounted(() => {
   stopPolling()
 })
 
-/** Format an ISO date string as a short readable date */
-function formatBuildDate(iso: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
-}
 const router = useRouter()
 const authenticated = useCookie('authenticated')
 

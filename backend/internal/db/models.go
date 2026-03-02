@@ -78,7 +78,7 @@ type PreferenceSet struct {
 	AvailabilityWeight    int       `gorm:"default:3" json:"availabilityWeight"`
 	ExecutionMode         string    `gorm:"default:'dry-run';not null" json:"executionMode"`      // "dry-run", "approval", "auto"
 	TiebreakerMethod      string    `gorm:"default:'size_desc';not null" json:"tiebreakerMethod"` // "size_desc", "size_asc", "name_asc", "oldest_first", "newest_first"
-	DeletionsEnabled      bool      `gorm:"default:false;not null" json:"deletionsEnabled"`       // Safety guard: actual deletions only when true
+	DeletionsEnabled      bool      `gorm:"default:true;not null" json:"deletionsEnabled"`        // Safety guard: actual deletions only when true
 	UpdatedAt             time.Time `json:"updatedAt"`
 }
 

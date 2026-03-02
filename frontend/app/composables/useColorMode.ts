@@ -1,34 +1,62 @@
 /**
- * Simple color mode composable (dark/light toggle).
- * Persists preference in localStorage and applies 'dark' class to <html>.
+ * Color mode composable supporting light, dark, and system preferences.
+ * Persists user preference in localStorage and applies 'dark' class to <html>.
+ * When set to 'system', follows the OS/browser prefers-color-scheme media query.
  */
+export type ColorModePreference = 'light' | 'dark' | 'system'
+
 export const useAppColorMode = () => {
-  const mode = useState<'light' | 'dark'>('colorMode', () => {
+  const preference = useState<ColorModePreference>('colorModePreference', () => {
     if (import.meta.client) {
       const stored = localStorage.getItem('capacitarr-color-mode')
-      if (stored === 'dark' || stored === 'light') return stored
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      if (stored === 'dark' || stored === 'light' || stored === 'system') return stored
+      return 'system' // Default to system preference
     }
     return 'dark' // Default for SSR/initial
   })
 
-  const isDark = computed(() => mode.value === 'dark')
+  const isDark = computed(() => {
+    if (preference.value === 'system') {
+      if (import.meta.client) {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches
+      }
+      return true // Assume dark for SSR
+    }
+    return preference.value === 'dark'
+  })
 
+  function setMode(newMode: ColorModePreference) {
+    preference.value = newMode
+    apply()
+  }
+
+  /** Legacy toggle: cycles light → dark → light */
   function toggle() {
-    mode.value = mode.value === 'dark' ? 'light' : 'dark'
+    if (preference.value === 'dark') {
+      preference.value = 'light'
+    } else {
+      preference.value = 'dark'
+    }
     apply()
   }
 
   function apply() {
     if (!import.meta.client) return
-    document.documentElement.classList.toggle('dark', mode.value === 'dark')
-    localStorage.setItem('capacitarr-color-mode', mode.value)
+    document.documentElement.classList.toggle('dark', isDark.value)
+    localStorage.setItem('capacitarr-color-mode', preference.value)
   }
 
   // Apply on first client-side load
   if (import.meta.client) {
     apply()
+
+    // Listen for OS theme changes when in system mode
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (preference.value === 'system') {
+        apply()
+      }
+    })
   }
 
-  return { mode, isDark, toggle }
+  return { mode: preference, isDark, toggle, setMode }
 }

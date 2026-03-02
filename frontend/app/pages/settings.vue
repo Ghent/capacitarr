@@ -623,68 +623,6 @@
         value="advanced"
         class="space-y-6"
       >
-        <!-- Deletion Safety -->
-        <UiCard
-          v-motion
-          :initial="{ opacity: 0, y: 12 }"
-          :enter="{ opacity: 1, y: 0 }"
-          class="overflow-hidden"
-          :class="deletionsEnabled ? 'border-destructive' : ''"
-        >
-          <UiCardHeader class="border-b border-border">
-            <div class="flex items-center gap-3">
-              <div
-                class="w-10 h-10 rounded-lg flex items-center justify-center"
-                :class="deletionsEnabled ? 'bg-destructive' : 'bg-amber-500'"
-              >
-                <component
-                  :is="AlertTriangleIcon"
-                  class="w-5 h-5 text-white"
-                />
-              </div>
-              <div>
-                <UiCardTitle class="text-base">
-                  {{ $t('settings.deletionSafety') }}
-                </UiCardTitle>
-                <UiCardDescription>{{ $t('settings.deletionSafetyDesc') }}</UiCardDescription>
-              </div>
-            </div>
-          </UiCardHeader>
-          <UiCardContent class="pt-5 space-y-4">
-            <p class="text-sm text-muted-foreground">
-              {{ $t('settings.deletionSafetyExplain') }}
-            </p>
-            <div class="flex items-center justify-between">
-              <div class="space-y-0.5">
-                <div class="flex items-center gap-2">
-                  <UiLabel>{{ $t('settings.enableDeletions') }}</UiLabel>
-                  <SaveIndicator :status="saveStatus.deletionsEnabled" />
-                </div>
-                <p class="text-xs text-muted-foreground/70">
-                  {{ deletionsEnabled ? $t('settings.deletionsActive') : $t('settings.deletionsSimulated') }}
-                </p>
-              </div>
-              <UiSwitch
-                :checked="deletionsEnabled"
-                @update:checked="onDeletionToggle"
-              />
-            </div>
-            <UiAlert
-              v-if="deletionsEnabled"
-              variant="destructive"
-            >
-              <component
-                :is="Trash2Icon"
-                class="w-4 h-4"
-              />
-              <UiAlertTitle>{{ $t('settings.deletionsActiveAlert') }}</UiAlertTitle>
-              <UiAlertDescription>
-                {{ $t('settings.deletionsActiveAlertDesc') }}
-              </UiAlertDescription>
-            </UiAlert>
-          </UiCardContent>
-        </UiCard>
-
         <!-- Poll Interval -->
         <UiCard
           v-motion
@@ -895,24 +833,79 @@
               </div>
               <div>
                 <UiCardTitle class="text-base text-destructive">
-                  Reset Scraped Data
+                  Danger Zone
                 </UiCardTitle>
                 <UiCardDescription>
-                  Clear all audit logs, capacity history, engine stats, and disk group data.
-                  Integration configurations, preferences, and custom rules are preserved.
-                  Data will be re-populated on the next engine run.
+                  Destructive actions that cannot be easily undone.
                 </UiCardDescription>
               </div>
             </div>
           </UiCardHeader>
-          <UiCardContent class="pt-5">
-            <UiButton
-              variant="destructive"
-              :disabled="resettingData"
-              @click="showResetDialog = true"
-            >
-              {{ resettingData ? 'Clearing…' : 'Clear All Scraped Data' }}
-            </UiButton>
+          <UiCardContent class="pt-5 space-y-6">
+            <!-- Reset Scraped Data -->
+            <div class="space-y-2">
+              <p class="text-sm font-medium text-foreground">
+                Reset Scraped Data
+              </p>
+              <p class="text-sm text-muted-foreground">
+                Clear all audit logs, capacity history, engine stats, and disk group data.
+                Integration configurations, preferences, and custom rules are preserved.
+                Data will be re-populated on the next engine run.
+              </p>
+              <UiButton
+                variant="destructive"
+                :disabled="resettingData"
+                @click="showResetDialog = true"
+              >
+                {{ resettingData ? 'Clearing…' : 'Clear All Scraped Data' }}
+              </UiButton>
+            </div>
+
+            <UiSeparator />
+
+            <!-- Deletion Safety -->
+            <div class="space-y-3">
+              <p class="text-sm font-medium text-foreground">
+                {{ $t('settings.deletionSafety') }}
+              </p>
+              <p class="text-sm text-muted-foreground">
+                {{ $t('settings.deletionSafetyExplain') }}
+              </p>
+              <UiAlert
+                v-if="deletionsEnabled"
+                variant="destructive"
+              >
+                <component
+                  :is="Trash2Icon"
+                  class="w-4 h-4"
+                />
+                <UiAlertTitle>{{ $t('settings.deletionsActiveAlert') }}</UiAlertTitle>
+                <UiAlertDescription>
+                  {{ $t('settings.deletionsActiveAlertDesc') }}
+                </UiAlertDescription>
+              </UiAlert>
+              <div class="flex items-center gap-3">
+                <UiButton
+                  v-if="!deletionsEnabled"
+                  variant="destructive"
+                  @click="onDeletionToggle(true)"
+                >
+                  <component
+                    :is="Trash2Icon"
+                    class="w-4 h-4"
+                  />
+                  {{ $t('settings.enableDeletions') }}
+                </UiButton>
+                <UiButton
+                  v-else
+                  variant="outline"
+                  @click="onDeletionToggle(false)"
+                >
+                  {{ $t('settings.disableDeletions') }}
+                </UiButton>
+                <SaveIndicator :status="saveStatus.deletionsEnabled" />
+              </div>
+            </div>
           </UiCardContent>
         </UiCard>
       </UiTabsContent>
@@ -1570,7 +1563,7 @@ const defaultThreshold = ref(85)
 const defaultTarget = ref(75)
 
 // Deletion safety state
-const deletionsEnabled = ref(false)
+const deletionsEnabled = ref(true)
 const showDeletionConfirmDialog = ref(false)
 const deletionConfirmText = ref('')
 
