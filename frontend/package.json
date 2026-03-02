@@ -13,7 +13,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "nuxt typecheck",
-    "check": "pnpm lint && pnpm format:check"
+    "check": "pnpm lint && pnpm format:check",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fontsource/geist-mono": "^5.2.7",
@@ -39,13 +41,17 @@
     "@nuxt/eslint": "^1.15.1",
     "@tailwindcss/postcss": "^4.2.1",
     "@tailwindcss/vite": "^4.2.1",
+    "@vitejs/plugin-vue": "^6.0.4",
     "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.7.0",
+    "@vue/test-utils": "^2.4.6",
     "eslint": "^10.0.2",
     "eslint-plugin-vue": "^10.8.0",
+    "happy-dom": "^20.7.0",
     "prettier": "^3.8.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3",
+    "vitest": "^4.0.18",
     "vue-tsc": "^3.2.4"
   },
   "packageManager": "pnpm@10.29.3"
