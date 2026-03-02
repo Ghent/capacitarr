@@ -6,6 +6,7 @@ stages:
   - test
   - build
   - security
+  - release
 
 # ── Shared variables ──────────────────────────────────────────────────────────
 
@@ -85,3 +86,82 @@ security:pnpm-audit:
   script:
     - cd frontend && pnpm audit
   allow_failure: true
+
+# ── Release ───────────────────────────────────────────────────────────────────
+
+changelog:
+  stage: release
+  image:
+    name: orhunp/git-cliff:latest
+    entrypoint: [""]
+  script:
+    - git cliff --latest --strip header > release_notes.md
+    - cat release_notes.md
+  artifacts:
+    paths:
+      - release_notes.md
+    expire_in: 1 week
+  rules:
+    - if: $CI_COMMIT_TAG
+
+release:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  before_script:
+    - apk add --no-cache git curl jq npm
+    - pip3 install --break-system-packages git-cliff || apk add --no-cache py3-pip && pip3 install --break-system-packages git-cliff
+  script:
+    - |
+      # Determine the next semantic version from conventional commits
+      VERSION=$(git cliff --bumped-version 2>/dev/null || echo "")
+      if [ -z "$VERSION" ]; then
+        echo "No version bump needed — no conventional commits found."
+        exit 0
+      fi
+
+      # Check if this version tag already exists
+      CURRENT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+      if [ "$VERSION" = "$CURRENT_TAG" ]; then
+        echo "Version $VERSION already tagged — skipping release."
+        exit 0
+      fi
+
+      echo "Bumping to version: $VERSION"
+
+      # Generate changelog body for the release
+      git cliff --unreleased --strip header > changelog_body.md
+      cat changelog_body.md
+
+      # Update version in package.json files
+      SEMVER=$(echo "$VERSION" | sed 's/^v//')
+      if [ -f package.json ]; then
+        jq --arg v "$SEMVER" '.version = $v' package.json > package.json.tmp && mv package.json.tmp package.json
+      fi
+      if [ -f frontend/package.json ]; then
+        jq --arg v "$SEMVER" '.version = $v' frontend/package.json > frontend/package.json.tmp && mv frontend/package.json.tmp frontend/package.json
+      fi
+
+      # Update the full CHANGELOG.md
+      git cliff --bump -o CHANGELOG.md
+
+      # Export variables for the release step
+      echo "VERSION=$VERSION" >> release.env
+      echo "CHANGELOG<<EOF" >> release.env
+      cat changelog_body.md >> release.env
+      echo "EOF" >> release.env
+    - cat release.env
+  artifacts:
+    reports:
+      dotenv: release.env
+    paths:
+      - CHANGELOG.md
+      - package.json
+      - frontend/package.json
+    expire_in: 1 week
+  release:
+    tag_name: $VERSION
+    description: $CHANGELOG
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG
+      when: never
