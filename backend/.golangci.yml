@@ -33,3 +33,4 @@ issues:
     - path: _test\.go
       linters:
         - errcheck
+        - goconst
