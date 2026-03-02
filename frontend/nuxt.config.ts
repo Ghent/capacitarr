@@ -3,7 +3,43 @@ import pkg from './package.json'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint'],
+  modules: ['@nuxt/eslint', '@nuxtjs/i18n'],
+
+  i18n: {
+    locales: [
+      { code: 'en', name: 'English', file: 'en.json' },
+      { code: 'es', name: 'Español', file: 'es.json' },
+      { code: 'de', name: 'Deutsch', file: 'de.json' },
+      { code: 'fr', name: 'Français', file: 'fr.json' },
+      { code: 'pt-BR', name: 'Português (Brasil)', file: 'pt-BR.json' },
+      { code: 'nl', name: 'Nederlands', file: 'nl.json' },
+      { code: 'it', name: 'Italiano', file: 'it.json' },
+      { code: 'pl', name: 'Polski', file: 'pl.json' },
+      { code: 'sv', name: 'Svenska', file: 'sv.json' },
+      { code: 'da', name: 'Dansk', file: 'da.json' },
+      { code: 'nb', name: 'Norsk', file: 'nb.json' },
+      { code: 'fi', name: 'Suomi', file: 'fi.json' },
+      { code: 'ru', name: 'Русский', file: 'ru.json' },
+      { code: 'uk', name: 'Українська', file: 'uk.json' },
+      { code: 'cs', name: 'Čeština', file: 'cs.json' },
+      { code: 'ro', name: 'Română', file: 'ro.json' },
+      { code: 'hu', name: 'Magyar', file: 'hu.json' },
+      { code: 'tr', name: 'Türkçe', file: 'tr.json' },
+      { code: 'ja', name: '日本語', file: 'ja.json' },
+      { code: 'ko', name: '한국어', file: 'ko.json' },
+      { code: 'zh-CN', name: '简体中文', file: 'zh-CN.json' },
+      { code: 'zh-TW', name: '繁體中文', file: 'zh-TW.json' }
+    ],
+    defaultLocale: 'en',
+    lazy: true,
+    langDir: 'locales/',
+    strategy: 'no_prefix',
+    detectBrowserLanguage: {
+      useCookie: true,
+      cookieKey: 'capacitarr-locale',
+      fallbackLocale: 'en'
+    }
+  },
 
   ssr: false,
 
