@@ -22,6 +22,8 @@ check:
 	cd frontend && pnpm lint
 	@echo "→ Checking frontend format..."
 	cd frontend && pnpm format:check
+	@echo "→ Ensuring go:embed directory exists..."
+	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
 	@echo "→ Checking backend..."
 	cd backend && go vet ./...
 	@echo "✓ All checks passed"
