@@ -1,3 +1,8 @@
+## [0.1.1] - 2026-03-03
+
+### 🐛 Bug Fixes
+
+- *(ci)* Use goreleaser v2 hook syntax (strings, not maps) ([e1db455](https://gitlab.com/starshadow/software/capacitarr/-/commit/e1db4556d1f23b438f4d20e8c52a41caf63aebc4))
 ## [0.1.0] - 2026-03-03
 
 ### 🚀 Features
