@@ -11,46 +11,6 @@
     </div>
 
     <div class="space-y-4">
-      <!-- What's New -->
-      <details
-        v-motion
-        :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 20 } }"
-        open
-        data-slot="card"
-        class="group rounded-xl border border-violet-500/30 bg-gradient-to-r from-violet-500/5 via-fuchsia-500/5 to-pink-500/5 shadow-sm overflow-hidden"
-      >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent/50 transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-violet-400 transition-transform group-open:rotate-90" />
-          <div class="flex items-center gap-2">
-            <SparklesIcon class="w-4 h-4 text-violet-400" />
-            <h3 class="font-semibold bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">
-              {{ $t('help.whatsNew') }}
-            </h3>
-          </div>
-        </summary>
-        <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-3">
-          <ul class="space-y-2 pl-1">
-            <li class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-              <span><strong class="text-foreground">{{ $t('help.whatsNew.notifications') }}</strong> — {{ $t('help.whatsNew.notificationsDesc') }}</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-fuchsia-400 shrink-0" />
-              <span><strong class="text-foreground">{{ $t('help.whatsNew.i18n') }}</strong> — {{ $t('help.whatsNew.i18nDesc') }}</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-pink-400 shrink-0" />
-              <span><strong class="text-foreground">{{ $t('help.whatsNew.plexOAuth') }}</strong> — {{ $t('help.whatsNew.plexOAuthDesc') }}</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="mt-1 w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-              <span><strong class="text-foreground">{{ $t('help.whatsNew.cascadingRules') }}</strong> — {{ $t('help.whatsNew.cascadingRulesDesc') }}</span>
-            </li>
-          </ul>
-        </div>
-      </details>
-
       <!-- How Scoring Works -->
       <details
         v-motion
@@ -538,7 +498,7 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronRightIcon, ExternalLinkIcon, ShieldIcon, SparklesIcon } from 'lucide-vue-next'
+import { ChevronRightIcon, ExternalLinkIcon, ShieldIcon } from 'lucide-vue-next'
 
 const { uiVersion, uiBuildDate, apiVersion, apiBuildDate } = useVersion()
 const config = useRuntimeConfig()
