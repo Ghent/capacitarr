@@ -177,29 +177,11 @@ pages:
     - cd site && pnpm install --frozen-lockfile
   script:
     - cd site
-    # Sync docs (file-by-file copy from docs/ into content/docs/)
-    - mkdir -p content/docs/api
-    - cp ../docs/index.md content/docs/
-    - cp ../docs/deployment.md content/docs/
-    - cp ../docs/configuration.md content/docs/
-    - cp ../docs/scoring.md content/docs/
-    - cp ../docs/releasing.md content/docs/
-    - cp ../docs/api/README.md content/docs/api/index.md
-    - cp ../docs/api/examples.md content/docs/api/
-    - cp ../docs/api/workflows.md content/docs/api/
-    - cp ../docs/api/versioning.md content/docs/api/
-    # Inject changelog
-    - |
-      echo '---' > content/docs/changelog.md
-      echo 'title: Changelog' >> content/docs/changelog.md
-      echo '---' >> content/docs/changelog.md
-      echo '' >> content/docs/changelog.md
-      cat ../CHANGELOG.md >> content/docs/changelog.md
-    # Copy assets
-    - mkdir -p public/screenshots
-    - cp -r ../screenshots/* public/screenshots/ 2>/dev/null || true
+    # Sync docs, screenshots, and changelog
+    - node scripts/sync-docs.mjs
+    # Copy favicon
     - cp ../frontend/public/favicon.ico public/favicon.ico 2>/dev/null || true
-    # Build static site
+    # Build static site (SITE_BASE_URL defaults to '/' for capacitarr.app)
     - pnpm generate
     - mv .output/public/ ../public/
   artifacts:

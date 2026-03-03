@@ -44,7 +44,7 @@ function syncFile(src, dest, contentSubdir = '') {
 }
 
 // Copy main docs
-const mainDocs = ['index.md', 'deployment.md', 'configuration.md', 'scoring.md', 'releasing.md']
+const mainDocs = ['index.md', 'quick-start.md', 'deployment.md', 'configuration.md', 'scoring.md', 'releasing.md']
 for (const file of mainDocs) {
   syncFile(join(DOCS_SRC, file), join(CONTENT_DOCS, file))
 }
@@ -62,4 +62,22 @@ const changelogContent = readFileSync(changelogSrc, 'utf-8')
 const changelogMd = `---\ntitle: Changelog\n---\n\n${changelogContent}`
 writeFileSync(join(CONTENT_DOCS, 'changelog.md'), changelogMd)
 
+// Sync screenshots from ../screenshots/ to public/screenshots/
+const SCREENSHOTS_SRC = join(ROOT, '..', 'screenshots')
+const SCREENSHOTS_DEST = join(ROOT, 'public', 'screenshots')
+mkdirSync(SCREENSHOTS_DEST, { recursive: true })
+
+import { readdirSync } from 'node:fs'
+const screenshotFiles = readdirSync(SCREENSHOTS_SRC).filter(f => /\.(png|jpe?g|webp|gif|svg)$/i.test(f))
+for (const file of screenshotFiles) {
+  cpSync(join(SCREENSHOTS_SRC, file), join(SCREENSHOTS_DEST, file))
+  // Also create a clean-name alias (e.g. 01_dashboard_20260303.png → dashboard.png)
+  const match = file.match(/^\d+_(.+?)_\d{8}\.(.+)$/)
+  if (match) {
+    const cleanName = `${match[1].replace(/_/g, '-')}.${match[2]}`
+    cpSync(join(SCREENSHOTS_SRC, file), join(SCREENSHOTS_DEST, cleanName))
+  }
+}
+
+console.log(`✓ ${screenshotFiles.length} screenshots synced to public/screenshots/`)
 console.log('✓ Docs synced to content/docs/')

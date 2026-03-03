@@ -27,5 +27,8 @@
       "esbuild",
       "vue-demi"
     ]
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3"
   }
 }

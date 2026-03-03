@@ -15,7 +15,8 @@
 
 | Section | Description |
 |---------|-------------|
-| [Deployment Guide](deployment.md) | Docker setup, reverse proxy configuration, and authentication |
+| [Quick Start](quick-start.md) | Get Capacitarr running in under 60 seconds |
+| [Deployment Guide](deployment.md) | Reverse proxy configuration, subdirectory deployments, and authentication |
 | [Configuration Reference](configuration.md) | All environment variables with defaults and descriptions |
 | [Scoring Algorithm](scoring.md) | How items are ranked for deletion — factors, weights, rules, and tiebreakers |
 | [Release Workflow](releasing.md) | Semantic versioning, git-cliff changelog, and CI/CD release pipeline |
