@@ -117,6 +117,8 @@ changelog:
   image:
     name: orhunp/git-cliff:latest
     entrypoint: [""]
+  before_script:
+    - apk add --no-cache git
   script:
     - git cliff --latest --strip header > release_notes.md
     - cat release_notes.md
@@ -133,11 +135,12 @@ release:goreleaser:
   image:
     name: goreleaser/goreleaser:latest
     entrypoint: [""]
-  dependencies:
-    - changelog
+  needs:
+    - job: changelog
+      artifacts: true
   before_script:
-    # GoReleaser needs Node.js + pnpm for the frontend build hook
-    - apk add --no-cache nodejs npm
+    # GoReleaser needs git (for tags), Node.js + pnpm (for frontend build hook)
+    - apk add --no-cache git nodejs npm
     - npm install -g corepack
     - corepack enable && corepack prepare pnpm@10.29.3 --activate
   script:
