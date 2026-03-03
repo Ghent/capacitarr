@@ -99,8 +99,11 @@ changelog:
   image:
     name: orhunp/git-cliff:latest
     entrypoint: [""]
+  variables:
+    GIT_DEPTH: 0
   before_script:
-    - apk add --no-cache git
+    # git-cliff image is Debian-based and does not include git
+    - apt-get update -qq && apt-get install -y -qq git
   script:
     - git cliff --latest --strip header > release_notes.md
     - cat release_notes.md
@@ -120,9 +123,11 @@ release:goreleaser:
   needs:
     - job: changelog
       artifacts: true
+  variables:
+    GIT_DEPTH: 0
   before_script:
-    # GoReleaser needs git (for tags), Node.js + pnpm (for frontend build hook)
-    - apk add --no-cache git nodejs npm
+    # GoReleaser image (Alpine) already has git; add Node.js + pnpm for frontend build hook
+    - apk add --no-cache nodejs npm
     - npm install -g corepack
     - corepack enable && corepack prepare pnpm@10.29.3 --activate
   script:
