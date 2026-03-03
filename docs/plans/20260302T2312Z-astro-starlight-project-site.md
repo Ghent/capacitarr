@@ -3,6 +3,7 @@
 **Created:** 2026-03-02T23:12Z
 **Scope:** Single repo (`capacitarr/site/`)
 **Deploys to:** GitLab Pages via existing CI pipeline
+**Status:** Rolled back
 
 ## Overview
 
@@ -22,7 +23,7 @@ The site uses the same violet dark theme as the Capacitarr app, built with Tailw
 | Styling | Tailwind CSS v4 | Same as the app; shares oklch design tokens |
 | Diagrams | `starlight-mermaid` plugin | Renders Mermaid diagrams in docs (matches existing docs) |
 | Search | Pagefind (built into Starlight) | Client-side full-text search, no external service |
-| CI | GitLab CI `pages` job | Replaces existing MkDocs pages job |
+| CI | GitLab CI `pages` job | Builds and deploys Astro site to GitLab Pages |
 | Hosting | GitLab Pages | Already configured in `.gitlab-ci.yml` |
 
 ## Phase 1: Project Scaffolding
@@ -61,8 +62,12 @@ pnpm create astro@latest .
 
 ```bash
 cd site
-pnpm add @astrojs/tailwind tailwindcss @tailwindcss/vite starlight-mermaid
+pnpm add tailwindcss @tailwindcss/vite starlight-mermaid @fontsource/geist-sans @fontsource/geist-mono
 ```
+
+> **Note:** Do NOT install `@astrojs/tailwind` — that is the Tailwind v3 integration. This project uses Tailwind CSS v4 via `@tailwindcss/vite` directly.
+
+The `@fontsource` packages provide self-hosted Geist Sans and Geist Mono fonts — the same typefaces used in the Capacitarr app (see `frontend/package.json`).
 
 ### Step 1.4: Project Structure
 
@@ -108,6 +113,13 @@ Create `site/src/styles/theme.css` with the Capacitarr violet dark theme tokens.
 /* Capacitarr Violet Dark Theme for Project Site
    Source: frontend/app/assets/css/main.css */
 
+/* ---- Geist Fonts (matches the app) ---- */
+@import '@fontsource/geist-sans/400.css';
+@import '@fontsource/geist-sans/500.css';
+@import '@fontsource/geist-sans/600.css';
+@import '@fontsource/geist-sans/700.css';
+@import '@fontsource/geist-mono/400.css';
+
 :root {
   /* Force dark mode — the site is always dark */
   color-scheme: dark;
@@ -133,6 +145,16 @@ Create `site/src/styles/theme.css` with the Capacitarr violet dark theme tokens.
   --color-success: oklch(0.648 0.2 160);
   --color-warning: oklch(0.75 0.183 55.934);
 }
+
+body {
+  font-family: 'Geist Sans', 'Geist', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-mono, code, kbd, pre {
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
+}
 ```
 
 ### Step 2.2: Configure Starlight Theme
@@ -147,7 +169,8 @@ import tailwindcss from '@tailwindcss/vite'
 import starlightMermaid from 'starlight-mermaid'
 
 export default defineConfig({
-  site: 'https://your-gitlab-namespace.gitlab.io/capacitarr',
+  site: 'https://starshadow.gitlab.io/software/capacitarr',
+  base: '/software/capacitarr/',
   vite: {
     plugins: [tailwindcss()],
   },
@@ -184,9 +207,10 @@ export default defineConfig({
           ],
         },
       ],
-      social: {
-        gitlab: 'https://gitlab.com/your-namespace/capacitarr',
-      },
+      // Starlight v0.30+ uses an array for social links
+      social: [
+        { icon: 'gitlab', label: 'GitLab', href: 'https://gitlab.com/starshadow/software/capacitarr' },
+      ],
     }),
   ],
 })
@@ -358,15 +382,9 @@ Implement these CSS effects for the "flashy but tasteful" aesthetic:
 
 The docs in `capacitarr/docs/` are the **source of truth**. They are NOT duplicated into `site/src/content/docs/` in the repo. Instead, CI copies them at build time.
 
-For local development, create a symlink or copy script:
+> **Note:** The `site/` directory is an independent pnpm project with its own `pnpm-lock.yaml`. It is NOT part of the frontend's pnpm workspace.
 
-```bash
-# For local dev — symlink docs into Starlight content dir
-cd site
-ln -s ../../docs src/content/docs
-```
-
-Or use a dev script in `site/package.json`:
+For local development, use a dev script in `site/package.json`:
 
 ```json
 {
@@ -378,19 +396,33 @@ Or use a dev script in `site/package.json`:
 }
 ```
 
-### Step 4.2: Markdown Compatibility
+> **Do NOT use symlinks** for `src/content/docs/` — the directory is in `.gitignore` (CI-generated), and a symlink would conflict with that ignore rule.
 
-The existing docs use standard markdown with some MkDocs-specific syntax. Check and convert:
+### Step 4.2: Syntax Conversion
+
+The existing docs use standard markdown. One known incompatibility must be converted for Starlight:
 
 | Pattern | Found In | Starlight Equivalent | Action |
 |---------|----------|---------------------|--------|
-| `!!! note "Title"` | Check all docs | `:::note[Title]` | Find-and-replace if present |
-| `!!! warning` | Check all docs | `:::caution` | Find-and-replace if present |
-| ` ```mermaid ` | scoring.md, README.md | Same (via starlight-mermaid plugin) | No change needed |
-| `=== "Tab 1"` | Check all docs | Starlight `<Tabs>` component | Rewrite if present |
+| `!!! warning "AUTH_HEADER Security"` | `configuration.md` | `:::caution[AUTH_HEADER Security]` | **Convert** (confirmed present) |
+| `!!! note "Title"` | Scan all docs | `:::note[Title]` | Convert if found |
+| ` ```mermaid ` | `scoring.md`, `README.md` | Same (via `starlight-mermaid` plugin) | No change needed |
+| `=== "Tab 1"` | Scan all docs | Starlight `<Tabs>` component | Rewrite if found |
 | Relative links `[text](file.md)` | All docs | Same | No change needed |
 
-Review each doc file and make any necessary syntax adjustments. Most of the existing docs (`configuration.md`, `deployment.md`, `scoring.md`, `releasing.md`) are standard markdown with tables and code blocks — they should work with zero changes.
+The confirmed conversion in `configuration.md`:
+
+```diff
+- !!! warning "AUTH_HEADER Security"
+-     Only enable `AUTH_HEADER` when Capacitarr is **exclusively** accessible
+-     through your reverse proxy.
++ :::caution[AUTH_HEADER Security]
++ Only enable `AUTH_HEADER` when Capacitarr is **exclusively** accessible
++ through your reverse proxy.
++ :::
+```
+
+Most other docs (`deployment.md`, `scoring.md`, `releasing.md`) are standard markdown with tables and code blocks — they should work with zero changes.
 
 ### Step 4.3: Frontmatter
 
@@ -414,7 +446,7 @@ The existing `docs/api/` directory contains:
 - `versioning.md` — API versioning policy
 - `openapi.yaml` — Full OpenAPI 3.1 spec
 
-For the OpenAPI spec, consider using the `starlight-openapi` plugin to render interactive API docs from `openapi.yaml`. Alternatively, link to a Swagger UI instance or just include the YAML as a downloadable file.
+For the OpenAPI spec, **defer `starlight-openapi` integration to a follow-up**. For now, include `openapi.yaml` as a downloadable file linked from the API overview page. Interactive API docs can be added later without changing the site architecture.
 
 ### Step 4.5: Changelog Page
 
@@ -434,7 +466,7 @@ cat ../CHANGELOG.md >> src/content/docs/changelog.md
 
 ### Step 5.1: Update `.gitlab-ci.yml`
 
-Replace the existing `pages` job (currently MkDocs) with the Astro build:
+Add the Astro build as the `pages` job:
 
 ```yaml
 pages:
@@ -444,7 +476,9 @@ pages:
     - corepack enable
     - cd site && pnpm install --frozen-lockfile
   script:
-    # Sync docs from source of truth into Starlight content directory
+    # Sync docs from source of truth into Starlight content directory.
+    # IMPORTANT: Copy specific files only — do NOT use `cp -r ../docs/*`
+    # because that would publish internal plan files from docs/plans/.
     - mkdir -p src/content/docs/api
     - cp ../docs/index.md src/content/docs/
     - cp ../docs/deployment.md src/content/docs/
@@ -483,36 +517,17 @@ pages:
 
 ### Step 5.2: Version Injection
 
-In the Astro landing page, read the version from an environment variable at build time:
+In the Astro landing page, read the version from `process.env` directly in the frontmatter block (which runs at build time during SSG, not client-side):
 
 ```astro
 ---
-// In index.astro or a component
-const version = import.meta.env.CAPACITARR_VERSION || '0.0.0'
+// In index.astro or a component — runs at build time
+const version = process.env.CAPACITARR_VERSION || '0.0.0'
 ---
 <span class="version-badge">v{version}</span>
 ```
 
-In `astro.config.mjs`, expose the env var:
-
-```js
-export default defineConfig({
-  vite: {
-    define: {
-      'import.meta.env.CAPACITARR_VERSION': JSON.stringify(process.env.CAPACITARR_VERSION || '0.0.0'),
-    },
-  },
-  // ...
-})
-```
-
-### Step 5.3: Remove MkDocs Config
-
-After the Astro site is working:
-
-1. Delete `capacitarr/mkdocs.yml`
-2. Remove `pip install mkdocs-material mkdocs-exclude` from any CI references
-3. The `docs/` directory stays — it's still the source of truth, just rendered by Starlight now
+No Vite `define` hack is needed — Astro frontmatter has full access to `process.env` at build time.
 
 ## Phase 6: Screenshots & Assets
 
@@ -604,12 +619,10 @@ Files to **create**:
 - [ ] `site/public/.gitkeep`
 
 Files to **modify**:
-- [ ] `.gitlab-ci.yml` — Replace MkDocs `pages` job with Astro build
+- [ ] `.gitlab-ci.yml` — Update `pages` job for Astro build
 - [ ] `docs/*.md` — Add Starlight-compatible frontmatter to each doc file
-- [ ] `.gitignore` — Add `site/node_modules/`, `site/dist/`, `site/src/content/docs/` (CI-generated)
-
-Files to **delete** (after Astro site is confirmed working):
-- [ ] `mkdocs.yml`
+- [ ] `docs/configuration.md` — Convert `!!! warning` admonition to `:::caution` syntax
+- [ ] `.gitignore` — Add `site/node_modules/`, `site/dist/`, `site/src/content/docs/` (CI-generated), `!site/src/content/docs/.gitkeep`
 
 ## Notes for the Implementing Agent
 
@@ -618,7 +631,7 @@ Files to **delete** (after Astro site is confirmed working):
 3. **The `site/src/content/docs/` directory should be mostly empty in git** — CI populates it. Only a `.gitkeep` file should be committed. For local dev, use the `sync-docs` script.
 4. **Force dark mode on the landing page** — do not implement a light/dark toggle. The site identity IS the dark violet theme.
 5. **Use `pnpm`** as the package manager (consistent with the frontend).
-6. **The site URL** will be something like `https://namespace.gitlab.io/capacitarr/` — configure `base` in `astro.config.mjs` accordingly if the repo is not at the root of the GitLab namespace.
+6. **The site URL** is `https://starshadow.gitlab.io/software/capacitarr/` — the project is nested under `starshadow/software/`, so `base: '/software/capacitarr/'` is required in `astro.config.mjs`.
 7. **Screenshots**: If `screenshots/` only has `login-styled.png`, use it for the hero. Additional screenshots can be added later — design the hero section to work with a single screenshot.
 8. **Integration logos**: If official SVGs aren't readily available, use text labels with colored backgrounds as placeholders. The logos can be swapped in later.
 9. **Commit frequently** with conventional commit messages: `feat(site): scaffold Astro + Starlight project`, `feat(site): add landing page hero section`, etc.
