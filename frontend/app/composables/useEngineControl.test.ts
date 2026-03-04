@@ -74,7 +74,7 @@ describe('useEngineControl', () => {
 
     it('has default computed values when workerStats is null', () => {
       const ctrl = useEngineControl()
-      expect(ctrl.executionMode.value).toBe('dry_run')
+      expect(ctrl.executionMode.value).toBe('dry-run')
       expect(ctrl.lastRunEpoch.value).toBe(0)
       expect(ctrl.lastRunEvaluated.value).toBe(0)
       expect(ctrl.lastRunFlagged.value).toBe(0)
@@ -98,7 +98,7 @@ describe('useEngineControl', () => {
     it.each([
       ['auto', 'Auto'],
       ['approval', 'Approval'],
-      ['dry_run', 'Dry-Run'],
+      ['dry-run', 'Dry-Run'],
       ['unknown', 'Dry-Run'],
       ['', 'Dry-Run']
     ])('modeLabel("%s") → "%s"', (mode, expected) => {
@@ -177,11 +177,11 @@ describe('useEngineControl', () => {
 
     it('does not show toast when engine was already idle', async () => {
       // Both calls: engine is idle
-      mockApiFetch.mockResolvedValueOnce({ isRunning: false, executionMode: 'dry_run' })
+      mockApiFetch.mockResolvedValueOnce({ isRunning: false, executionMode: 'dry-run' })
       const ctrl = useEngineControl()
       await ctrl.fetchStats()
 
-      mockApiFetch.mockResolvedValueOnce({ isRunning: false, executionMode: 'dry_run' })
+      mockApiFetch.mockResolvedValueOnce({ isRunning: false, executionMode: 'dry-run' })
       await ctrl.fetchStats()
 
       expect(addToastSpy).not.toHaveBeenCalled()
@@ -193,7 +193,7 @@ describe('useEngineControl', () => {
   // -------------------------------------------------------------------------
   describe('setMode', () => {
     it('fetches preferences, PUTs new mode, refreshes stats, and toasts', async () => {
-      const existingPrefs = { executionMode: 'dry_run', pollInterval: 300 }
+      const existingPrefs = { executionMode: 'dry-run', pollInterval: 300 }
       // 1st call: GET preferences
       mockApiFetch.mockResolvedValueOnce(existingPrefs)
       // 2nd call: PUT preferences
@@ -233,7 +233,7 @@ describe('useEngineControl', () => {
       expect(ctrl.changingMode.value).toBe(true)
 
       // Resolve the chain
-      resolvePrefs!({ executionMode: 'dry_run' })
+      resolvePrefs!({ executionMode: 'dry-run' })
       mockApiFetch.mockResolvedValueOnce({}) // PUT
       mockApiFetch.mockResolvedValueOnce({ executionMode: 'approval', isRunning: false }) // fetchStats
       await setModePromise

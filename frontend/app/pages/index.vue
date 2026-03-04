@@ -238,7 +238,7 @@
                   </span>
                 </span>
               </template>
-              <template v-else-if="engineExecutionMode === 'dry_run' || engineExecutionMode === 'dry-run'">
+              <template v-else-if="engineExecutionMode === 'dry-run'">
                 <span class="text-muted-foreground text-xs">{{ $t('dashboard.dryRunNoDelete') }}</span>
               </template>
               <template v-else-if="(engineStats.queueDepth ?? 0) === 0">

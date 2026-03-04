@@ -15,7 +15,7 @@ export function useEngineControl() {
   // Track previous isRunning state for run-completion detection
   const prevIsRunning = useState<boolean>('enginePrevIsRunning', () => false)
 
-  const executionMode = computed(() => workerStats.value?.executionMode || 'dry_run')
+  const executionMode = computed(() => workerStats.value?.executionMode || 'dry-run')
   const lastRunEpoch = computed(() => workerStats.value?.lastRunEpoch || 0)
   const lastRunEvaluated = computed(() => workerStats.value?.lastRunEvaluated || 0)
   const lastRunFlagged = computed(() => workerStats.value?.lastRunFlagged || 0)

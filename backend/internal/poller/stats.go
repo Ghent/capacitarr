@@ -25,7 +25,7 @@ func GetWorkerMetrics() map[string]interface{} {
 
 	mode := prefs.ExecutionMode
 	if mode == "" {
-		mode = "dry_run"
+		mode = "dry-run"
 	}
 
 	// Safely load currentlyDeleting (may be nil on first access)
