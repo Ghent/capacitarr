@@ -94,7 +94,7 @@ func RegisterAPIRoutes(g *echo.Group, database *gorm.DB, cfg *config.Config, app
 			}
 		}
 
-		var history []db.LibraryHistory
+		history := make([]db.LibraryHistory, 0)
 		if err := query.Order("timestamp asc").Limit(1000).Find(&history).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error fetching metrics"})
 		}
@@ -110,7 +110,7 @@ func RegisterAPIRoutes(g *echo.Group, database *gorm.DB, cfg *config.Config, app
 
 	// Disk Groups routes
 	protected.GET("/disk-groups", func(c echo.Context) error {
-		var groups []db.DiskGroup
+		groups := make([]db.DiskGroup, 0)
 		if err := database.Find(&groups).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch disk groups"})
 		}

@@ -61,8 +61,9 @@ export function useEngineControl() {
 
         prevIsRunning.value = nowRunning;
       }
-    } catch {
+    } catch (e) {
       // Silent — stats are a nice-to-have
+      console.warn('[useEngineControl] pollStats failed:', e)
     }
   }
 

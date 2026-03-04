@@ -24,8 +24,9 @@ export function useVersion() {
       apiVersion.value = data.version || ''
       apiCommit.value = data.commit || ''
       apiBuildDate.value = data.buildDate || ''
-    } catch {
+    } catch (e) {
       // API version endpoint may not exist yet — graceful degradation
+      console.warn('[useVersion] fetchApiVersion failed:', e)
       apiVersion.value = ''
     }
   }

@@ -233,8 +233,9 @@ export function useApprovalQueue() {
       pendingItems.value = pending;
       snoozedItems.value = snoozed;
       approvedItems.value = approved;
-    } catch {
+    } catch (e) {
       // Non-critical — queue just won't display
+      console.warn('[useApprovalQueue] fetchQueue failed:', e)
     }
   }
 

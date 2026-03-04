@@ -19,7 +19,7 @@ import (
 func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 	// List all integrations
 	g.GET("/integrations", func(c echo.Context) error {
-		var configs []db.IntegrationConfig
+		configs := make([]db.IntegrationConfig, 0)
 		if err := database.Order("created_at asc").Find(&configs).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch integrations"})
 		}

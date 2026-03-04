@@ -24,7 +24,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 	// CUSTOM RULES (protection/targeting)
 	// ---------------------------------------------------------
 	protected.GET("/custom-rules", func(c echo.Context) error {
-		var rules []db.CustomRule
+		rules := make([]db.CustomRule, 0)
 		if err := database.Order("sort_order ASC, id ASC").Find(&rules).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch custom rules"})
 		}

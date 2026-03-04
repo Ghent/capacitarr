@@ -17,8 +17,9 @@ export function useNotifications() {
     try {
       const res = await api('/api/v1/notifications/unread-count') as { count: number }
       unreadCount.value = res.count
-    } catch {
+    } catch (e) {
       // Silently fail — badge just stays at last known value
+      console.warn('[useNotifications] fetchUnreadCount failed:', e)
     }
   }
 
@@ -27,8 +28,9 @@ export function useNotifications() {
     loading.value = true
     try {
       notifications.value = await api('/api/v1/notifications') as InAppNotification[]
-    } catch {
-      // Silently fail
+    } catch (e) {
+      // Silently fail — list stays at last known state
+      console.warn('[useNotifications] fetchNotifications failed:', e)
     } finally {
       loading.value = false
     }
@@ -42,8 +44,9 @@ export function useNotifications() {
       const notif = notifications.value.find(n => n.id === id)
       if (notif) notif.read = true
       unreadCount.value = Math.max(0, unreadCount.value - 1)
-    } catch {
-      // Silently fail
+    } catch (e) {
+      // Silently fail — mark-as-read is non-critical
+      console.warn('[useNotifications] markAsRead failed:', e)
     }
   }
 
@@ -55,8 +58,9 @@ export function useNotifications() {
         n.read = true
       })
       unreadCount.value = 0
-    } catch {
-      // Silently fail
+    } catch (e) {
+      // Silently fail — mark-all-as-read is non-critical
+      console.warn('[useNotifications] markAllAsRead failed:', e)
     }
   }
 
@@ -66,8 +70,9 @@ export function useNotifications() {
       await api('/api/v1/notifications', { method: 'DELETE' })
       notifications.value = []
       unreadCount.value = 0
-    } catch {
-      // Silently fail
+    } catch (e) {
+      // Silently fail — clearAll is non-critical
+      console.warn('[useNotifications] clearAll failed:', e)
     }
   }
 

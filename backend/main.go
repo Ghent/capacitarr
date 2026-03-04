@@ -236,6 +236,7 @@ func main() {
 		pollerStop()
 		cronScheduler.Stop()
 		poller.StopWorker()
+		routes.RuleValueCache.Close()
 
 		// Shutdown HTTP server with 10s deadline
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

@@ -26,7 +26,7 @@ func RegisterNotificationRoutes(g *echo.Group, database *gorm.DB) {
 
 	// GET /api/v1/notifications/channels — list all notification configs
 	g.GET("/notifications/channels", func(c echo.Context) error {
-		var configs []db.NotificationConfig
+		configs := make([]db.NotificationConfig, 0)
 		if err := database.Order("id ASC").Find(&configs).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch notification channels"})
 		}
@@ -180,7 +180,7 @@ func RegisterNotificationRoutes(g *echo.Group, database *gorm.DB) {
 
 	// GET /api/v1/notifications — list in-app notifications (newest first, limit 50)
 	g.GET("/notifications", func(c echo.Context) error {
-		var items []db.InAppNotification
+		items := make([]db.InAppNotification, 0)
 		if err := database.Order("created_at DESC").Limit(50).Find(&items).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch notifications"})
 		}

@@ -81,7 +81,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 			limit = 2000
 		}
 
-		var logs []db.AuditLog
+		logs := make([]db.AuditLog, 0)
 		if err := database.Order("created_at desc").Limit(limit).Find(&logs).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch audit logs"})
 		}
@@ -97,7 +97,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 		}
 
 		groups := make(map[string]*AuditGroup)
-		var standalone []db.AuditLog
+		standalone := make([]db.AuditLog, 0)
 		var orderedGroupKeys []string
 
 		for _, log := range logs {
@@ -135,7 +135,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 			Entry *db.AuditLog `json:"entry,omitempty"`
 		}
 
-		var result []GroupedResult
+		result := make([]GroupedResult, 0, len(orderedGroupKeys)+len(standalone))
 		for _, key := range orderedGroupKeys {
 			grp := groups[key]
 			result = append(result, GroupedResult{Type: "group", Group: grp})
@@ -197,7 +197,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 		}
 		orderClause := sortBy + " " + sortDir
 
-		var logs []db.AuditLog
+		logs := make([]db.AuditLog, 0)
 		var total int64
 
 		// Get total count with filters applied
