@@ -432,3 +432,163 @@ func TestGetAuditLogs_Unauthenticated(t *testing.T) {
 		t.Error("Expected non-200 for unauthenticated request to audit endpoint")
 	}
 }
+
+// seedApprovalEntry creates an integration and a "Queued for Approval" audit log entry.
+// Returns the audit log ID and integration ID.
+func seedApprovalEntry(t *testing.T, database *gorm.DB) (auditID uint, integrationID uint) {
+	t.Helper()
+
+	// Create an integration config (needed for approve to look up the client)
+	integration := db.IntegrationConfig{
+		Type:    "radarr",
+		Name:    "Test Radarr",
+		URL:     "http://localhost:7878",
+		APIKey:  "test-api-key",
+		Enabled: true,
+	}
+	if err := database.Create(&integration).Error; err != nil {
+		t.Fatalf("Failed to seed integration: %v", err)
+	}
+
+	entry := db.AuditLog{
+		MediaName:     "Approval Test Movie",
+		MediaType:     "movie",
+		Reason:        "Score: 0.75 (WatchHistory: 0.5, Size: 0.8)",
+		ScoreDetails:  `[{"name":"WatchHistory","rawScore":0.5,"weight":10},{"name":"Size","rawScore":0.8,"weight":6}]`,
+		Action:        "Queued for Approval",
+		SizeBytes:     5000000,
+		IntegrationID: &integration.ID,
+		ExternalID:    "123",
+		CreatedAt:     time.Now(),
+	}
+	if err := database.Create(&entry).Error; err != nil {
+		t.Fatalf("Failed to seed approval audit entry: %v", err)
+	}
+
+	return entry.ID, integration.ID
+}
+
+func TestApproveAuditEntry_HappyPath(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Set the global db.DB so the background deletion worker (started by
+	// poller.init) can access the database when it processes the queued job.
+	// We intentionally do NOT restore db.DB to nil in cleanup because the
+	// worker goroutine processes asynchronously and would panic on a nil DB.
+	db.DB = database
+
+	auditID, _ := seedApprovalEntry(t, database)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost,
+		fmt.Sprintf("/api/audit/%d/approve", auditID), nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if resp["status"] != "approved" {
+		t.Errorf("Expected status 'approved', got %q", resp["status"])
+	}
+
+	// Verify the audit entry was updated to "Approved"
+	var updated db.AuditLog
+	if err := database.First(&updated, auditID).Error; err != nil {
+		t.Fatalf("Failed to find updated audit entry: %v", err)
+	}
+	if updated.Action != "Approved" {
+		t.Errorf("Expected action 'Approved', got %q", updated.Action)
+	}
+}
+
+func TestApproveAuditEntry_NotFound(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/audit/99999/approve", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("Expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestApproveAuditEntry_NotQueued(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Create an entry with action "Dry-Run" (not "Queued for Approval")
+	entry := db.AuditLog{
+		MediaName: "Not Queued Movie",
+		MediaType: "movie",
+		Reason:    "Score: 0.50",
+		Action:    "Dry-Run",
+		SizeBytes: 1000000,
+		CreatedAt: time.Now(),
+	}
+	if err := database.Create(&entry).Error; err != nil {
+		t.Fatalf("Failed to seed: %v", err)
+	}
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost,
+		fmt.Sprintf("/api/audit/%d/approve", entry.ID), nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for non-queued entry, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestRejectAuditEntry_HappyPath(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	auditID, _ := seedApprovalEntry(t, database)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost,
+		fmt.Sprintf("/api/audit/%d/reject", auditID), nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp map[string]string
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if resp["status"] != "rejected" {
+		t.Errorf("Expected status 'rejected', got %q", resp["status"])
+	}
+
+	// Verify the audit entry was updated to "Rejected"
+	var updated db.AuditLog
+	if err := database.First(&updated, auditID).Error; err != nil {
+		t.Fatalf("Failed to find updated audit entry: %v", err)
+	}
+	if updated.Action != "Rejected" {
+		t.Errorf("Expected action 'Rejected', got %q", updated.Action)
+	}
+}
+
+func TestRejectAuditEntry_NotFound(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/audit/99999/reject", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("Expected 404, got %d: %s", rec.Code, rec.Body.String())
+	}
+}

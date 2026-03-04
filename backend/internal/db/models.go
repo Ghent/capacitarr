@@ -101,14 +101,16 @@ type CustomRule struct {
 
 // AuditLog stores a history of what was deleted, when, and why
 type AuditLog struct {
-	ID           uint      `gorm:"primarykey" json:"id"`
-	MediaName    string    `gorm:"index;not null" json:"mediaName"`
-	MediaType    string    `gorm:"not null" json:"mediaType"`
-	Reason       string    `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)" — backward compat
-	ScoreDetails string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
-	Action       string    `gorm:"not null" json:"action"`        // "Deleted", "Dry-Run"
-	SizeBytes    int64     `json:"sizeBytes"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID            uint      `gorm:"primarykey" json:"id"`
+	MediaName     string    `gorm:"index;not null" json:"mediaName"`
+	MediaType     string    `gorm:"not null" json:"mediaType"`
+	Reason        string    `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)" — backward compat
+	ScoreDetails  string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
+	Action        string    `gorm:"not null" json:"action"`        // "Deleted", "Dry-Run", "Queued for Approval", "Approved", "Rejected"
+	SizeBytes     int64     `json:"sizeBytes"`
+	IntegrationID *uint     `json:"integrationId,omitempty" gorm:"column:integration_id"`
+	ExternalID    string    `json:"externalId,omitempty" gorm:"column:external_id"`
+	CreatedAt     time.Time `json:"createdAt"`
 }
 
 // EngineRunStats stores one row per engine evaluation cycle, persisting metrics

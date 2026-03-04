@@ -275,7 +275,10 @@ func findMediaMounts(diskMap map[string]integrations.DiskSpace, rootFolders map[
 	return mediaMounts
 }
 
-func createClient(intType, url, apiKey string) integrations.Integration {
+// CreateClient constructs an integration client based on the integration type.
+// Exported for use by the approval route handler to reconstruct clients from
+// stored IntegrationConfig records.
+func CreateClient(intType, url, apiKey string) integrations.Integration {
 	switch intType {
 	case "sonarr":
 		return integrations.NewSonarrClient(url, apiKey)

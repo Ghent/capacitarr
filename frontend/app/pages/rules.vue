@@ -677,6 +677,12 @@
                       />
                     </span>
                   </UiTableHead>
+                  <UiTableHead
+                    v-if="isApprovalMode"
+                    class="w-24 text-center"
+                  >
+                    {{ $t('rules.approvalAction') }}
+                  </UiTableHead>
                 </UiTableRow>
               </UiTableHeader>
               <UiTableBody>
@@ -690,7 +696,7 @@
                     class="pointer-events-none"
                   >
                     <UiTableCell
-                      :colspan="5"
+                      :colspan="isApprovalMode ? 6 : 5"
                       class="!p-0"
                     >
                       <div class="flex items-center gap-2 px-4 py-1.5 bg-destructive/10 border-y border-destructive/30">
@@ -743,6 +749,41 @@
                     <UiTableCell class="text-right font-mono text-xs tabular-nums">
                       {{ formatBytes(group.entry.item.sizeBytes) }}
                     </UiTableCell>
+                    <UiTableCell
+                      v-if="isApprovalMode"
+                      class="text-center"
+                      @click.stop
+                    >
+                      <div
+                        v-if="getPendingApprovalId(group.entry)"
+                        class="flex items-center justify-center gap-1"
+                      >
+                        <UiButton
+                          variant="ghost"
+                          size="sm"
+                          class="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30"
+                          :disabled="!!approvalLoading[getPendingApprovalId(group.entry)!]"
+                          :aria-label="$t('rules.approve')"
+                          @click="approveItem(group.entry)"
+                        >
+                          <CheckIcon class="h-4 w-4" />
+                        </UiButton>
+                        <UiButton
+                          variant="ghost"
+                          size="sm"
+                          class="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30"
+                          :disabled="!!approvalLoading[getPendingApprovalId(group.entry)!]"
+                          :aria-label="$t('rules.reject')"
+                          @click="rejectItem(group.entry)"
+                        >
+                          <XIcon class="h-4 w-4" />
+                        </UiButton>
+                      </div>
+                      <span
+                        v-else
+                        class="text-xs text-muted-foreground"
+                      >—</span>
+                    </UiTableCell>
                   </UiTableRow>
                   <template v-if="expandedPreviewGroups.has(group.key)">
                     <UiTableRow
@@ -780,6 +821,41 @@
                       </UiTableCell>
                       <UiTableCell class="text-right font-mono text-xs tabular-nums text-muted-foreground">
                         {{ formatBytes(season.item.sizeBytes) }}
+                      </UiTableCell>
+                      <UiTableCell
+                        v-if="isApprovalMode"
+                        class="text-center"
+                        @click.stop
+                      >
+                        <div
+                          v-if="getPendingApprovalId(season)"
+                          class="flex items-center justify-center gap-1"
+                        >
+                          <UiButton
+                            variant="ghost"
+                            size="sm"
+                            class="h-7 w-7 p-0 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30"
+                            :disabled="!!approvalLoading[getPendingApprovalId(season)!]"
+                            :aria-label="$t('rules.approve')"
+                            @click="approveItem(season)"
+                          >
+                            <CheckIcon class="h-4 w-4" />
+                          </UiButton>
+                          <UiButton
+                            variant="ghost"
+                            size="sm"
+                            class="h-7 w-7 p-0 text-red-500 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30"
+                            :disabled="!!approvalLoading[getPendingApprovalId(season)!]"
+                            :aria-label="$t('rules.reject')"
+                            @click="rejectItem(season)"
+                          >
+                            <XIcon class="h-4 w-4" />
+                          </UiButton>
+                        </div>
+                        <span
+                          v-else
+                          class="text-xs text-muted-foreground"
+                        >—</span>
                       </UiTableCell>
                     </UiTableRow>
                   </template>
@@ -827,7 +903,7 @@ import {
   diskStatusTextClass,
   diskStatusFillColor
 } from '~/utils/format'
-import type { DiskGroup, IntegrationConfig, CustomRule, PreferenceSet, EvaluatedItem, PreviewResponse, SelectedDetailItem, ApiError } from '~/types/api'
+import type { DiskGroup, IntegrationConfig, CustomRule, PreferenceSet, EvaluatedItem, PreviewResponse, SelectedDetailItem, ApiError, AuditLog, AuditResponse } from '~/types/api'
 
 const api = useApi()
 const { addToast } = useToast()
@@ -1287,6 +1363,8 @@ function selectPreviewItem(entry: EvaluatedItem) {
 
 onMounted(async () => {
   await Promise.all([fetchPreferences(), fetchRules(), fetchPreview(), fetchDiskGroups(), fetchIntegrations()])
+  // Fetch pending approvals after preferences are loaded (needs executionMode)
+  await fetchPendingApprovals()
 })
 
 async function fetchDiskGroups() {
@@ -1442,6 +1520,70 @@ async function fetchPreview() {
     // Silently ignored — UI has no further handling
   } finally {
     previewLoading.value = false
+  }
+}
+
+// ─── Approval Mode ────────────────────────────────────────────────────────────
+// When executionMode is "approval", show approve/reject buttons in the
+// deletion priority table for items that have pending audit entries.
+
+const isApprovalMode = computed(() => prefs.executionMode === 'approval')
+
+// Map of media name → audit log ID for entries with action "Queued for Approval"
+const pendingApprovals = ref(new Map<string, number>())
+const approvalLoading = ref<Record<number, boolean>>({})
+
+async function fetchPendingApprovals() {
+  if (!isApprovalMode.value) {
+    pendingApprovals.value = new Map()
+    return
+  }
+  try {
+    const data = await api('/api/v1/audit?action=Queued+for+Approval&limit=1000') as AuditResponse
+    const map = new Map<string, number>()
+    for (const entry of (data.data || [])) {
+      // Map by media name so we can match against preview item titles
+      map.set(entry.mediaName, entry.id)
+    }
+    pendingApprovals.value = map
+  } catch {
+    // Non-critical — approval buttons just won't appear
+  }
+}
+
+function getPendingApprovalId(entry: EvaluatedItem): number | null {
+  const title = entry.item?.title
+  if (!title) return null
+  return pendingApprovals.value.get(title) ?? null
+}
+
+async function approveItem(entry: EvaluatedItem) {
+  const auditId = getPendingApprovalId(entry)
+  if (!auditId) return
+  approvalLoading.value[auditId] = true
+  try {
+    await api(`/api/v1/audit/${auditId}/approve`, { method: 'POST' })
+    addToast('Item approved for deletion', 'success')
+    await fetchPendingApprovals()
+  } catch {
+    addToast('Failed to approve item', 'error')
+  } finally {
+    approvalLoading.value[auditId] = false
+  }
+}
+
+async function rejectItem(entry: EvaluatedItem) {
+  const auditId = getPendingApprovalId(entry)
+  if (!auditId) return
+  approvalLoading.value[auditId] = true
+  try {
+    await api(`/api/v1/audit/${auditId}/reject`, { method: 'POST' })
+    addToast('Item rejected', 'info')
+    await fetchPendingApprovals()
+  } catch {
+    addToast('Failed to reject item', 'error')
+  } finally {
+    approvalLoading.value[auditId] = false
   }
 }
 

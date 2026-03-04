@@ -115,7 +115,7 @@ func fetchAllIntegrations(configs []db.IntegrationConfig) fetchResult {
 			continue
 		}
 
-		client := createClient(cfg.Type, cfg.URL, cfg.APIKey)
+		client := CreateClient(cfg.Type, cfg.URL, cfg.APIKey)
 		if client == nil {
 			slog.Debug("No client for integration type", "component", "poller", "type", cfg.Type, "integration", cfg.Name)
 			continue

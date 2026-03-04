@@ -157,14 +157,17 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 		}
 
 		factorsJSON, _ := json.Marshal(ev.Factors) //nolint:errcheck // marshal of known-safe struct
+		integrationID := ev.Item.IntegrationID
 		logEntry := db.AuditLog{
-			MediaName:    ev.Item.Title,
-			MediaType:    string(ev.Item.Type),
-			Reason:       fmt.Sprintf("Score: %.2f (%s)", ev.Score, ev.Reason),
-			ScoreDetails: string(factorsJSON),
-			Action:       actionName,
-			SizeBytes:    ev.Item.SizeBytes,
-			CreatedAt:    time.Now(),
+			MediaName:     ev.Item.Title,
+			MediaType:     string(ev.Item.Type),
+			Reason:        fmt.Sprintf("Score: %.2f (%s)", ev.Score, ev.Reason),
+			ScoreDetails:  string(factorsJSON),
+			Action:        actionName,
+			SizeBytes:     ev.Item.SizeBytes,
+			IntegrationID: &integrationID,
+			ExternalID:    ev.Item.ExternalID,
+			CreatedAt:     time.Now(),
 		}
 
 		// Dry-run dedup: upsert instead of creating duplicates. Each media item

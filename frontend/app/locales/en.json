@@ -153,6 +153,9 @@
   "rules.diskBelowThreshold": "Disk usage is below threshold. No items would be removed.",
   "rules.noItemsToEvaluate": "No items to evaluate. Connect integrations and ensure media exists.",
   "rules.orderDisclaimer": "Rule order is for your organization only — all rules are evaluated regardless of position.",
+  "rules.approvalAction": "Action",
+  "rules.approve": "Approve",
+  "rules.reject": "Reject",
 
   "nav.changeLanguage": "Change language",
 

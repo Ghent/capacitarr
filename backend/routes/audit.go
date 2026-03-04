@@ -1,7 +1,9 @@
 package routes
 
 import (
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,6 +13,9 @@ import (
 	"gorm.io/gorm"
 
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
+	"capacitarr/internal/integrations"
+	"capacitarr/internal/poller"
 )
 
 // RegisterAuditRoutes sets up the API endpoints for audit logs
@@ -209,6 +214,102 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 			"limit":  limit,
 			"offset": offset,
 		})
+	})
+
+	// Approve a queued-for-approval audit entry: queue the item for deletion
+	g.POST("/audit/:id/approve", func(c echo.Context) error {
+		id := c.Param("id")
+
+		var entry db.AuditLog
+		if err := database.First(&entry, id).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Audit entry not found"})
+		}
+
+		if entry.Action != "Queued for Approval" {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "Entry is not queued for approval",
+			})
+		}
+
+		if entry.IntegrationID == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "Audit entry has no associated integration",
+			})
+		}
+
+		// Look up the integration to construct a client
+		var integration db.IntegrationConfig
+		if err := database.First(&integration, *entry.IntegrationID).Error; err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "Integration not found",
+			})
+		}
+
+		client := poller.CreateClient(integration.Type, integration.URL, integration.APIKey)
+		if client == nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "Unsupported integration type",
+			})
+		}
+
+		// Reconstruct the MediaItem from stored audit data
+		item := integrations.MediaItem{
+			ExternalID:    entry.ExternalID,
+			IntegrationID: *entry.IntegrationID,
+			Type:          integrations.MediaType(entry.MediaType),
+			Title:         entry.MediaName,
+			SizeBytes:     entry.SizeBytes,
+		}
+
+		// Parse stored score details back into factors
+		var factors []engine.ScoreFactor
+		if entry.ScoreDetails != "" {
+			if err := json.Unmarshal([]byte(entry.ScoreDetails), &factors); err != nil {
+				slog.Warn("Failed to parse score details for approval", "id", entry.ID, "error", err)
+			}
+		}
+
+		// Queue for background deletion
+		if err := poller.QueueDeletion(client, item, entry.Reason, 0, factors); err != nil {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{
+				"error": "Deletion queue is full, try again later",
+			})
+		}
+
+		// Update audit entry to "Approved"
+		if err := database.Model(&entry).Update("action", "Approved").Error; err != nil {
+			slog.Error("Failed to update audit entry to Approved", "id", entry.ID, "error", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "Failed to update audit entry",
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"status": "approved"})
+	})
+
+	// Reject a queued-for-approval audit entry
+	g.POST("/audit/:id/reject", func(c echo.Context) error {
+		id := c.Param("id")
+
+		var entry db.AuditLog
+		if err := database.First(&entry, id).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Audit entry not found"})
+		}
+
+		if entry.Action != "Queued for Approval" {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "Entry is not queued for approval",
+			})
+		}
+
+		if err := database.Model(&entry).Update("action", "Rejected").Error; err != nil {
+			slog.Error("Failed to update audit entry to Rejected", "id", entry.ID, "error", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "Failed to update audit entry",
+			})
+		}
+
+		return c.JSON(http.StatusOK, map[string]string{"status": "rejected"})
 	})
 }
 

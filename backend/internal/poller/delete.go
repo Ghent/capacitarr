@@ -28,6 +28,23 @@ type deleteJob struct {
 
 var deleteQueue = make(chan deleteJob, 500)
 
+// QueueDeletion enqueues a media item for background deletion. Returns an error
+// if the queue is full. Used by the approval route to process approved items.
+func QueueDeletion(client integrations.Integration, item integrations.MediaItem, reason string, score float64, factors []engine.ScoreFactor) error {
+	select {
+	case deleteQueue <- deleteJob{
+		client:  client,
+		item:    item,
+		reason:  reason,
+		score:   score,
+		factors: factors,
+	}:
+		return nil
+	default:
+		return fmt.Errorf("deletion queue is full")
+	}
+}
+
 var (
 	metricsProcessed int64
 	metricsFailed    int64
