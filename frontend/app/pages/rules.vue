@@ -405,17 +405,6 @@
                   </UiTooltipContent>
                 </UiTooltip>
               </UiTooltipProvider>
-              <!-- Effect badge -->
-              <UiBadge
-                variant="outline"
-                :class="effectBadgeClass(rule.effect || legacyEffect(rule.type, rule.intensity))"
-                class="shrink-0"
-              >
-                <span class="inline-flex items-center gap-1">
-                  <span class="text-xs">{{ effectIconMap[rule.effect || legacyEffect(rule.type, rule.intensity)] || '' }}</span>
-                  {{ effectLabel(rule.effect || legacyEffect(rule.type, rule.intensity)) }}
-                </span>
-              </UiBadge>
               <!-- Service name -->
               <span
                 v-if="rule.integrationId"
@@ -428,18 +417,31 @@
               <span class="text-muted-foreground">{{ operatorLabel(rule.operator) }}</span>
               <span :class="rule.enabled === false ? 'text-muted-foreground' : 'font-medium'">"{{ rule.value }}"</span>
             </div>
-            <UiButton
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Delete rule"
-              class="text-muted-foreground hover:text-red-500 shrink-0"
-              @click="deleteRule(rule.id)"
-            >
-              <component
-                :is="XIcon"
-                class="w-4 h-4"
-              />
-            </UiButton>
+            <div class="flex items-center gap-2 shrink-0">
+              <!-- Effect badge -->
+              <UiBadge
+                variant="outline"
+                :class="effectBadgeClass(rule.effect || legacyEffect(rule.type, rule.intensity))"
+                class="shrink-0"
+              >
+                <span class="inline-flex items-center gap-1">
+                  <span class="text-xs">{{ effectIconMap[rule.effect || legacyEffect(rule.type, rule.intensity)] || '' }}</span>
+                  {{ effectLabel(rule.effect || legacyEffect(rule.type, rule.intensity)) }}
+                </span>
+              </UiBadge>
+              <UiButton
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Delete rule"
+                class="text-muted-foreground hover:text-red-500 shrink-0"
+                @click="deleteRule(rule.id)"
+              >
+                <component
+                  :is="XIcon"
+                  class="w-4 h-4"
+                />
+              </UiButton>
+            </div>
           </div>
         </div>
       </UiCardContent>

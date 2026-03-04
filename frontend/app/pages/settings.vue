@@ -366,7 +366,14 @@
                   :is="KeyIcon"
                   class="w-3.5 h-3.5 shrink-0"
                 />
-                <span class="font-mono text-xs">{{ integration.apiKey }}</span>
+                <span
+                  class="font-mono text-xs truncate max-w-[180px] inline-block align-bottom"
+                  :title="integration.apiKey"
+                >
+                  {{ integration.apiKey.length > 16
+                    ? integration.apiKey.slice(0, 8) + '••••' + integration.apiKey.slice(-4)
+                    : integration.apiKey }}
+                </span>
               </div>
               <div
                 v-if="integration.lastSync"
