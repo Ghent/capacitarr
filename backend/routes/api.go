@@ -185,9 +185,6 @@ func RegisterAPIRoutes(g *echo.Group, database *gorm.DB, cfg *config.Config, app
 	// Dashboard stats (aggregates lifetime stats, protected count, library growth rate)
 	protected.GET("/dashboard-stats", handleDashboardStats(database))
 
-	// Plex OAuth PIN authentication routes
-	RegisterPlexAuthRoutes(protected)
-
 	// Audit routes
 	RegisterAuditRoutes(protected, database)
 

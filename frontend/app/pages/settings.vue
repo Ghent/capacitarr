@@ -1531,6 +1531,7 @@ import {
   BellIcon, MessageSquareIcon, HashIcon, TerminalIcon
 } from 'lucide-vue-next'
 import type { IntegrationConfig, NotificationChannel, PreferenceSet, ConnectionTestResult, ApiKeyResponse, ApiError } from '~/types/api'
+import { PlexOAuth } from '~/utils/plexOAuth'
 
 // ─── i18n ─────────────────────────────────────────────────────────────────────
 const { locale: currentLocale, setLocale, locales } = useI18n()
@@ -1655,72 +1656,33 @@ const formState = reactive({
   apiKey: ''
 })
 
-// ─── Plex OAuth PIN Auth ─────────────────────────────────────────────────────
+// ─── Plex OAuth ──────────────────────────────────────────────────────────────
 const plexAuthLoading = ref(false)
-let plexAuthPopup: Window | null = null
-let plexAuthAborted = false
+let plexOAuth: PlexOAuth | null = null
 
 async function startPlexAuth() {
   plexAuthLoading.value = true
-  plexAuthAborted = false
-
   try {
-    // 1. Create PIN
-    const pinResponse = await api('/api/v1/integrations/plex/auth/pin', {
-      method: 'POST'
-    }) as { id: number, code: string }
-
-    // 2. Open popup
-    plexAuthPopup = window.open(
-      `https://app.plex.tv/auth#?clientID=capacitarr&code=${pinResponse.code}&forwardUrl=close&context%5Bdevice%5D%5Bproduct%5D=Capacitarr`,
-      'PlexAuth',
-      'width=600,height=700,scrollbars=yes'
-    )
-
-    // 3. Poll for claim (150 attempts × 2s = 5 min timeout)
-    const maxAttempts = 150
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      // Check if aborted or popup closed by user
-      if (plexAuthAborted) {
-        break
-      }
-
-      if (plexAuthPopup?.closed) {
-        addToast('Plex authorization cancelled', 'info')
-        break
-      }
-
-      try {
-        const result = await api(`/api/v1/integrations/plex/auth/pin/${pinResponse.id}`) as {
-          claimed: boolean
-          authToken?: string
-        }
-
-        if (result.claimed && result.authToken) {
-          plexAuthPopup?.close()
-          formState.apiKey = result.authToken
-          addToast('Plex authorized successfully!', 'success')
-          break
-        }
-      } catch {
-        // Polling error — continue trying
-      }
-
-      // Timeout on last attempt
-      if (i === maxAttempts - 1) {
-        plexAuthPopup?.close()
-        addToast('Plex authorization timed out — please try again', 'error')
-      }
+    plexOAuth = new PlexOAuth()
+    const authToken = await plexOAuth.login()
+    formState.apiKey = authToken
+    addToast('Plex authorized successfully!', 'success')
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    if (msg.includes('closed')) {
+      addToast('Plex authorization cancelled', 'info')
+    } else {
+      addToast('Failed to start Plex authorization: ' + msg, 'error')
     }
-  } catch {
-    addToast('Failed to start Plex authorization', 'error')
   } finally {
     plexAuthLoading.value = false
-    plexAuthPopup = null
+    plexOAuth = null
   }
 }
+
+onBeforeUnmount(() => {
+  plexOAuth?.abort()
+})
 
 const namePlaceholder = computed(() => {
   const defaults: Record<string, string> = {
