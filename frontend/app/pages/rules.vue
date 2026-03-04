@@ -1887,13 +1887,13 @@ const deletionLineIndex = computed<number | null>(() => {
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i]
     if (!group) continue
-    // Skip protected items — the engine wouldn't delete them
-    if (group.entry.isProtected) continue
+    // Skip protected or snoozed items — the engine wouldn't delete them
+    if (group.entry.isProtected || isSnoozed(group.entry)) continue
     // Accumulate group entry size plus any season sizes
     cumulative += group.entry.item?.sizeBytes ?? 0
     if (group.seasons.length > 0) {
       for (const season of group.seasons) {
-        if (!season.isProtected) {
+        if (!season.isProtected && !isSnoozed(season)) {
           cumulative += season.item?.sizeBytes ?? 0
         }
       }
