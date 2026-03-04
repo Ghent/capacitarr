@@ -40,11 +40,11 @@ The following items from the prior audit have been confirmed fixed/resolved:
 
 ### Remaining Open Items from March 3 Audit
 
-- ⬜ FIX-006: API examples wrong preference field names
-- ⬜ FIX-007: OpenAPI license mismatch
-- ⬜ FIX-008: OpenAPI missing `deletionsEnabled`
-- ⬜ FIX-009: Rate limit docs inconsistency
-- ⬜ FIX-010: Deployment docs contradictory Traefik example
+- ✅ FIX-006: API examples wrong preference field names (verified already correct)
+- ✅ FIX-007: OpenAPI license mismatch (verified already correct)
+- ✅ FIX-008: OpenAPI missing `deletionsEnabled` (verified already present)
+- ✅ FIX-009: Rate limit docs inconsistency (verified already correct — says 10)
+- ✅ FIX-010: Deployment docs contradictory Traefik example (verified already correct — no stripprefix)
 - ⬜ FIX-013: Unused CSS `data-slot` selectors (CSS has 74 `data-slot` references — need to audit which are live)
 - ⬜ FIX-017: GORM `primaryKey` casing inconsistency
 - ⬜ FIX-018: Swallowed errors in poller
@@ -223,11 +223,11 @@ The following items from the prior audit have been confirmed fixed/resolved:
 
 ### Step 5.1: Fix Remaining Doc Issues
 
-- [ ] FIX-006: Update `docs/api/examples.md` preference field names
-- [ ] FIX-007: Update `docs/api/openapi.yaml` license to match README
-- [ ] FIX-008: Add `deletionsEnabled` to OpenAPI `PreferenceSet` schema
-- [ ] FIX-009: Update `docs/api/README.md` rate limit from 5 to 10
-- [ ] FIX-010: Remove contradictory `stripprefix` from `docs/deployment.md` Traefik example
+- [x] FIX-006: Update `docs/api/examples.md` preference field names — verified already correct
+- [x] FIX-007: Update `docs/api/openapi.yaml` license to match README — verified already correct
+- [x] FIX-008: Add `deletionsEnabled` to OpenAPI `PreferenceSet` schema — verified already present
+- [x] FIX-009: Update `docs/api/README.md` rate limit from 5 to 10 — verified already correct
+- [x] FIX-010: Remove contradictory `stripprefix` from `docs/deployment.md` Traefik example — verified already correct
 
 ### Step 5.2: OpenAPI Completion
 
@@ -241,7 +241,7 @@ The following items from the prior audit have been confirmed fixed/resolved:
 - [ ] Ensure all exported Go functions have godoc comments
 - [ ] Ensure all Vue composables have JSDoc header comments
 - [ ] Add inline comments to complex algorithms (score calculation, rule evaluation)
-- [ ] Update `CONTRIBUTING.md` — change "pull request" to "merge request"
+- [x] Update `CONTRIBUTING.md` — change "pull request" to "merge request"
 - [ ] Update `README.md` — add missing features (Notifications, Plex OAuth, Approval mode)
 
 ### Step 5.4: GORM Model Consistency
@@ -258,10 +258,10 @@ The following items from the prior audit have been confirmed fixed/resolved:
 
 ### Step 6.1: Docker & Build
 
-- [ ] Audit `Dockerfile` for unnecessary layers or cache-busting
-- [ ] Verify `.dockerignore` covers all appropriate paths
-- [ ] Check `docker-compose.yml` for any hardcoded values that should be environment variables
-- [ ] Verify `Makefile` targets are all functional and documented
+- [x] Audit `Dockerfile` for unnecessary layers or cache-busting — **No issues found.** Multi-stage build is well-structured with proper layer caching, `CGO_ENABLED=0`, minimal alpine runtime, OCI labels, healthcheck, and PUID/PGID support.
+- [x] Verify `.dockerignore` covers all appropriate paths — **Fixed:** Added exclusions for CI/build config files (`Makefile`, `docker-compose.yml`, `.gitlab-ci.yml`, `.goreleaser.yml`, `cliff.toml`, root `package.json`/`package-lock.json`) to reduce Docker build context size.
+- [x] Check `docker-compose.yml` for any hardcoded values that should be environment variables — **Acceptable.** `PUID=1001`, `PGID=1001`, `DEBUG=true` are hardcoded but appropriate for a development compose file. Production users override via their own compose overrides.
+- [x] Verify `Makefile` targets are all functional and documented — **No issues.** All 8 targets documented in `help`, `.PHONY` is complete, targets are well-organized by section.
 
 ### Step 6.2: CI/CD Pipeline
 

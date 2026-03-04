@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Capacitarr! This document outline
 
 ## Contributor License Agreement (CLA)
 
-By submitting a pull request or otherwise contributing to this project, you agree to the following terms:
+By submitting a merge request or otherwise contributing to this project, you agree to the following terms:
 
 1. **License Grant**: You grant Starshadow Studios a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contributions under any license terms, including the PolyForm Noncommercial 1.0.0 license or any successor license chosen by the project maintainers.
 
@@ -39,7 +39,7 @@ By submitting a pull request or otherwise contributing to this project, you agre
    docs: update installation guide
    ```
 5. Ensure all tests pass
-6. Submit a pull request with a clear description of your changes
+6. Submit a merge request with a clear description of your changes
 
 ### Code Standards
 
@@ -86,9 +86,9 @@ Every push and merge request triggers a GitLab CI pipeline with these stages:
 
 Ensure all CI checks pass before requesting review.
 
-### Pull Request Guidelines
+### Merge Request Guidelines
 
-- Keep PRs focused — one logical change per PR
+- Keep MRs focused — one logical change per MR
 - Include tests for new functionality where possible
 - Update documentation if your change affects user-facing behavior
 - Respond to review feedback promptly
