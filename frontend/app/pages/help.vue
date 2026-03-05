@@ -658,6 +658,7 @@ const techStack = {
 };
 
 const credits = [
+  { name: 'Maintainerr', desc: 'Inspiration & Plex OAuth reference implementation' },
   { name: 'shadcn-vue', desc: 'Component library' },
   { name: 'Tailwind CSS', desc: 'Utility-first CSS framework' },
   { name: 'Nuxt', desc: 'Vue meta-framework' },
