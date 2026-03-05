@@ -18,14 +18,11 @@
           aria-live="polite"
           :aria-label="isRunning ? 'Engine running' : 'Engine idle'"
           class="absolute top-1 right-1 w-2.5 h-2.5 rounded-full border-2 border-background"
-          :class="[statusDotColor, (isRunning || runNowLoading) ? 'animate-pulse' : '']"
+          :class="[statusDotColor, isRunning || runNowLoading ? 'animate-pulse' : '']"
         />
       </UiButton>
     </UiPopoverTrigger>
-    <UiPopoverContent
-      align="end"
-      class="w-72"
-    >
+    <UiPopoverContent align="end" class="w-72">
       <div class="space-y-4">
         <!-- Header -->
         <div class="flex items-center justify-between">
@@ -33,7 +30,13 @@
             {{ $t('engine.control') }}
           </h4>
           <UiBadge
-            :variant="executionMode === 'auto' ? 'destructive' : executionMode === 'approval' ? 'outline' : 'secondary'"
+            :variant="
+              executionMode === 'auto'
+                ? 'destructive'
+                : executionMode === 'approval'
+                  ? 'outline'
+                  : 'secondary'
+            "
           >
             {{ modeLabel(executionMode) }}
           </UiBadge>
@@ -41,7 +44,9 @@
 
         <!-- Mode Toggle -->
         <div class="space-y-1.5">
-          <span class="text-xs text-muted-foreground font-medium">{{ $t('engine.executionMode') }}</span>
+          <span class="text-xs text-muted-foreground font-medium">{{
+            $t('engine.executionMode')
+          }}</span>
           <div class="flex gap-1">
             <UiButton
               v-for="mode in modes"
@@ -64,7 +69,10 @@
               {{ $t('engine.lastRun') }}
             </div>
             <div class="font-medium">
-              <DateDisplay v-if="lastRunEpoch" :date="new Date(lastRunEpoch * 1000).toISOString()" />
+              <DateDisplay
+                v-if="lastRunEpoch"
+                :date="new Date(lastRunEpoch * 1000).toISOString()"
+              />
               <span v-else>Never</span>
             </div>
           </div>
@@ -72,9 +80,7 @@
             <div class="text-muted-foreground">
               {{ $t('engine.queue') }}
             </div>
-            <div class="font-medium">
-              {{ queueDepth }} items
-            </div>
+            <div class="font-medium">{{ queueDepth }} items</div>
           </div>
           <div class="rounded-lg bg-muted px-2.5 py-1.5">
             <div class="text-muted-foreground">
@@ -95,19 +101,9 @@
         </div>
 
         <!-- Run Now -->
-        <UiButton
-          class="w-full"
-          :disabled="runNowLoading"
-          @click="handleRunNow"
-        >
-          <LoaderCircleIcon
-            v-if="runNowLoading"
-            class="w-4 h-4 animate-spin"
-          />
-          <PlayIcon
-            v-else
-            class="w-4 h-4"
-          />
+        <UiButton class="w-full" :disabled="runNowLoading" @click="handleRunNow">
+          <LoaderCircleIcon v-if="runNowLoading" class="w-4 h-4 animate-spin" />
+          <PlayIcon v-else class="w-4 h-4" />
           {{ executionMode === 'dry-run' ? $t('engine.dryRun') : $t('engine.runNow') }}
         </UiButton>
       </div>
@@ -115,10 +111,7 @@
   </UiPopover>
 
   <!-- Auto mode confirmation dialog -->
-  <UiDialog
-    :open="showAutoConfirm"
-    @update:open="(v: boolean) => showAutoConfirm = v"
-  >
+  <UiDialog :open="showAutoConfirm" @update:open="(v: boolean) => (showAutoConfirm = v)">
     <UiDialogContent class="max-w-sm">
       <UiDialogHeader>
         <UiDialogTitle class="text-destructive">
@@ -129,16 +122,10 @@
         {{ $t('engine.autoModeWarning') }}
       </p>
       <UiDialogFooter>
-        <UiButton
-          variant="ghost"
-          @click="showAutoConfirm = false"
-        >
+        <UiButton variant="ghost" @click="showAutoConfirm = false">
           {{ $t('common.cancel') }}
         </UiButton>
-        <UiButton
-          variant="destructive"
-          @click="confirmAutoMode"
-        >
+        <UiButton variant="destructive" @click="confirmAutoMode">
           {{ $t('engine.enableAutoModeConfirm') }}
         </UiButton>
       </UiDialogFooter>
@@ -147,87 +134,98 @@
 </template>
 
 <script setup lang="ts">
-import { ShieldIcon, HandIcon, ZapIcon, PlayIcon, LoaderCircleIcon } from 'lucide-vue-next'
-
+import { ShieldIcon, HandIcon, ZapIcon, PlayIcon, LoaderCircleIcon } from 'lucide-vue-next';
 
 const {
-  executionMode, lastRunEpoch, lastRunEvaluated, lastRunFlagged,
-  queueDepth, isRunning, runNowLoading, changingMode,
-  modeLabel, fetchStats, setMode, triggerRunNow
-} = useEngineControl()
+  executionMode,
+  lastRunEpoch,
+  lastRunEvaluated,
+  lastRunFlagged,
+  queueDepth,
+  isRunning,
+  runNowLoading,
+  changingMode,
+  modeLabel,
+  fetchStats,
+  setMode,
+  triggerRunNow,
+} = useEngineControl();
 
-const showAutoConfirm = ref(false)
+const showAutoConfirm = ref(false);
 
 const modes = [
   { value: 'dry-run', label: 'Dry-Run' },
   { value: 'approval', label: 'Approval' },
-  { value: 'auto', label: 'Auto' }
-]
+  { value: 'auto', label: 'Auto' },
+];
 
 // Mode icon — distinct shape per mode, NOT color-coded
 const modeIcon = computed(() => {
   switch (executionMode.value) {
-    case 'auto': return ZapIcon // ⚡ auto = lightning bolt
-    case 'approval': return HandIcon // ✋ manual review
-    default: return ShieldIcon // 🛡️ dry-run = protected/safe
+    case 'auto':
+      return ZapIcon; // ⚡ auto = lightning bolt
+    case 'approval':
+      return HandIcon; // ✋ manual review
+    default:
+      return ShieldIcon; // 🛡️ dry-run = protected/safe
   }
-})
+});
 
 // Health status dot — green=healthy, green+pulse=running, amber=loading
 const statusDotColor = computed(() => {
-  if (isRunning.value) return 'bg-primary'
-  if (runNowLoading.value) return 'bg-amber-500'
-  return 'bg-green-500'
-})
+  if (isRunning.value) return 'bg-primary';
+  if (runNowLoading.value) return 'bg-amber-500';
+  return 'bg-green-500';
+});
 
 function handleModeChange(mode: string) {
   if (mode === 'auto') {
-    showAutoConfirm.value = true
+    showAutoConfirm.value = true;
   } else {
-    setMode(mode)
+    setMode(mode);
   }
 }
 
 async function confirmAutoMode() {
-  showAutoConfirm.value = false
-  await setMode('auto')
+  showAutoConfirm.value = false;
+  await setMode('auto');
 }
 
 // --- Run-status polling ---
 // After triggering "Run Now", poll stats every 3s so the popover shows the
 // engine-running animation and detects completion (fires the toast via the
 // shared composable's wasRunning → !nowRunning logic).
-let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 function startRunPolling() {
-  stopRunPolling()
-  pollTimer = setInterval(() => fetchStats(), 3000)
+  stopRunPolling();
+  pollTimer = setInterval(() => fetchStats(), 3000);
 }
 
 function stopRunPolling() {
   if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
+    clearInterval(pollTimer);
+    pollTimer = null;
   }
 }
 
 // Wrap triggerRunNow to start polling afterwards
 async function handleRunNow() {
-  await triggerRunNow()
-  startRunPolling()
+  await triggerRunNow();
+  startRunPolling();
 }
 
 // Auto-stop polling when the engine finishes
 watch(isRunning, (running) => {
-  if (!running) stopRunPolling()
-})
+  if (!running) stopRunPolling();
+});
 
 // Fetch stats on mount
 onMounted(() => {
-  fetchStats()
-})
+  fetchStats();
+});
 
 onUnmounted(() => {
-  stopRunPolling()
-})
+  stopRunPolling();
+});
 </script>

@@ -11,23 +11,23 @@
  *   // isReconnected: briefly true after recovery (for "restored" banner)
  */
 export function useConnectionHealth() {
-  const isConnected = useState<boolean>('connection:connected', () => true)
-  const isReconnected = useState<boolean>('connection:reconnected', () => false)
+  const isConnected = useState<boolean>('connection:connected', () => true);
+  const isReconnected = useState<boolean>('connection:reconnected', () => false);
 
   // Tracks whether health polling is active (avoid duplicate intervals)
-  const _polling = useState<boolean>('connection:polling', () => false)
+  const _polling = useState<boolean>('connection:polling', () => false);
 
-  const config = useRuntimeConfig()
+  const config = useRuntimeConfig();
 
   /**
    * Called by useApi when a network-level error occurs (not HTTP errors).
    * Marks connection as lost and starts health polling.
    */
   function onConnectionLost() {
-    if (!isConnected.value) return // already lost
-    isConnected.value = false
-    isReconnected.value = false
-    startHealthPolling()
+    if (!isConnected.value) return; // already lost
+    isConnected.value = false;
+    isReconnected.value = false;
+    startHealthPolling();
   }
 
   /**
@@ -35,47 +35,47 @@ export function useConnectionHealth() {
    * If connection was previously lost, mark as reconnected.
    */
   function onConnectionRestored() {
-    if (isConnected.value) return // already connected
-    isConnected.value = true
-    isReconnected.value = true
+    if (isConnected.value) return; // already connected
+    isConnected.value = true;
+    isReconnected.value = true;
 
     // Clear "reconnected" after 4 seconds
     setTimeout(() => {
-      isReconnected.value = false
-    }, 4000)
+      isReconnected.value = false;
+    }, 4000);
   }
 
   /**
    * Poll the backend until it responds, then call onConnectionRestored.
    */
   function startHealthPolling() {
-    if (_polling.value) return
-    _polling.value = true
+    if (_polling.value) return;
+    _polling.value = true;
 
-    const baseURL = config.public.apiBaseUrl as string
+    const baseURL = config.public.apiBaseUrl as string;
     const interval = setInterval(async () => {
       try {
         const response = await fetch(`${baseURL}/api/v1/preferences`, {
           method: 'GET',
           credentials: 'include',
-          signal: AbortSignal.timeout(5000)
-        })
+          signal: AbortSignal.timeout(5000),
+        });
         if (response.ok || response.status === 401) {
           // 401 means the backend is up (auth required) — still counts as connected
-          clearInterval(interval)
-          _polling.value = false
-          onConnectionRestored()
+          clearInterval(interval);
+          _polling.value = false;
+          onConnectionRestored();
         }
       } catch {
         // Still unreachable — keep polling
       }
-    }, 5000)
+    }, 5000);
   }
 
   return {
     isConnected: readonly(isConnected),
     isReconnected: readonly(isReconnected),
     onConnectionLost,
-    onConnectionRestored
-  }
+    onConnectionRestored,
+  };
 }

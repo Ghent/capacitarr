@@ -4,10 +4,7 @@
     class="min-h-screen bg-background text-foreground transition-colors duration-300"
   >
     <Navbar v-if="isAuthenticated" />
-    <main
-      data-slot="page-content"
-      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-8"
-    >
+    <main data-slot="page-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-8">
       <NuxtPage />
     </main>
   </div>
@@ -18,21 +15,21 @@
 </template>
 
 <script setup lang="ts">
-const authenticated = useCookie('authenticated')
-const isAuthenticated = computed(() => !!authenticated.value)
+const authenticated = useCookie('authenticated');
+const isAuthenticated = computed(() => !!authenticated.value);
 
 // Initialize color mode and theme on client
 if (import.meta.client) {
-  useAppColorMode()
-  useTheme()
+  useAppColorMode();
+  useTheme();
 }
 
 // Remove splash screen on mount
 onMounted(() => {
-  const splash = document.getElementById('capacitarr-splash')
+  const splash = document.getElementById('capacitarr-splash');
   if (splash) {
-    splash.classList.add('fade-out')
-    setTimeout(() => splash.remove(), 300)
+    splash.classList.add('fade-out');
+    setTimeout(() => splash.remove(), 300);
   }
-})
+});
 </script>

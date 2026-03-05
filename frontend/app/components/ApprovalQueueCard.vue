@@ -6,12 +6,12 @@ import {
   ClipboardListIcon,
   Undo2Icon,
   ChevronRightIcon,
-  Trash2Icon
-} from 'lucide-vue-next'
-import { formatBytes } from '~/utils/format'
-import type { ApprovalGroup } from '~/composables/useApprovalQueue'
+  Trash2Icon,
+} from 'lucide-vue-next';
+import { formatBytes } from '~/utils/format';
+import type { ApprovalGroup } from '~/composables/useApprovalQueue';
 
-const { t } = useI18n()
+const { t } = useI18n();
 const {
   pendingItems,
   snoozedItems,
@@ -19,211 +19,211 @@ const {
   loading,
   approveGroup,
   rejectGroup,
-  unsnoozeGroup
-} = useApprovalQueue()
+  unsnoozeGroup,
+} = useApprovalQueue();
 
 const totalCount = computed(
-  () => pendingItems.value.length + snoozedItems.value.length + approvedItems.value.length
-)
+  () => pendingItems.value.length + snoozedItems.value.length + approvedItems.value.length,
+);
 
 /** Expanded group keys (for show groups with seasons) */
-const expandedKeys = ref<Set<string>>(new Set())
+const expandedKeys = ref<Set<string>>(new Set());
 
 function toggleExpand(key: string) {
-  const next = new Set(expandedKeys.value)
+  const next = new Set(expandedKeys.value);
   if (next.has(key)) {
-    next.delete(key)
+    next.delete(key);
   } else {
-    next.add(key)
+    next.add(key);
   }
-  expandedKeys.value = next
+  expandedKeys.value = next;
 }
 
 /** Selected item for score detail modal (group or season) */
-const selectedGroup = ref<ApprovalGroup | null>(null)
-const selectedSeason = ref<ApprovalGroup['seasons'][number] | null>(null)
+const selectedGroup = ref<ApprovalGroup | null>(null);
+const selectedSeason = ref<ApprovalGroup['seasons'][number] | null>(null);
 
 /** Format subtitle for a group: season count + total size */
-function groupSubtitle(group: { seasonCount: number, totalSizeBytes: number }): string {
-  const size = formatBytes(group.totalSizeBytes)
+function groupSubtitle(group: { seasonCount: number; totalSizeBytes: number }): string {
+  const size = formatBytes(group.totalSizeBytes);
   if (group.seasonCount > 0) {
-    return `${group.seasonCount} ${group.seasonCount === 1 ? 'season' : 'seasons'} · ${size}`
+    return `${group.seasonCount} ${group.seasonCount === 1 ? 'season' : 'seasons'} · ${size}`;
   }
-  return size
+  return size;
 }
 
 /** Open score detail modal for a group */
 function showDetail(group: ApprovalGroup) {
-  selectedSeason.value = null
-  selectedGroup.value = group
+  selectedSeason.value = null;
+  selectedGroup.value = group;
 }
 
 /** Open score detail modal for a specific season */
 function showSeasonDetail(season: ApprovalGroup['seasons'][number]) {
-  selectedGroup.value = null
-  selectedSeason.value = season
+  selectedGroup.value = null;
+  selectedSeason.value = season;
 }
 
 // --- 3-second confirmation timer for approve button ---
-const confirmingKey = ref<string | null>(null)
-const confirmCountdown = ref(3)
-let confirmTimer: ReturnType<typeof setInterval> | null = null
+const confirmingKey = ref<string | null>(null);
+const confirmCountdown = ref(3);
+let confirmTimer: ReturnType<typeof setInterval> | null = null;
 
 function startApproveConfirm(group: ApprovalGroup) {
   // If already confirming this group and they click again, cancel
   if (confirmingKey.value === group.key) {
-    clearConfirmTimer()
-    return
+    clearConfirmTimer();
+    return;
   }
 
   // Cancel any existing confirm for a different group
-  clearConfirmTimer()
+  clearConfirmTimer();
 
-  confirmingKey.value = group.key
-  confirmCountdown.value = 3
+  confirmingKey.value = group.key;
+  confirmCountdown.value = 3;
 
   confirmTimer = setInterval(() => {
-    confirmCountdown.value--
+    confirmCountdown.value--;
     if (confirmCountdown.value <= 0) {
-      clearConfirmTimer()
-      approveGroup(group)
+      clearConfirmTimer();
+      approveGroup(group);
     }
-  }, 1000)
+  }, 1000);
 }
 
 function clearConfirmTimer() {
   if (confirmTimer) {
-    clearInterval(confirmTimer)
-    confirmTimer = null
+    clearInterval(confirmTimer);
+    confirmTimer = null;
   }
-  confirmingKey.value = null
-  confirmCountdown.value = 3
+  confirmingKey.value = null;
+  confirmCountdown.value = 3;
 }
 
 onUnmounted(() => {
-  clearConfirmTimer()
-})
+  clearConfirmTimer();
+});
 
 // --- Batch selection ---
-const selectedKeys = ref<Set<string>>(new Set())
+const selectedKeys = ref<Set<string>>(new Set());
 
 /** Build a selectable key for a season within a group */
 function seasonKey(groupKey: string, seasonTitle: string): string {
-  return `${groupKey}::${seasonTitle}`
+  return `${groupKey}::${seasonTitle}`;
 }
 
 /** Get all selectable keys for a group (seasons if it has them, otherwise the group itself) */
 function selectableKeysForGroup(group: ApprovalGroup): string[] {
   if (group.seasonCount > 0) {
-    return group.seasons.map(s => seasonKey(group.key, s.title))
+    return group.seasons.map((s) => seasonKey(group.key, s.title));
   }
-  return [group.key]
+  return [group.key];
 }
 
 /** Check if a group is fully selected (all its seasons or the group itself) */
 function isGroupFullySelected(group: ApprovalGroup): boolean {
-  return selectableKeysForGroup(group).every(k => selectedKeys.value.has(k))
+  return selectableKeysForGroup(group).every((k) => selectedKeys.value.has(k));
 }
 
 /** Check if a group is partially selected (some but not all seasons) */
 function isGroupPartiallySelected(group: ApprovalGroup): boolean {
-  const keys = selectableKeysForGroup(group)
-  const count = keys.filter(k => selectedKeys.value.has(k)).length
-  return count > 0 && count < keys.length
+  const keys = selectableKeysForGroup(group);
+  const count = keys.filter((k) => selectedKeys.value.has(k)).length;
+  return count > 0 && count < keys.length;
 }
 
 const isAllSelected = computed(() => {
-  const actionable = pendingItems.value.filter(g => g.auditIds.length > 0)
-  return actionable.length > 0 && actionable.every(g => isGroupFullySelected(g))
-})
+  const actionable = pendingItems.value.filter((g) => g.auditIds.length > 0);
+  return actionable.length > 0 && actionable.every((g) => isGroupFullySelected(g));
+});
 
-const selectedCount = computed(() => selectedKeys.value.size)
+const selectedCount = computed(() => selectedKeys.value.size);
 
 function toggleSelect(key: string) {
-  const next = new Set(selectedKeys.value)
+  const next = new Set(selectedKeys.value);
   if (next.has(key)) {
-    next.delete(key)
+    next.delete(key);
   } else {
-    next.add(key)
+    next.add(key);
   }
-  selectedKeys.value = next
+  selectedKeys.value = next;
 }
 
 /** Toggle all selectable keys for a group (select all seasons or deselect all) */
 function toggleGroupSelect(group: ApprovalGroup) {
-  const next = new Set(selectedKeys.value)
-  const keys = selectableKeysForGroup(group)
+  const next = new Set(selectedKeys.value);
+  const keys = selectableKeysForGroup(group);
   if (isGroupFullySelected(group)) {
-    for (const k of keys) next.delete(k)
+    for (const k of keys) next.delete(k);
   } else {
-    for (const k of keys) next.add(k)
+    for (const k of keys) next.add(k);
   }
-  selectedKeys.value = next
+  selectedKeys.value = next;
 }
 
 function toggleSelectAll() {
   if (isAllSelected.value) {
-    selectedKeys.value = new Set()
+    selectedKeys.value = new Set();
   } else {
-    const next = new Set<string>()
+    const next = new Set<string>();
     for (const g of pendingItems.value) {
       if (g.auditIds.length > 0) {
         for (const k of selectableKeysForGroup(g)) {
-          next.add(k)
+          next.add(k);
         }
       }
     }
-    selectedKeys.value = next
+    selectedKeys.value = next;
   }
 }
 
 // Batch approve: 3-second confirmation for batch too
-const batchConfirming = ref(false)
-const batchCountdown = ref(3)
-let batchTimer: ReturnType<typeof setInterval> | null = null
+const batchConfirming = ref(false);
+const batchCountdown = ref(3);
+let batchTimer: ReturnType<typeof setInterval> | null = null;
 
 function startBatchApprove() {
   if (batchConfirming.value) {
     // Second click: cancel
-    clearBatchTimer()
-    return
+    clearBatchTimer();
+    return;
   }
 
-  batchConfirming.value = true
-  batchCountdown.value = 3
+  batchConfirming.value = true;
+  batchCountdown.value = 3;
 
   batchTimer = setInterval(() => {
-    batchCountdown.value--
+    batchCountdown.value--;
     if (batchCountdown.value <= 0) {
-      clearBatchTimer()
-      executeBatchApprove()
+      clearBatchTimer();
+      executeBatchApprove();
     }
-  }, 1000)
+  }, 1000);
 }
 
 function clearBatchTimer() {
   if (batchTimer) {
-    clearInterval(batchTimer)
-    batchTimer = null
+    clearInterval(batchTimer);
+    batchTimer = null;
   }
-  batchConfirming.value = false
-  batchCountdown.value = 3
+  batchConfirming.value = false;
+  batchCountdown.value = 3;
 }
 
 async function executeBatchApprove() {
   // Find groups that have any selected keys (group-level or season-level)
-  const selected = pendingItems.value.filter(g =>
-    selectableKeysForGroup(g).some(k => selectedKeys.value.has(k))
-  )
+  const selected = pendingItems.value.filter((g) =>
+    selectableKeysForGroup(g).some((k) => selectedKeys.value.has(k)),
+  );
   for (const group of selected) {
-    await approveGroup(group)
+    await approveGroup(group);
   }
-  selectedKeys.value = new Set()
+  selectedKeys.value = new Set();
 }
 
 onUnmounted(() => {
-  clearBatchTimer()
-})
+  clearBatchTimer();
+});
 </script>
 
 <template>
@@ -245,25 +245,13 @@ onUnmounted(() => {
           </UiCardDescription>
         </div>
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
-          <UiBadge
-            v-if="pendingItems.length > 0"
-            variant="default"
-            class="text-xs"
-          >
+          <UiBadge v-if="pendingItems.length > 0" variant="default" class="text-xs">
             {{ t('approval.pendingCount', { count: pendingItems.length }) }}
           </UiBadge>
-          <UiBadge
-            v-if="snoozedItems.length > 0"
-            variant="secondary"
-            class="text-xs"
-          >
+          <UiBadge v-if="snoozedItems.length > 0" variant="secondary" class="text-xs">
             {{ t('approval.snoozedCount', { count: snoozedItems.length }) }}
           </UiBadge>
-          <UiBadge
-            v-if="approvedItems.length > 0"
-            variant="outline"
-            class="text-xs"
-          >
+          <UiBadge v-if="approvedItems.length > 0" variant="outline" class="text-xs">
             {{ t('approval.deletingCount', { count: approvedItems.length }) }}
           </UiBadge>
         </div>
@@ -271,17 +259,11 @@ onUnmounted(() => {
     </UiCardHeader>
     <UiCardContent>
       <!-- Empty state -->
-      <div
-        v-if="totalCount === 0"
-        class="text-center py-6 text-muted-foreground text-sm"
-      >
+      <div v-if="totalCount === 0" class="text-center py-6 text-muted-foreground text-sm">
         {{ t('approval.noPending') }}
       </div>
 
-      <div
-        v-else
-        class="space-y-4"
-      >
+      <div v-else class="space-y-4">
         <!-- Section 1: Pending Approval -->
         <div v-if="pendingItems.length > 0">
           <div class="flex items-center justify-between mb-2">
@@ -311,17 +293,12 @@ onUnmounted(() => {
                 <template v-if="batchConfirming">
                   {{ batchCountdown }}s — click to cancel
                 </template>
-                <template v-else>
-                  Approve {{ selectedCount }} Selected
-                </template>
+                <template v-else> Approve {{ selectedCount }} Selected </template>
               </UiButton>
             </div>
           </div>
           <div class="space-y-1.5">
-            <div
-              v-for="group in pendingItems"
-              :key="group.key"
-            >
+            <div v-for="group in pendingItems" :key="group.key">
               <div
                 class="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2"
                 :class="
@@ -350,10 +327,7 @@ onUnmounted(() => {
                 </span>
 
                 <!-- Title + type badge + subtitle -->
-                <div
-                  class="flex-1 min-w-0 cursor-pointer"
-                  @click="showDetail(group)"
-                >
+                <div class="flex-1 min-w-0 cursor-pointer" @click="showDetail(group)">
                   <span class="inline-flex items-center gap-1.5">
                     <span class="text-sm font-medium truncate">{{ group.showTitle }}</span>
                     <UiBadge
@@ -379,7 +353,7 @@ onUnmounted(() => {
                       'h-7 p-0 transition-all',
                       confirmingKey === group.key
                         ? 'w-auto px-2 bg-destructive/10 text-destructive hover:bg-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30'
-                        : 'w-7 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30'
+                        : 'w-7 text-green-600 hover:text-green-700 hover:bg-green-100 dark:hover:bg-green-900/30',
                     ]"
                     :disabled="!!loading[group.key]"
                     :aria-label="
@@ -388,7 +362,9 @@ onUnmounted(() => {
                     @click="startApproveConfirm(group)"
                   >
                     <template v-if="confirmingKey === group.key">
-                      <span class="text-[11px] font-medium tabular-nums">{{ confirmCountdown }}s</span>
+                      <span class="text-[11px] font-medium tabular-nums"
+                        >{{ confirmCountdown }}s</span
+                      >
                     </template>
                     <template v-else>
                       <CheckIcon class="h-4 w-4" />
@@ -414,11 +390,12 @@ onUnmounted(() => {
                     :indeterminate="isGroupPartiallySelected(group)"
                     class="h-3.5 w-3.5 rounded border-border text-primary accent-primary shrink-0 cursor-pointer"
                     @click.stop="toggleGroupSelect(group)"
-                  >
+                  />
                   <span
                     v-if="group.auditIds.length === 0"
                     class="text-[10px] text-muted-foreground italic"
-                  >{{ t('approval.awaitingEngine') }}</span>
+                    >{{ t('approval.awaitingEngine') }}</span
+                  >
                 </div>
               </div>
 
@@ -446,18 +423,20 @@ onUnmounted(() => {
                   <span
                     class="flex-1 min-w-0 truncate text-muted-foreground cursor-pointer"
                     @click="showSeasonDetail(season)"
-                  >{{ season.title }}</span>
+                    >{{ season.title }}</span
+                  >
                   <span
                     class="text-muted-foreground shrink-0 cursor-pointer"
                     @click="showSeasonDetail(season)"
-                  >{{ formatBytes(season.sizeBytes) }}</span>
+                    >{{ formatBytes(season.sizeBytes) }}</span
+                  >
                   <!-- Season-level checkbox -->
                   <input
                     type="checkbox"
                     :checked="selectedKeys.has(seasonKey(group.key, season.title))"
                     class="h-3.5 w-3.5 rounded border-border text-primary accent-primary shrink-0 cursor-pointer"
                     @click.stop="toggleSelect(seasonKey(group.key, season.title))"
-                  >
+                  />
                 </div>
               </div>
             </div>
@@ -477,19 +456,13 @@ onUnmounted(() => {
               @click="showDetail(group)"
             >
               <!-- Snooze icon -->
-              <span
-                class="text-sm shrink-0 w-12 text-right"
-                title="Snoozed"
-              >💤</span>
+              <span class="text-sm shrink-0 w-12 text-right" title="Snoozed">💤</span>
 
               <!-- Title + type badge + snooze time -->
               <div class="flex-1 min-w-0">
                 <span class="inline-flex items-center gap-1.5">
                   <span class="text-sm font-medium truncate">{{ group.showTitle }}</span>
-                  <UiBadge
-                    variant="secondary"
-                    class="capitalize text-[10px] px-1.5 py-0 shrink-0"
-                  >
+                  <UiBadge variant="secondary" class="capitalize text-[10px] px-1.5 py-0 shrink-0">
                     {{ group.type }}
                   </UiBadge>
                 </span>
@@ -500,10 +473,7 @@ onUnmounted(() => {
                   {{ t('approval.snoozedUntilLabel') }}
                   <DateDisplay :date="group.snoozedUntil" />
                 </span>
-                <span
-                  v-else
-                  class="text-xs text-muted-foreground block"
-                >{{
+                <span v-else class="text-xs text-muted-foreground block">{{
                   groupSubtitle(group)
                 }}</span>
               </div>
@@ -545,10 +515,7 @@ onUnmounted(() => {
               <div class="flex-1 min-w-0">
                 <span class="inline-flex items-center gap-1.5">
                   <span class="text-sm font-medium truncate">{{ group.showTitle }}</span>
-                  <UiBadge
-                    variant="secondary"
-                    class="capitalize text-[10px] px-1.5 py-0 shrink-0"
-                  >
+                  <UiBadge variant="secondary" class="capitalize text-[10px] px-1.5 py-0 shrink-0">
                     {{ group.type }}
                   </UiBadge>
                 </span>

@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="rounded-xl border border-border bg-card shadow-sm overflow-hidden animate-pulse"
-  >
+  <div class="rounded-xl border border-border bg-card shadow-sm overflow-hidden animate-pulse">
     <div class="p-5 space-y-3">
       <!-- Header row -->
       <div class="flex items-center justify-between">
@@ -23,10 +21,7 @@
     </div>
 
     <!-- Chart area placeholder -->
-    <div
-      v-if="showChart"
-      class="px-5 pb-4"
-    >
+    <div v-if="showChart" class="px-5 pb-4">
       <div class="h-3 w-28 rounded bg-muted mb-2" />
       <div class="h-48 rounded-lg bg-muted" />
     </div>
@@ -34,9 +29,12 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
-  showChart?: boolean
-}>(), {
-  showChart: false
-})
+withDefaults(
+  defineProps<{
+    showChart?: boolean;
+  }>(),
+  {
+    showChart: false,
+  },
+);
 </script>

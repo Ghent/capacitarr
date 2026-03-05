@@ -13,10 +13,7 @@
             {{ $t('rules.preferenceWeightsDesc') }}
           </UiCardDescription>
         </div>
-        <UiButton
-          size="sm"
-          @click="$emit('save')"
-        >
+        <UiButton size="sm" @click="$emit('save')">
           {{ $t('rules.saveWeights') }}
         </UiButton>
       </div>
@@ -56,14 +53,12 @@
 
       <!-- Two-Column Slider Grid -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-        <div
-          v-for="slider in sliders"
-          :key="slider.key"
-          class="space-y-1.5"
-        >
+        <div v-for="slider in sliders" :key="slider.key" class="space-y-1.5">
           <div class="flex justify-between text-sm">
             <span class="font-medium text-foreground">{{ slider.label }}</span>
-            <span class="text-muted-foreground font-mono tabular-nums">{{ preferences[slider.key as keyof WeightKeys] }} / 10</span>
+            <span class="text-muted-foreground font-mono tabular-nums"
+              >{{ preferences[slider.key as keyof WeightKeys] }} / 10</span
+            >
           </div>
           <UiSlider
             :model-value="[Number(preferences[slider.key as keyof WeightKeys])]"
@@ -71,7 +66,11 @@
             :max="10"
             :step="1"
             class="w-full"
-            @update:model-value="(v: number[] | undefined) => { if (v) $emit('update:preference', slider.key, v[0]) }"
+            @update:model-value="
+              (v: number[] | undefined) => {
+                if (v) $emit('update:preference', slider.key, v[0]);
+              }
+            "
           />
           <p class="text-xs text-muted-foreground">
             {{ slider.description }}
@@ -84,59 +83,127 @@
 
 <script setup lang="ts">
 export interface WeightKeys {
-  watchHistoryWeight: number
-  lastWatchedWeight: number
-  fileSizeWeight: number
-  ratingWeight: number
-  timeInLibraryWeight: number
-  seriesStatusWeight: number
+  watchHistoryWeight: number;
+  lastWatchedWeight: number;
+  fileSizeWeight: number;
+  ratingWeight: number;
+  timeInLibraryWeight: number;
+  seriesStatusWeight: number;
 }
 
 const props = defineProps<{
-  preferences: WeightKeys
-}>()
+  preferences: WeightKeys;
+}>();
 
 const emit = defineEmits<{
-  'save': []
-  'update:preference': [key: string, value: number]
-  'apply-preset': [values: Record<string, number>]
-}>()
+  save: [];
+  'update:preference': [key: string, value: number];
+  'apply-preset': [values: Record<string, number>];
+}>();
 
 const sliders = [
-  { key: 'watchHistoryWeight', label: 'Watch History (Play Count)', description: 'Unwatched items score much higher.' },
-  { key: 'lastWatchedWeight', label: 'Days Since Last Watched', description: 'Media not watched in a long time scores higher.' },
-  { key: 'fileSizeWeight', label: 'File Size', description: 'Larger files score higher to free more space.' },
-  { key: 'ratingWeight', label: 'Rating', description: 'Low-rated content scores higher for deletion.' },
-  { key: 'timeInLibraryWeight', label: 'Time in Library', description: 'Older content may be less valuable.' },
-  { key: 'seriesStatusWeight', label: 'Series Status', description: 'Ended or canceled shows score higher for removal since no new episodes are expected.' }
-]
+  {
+    key: 'watchHistoryWeight',
+    label: 'Watch History (Play Count)',
+    description: 'Unwatched items score much higher.',
+  },
+  {
+    key: 'lastWatchedWeight',
+    label: 'Days Since Last Watched',
+    description: 'Media not watched in a long time scores higher.',
+  },
+  {
+    key: 'fileSizeWeight',
+    label: 'File Size',
+    description: 'Larger files score higher to free more space.',
+  },
+  {
+    key: 'ratingWeight',
+    label: 'Rating',
+    description: 'Low-rated content scores higher for deletion.',
+  },
+  {
+    key: 'timeInLibraryWeight',
+    label: 'Time in Library',
+    description: 'Older content may be less valuable.',
+  },
+  {
+    key: 'seriesStatusWeight',
+    label: 'Series Status',
+    description:
+      'Ended or canceled shows score higher for removal since no new episodes are expected.',
+  },
+];
 
 const presets = [
-  { name: 'Balanced', values: { watchHistoryWeight: 8, lastWatchedWeight: 7, fileSizeWeight: 6, ratingWeight: 5, timeInLibraryWeight: 4, seriesStatusWeight: 3 } },
-  { name: 'Space Saver', values: { watchHistoryWeight: 3, lastWatchedWeight: 3, fileSizeWeight: 10, ratingWeight: 2, timeInLibraryWeight: 8, seriesStatusWeight: 5 } },
-  { name: 'Hoarder', values: { watchHistoryWeight: 10, lastWatchedWeight: 10, fileSizeWeight: 2, ratingWeight: 8, timeInLibraryWeight: 2, seriesStatusWeight: 2 } },
-  { name: 'Watch-Based', values: { watchHistoryWeight: 10, lastWatchedWeight: 9, fileSizeWeight: 4, ratingWeight: 3, timeInLibraryWeight: 3, seriesStatusWeight: 5 } }
-]
+  {
+    name: 'Balanced',
+    values: {
+      watchHistoryWeight: 8,
+      lastWatchedWeight: 7,
+      fileSizeWeight: 6,
+      ratingWeight: 5,
+      timeInLibraryWeight: 4,
+      seriesStatusWeight: 3,
+    },
+  },
+  {
+    name: 'Space Saver',
+    values: {
+      watchHistoryWeight: 3,
+      lastWatchedWeight: 3,
+      fileSizeWeight: 10,
+      ratingWeight: 2,
+      timeInLibraryWeight: 8,
+      seriesStatusWeight: 5,
+    },
+  },
+  {
+    name: 'Hoarder',
+    values: {
+      watchHistoryWeight: 10,
+      lastWatchedWeight: 10,
+      fileSizeWeight: 2,
+      ratingWeight: 8,
+      timeInLibraryWeight: 2,
+      seriesStatusWeight: 2,
+    },
+  },
+  {
+    name: 'Watch-Based',
+    values: {
+      watchHistoryWeight: 10,
+      lastWatchedWeight: 9,
+      fileSizeWeight: 4,
+      ratingWeight: 3,
+      timeInLibraryWeight: 3,
+      seriesStatusWeight: 5,
+    },
+  },
+];
 
 const presetDescriptions: Record<string, string> = {
-  'Balanced': 'A general-purpose profile that weighs all factors evenly. Good starting point.',
+  Balanced: 'A general-purpose profile that weighs all factors evenly. Good starting point.',
   'Space Saver': 'Prioritizes freeing disk space. Targets large, old media with low ratings.',
-  'Hoarder': 'Strongly resists deletion. Only removes media that\'s never been watched and poorly rated.',
-  'Watch-Based': 'Focuses on watch history. Unwatched and stale media is removed first.'
-}
+  Hoarder:
+    "Strongly resists deletion. Only removes media that's never been watched and poorly rated.",
+  'Watch-Based': 'Focuses on watch history. Unwatched and stale media is removed first.',
+};
 
 function isActivePreset(values: Record<string, number>): boolean {
   return Object.entries(values).every(
-    ([key, val]) => props.preferences[key as keyof WeightKeys] === val
-  )
+    ([key, val]) => props.preferences[key as keyof WeightKeys] === val,
+  );
 }
 
 const activePresetDescription = computed(() => {
-  const active = presets.find(p => isActivePreset(p.values))
-  return active ? presetDescriptions[active.name] ?? '' : 'Custom configuration — adjust sliders to fine-tune scoring.'
-})
+  const active = presets.find((p) => isActivePreset(p.values));
+  return active
+    ? (presetDescriptions[active.name] ?? '')
+    : 'Custom configuration — adjust sliders to fine-tune scoring.';
+});
 
 function applyPreset(values: Record<string, number>) {
-  emit('apply-preset', values)
+  emit('apply-preset', values);
 }
 </script>

@@ -2,12 +2,7 @@
   <div class="rounded-xl border border-border bg-card shadow-sm overflow-hidden animate-pulse">
     <!-- Table header -->
     <div class="flex items-center gap-4 px-4 py-3 border-b border-border/50">
-      <div
-        v-for="w in columnWidths"
-        :key="w"
-        class="h-3 rounded bg-muted"
-        :style="{ width: w }"
-      />
+      <div v-for="w in columnWidths" :key="w" class="h-3 rounded bg-muted" :style="{ width: w }" />
     </div>
     <!-- Table rows -->
     <div
@@ -27,11 +22,14 @@
 </template>
 
 <script setup lang="ts">
-withDefaults(defineProps<{
-  rows?: number
-  columnWidths?: string[]
-}>(), {
-  rows: 5,
-  columnWidths: () => ['30%', '15%', '12%', '18%', '10%']
-})
+withDefaults(
+  defineProps<{
+    rows?: number;
+    columnWidths?: string[];
+  }>(),
+  {
+    rows: 5,
+    columnWidths: () => ['30%', '15%', '12%', '18%', '10%'],
+  },
+);
 </script>

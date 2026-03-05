@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { WifiOffIcon, WifiIcon, LoaderCircleIcon } from 'lucide-vue-next'
+import { WifiOffIcon, WifiIcon, LoaderCircleIcon } from 'lucide-vue-next';
 
-const { isConnected, isReconnected } = useConnectionHealth()
+const { isConnected, isReconnected } = useConnectionHealth();
 </script>

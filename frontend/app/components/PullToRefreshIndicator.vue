@@ -11,18 +11,22 @@
       <component
         :is="isRefreshing ? LoaderCircleIcon : ArrowDownIcon"
         class="w-5 h-5 text-primary transition-transform duration-200"
-        :style="!isRefreshing ? { transform: `rotate(${pullProgress * 180}deg)`, opacity: pullProgress } : {}"
+        :style="
+          !isRefreshing
+            ? { transform: `rotate(${pullProgress * 180}deg)`, opacity: pullProgress }
+            : {}
+        "
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { LoaderCircleIcon, ArrowDownIcon } from 'lucide-vue-next'
+import { LoaderCircleIcon, ArrowDownIcon } from 'lucide-vue-next';
 
 defineProps<{
-  pullDistance: number
-  pullProgress: number
-  isRefreshing: boolean
-}>()
+  pullDistance: number;
+  pullProgress: number;
+  isRefreshing: boolean;
+}>();
 </script>

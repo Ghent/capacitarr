@@ -1,23 +1,14 @@
 <template>
   <div class="flex justify-end mb-6">
     <UiButton @click="openAddModal">
-      <component
-        :is="PlusIcon"
-        class="w-4 h-4"
-      />
+      <component :is="PlusIcon" class="w-4 h-4" />
       {{ $t('settings.addIntegration') }}
     </UiButton>
   </div>
 
   <!-- Loading -->
-  <div
-    v-if="loading"
-    class="flex justify-center py-16"
-  >
-    <component
-      :is="LoaderCircleIcon"
-      class="w-8 h-8 text-primary animate-spin"
-    />
+  <div v-if="loading" class="flex justify-center py-16">
+    <component :is="LoaderCircleIcon" class="w-8 h-8 text-primary animate-spin" />
   </div>
 
   <!-- Empty state -->
@@ -28,49 +19,43 @@
     :enter="{ opacity: 1, y: 0 }"
     class="text-center py-20"
   >
-    <component
-      :is="HardDriveIcon"
-      class="w-16 h-16 text-muted-foreground/40 mx-auto mb-4"
-    />
+    <component :is="HardDriveIcon" class="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
     <h3 class="text-lg font-medium text-foreground mb-2">
       {{ $t('settings.noIntegrations') }}
     </h3>
     <p class="text-muted-foreground mb-6">
       {{ $t('settings.noIntegrationsHelp') }}
     </p>
-    <UiButton
-      size="lg"
-      @click="openAddModal"
-    >
-      <component
-        :is="PlusIcon"
-        class="w-4 h-4"
-      />
+    <UiButton size="lg" @click="openAddModal">
+      <component :is="PlusIcon" class="w-4 h-4" />
       {{ $t('settings.addFirstIntegration') }}
     </UiButton>
   </div>
 
   <!-- Integration Cards Grid -->
-  <div
-    v-else
-    class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-  >
+  <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
     <UiCard
       v-for="(integration, idx) in integrations"
       :key="integration.id"
       v-motion
       :initial="{ opacity: 0, y: 12 }"
-      :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 80 * idx } }"
+      :enter="{
+        opacity: 1,
+        y: 0,
+        transition: { type: 'spring', stiffness: 260, damping: 24, delay: 80 * idx },
+      }"
       class="overflow-hidden"
     >
       <UiCardHeader class="border-b border-border">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div :class="['w-10 h-10 rounded-lg flex items-center justify-center', typeColor(integration.type)]">
-              <component
-                :is="typeIcon(integration.type)"
-                class="w-5 h-5 text-white"
-              />
+            <div
+              :class="[
+                'w-10 h-10 rounded-lg flex items-center justify-center',
+                typeColor(integration.type),
+              ]"
+            >
+              <component :is="typeIcon(integration.type)" class="w-5 h-5 text-white" />
             </div>
             <div>
               <UiCardTitle class="text-base">
@@ -97,10 +82,15 @@
         </div>
         <div class="flex items-center gap-2">
           <component :is="KeyIcon" class="w-3.5 h-3.5 shrink-0" />
-          <span class="font-mono text-xs truncate max-w-[180px] inline-block align-bottom" :title="integration.apiKey">
-            {{ integration.apiKey.length > 16
-              ? integration.apiKey.slice(0, 8) + '••••' + integration.apiKey.slice(-4)
-              : integration.apiKey }}
+          <span
+            class="font-mono text-xs truncate max-w-[180px] inline-block align-bottom"
+            :title="integration.apiKey"
+          >
+            {{
+              integration.apiKey.length > 16
+                ? integration.apiKey.slice(0, 8) + '••••' + integration.apiKey.slice(-4)
+                : integration.apiKey
+            }}
           </span>
         </div>
         <div v-if="integration.lastSync" class="flex items-center gap-2">
@@ -132,7 +122,11 @@
   <!-- Integration Modal -->
   <UiDialog
     :open="showModal"
-    @update:open="(val: boolean) => { showModal = val }"
+    @update:open="
+      (val: boolean) => {
+        showModal = val;
+      }
+    "
   >
     <UiDialogContent class="max-w-md">
       <UiDialogHeader>
@@ -178,7 +172,11 @@
           <UiInput
             v-model="formState.apiKey"
             :type="editingIntegration && formState.apiKey.includes('•') ? 'text' : 'password'"
-            :placeholder="editingIntegration ? 'Enter new API key to change, or leave as-is' : 'Enter API key or token'"
+            :placeholder="
+              editingIntegration
+                ? 'Enter new API key to change, or leave as-is'
+                : 'Enter API key or token'
+            "
             @focus="onApiKeyFocus"
           />
           <!-- Plex OAuth Sign-in Button -->
@@ -187,7 +185,7 @@
               <UiButton
                 type="button"
                 class="w-full text-black font-semibold"
-                style="background-color: #E5A00D;"
+                style="background-color: #e5a00d"
                 :disabled="plexAuthLoading"
                 @click="startPlexAuth"
               >
@@ -206,7 +204,8 @@
             </div>
             <UiSeparator class="my-1" />
             <p class="text-xs text-muted-foreground/70">
-              Or enter your token manually: open any library item in Plex Web → Get Info → View XML → look for <code class="font-mono text-[11px]">X-Plex-Token</code> in the URL.
+              Or enter your token manually: open any library item in Plex Web → Get Info → View XML
+              → look for <code class="font-mono text-[11px]">X-Plex-Token</code> in the URL.
             </p>
           </template>
         </div>
@@ -217,9 +216,7 @@
       </form>
 
       <UiDialogFooter class="flex items-center justify-between">
-        <UiButton variant="outline" @click="testFormConnection">
-          Test Connection
-        </UiButton>
+        <UiButton variant="outline" @click="testFormConnection"> Test Connection </UiButton>
         <div class="flex gap-2">
           <UiButton variant="ghost" @click="showModal = false">Cancel</UiButton>
           <UiButton :disabled="saving" @click="onSubmit">
@@ -233,148 +230,186 @@
 
 <script setup lang="ts">
 import {
-  PlusIcon, HardDriveIcon, LoaderCircleIcon,
-  LinkIcon, KeyIcon, ClockIcon, AlertTriangleIcon, LogInIcon
-} from 'lucide-vue-next'
-import type { IntegrationConfig, ConnectionTestResult, ApiError } from '~/types/api'
-import { PlexOAuth } from '~/utils/plexOAuth'
-import { typeIcon, typeColor, typeTextColor, namePlaceholders, urlPlaceholders, urlHelpTexts } from '~/utils/integrationHelpers'
+  PlusIcon,
+  HardDriveIcon,
+  LoaderCircleIcon,
+  LinkIcon,
+  KeyIcon,
+  ClockIcon,
+  AlertTriangleIcon,
+  LogInIcon,
+} from 'lucide-vue-next';
+import type { IntegrationConfig, ConnectionTestResult, ApiError } from '~/types/api';
+import { PlexOAuth } from '~/utils/plexOAuth';
+import {
+  typeIcon,
+  typeColor,
+  typeTextColor,
+  namePlaceholders,
+  urlPlaceholders,
+  urlHelpTexts,
+} from '~/utils/integrationHelpers';
 
-const api = useApi()
-const { addToast } = useToast()
+const api = useApi();
+const { addToast } = useToast();
 
-const loading = ref(true)
-const integrations = ref<IntegrationConfig[]>([])
-const showModal = ref(false)
-const editingIntegration = ref<IntegrationConfig | null>(null)
-const saving = ref(false)
-const formError = ref('')
+const loading = ref(true);
+const integrations = ref<IntegrationConfig[]>([]);
+const showModal = ref(false);
+const editingIntegration = ref<IntegrationConfig | null>(null);
+const saving = ref(false);
+const formError = ref('');
 
-const formState = reactive({ type: 'sonarr', name: '', url: '', apiKey: '' })
+const formState = reactive({ type: 'sonarr', name: '', url: '', apiKey: '' });
 
 // ─── Plex OAuth ──────────────────────────────────────────────────────────────
-const plexAuthLoading = ref(false)
-let plexOAuth: PlexOAuth | null = null
+const plexAuthLoading = ref(false);
+let plexOAuth: PlexOAuth | null = null;
 
 async function startPlexAuth() {
-  plexAuthLoading.value = true
+  plexAuthLoading.value = true;
   try {
-    plexOAuth = new PlexOAuth()
-    const authToken = await plexOAuth.login()
-    formState.apiKey = authToken
-    addToast('Plex authorized successfully!', 'success')
+    plexOAuth = new PlexOAuth();
+    const authToken = await plexOAuth.login();
+    formState.apiKey = authToken;
+    addToast('Plex authorized successfully!', 'success');
   } catch (e) {
-    const msg = e instanceof Error ? e.message : 'Unknown error'
+    const msg = e instanceof Error ? e.message : 'Unknown error';
     if (msg.includes('closed')) {
-      addToast('Plex authorization cancelled', 'info')
+      addToast('Plex authorization cancelled', 'info');
     } else {
-      addToast('Failed to start Plex authorization: ' + msg, 'error')
+      addToast('Failed to start Plex authorization: ' + msg, 'error');
     }
   } finally {
-    plexAuthLoading.value = false
-    plexOAuth = null
+    plexAuthLoading.value = false;
+    plexOAuth = null;
   }
 }
 
-onBeforeUnmount(() => { plexOAuth?.abort() })
+onBeforeUnmount(() => {
+  plexOAuth?.abort();
+});
 
 // ─── Computed placeholders ───────────────────────────────────────────────────
-const namePlaceholder = computed(() => namePlaceholders[formState.type] || 'Integration Name')
-const urlPlaceholder = computed(() => urlPlaceholders[formState.type] || 'http://localhost:8080')
-const urlHelp = computed(() => urlHelpTexts[formState.type] || 'The base URL of your integration.')
+const namePlaceholder = computed(() => namePlaceholders[formState.type] || 'Integration Name');
+const urlPlaceholder = computed(() => urlPlaceholders[formState.type] || 'http://localhost:8080');
+const urlHelp = computed(() => urlHelpTexts[formState.type] || 'The base URL of your integration.');
 
 // ─── CRUD operations ─────────────────────────────────────────────────────────
 async function fetchIntegrations() {
-  loading.value = true
+  loading.value = true;
   try {
-    integrations.value = await api('/api/v1/integrations') as IntegrationConfig[]
+    integrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
   } catch {
-    addToast('Failed to load integrations', 'error')
+    addToast('Failed to load integrations', 'error');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
 }
 
 function openAddModal() {
-  editingIntegration.value = null
-  Object.assign(formState, { type: 'sonarr', name: '', url: '', apiKey: '' })
-  formError.value = ''
-  showModal.value = true
+  editingIntegration.value = null;
+  Object.assign(formState, { type: 'sonarr', name: '', url: '', apiKey: '' });
+  formError.value = '';
+  showModal.value = true;
 }
 
 function onApiKeyFocus() {
-  if (formState.apiKey.includes('•')) formState.apiKey = ''
+  if (formState.apiKey.includes('•')) formState.apiKey = '';
 }
 
 function openEditModal(integration: IntegrationConfig) {
-  editingIntegration.value = integration
-  Object.assign(formState, { type: integration.type, name: integration.name, url: integration.url, apiKey: integration.apiKey })
-  formError.value = ''
-  showModal.value = true
+  editingIntegration.value = integration;
+  Object.assign(formState, {
+    type: integration.type,
+    name: integration.name,
+    url: integration.url,
+    apiKey: integration.apiKey,
+  });
+  formError.value = '';
+  showModal.value = true;
 }
 
 async function onSubmit() {
-  saving.value = true
-  formError.value = ''
+  saving.value = true;
+  formError.value = '';
   try {
     if (editingIntegration.value) {
       await api(`/api/v1/integrations/${editingIntegration.value.id}`, {
-        method: 'PUT', body: { ...formState, enabled: editingIntegration.value.enabled }
-      })
+        method: 'PUT',
+        body: { ...formState, enabled: editingIntegration.value.enabled },
+      });
     } else {
-      await api('/api/v1/integrations', { method: 'POST', body: formState })
+      await api('/api/v1/integrations', { method: 'POST', body: formState });
     }
-    showModal.value = false
-    addToast('Integration saved', 'success')
-    await fetchIntegrations()
+    showModal.value = false;
+    addToast('Integration saved', 'success');
+    await fetchIntegrations();
   } catch (e: unknown) {
-    formError.value = (e as ApiError)?.data?.error || 'Failed to save integration'
-    addToast(formError.value, 'error')
+    formError.value = (e as ApiError)?.data?.error || 'Failed to save integration';
+    addToast(formError.value, 'error');
   } finally {
-    saving.value = false
+    saving.value = false;
   }
 }
 
 async function deleteIntegration(integration: IntegrationConfig) {
-  if (!confirm(`Delete ${integration.name}? This cannot be undone.`)) return
+  if (!confirm(`Delete ${integration.name}? This cannot be undone.`)) return;
   try {
-    await api(`/api/v1/integrations/${integration.id}`, { method: 'DELETE' })
-    addToast('Integration deleted', 'success')
-    await fetchIntegrations()
+    await api(`/api/v1/integrations/${integration.id}`, { method: 'DELETE' });
+    addToast('Integration deleted', 'success');
+    await fetchIntegrations();
   } catch {
-    addToast('Failed to delete integration', 'error')
+    addToast('Failed to delete integration', 'error');
   }
 }
 
 async function testConnection(integration: IntegrationConfig) {
   try {
-    const result = await api('/api/v1/integrations/test', {
+    const result = (await api('/api/v1/integrations/test', {
       method: 'POST',
-      body: { type: integration.type, url: integration.url, apiKey: integration.apiKey, integrationId: integration.id }
-    }) as ConnectionTestResult
-    addToast(result.success ? 'Connection successful!' : `Connection failed: ${result.error}`, result.success ? 'success' : 'error')
+      body: {
+        type: integration.type,
+        url: integration.url,
+        apiKey: integration.apiKey,
+        integrationId: integration.id,
+      },
+    })) as ConnectionTestResult;
+    addToast(
+      result.success ? 'Connection successful!' : `Connection failed: ${result.error}`,
+      result.success ? 'success' : 'error',
+    );
   } catch {
-    addToast('Connection test failed', 'error')
+    addToast('Connection test failed', 'error');
   }
 }
 
 async function testFormConnection() {
   try {
-    const body: Record<string, unknown> = { type: formState.type, url: formState.url, apiKey: formState.apiKey }
-    if (editingIntegration.value) body.integrationId = editingIntegration.value.id
-    const result = await api('/api/v1/integrations/test', { method: 'POST', body }) as ConnectionTestResult
+    const body: Record<string, unknown> = {
+      type: formState.type,
+      url: formState.url,
+      apiKey: formState.apiKey,
+    };
+    if (editingIntegration.value) body.integrationId = editingIntegration.value.id;
+    const result = (await api('/api/v1/integrations/test', {
+      method: 'POST',
+      body,
+    })) as ConnectionTestResult;
     if (result.success) {
-      formError.value = ''
-      addToast('Connection successful!', 'success')
+      formError.value = '';
+      addToast('Connection successful!', 'success');
     } else {
-      formError.value = result.error || 'Connection failed'
-      addToast(formError.value, 'error')
+      formError.value = result.error || 'Connection failed';
+      addToast(formError.value, 'error');
     }
   } catch {
-    formError.value = 'Connection test failed'
-    addToast('Connection test failed', 'error')
+    formError.value = 'Connection test failed';
+    addToast('Connection test failed', 'error');
   }
 }
 
-onMounted(() => { fetchIntegrations() })
+onMounted(() => {
+  fetchIntegrations();
+});
 </script>

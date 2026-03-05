@@ -1,15 +1,20 @@
 <template>
-  <div
-    v-if="factors.length > 0"
-    class="flex flex-col gap-1"
-  >
+  <div v-if="factors.length > 0" class="flex flex-col gap-1">
     <div class="flex items-center gap-2">
-      <span :class="['font-semibold tabular-nums text-foreground', size === 'sm' ? 'text-xs' : 'text-sm']">
+      <span
+        :class="[
+          'font-semibold tabular-nums text-foreground',
+          size === 'sm' ? 'text-xs' : 'text-sm',
+        ]"
+      >
         {{ scoreDisplay }}
       </span>
       <div
         v-if="weightFactors.length > 0"
-        :class="['flex rounded-full overflow-hidden bg-muted flex-1 min-w-0', size === 'sm' ? 'h-1.5' : 'h-2']"
+        :class="[
+          'flex rounded-full overflow-hidden bg-muted flex-1 min-w-0',
+          size === 'sm' ? 'h-1.5' : 'h-2',
+        ]"
       >
         <div
           v-for="f in weightFactors"
@@ -18,16 +23,13 @@
           :style="{
             width: totalContrib > 0 ? `${(f.contribution / totalContrib) * 100}%` : '0%',
             backgroundColor: factorColor(f.name),
-            minWidth: f.contribution > 0 ? '2px' : '0px'
+            minWidth: f.contribution > 0 ? '2px' : '0px',
           }"
           :title="`${f.name}: ${f.contribution.toFixed(2)}`"
         />
       </div>
     </div>
-    <div
-      v-if="weightFactors.length > 0"
-      class="flex flex-wrap gap-x-2 gap-y-0.5"
-    >
+    <div v-if="weightFactors.length > 0" class="flex flex-wrap gap-x-2 gap-y-0.5">
       <span
         v-for="f in visibleWeightFactors"
         :key="f.name"
@@ -41,32 +43,33 @@
         <span>{{ factorAbbr(f.name) }}{{ f.contribution.toFixed(2) }}</span>
       </span>
     </div>
-    <div
-      v-if="ruleFactors.length > 0"
-      class="flex flex-wrap gap-1 mt-0.5"
-    >
+    <div v-if="ruleFactors.length > 0" class="flex flex-wrap gap-1 mt-0.5">
       <span
         v-for="f in ruleFactors"
         :key="f.name"
         class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
-        :class="f.name.includes('Protect') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'"
+        :class="
+          f.name.includes('Protect')
+            ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+        "
         :title="f.name"
       >
         {{ f.name }}
       </span>
     </div>
   </div>
-  <div
-    v-else-if="legacyParsed.score"
-    class="flex flex-col gap-1"
-  >
+  <div v-else-if="legacyParsed.score" class="flex flex-col gap-1">
     <div class="flex items-center gap-2">
       <span :class="['font-semibold tabular-nums', size === 'sm' ? 'text-xs' : 'text-sm']">
         {{ legacyParsed.score }}
       </span>
       <div
         v-if="legacyParsed.factors.length > 0"
-        :class="['flex rounded-full overflow-hidden bg-muted flex-1 min-w-0', size === 'sm' ? 'h-1.5' : 'h-2']"
+        :class="[
+          'flex rounded-full overflow-hidden bg-muted flex-1 min-w-0',
+          size === 'sm' ? 'h-1.5' : 'h-2',
+        ]"
       >
         <div
           v-for="f in legacyParsed.factors"
@@ -75,16 +78,13 @@
           :style="{
             width: legacyTotalContrib > 0 ? `${(f.value / legacyTotalContrib) * 100}%` : '0%',
             backgroundColor: factorColor(f.name),
-            minWidth: f.value > 0 ? '2px' : '0px'
+            minWidth: f.value > 0 ? '2px' : '0px',
           }"
           :title="`${f.label}: ${f.value.toFixed(2)}`"
         />
       </div>
     </div>
-    <div
-      v-if="legacyParsed.factors.length > 0"
-      class="flex flex-wrap gap-x-2 gap-y-0.5"
-    >
+    <div v-if="legacyParsed.factors.length > 0" class="flex flex-wrap gap-x-2 gap-y-0.5">
       <span
         v-for="f in legacyVisibleFactors"
         :key="f.name"
@@ -106,49 +106,49 @@
       {{ legacyParsed.rawBreakdown }}
     </span>
   </div>
-  <span
-    v-else
-    class="text-xs text-zinc-500 max-w-xs truncate block"
-    :title="reason"
-  >
+  <span v-else class="text-xs text-zinc-500 max-w-xs truncate block" :title="reason">
     {{ reason }}
   </span>
 </template>
 
 <script setup lang="ts">
-import type { ScoreFactor } from '~/types/api'
+import type { ScoreFactor } from '~/types/api';
 
 interface Props {
-  reason: string
-  scoreDetails?: string
-  factors?: ScoreFactor[]
-  size?: string
+  reason: string;
+  scoreDetails?: string;
+  factors?: ScoreFactor[];
+  size?: string;
 }
-const props = withDefaults(defineProps<Props>(), { size: 'md', scoreDetails: '', factors: () => [] })
+const props = withDefaults(defineProps<Props>(), {
+  size: 'md',
+  scoreDetails: '',
+  factors: () => [],
+});
 
 const FACTOR_COLORS: Record<string, string> = {
   'Watch History': '#8b5cf6',
   'Last Watched': '#3b82f6',
   'File Size': '#f59e0b',
-  'Rating': '#10b981',
+  Rating: '#10b981',
   'Time in Library': '#f97316',
   'Series Status': '#ec4899',
   // Legacy short names
-  'Watch': '#8b5cf6',
-  'Recency': '#3b82f6',
-  'Size': '#f59e0b',
-  'Age': '#f97316',
-  'Status': '#ec4899'
-}
+  Watch: '#8b5cf6',
+  Recency: '#3b82f6',
+  Size: '#f59e0b',
+  Age: '#f97316',
+  Status: '#ec4899',
+};
 
 const FACTOR_ABBRS: Record<string, string> = {
   'Watch History': 'W:',
   'Last Watched': 'R:',
   'File Size': 'S:',
-  'Rating': 'Rt:',
+  Rating: 'Rt:',
   'Time in Library': 'A:',
-  'Series Status': 'St:'
-}
+  'Series Status': 'St:',
+};
 
 const LEGACY_LABELS: Record<string, string> = {
   Watch: 'Watch History',
@@ -156,102 +156,102 @@ const LEGACY_LABELS: Record<string, string> = {
   Size: 'File Size',
   Rating: 'Rating',
   Age: 'Time in Library',
-  Status: 'Series Status'
-}
+  Status: 'Series Status',
+};
 
 function factorColor(name: string): string {
-  return FACTOR_COLORS[name] || '#6b7280'
+  return FACTOR_COLORS[name] || '#6b7280';
 }
 
 function factorAbbr(name: string): string {
-  return FACTOR_ABBRS[name] || name.slice(0, 2) + ':'
+  return FACTOR_ABBRS[name] || name.slice(0, 2) + ':';
 }
 
 // Parse structured factors from scoreDetails JSON or direct factors prop
 const factors = computed<ScoreFactor[]>(() => {
   // Prefer direct factors prop (from preview API)
   if (props.factors && props.factors.length > 0) {
-    return props.factors
+    return props.factors;
   }
   // Try parsing scoreDetails JSON string (from audit API)
   if (props.scoreDetails) {
     try {
-      const parsed = JSON.parse(props.scoreDetails)
+      const parsed = JSON.parse(props.scoreDetails);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed as ScoreFactor[]
+        return parsed as ScoreFactor[];
       }
     } catch {
       // Fall through to legacy parsing
     }
   }
-  return []
-})
+  return [];
+});
 
-const weightFactors = computed(() => factors.value.filter(f => f.type === 'weight'))
-const ruleFactors = computed(() => factors.value.filter(f => f.type === 'rule'))
+const weightFactors = computed(() => factors.value.filter((f) => f.type === 'weight'));
+const ruleFactors = computed(() => factors.value.filter((f) => f.type === 'rule'));
 
 const totalContrib = computed(() =>
-  weightFactors.value.reduce((sum, f) => sum + f.contribution, 0)
-)
+  weightFactors.value.reduce((sum, f) => sum + f.contribution, 0),
+);
 
 const visibleWeightFactors = computed(() =>
-  weightFactors.value.filter(f => f.contribution > 0.01)
-)
+  weightFactors.value.filter((f) => f.contribution > 0.01),
+);
 
 // Extract score from reason string for display
 const scoreDisplay = computed(() => {
-  const match = props.reason.match(/^Score:\s*([\d.]+)/)
-  return match ? match[1] : factors.value.reduce((s, f) => s + f.contribution, 0).toFixed(2)
-})
+  const match = props.reason.match(/^Score:\s*([\d.]+)/);
+  return match ? match[1] : factors.value.reduce((s, f) => s + f.contribution, 0).toFixed(2);
+});
 
 // Legacy parsing for backward compatibility with old audit logs
 interface LegacyFactor {
-  name: string
-  label: string
-  abbr: string
-  value: number
+  name: string;
+  label: string;
+  abbr: string;
+  value: number;
 }
 
 interface LegacyParsed {
-  score: string | null
-  factors: LegacyFactor[]
-  rawBreakdown: string
+  score: string | null;
+  factors: LegacyFactor[];
+  rawBreakdown: string;
 }
 
 function parseLegacyReason(reason: string): LegacyParsed {
-  const scoreMatch = reason.match(/^Score:\s*([\d.]+)\s*\((.+)\)$/)
+  const scoreMatch = reason.match(/^Score:\s*([\d.]+)\s*\((.+)\)$/);
   if (!scoreMatch) {
-    return { score: null, factors: [], rawBreakdown: reason }
+    return { score: null, factors: [], rawBreakdown: reason };
   }
 
-  const score = scoreMatch[1]
-  const breakdownStr = scoreMatch[2]
+  const score = scoreMatch[1];
+  const breakdownStr = scoreMatch[2];
 
-  const factorPattern = /(\w+):([\d.]+)/g
-  const legacyFactors: LegacyFactor[] = []
-  let match: RegExpExecArray | null
+  const factorPattern = /(\w+):([\d.]+)/g;
+  const legacyFactors: LegacyFactor[] = [];
+  let match: RegExpExecArray | null;
 
   while ((match = factorPattern.exec(breakdownStr!)) !== null) {
-    const name = match[1]!
-    const value = parseFloat(match[2]!)
+    const name = match[1]!;
+    const value = parseFloat(match[2]!);
     legacyFactors.push({
       name,
       label: LEGACY_LABELS[name] || name,
       abbr: name.slice(0, 1).toUpperCase() + ':',
-      value
-    })
+      value,
+    });
   }
 
-  return { score: score ?? null, factors: legacyFactors, rawBreakdown: breakdownStr ?? '' }
+  return { score: score ?? null, factors: legacyFactors, rawBreakdown: breakdownStr ?? '' };
 }
 
-const legacyParsed = computed(() => parseLegacyReason(props.reason))
+const legacyParsed = computed(() => parseLegacyReason(props.reason));
 
 const legacyTotalContrib = computed(() =>
-  legacyParsed.value.factors.reduce((sum, f) => sum + f.value, 0)
-)
+  legacyParsed.value.factors.reduce((sum, f) => sum + f.value, 0),
+);
 
 const legacyVisibleFactors = computed(() =>
-  legacyParsed.value.factors.filter(f => f.value > 0.01)
-)
+  legacyParsed.value.factors.filter((f) => f.value > 0.01),
+);
 </script>

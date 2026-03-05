@@ -1,23 +1,23 @@
 <template>
   <UiDialog
     :open="visible"
-    @update:open="(val: boolean) => { if (!val) $emit('close') }"
+    @update:open="
+      (val: boolean) => {
+        if (!val) $emit('close');
+      }
+    "
   >
     <UiDialogContent class="max-w-lg">
       <!-- Header -->
       <UiDialogHeader>
-        <span class="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Score Detail</span>
+        <span class="text-[10px] font-medium uppercase tracking-widest text-muted-foreground"
+          >Score Detail</span
+        >
         <div class="flex items-center justify-between gap-2">
-          <UiDialogTitle
-            class="truncate flex-1"
-            :title="mediaName"
-          >
+          <UiDialogTitle class="truncate flex-1" :title="mediaName">
             {{ mediaName }}
           </UiDialogTitle>
-          <UiBadge
-            variant="secondary"
-            class="capitalize shrink-0"
-          >
+          <UiBadge variant="secondary" class="capitalize shrink-0">
             {{ mediaType }}
           </UiBadge>
         </div>
@@ -41,9 +41,7 @@
           >
             Actual: {{ protectedMatchedValue }}
           </p>
-          <p class="text-xs text-muted-foreground">
-            Score overridden — item is immune to deletion
-          </p>
+          <p class="text-xs text-muted-foreground">Score overridden — item is immune to deletion</p>
           <div class="flex items-center gap-2 pt-2 border-t border-emerald-500/20">
             <span class="text-xs text-muted-foreground">Final Score:</span>
             <span class="text-lg font-bold text-emerald-500 tabular-nums font-mono">Protected</span>
@@ -73,7 +71,9 @@
                 <span class="text-muted-foreground">{{ f.name }}</span>
               </span>
               <span class="font-mono tabular-nums text-foreground">
-                <span class="text-muted-foreground">{{ f.rawScore.toFixed(2) }} × {{ f.weight }}</span>
+                <span class="text-muted-foreground"
+                  >{{ f.rawScore.toFixed(2) }} × {{ f.weight }}</span
+                >
                 <span class="mx-1.5 text-muted-foreground/50">=</span>
                 <span class="font-semibold">{{ f.contribution.toFixed(3) }}</span>
               </span>
@@ -82,11 +82,14 @@
           <!-- Base score total -->
           <div class="flex items-center justify-between pt-2 border-t border-border/50">
             <span class="text-xs font-medium text-muted-foreground">Base Score</span>
-            <span class="font-mono tabular-nums font-bold text-foreground">{{ baseScore.toFixed(3) }}</span>
+            <span class="font-mono tabular-nums font-bold text-foreground">{{
+              baseScore.toFixed(3)
+            }}</span>
           </div>
           <!-- Normalization note -->
           <p class="text-[10px] text-muted-foreground/60 leading-relaxed">
-            Weights are relative — contributions are proportional to slider values, normalized across a total weight of {{ totalWeight }}.
+            Weights are relative — contributions are proportional to slider values, normalized
+            across a total weight of {{ totalWeight }}.
           </p>
         </div>
 
@@ -100,16 +103,15 @@
           </h3>
           <!-- Rule modifier rows -->
           <div class="space-y-2.5">
-            <div
-              v-for="f in ruleFactors"
-              :key="f.name"
-            >
+            <div v-for="f in ruleFactors" :key="f.name">
               <div class="flex items-center justify-between text-sm">
                 <span class="flex items-center gap-2 min-w-0">
                   <span class="text-xs shrink-0">{{ ruleIcon(f.name) }}</span>
                   <span class="text-muted-foreground truncate">{{ f.name }}</span>
                 </span>
-                <span class="font-mono tabular-nums font-semibold text-foreground shrink-0 ml-2">× {{ f.rawScore.toFixed(2) }}</span>
+                <span class="font-mono tabular-nums font-semibold text-foreground shrink-0 ml-2"
+                  >× {{ f.rawScore.toFixed(2) }}</span
+                >
               </div>
               <!-- Matched value -->
               <p
@@ -128,15 +130,15 @@
           >
             <span class="text-xs font-medium text-muted-foreground">Combined Modifier</span>
             <span class="font-mono tabular-nums text-muted-foreground">
-              {{ ruleFactors.map(f => f.rawScore.toFixed(2)).join(' × ') }} = <span class="font-bold text-foreground">{{ ruleModifier.toFixed(3) }}</span>
+              {{ ruleFactors.map((f) => f.rawScore.toFixed(2)).join(' × ') }} =
+              <span class="font-bold text-foreground">{{ ruleModifier.toFixed(3) }}</span>
             </span>
           </div>
-          <div
-            v-else
-            class="flex items-center justify-between pt-2 border-t border-border/50"
-          >
+          <div v-else class="flex items-center justify-between pt-2 border-t border-border/50">
             <span class="text-xs font-medium text-muted-foreground">Rule Modifier</span>
-            <span class="font-mono tabular-nums font-bold text-foreground">{{ ruleModifier.toFixed(3) }}</span>
+            <span class="font-mono tabular-nums font-bold text-foreground">{{
+              ruleModifier.toFixed(3)
+            }}</span>
           </div>
         </div>
 
@@ -152,22 +154,15 @@
             v-if="ruleFactors.length > 0"
             class="font-mono text-sm tabular-nums text-muted-foreground"
           >
-            {{ baseScore.toFixed(3) }} <span class="text-[10px]">(base)</span> × {{ ruleModifier.toFixed(3) }} <span class="text-[10px]">(modifier)</span> = <span
-              class="font-bold text-lg"
-              :class="scoreColorClass"
-            >{{ score.toFixed(2) }}</span>
+            {{ baseScore.toFixed(3) }} <span class="text-[10px]">(base)</span> ×
+            {{ ruleModifier.toFixed(3) }} <span class="text-[10px]">(modifier)</span> =
+            <span class="font-bold text-lg" :class="scoreColorClass">{{ score.toFixed(2) }}</span>
           </div>
-          <div
-            v-else
-            class="flex items-center gap-2"
-          >
+          <div v-else class="flex items-center gap-2">
             <span class="text-xs text-muted-foreground">No rules applied</span>
             <span class="mx-1 text-muted-foreground/50">→</span>
             <span class="text-primary font-medium text-xs">Score:</span>
-            <span
-              class="font-mono tabular-nums font-bold text-lg"
-              :class="scoreColorClass"
-            >
+            <span class="font-mono tabular-nums font-bold text-lg" :class="scoreColorClass">
               {{ score.toFixed(2) }}
             </span>
           </div>
@@ -175,22 +170,18 @@
       </div>
 
       <!-- Footer -->
-      <UiDialogFooter class="flex-row items-center justify-between border-t border-primary/10 dark:border-primary/15 pt-3">
+      <UiDialogFooter
+        class="flex-row items-center justify-between border-t border-primary/10 dark:border-primary/15 pt-3"
+      >
         <div class="flex items-center gap-3">
           <span class="text-sm text-muted-foreground font-mono tabular-nums">
             {{ formatBytes(sizeBytes) }}
           </span>
-          <UiBadge
-            v-if="action"
-            :variant="actionBadgeVariant"
-          >
+          <UiBadge v-if="action" :variant="actionBadgeVariant">
             {{ action }}
           </UiBadge>
         </div>
-        <span
-          v-if="createdAt"
-          class="inline-flex items-center gap-1 text-xs text-muted-foreground"
-        >
+        <span v-if="createdAt" class="inline-flex items-center gap-1 text-xs text-muted-foreground">
           <ClockIcon class="w-3 h-3" />
           <DateDisplay :date="createdAt" />
         </span>
@@ -200,100 +191,94 @@
 </template>
 
 <script setup lang="ts">
-import { ClockIcon } from 'lucide-vue-next'
-import { formatBytes } from '~/utils/format'
-import type { ScoreFactor } from '~/types/api'
+import { ClockIcon } from 'lucide-vue-next';
+import { formatBytes } from '~/utils/format';
+import type { ScoreFactor } from '~/types/api';
 
 interface Props {
-  visible: boolean
-  mediaName: string
-  mediaType: string
-  score: number
-  scoreDetails: string
-  sizeBytes: number
-  action: string
-  createdAt?: string
+  visible: boolean;
+  mediaName: string;
+  mediaType: string;
+  score: number;
+  scoreDetails: string;
+  sizeBytes: number;
+  action: string;
+  createdAt?: string;
 }
 
-const props = defineProps<Props>()
-defineEmits<{ close: [] }>()
+const props = defineProps<Props>();
+defineEmits<{ close: [] }>();
 
 const FACTOR_COLORS: Record<string, string> = {
   'Watch History': '#8b5cf6',
   'Last Watched': '#3b82f6',
   'File Size': '#f59e0b',
-  'Rating': '#10b981',
+  Rating: '#10b981',
   'Time in Library': '#f97316',
-  'Series Status': '#ec4899'
-}
+  'Series Status': '#ec4899',
+};
 
 function factorColor(name: string): string {
-  return FACTOR_COLORS[name] || '#6b7280'
+  return FACTOR_COLORS[name] || '#6b7280';
 }
 
 function ruleIcon(name: string): string {
-  if (name.includes('Always keep')) return '🛡️'
-  if (name.includes('Prefer keep')) return '🟢'
-  if (name.includes('Lean keep')) return '🔵'
-  if (name.includes('Lean remove')) return '🟡'
-  if (name.includes('Prefer remove')) return '🟠'
-  if (name.includes('Always remove')) return '🔴'
-  return '📋'
+  if (name.includes('Always keep')) return '🛡️';
+  if (name.includes('Prefer keep')) return '🟢';
+  if (name.includes('Lean keep')) return '🔵';
+  if (name.includes('Lean remove')) return '🟡';
+  if (name.includes('Prefer remove')) return '🟠';
+  if (name.includes('Always remove')) return '🔴';
+  return '📋';
 }
 
 // Parse factors
 const parsedFactors = computed<ScoreFactor[]>(() => {
-  if (!props.scoreDetails) return []
+  if (!props.scoreDetails) return [];
   try {
-    const parsed = JSON.parse(props.scoreDetails)
-    if (Array.isArray(parsed)) return parsed as ScoreFactor[]
+    const parsed = JSON.parse(props.scoreDetails);
+    if (Array.isArray(parsed)) return parsed as ScoreFactor[];
   } catch {
     // ignore
   }
-  return []
-})
+  return [];
+});
 
-const weightFactors = computed(() => parsedFactors.value.filter(f => f.type === 'weight'))
-const ruleFactors = computed(() => parsedFactors.value.filter(f => f.type === 'rule'))
+const weightFactors = computed(() => parsedFactors.value.filter((f) => f.type === 'weight'));
+const ruleFactors = computed(() => parsedFactors.value.filter((f) => f.type === 'rule'));
 
-const totalWeight = computed(() =>
-  weightFactors.value.reduce((sum, f) => sum + f.weight, 0)
-)
+const totalWeight = computed(() => weightFactors.value.reduce((sum, f) => sum + f.weight, 0));
 
-const baseScore = computed(() =>
-  weightFactors.value.reduce((sum, f) => sum + f.contribution, 0)
-)
+const baseScore = computed(() => weightFactors.value.reduce((sum, f) => sum + f.contribution, 0));
 
-const ruleModifier = computed(() =>
-  ruleFactors.value.reduce((mod, f) => mod * f.rawScore, 1.0)
-)
+const ruleModifier = computed(() => ruleFactors.value.reduce((mod, f) => mod * f.rawScore, 1.0));
 
 const isProtected = computed(() => {
-  return ruleFactors.value.some(f => f.name.includes('Always keep')) && props.score === 0
-})
+  return ruleFactors.value.some((f) => f.name.includes('Always keep')) && props.score === 0;
+});
 
 const protectedRuleName = computed(() => {
-  const factor = ruleFactors.value.find(f => f.name.includes('Always keep'))
-  return factor?.name || 'Protected by rule'
-})
+  const factor = ruleFactors.value.find((f) => f.name.includes('Always keep'));
+  return factor?.name || 'Protected by rule';
+});
 
 const protectedMatchedValue = computed(() => {
-  const factor = ruleFactors.value.find(f => f.name.includes('Always keep'))
-  return factor?.matchedValue || ''
-})
+  const factor = ruleFactors.value.find((f) => f.name.includes('Always keep'));
+  return factor?.matchedValue || '';
+});
 
 // Score color class
 const scoreColorClass = computed(() => {
-  if (props.score >= 0.7) return 'text-destructive'
-  if (props.score >= 0.4) return 'text-warning'
-  return 'text-success'
-})
+  if (props.score >= 0.7) return 'text-destructive';
+  if (props.score >= 0.4) return 'text-warning';
+  return 'text-success';
+});
 
 // Action badge variant
 const actionBadgeVariant = computed<'destructive' | 'outline' | 'secondary' | 'default'>(() => {
-  if (props.action === 'Deleted') return 'destructive'
-  if (props.action === 'Queued for Approval') return 'outline'
-  if (props.action === 'Queued for Deletion') return 'outline'
-  return 'default'
-})
+  if (props.action === 'Deleted') return 'destructive';
+  if (props.action === 'Queued for Approval') return 'outline';
+  if (props.action === 'Queued for Deletion') return 'outline';
+  return 'default';
+});
 </script>

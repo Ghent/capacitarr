@@ -19,18 +19,9 @@
           {{ $t('audit.subtitle') }}
         </p>
       </div>
-      <UiButton
-        variant="outline"
-        @click="fetchLogs"
-      >
-        <LoaderCircleIcon
-          v-if="pending"
-          class="w-4 h-4 animate-spin"
-        />
-        <RefreshCwIcon
-          v-else
-          class="w-4 h-4"
-        />
+      <UiButton variant="outline" @click="fetchLogs">
+        <LoaderCircleIcon v-if="pending" class="w-4 h-4 animate-spin" />
+        <RefreshCwIcon v-else class="w-4 h-4" />
         {{ $t('common.refresh') }}
       </UiButton>
     </div>
@@ -45,7 +36,9 @@
       <div class="px-5 pt-5 pb-3 space-y-3 border-b border-border">
         <div class="flex flex-col sm:flex-row gap-3">
           <div class="relative flex-1">
-            <SearchIcon class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <SearchIcon
+              class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
+            />
             <UiInput
               :model-value="auditSearch"
               aria-label="Search audit logs by media name"
@@ -69,14 +62,8 @@
         </div>
       </div>
 
-      <div
-        v-if="pending && logs.length === 0"
-        class="p-4"
-      >
-        <SkeletonTable
-          :rows="8"
-          :column-widths="['28%', '10%', '10%', '15%', '22%', '8%']"
-        />
+      <div v-if="pending && logs.length === 0" class="p-4">
+        <SkeletonTable :rows="8" :column-widths="['28%', '10%', '10%', '15%', '22%', '8%']" />
       </div>
 
       <div
@@ -180,13 +167,13 @@
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
-            <template
-              v-for="group in renderedAuditGroups"
-              :key="group.key"
-            >
+            <template v-for="group in renderedAuditGroups" :key="group.key">
               <UiTableRow
                 class="cursor-pointer"
-                @click="selectItem(group.entry); group.seasons.length > 0 && toggleGroup(group.key)"
+                @click="
+                  selectItem(group.entry);
+                  group.seasons.length > 0 && toggleGroup(group.key);
+                "
               >
                 <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap">
                   <DateDisplay :date="group.entry.createdAt" :always-exact="true" />
@@ -196,7 +183,9 @@
                     <span class="truncate">{{ group.entry.mediaName }}</span>
                     <button
                       v-if="group.seasons.length > 0"
-                      :aria-label="expandedGroups.has(group.key) ? 'Collapse seasons' : 'Expand seasons'"
+                      :aria-label="
+                        expandedGroups.has(group.key) ? 'Collapse seasons' : 'Expand seasons'
+                      "
                       :aria-expanded="expandedGroups.has(group.key)"
                       class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5"
                       @click.stop="toggleGroup(group.key)"
@@ -205,15 +194,16 @@
                         class="w-3.5 h-3.5 transition-transform duration-200"
                         :class="{ 'rotate-90': expandedGroups.has(group.key) }"
                       />
-                      <span class="text-xs text-muted-foreground font-normal whitespace-nowrap">({{ group.seasons.length }} season{{ group.seasons.length !== 1 ? 's' : '' }})</span>
+                      <span class="text-xs text-muted-foreground font-normal whitespace-nowrap"
+                        >({{ group.seasons.length }} season{{
+                          group.seasons.length !== 1 ? 's' : ''
+                        }})</span
+                      >
                     </button>
                   </div>
                 </UiTableCell>
                 <UiTableCell>
-                  <UiBadge
-                    variant="secondary"
-                    class="capitalize"
-                  >
+                  <UiBadge variant="secondary" class="capitalize">
                     {{ group.entry.mediaType }}
                   </UiBadge>
                 </UiTableCell>
@@ -249,10 +239,7 @@
                     </span>
                   </UiTableCell>
                   <UiTableCell>
-                    <UiBadge
-                      variant="secondary"
-                      class="capitalize"
-                    >
+                    <UiBadge variant="secondary" class="capitalize">
                       {{ season.mediaType }}
                     </UiBadge>
                   </UiTableCell>
@@ -268,7 +255,9 @@
                       size="sm"
                     />
                   </UiTableCell>
-                  <UiTableCell class="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  <UiTableCell
+                    class="text-right font-mono text-xs tabular-nums text-muted-foreground"
+                  >
                     {{ (season.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB
                   </UiTableCell>
                 </UiTableRow>
@@ -298,7 +287,9 @@
         v-if="logs.length > 0"
         class="flex items-center justify-between px-5 py-3 border-t border-border"
       >
-        <span class="text-xs text-muted-foreground">{{ groupedLogs.length }} groups from {{ logs.length }} of {{ total }} entries</span>
+        <span class="text-xs text-muted-foreground"
+          >{{ groupedLogs.length }} groups from {{ logs.length }} of {{ total }} entries</span
+        >
       </div>
     </UiCard>
 
@@ -318,48 +309,62 @@
 </template>
 
 <script setup lang="ts">
-import { useInfiniteScroll } from '@vueuse/core'
-import { RefreshCwIcon, LoaderCircleIcon, ClockIcon, ChevronRightIcon, SearchIcon, ArrowUpIcon, ArrowDownIcon, ArrowUpDownIcon } from 'lucide-vue-next'
-import type { AuditLog, AuditResponse, SelectedDetailItem } from '~/types/api'
+import { useInfiniteScroll } from '@vueuse/core';
+import {
+  RefreshCwIcon,
+  LoaderCircleIcon,
+  ClockIcon,
+  ChevronRightIcon,
+  SearchIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ArrowUpDownIcon,
+} from 'lucide-vue-next';
+import type { AuditLog, AuditResponse, SelectedDetailItem } from '~/types/api';
 
-const api = useApi()
+const api = useApi();
 
 // Pull-to-refresh for touch devices
 const { isRefreshing, pullProgress, pullDistance } = usePullToRefresh(async () => {
-  await resetAndFetch()
-})
+  await resetAndFetch();
+});
 
-const logs = ref<AuditLog[]>([])
-const total = ref(0)
-const pending = ref(false)
-const loadingMore = ref(false)
-const batchSize = 100
-const selectedItem = ref<SelectedDetailItem | null>(null)
+const logs = ref<AuditLog[]>([]);
+const total = ref(0);
+const pending = ref(false);
+const loadingMore = ref(false);
+const batchSize = 100;
+const selectedItem = ref<SelectedDetailItem | null>(null);
 
 // Audit filters
-const auditSearch = ref('')
-const auditActionFilter = ref<string | null>(null)
-const auditActionTypes = ['Deleted', 'Dry-Run', 'Queued for Approval', 'Queued for Deletion'] as const
-let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const auditSearch = ref('');
+const auditActionFilter = ref<string | null>(null);
+const auditActionTypes = [
+  'Deleted',
+  'Dry-Run',
+  'Queued for Approval',
+  'Queued for Deletion',
+] as const;
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Audit sorting (server-side)
-type AuditSortColumn = 'created_at' | 'media_name' | 'size_bytes' | 'action'
-const auditSortBy = ref<AuditSortColumn>('created_at')
-const auditSortDir = ref<'asc' | 'desc'>('desc')
+type AuditSortColumn = 'created_at' | 'media_name' | 'size_bytes' | 'action';
+const auditSortBy = ref<AuditSortColumn>('created_at');
+const auditSortDir = ref<'asc' | 'desc'>('desc');
 
 function toggleAuditSort(column: AuditSortColumn) {
   if (auditSortBy.value === column) {
-    auditSortDir.value = auditSortDir.value === 'asc' ? 'desc' : 'asc'
+    auditSortDir.value = auditSortDir.value === 'asc' ? 'desc' : 'asc';
   } else {
-    auditSortBy.value = column
-    auditSortDir.value = column === 'created_at' || column === 'size_bytes' ? 'desc' : 'asc'
+    auditSortBy.value = column;
+    auditSortDir.value = column === 'created_at' || column === 'size_bytes' ? 'desc' : 'asc';
   }
-  resetAndFetch()
+  resetAndFetch();
 }
 
 function selectItem(entry: AuditLog) {
-  const scoreMatch = entry.reason?.match(/^Score:\s*([\d.]+)/)
-  const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0
+  const scoreMatch = entry.reason?.match(/^Score:\s*([\d.]+)/);
+  const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
   selectedItem.value = {
     mediaName: entry.mediaName,
     mediaType: entry.mediaType,
@@ -367,154 +372,159 @@ function selectItem(entry: AuditLog) {
     scoreDetails: entry.scoreDetails || '',
     sizeBytes: entry.sizeBytes,
     action: entry.action,
-    createdAt: entry.createdAt
-  }
+    createdAt: entry.createdAt,
+  };
 }
 
 // ─── Data Fetching (Infinite Scroll) ──────────────────────────────────────────
 async function fetchLogs(append = false) {
   if (append) {
-    loadingMore.value = true
+    loadingMore.value = true;
   } else {
-    pending.value = true
+    pending.value = true;
   }
   try {
     const params = new URLSearchParams({
       limit: String(batchSize),
-      offset: String(append ? logs.value.length : 0)
-    })
+      offset: String(append ? logs.value.length : 0),
+    });
     if (auditSearch.value.trim()) {
-      params.set('search', auditSearch.value.trim())
+      params.set('search', auditSearch.value.trim());
     }
     if (auditActionFilter.value) {
-      params.set('action', auditActionFilter.value)
+      params.set('action', auditActionFilter.value);
     }
-    params.set('sort_by', auditSortBy.value)
-    params.set('sort_dir', auditSortDir.value)
-    const data = await api(`/api/v1/audit?${params.toString()}`) as AuditResponse
+    params.set('sort_by', auditSortBy.value);
+    params.set('sort_dir', auditSortDir.value);
+    const data = (await api(`/api/v1/audit?${params.toString()}`)) as AuditResponse;
     if (data?.data) {
       if (append) {
-        logs.value = [...logs.value, ...data.data]
+        logs.value = [...logs.value, ...data.data];
       } else {
-        logs.value = data.data
+        logs.value = data.data;
       }
-      total.value = data.total
+      total.value = data.total;
     }
   } catch {
     // Silently ignored — UI has no further handling
   } finally {
-    pending.value = false
-    loadingMore.value = false
+    pending.value = false;
+    loadingMore.value = false;
   }
 }
 
 async function resetAndFetch() {
-  logs.value = []
-  visibleCount.value = 100
-  await fetchLogs(false)
+  logs.value = [];
+  visibleCount.value = 100;
+  await fetchLogs(false);
 }
 
 function onSearchInput(value: string | number) {
-  auditSearch.value = String(value)
-  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  auditSearch.value = String(value);
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(() => {
-    resetAndFetch()
-  }, 400)
+    resetAndFetch();
+  }, 400);
 }
 
 function toggleActionFilter(action: string) {
-  auditActionFilter.value = auditActionFilter.value === action ? null : action
-  resetAndFetch()
+  auditActionFilter.value = auditActionFilter.value === action ? null : action;
+  resetAndFetch();
 }
 
-onMounted(() => fetchLogs(false))
+onMounted(() => fetchLogs(false));
 
 // ─── Show/Season Grouping ─────────────────────────────────────────────────────
 interface AuditGroupItem {
-  key: string
-  entry: AuditLog
-  seasons: AuditLog[]
+  key: string;
+  entry: AuditLog;
+  seasons: AuditLog[];
 }
 
 const groupedLogs = computed<AuditGroupItem[]>(() => {
-  const groups: AuditGroupItem[] = []
-  const showMap = new Map<string, number>()
+  const groups: AuditGroupItem[] = [];
+  const showMap = new Map<string, number>();
 
   for (const log of logs.value) {
     // Try to group season entries under their parent show
     if (log.mediaType === 'season' && log.mediaName.includes(' - Season ')) {
-      const showName = log.mediaName.split(' - Season ')[0]
-      const groupIdx = showMap.get(showName)
+      const showName = log.mediaName.split(' - Season ')[0];
+      const groupIdx = showMap.get(showName);
       if (groupIdx !== undefined && groups[groupIdx]) {
-        groups[groupIdx].seasons.push(log)
-        continue
+        groups[groupIdx].seasons.push(log);
+        continue;
       }
       // Orphan season — create a virtual show group for it
-      showMap.set(showName, groups.length)
+      showMap.set(showName, groups.length);
       groups.push({
         key: `show-${showName}`,
         entry: { ...log, mediaName: showName, mediaType: 'show' },
-        seasons: [log]
-      })
-      continue
+        seasons: [log],
+      });
+      continue;
     }
 
-    const key = `${log.id}-${log.mediaName}`
+    const key = `${log.id}-${log.mediaName}`;
     if (log.mediaType === 'show') {
-      showMap.set(log.mediaName, groups.length)
+      showMap.set(log.mediaName, groups.length);
     }
-    groups.push({ key, entry: log, seasons: [] })
+    groups.push({ key, entry: log, seasons: [] });
   }
 
-  return groups
-})
+  return groups;
+});
 
 // ─── Progressive Rendering (Virtual Scroll) ─────────────────────────────────
 // Render groups incrementally and fetch more from server as user scrolls.
-const auditScrollRef = ref<HTMLElement | null>(null)
-const visibleCount = ref(100)
+const auditScrollRef = ref<HTMLElement | null>(null);
+const visibleCount = ref(100);
 
-const renderedAuditGroups = computed(() => groupedLogs.value.slice(0, visibleCount.value))
+const renderedAuditGroups = computed(() => groupedLogs.value.slice(0, visibleCount.value));
 
-useInfiniteScroll(auditScrollRef, async () => {
-  // First: render more already-fetched groups
-  if (visibleCount.value < groupedLogs.value.length) {
-    visibleCount.value = Math.min(visibleCount.value + 100, groupedLogs.value.length)
-    return
-  }
-  // Second: if all fetched groups are rendered, load more from server
-  if (logs.value.length < total.value && !loadingMore.value) {
-    await fetchLogs(true)
-    visibleCount.value = groupedLogs.value.length
-  }
-}, {
-  distance: 200,
-  canLoadMore: () => visibleCount.value < groupedLogs.value.length || logs.value.length < total.value
-})
+useInfiniteScroll(
+  auditScrollRef,
+  async () => {
+    // First: render more already-fetched groups
+    if (visibleCount.value < groupedLogs.value.length) {
+      visibleCount.value = Math.min(visibleCount.value + 100, groupedLogs.value.length);
+      return;
+    }
+    // Second: if all fetched groups are rendered, load more from server
+    if (logs.value.length < total.value && !loadingMore.value) {
+      await fetchLogs(true);
+      visibleCount.value = groupedLogs.value.length;
+    }
+  },
+  {
+    distance: 200,
+    canLoadMore: () =>
+      visibleCount.value < groupedLogs.value.length || logs.value.length < total.value,
+  },
+);
 
 // ─── Expand/Collapse state ────────────────────────────────────────────────────
-const expandedGroups = ref(new Set<string>())
+const expandedGroups = ref(new Set<string>());
 
 function toggleGroup(key: string) {
-  const next = new Set(expandedGroups.value)
+  const next = new Set(expandedGroups.value);
   if (next.has(key)) {
-    next.delete(key)
+    next.delete(key);
   } else {
-    next.add(key)
+    next.add(key);
   }
-  expandedGroups.value = next
+  expandedGroups.value = next;
 }
 
 function extractSeasonLabel(mediaName: string): string {
-  const parts = mediaName.split(' - Season ')
-  return parts.length > 1 ? `Season ${parts[parts.length - 1]}` : mediaName
+  const parts = mediaName.split(' - Season ');
+  return parts.length > 1 ? `Season ${parts[parts.length - 1]}` : mediaName;
 }
 
 // ─── Action badge variant mapping ─────────────────────────────────────────────
 function actionBadgeVariant(action: string): 'destructive' | 'outline' | 'secondary' | 'default' {
-  if (action === 'Deleted') return 'destructive'
-  if (action === 'Queued for Approval') return 'outline'
-  if (action === 'Queued for Deletion') return 'outline'
-  return 'default'
+  if (action === 'Deleted') return 'destructive';
+  if (action === 'Queued for Approval') return 'outline';
+  if (action === 'Queued for Deletion') return 'outline';
+  return 'default';
 }
 </script>

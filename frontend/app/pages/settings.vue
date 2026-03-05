@@ -16,10 +16,7 @@
     </div>
 
     <!-- Tabs -->
-    <UiTabs
-      default-value="general"
-      class="w-full"
-    >
+    <UiTabs default-value="general" class="w-full">
       <UiTabsList class="mb-6">
         <UiTabsTrigger value="general">
           {{ $t('settings.general') }}
@@ -41,10 +38,7 @@
         </UiTabsTrigger>
       </UiTabsList>
 
-      <UiTabsContent
-        value="general"
-        class="space-y-6"
-      >
+      <UiTabsContent value="general" class="space-y-6">
         <SettingsGeneral />
       </UiTabsContent>
 
@@ -52,23 +46,15 @@
         <SettingsIntegrations />
       </UiTabsContent>
 
-      <UiTabsContent
-        value="notifications"
-      >
+      <UiTabsContent value="notifications">
         <SettingsNotifications />
       </UiTabsContent>
 
-      <UiTabsContent
-        value="security"
-        class="space-y-6"
-      >
+      <UiTabsContent value="security" class="space-y-6">
         <SettingsSecurity />
       </UiTabsContent>
 
-      <UiTabsContent
-        value="advanced"
-        class="space-y-6"
-      >
+      <UiTabsContent value="advanced" class="space-y-6">
         <SettingsAdvanced />
       </UiTabsContent>
     </UiTabs>
@@ -76,9 +62,9 @@
 </template>
 
 <script setup lang="ts">
-import SettingsGeneral from '~/components/settings/SettingsGeneral.vue'
-import SettingsIntegrations from '~/components/settings/SettingsIntegrations.vue'
-import SettingsNotifications from '~/components/settings/SettingsNotifications.vue'
-import SettingsSecurity from '~/components/settings/SettingsSecurity.vue'
-import SettingsAdvanced from '~/components/settings/SettingsAdvanced.vue'
+import SettingsGeneral from '~/components/settings/SettingsGeneral.vue';
+import SettingsIntegrations from '~/components/settings/SettingsIntegrations.vue';
+import SettingsNotifications from '~/components/settings/SettingsNotifications.vue';
+import SettingsSecurity from '~/components/settings/SettingsSecurity.vue';
+import SettingsAdvanced from '~/components/settings/SettingsAdvanced.vue';
 </script>

@@ -13,16 +13,10 @@
             class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
             :class="statusBgColor"
           >
-            <component
-              :is="HardDriveIcon"
-              class="w-5 h-5 text-white"
-            />
+            <component :is="HardDriveIcon" class="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3
-              class="font-semibold text-sm truncate"
-              :title="group.mountPath"
-            >
+            <h3 class="font-semibold text-sm truncate" :title="group.mountPath">
               {{ group.mountPath }}
             </h3>
             <span class="text-xs text-muted-foreground">
@@ -30,10 +24,7 @@
             </span>
           </div>
         </div>
-        <span
-          class="text-2xl font-bold tabular-nums"
-          :class="statusTextColor"
-        >
+        <span class="text-2xl font-bold tabular-nums" :class="statusTextColor">
           {{ usagePercent }}%
         </span>
       </div>
@@ -47,17 +38,26 @@
             <!-- Green zone: 0% → target% -->
             <div
               class="h-full"
-              :style="{ width: (group.targetPct || 75) + '%', backgroundColor: 'oklch(0.648 0.2 160 / 0.2)' }"
+              :style="{
+                width: (group.targetPct || 75) + '%',
+                backgroundColor: 'oklch(0.648 0.2 160 / 0.2)',
+              }"
             />
             <!-- Amber zone: target% → threshold% -->
             <div
               class="h-full"
-              :style="{ width: ((group.thresholdPct || 85) - (group.targetPct || 75)) + '%', backgroundColor: 'oklch(0.75 0.183 55.934 / 0.2)' }"
+              :style="{
+                width: (group.thresholdPct || 85) - (group.targetPct || 75) + '%',
+                backgroundColor: 'oklch(0.75 0.183 55.934 / 0.2)',
+              }"
             />
             <!-- Red zone: threshold% → 100% -->
             <div
               class="h-full"
-              :style="{ width: (100 - (group.thresholdPct || 85)) + '%', backgroundColor: 'oklch(0.577 0.245 27.325 / 0.2)' }"
+              :style="{
+                width: 100 - (group.thresholdPct || 85) + '%',
+                backgroundColor: 'oklch(0.577 0.245 27.325 / 0.2)',
+              }"
             />
           </div>
           <!-- Usage fill bar (on top of zones) -->
@@ -122,43 +122,43 @@
 </template>
 
 <script setup lang="ts">
-import { HardDriveIcon } from 'lucide-vue-next'
+import { HardDriveIcon } from 'lucide-vue-next';
 import {
   formatBytes,
   diskUsageStatus,
   diskStatusBgClass,
   diskStatusTextClass,
-  diskStatusFillColor
-} from '~/utils/format'
-import type { DiskGroup } from '~/types/api'
+  diskStatusFillColor,
+} from '~/utils/format';
+import type { DiskGroup } from '~/types/api';
 
 const props = defineProps<{
-  group: DiskGroup
-  chartMode: string
-  dateRange: string
-  dateRangeLabel: string
-  refreshKey?: number
-}>()
+  group: DiskGroup;
+  chartMode: string;
+  dateRange: string;
+  dateRangeLabel: string;
+  refreshKey?: number;
+}>();
 
 /** Raw (unrounded) usage percentage — used for color zone comparisons. */
 const rawUsagePct = computed(() => {
-  if (props.group.totalBytes === 0) return 0
-  return (props.group.usedBytes / props.group.totalBytes) * 100
-})
+  if (props.group.totalBytes === 0) return 0;
+  return (props.group.usedBytes / props.group.totalBytes) * 100;
+});
 
 /** Rounded display percentage. */
-const usagePercent = computed(() => Math.round(rawUsagePct.value))
+const usagePercent = computed(() => Math.round(rawUsagePct.value));
 
 const statusBgColor = computed(() =>
-  diskStatusBgClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct)
-)
+  diskStatusBgClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
+);
 
 const statusTextColor = computed(() =>
-  diskStatusTextClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct)
-)
+  diskStatusTextClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
+);
 
 /** Inline fill color for the progress bar (bypasses Tailwind alpha issues). */
 const barFillColor = computed(() =>
-  diskStatusFillColor(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct)
-)
+  diskStatusFillColor(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
+);
 </script>

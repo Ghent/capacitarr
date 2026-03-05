@@ -1,24 +1,15 @@
 <template>
-  <header
-    data-slot="navbar"
-    class="sticky top-0 z-50 relative"
-  >
+  <header data-slot="navbar" class="sticky top-0 z-50 relative">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <!-- Brand -->
         <div class="flex items-center gap-6">
-          <NuxtLink
-            to="/"
-            class="flex items-center gap-2.5 group"
-          >
+          <NuxtLink to="/" class="flex items-center gap-2.5 group">
             <div
               data-slot="brand-icon"
               class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
             >
-              <component
-                :is="DatabaseIcon"
-                class="w-4.5 h-4.5 text-primary-foreground"
-              />
+              <component :is="DatabaseIcon" class="w-4.5 h-4.5 text-primary-foreground" />
             </div>
             <div class="flex flex-col">
               <span class="text-lg font-bold tracking-tight text-foreground leading-tight">
@@ -34,10 +25,7 @@
           </NuxtLink>
 
           <!-- Nav Links -->
-          <nav
-            aria-label="Main navigation"
-            class="hidden sm:flex items-center gap-1"
-          >
+          <nav aria-label="Main navigation" class="hidden sm:flex items-center gap-1">
             <NuxtLink
               v-for="link in navLinks"
               :key="link.to"
@@ -46,7 +34,7 @@
               :class="[
                 $route.path === link.to
                   ? 'text-primary bg-primary/10'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-accent',
               ]"
               :data-slot="$route.path === link.to ? 'nav-link-active' : undefined"
             >
@@ -63,16 +51,8 @@
           <!-- Notification Bell -->
           <UiPopover @update:open="onNotifPopoverToggle">
             <UiPopoverTrigger as-child>
-              <UiButton
-                variant="ghost"
-                size="icon"
-                aria-label="Notifications"
-                class="relative"
-              >
-                <component
-                  :is="BellIcon"
-                  class="w-5 h-5"
-                />
+              <UiButton variant="ghost" size="icon" aria-label="Notifications" class="relative">
+                <component :is="BellIcon" class="w-5 h-5" />
                 <span
                   v-if="unreadCount > 0"
                   class="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold leading-none px-1"
@@ -81,10 +61,7 @@
                 </span>
               </UiButton>
             </UiPopoverTrigger>
-            <UiPopoverContent
-              align="end"
-              class="w-80 p-0"
-            >
+            <UiPopoverContent align="end" class="w-80 p-0">
               <div class="flex items-center justify-between px-4 py-3 border-b border-border">
                 <h4 class="text-sm font-semibold">
                   {{ $t('nav.notifications') }}
@@ -111,14 +88,8 @@
                 </div>
               </div>
               <div class="max-h-80 overflow-y-auto">
-                <div
-                  v-if="notifLoading"
-                  class="flex justify-center py-8"
-                >
-                  <component
-                    :is="LoaderCircleIcon"
-                    class="w-5 h-5 text-primary animate-spin"
-                  />
+                <div v-if="notifLoading" class="flex justify-center py-8">
+                  <component :is="LoaderCircleIcon" class="w-5 h-5 text-primary animate-spin" />
                 </div>
                 <div
                   v-else-if="notifications.length === 0"
@@ -163,21 +134,11 @@
           <!-- Language selector -->
           <UiDropdownMenu>
             <UiDropdownMenuTrigger as-child>
-              <UiButton
-                variant="ghost"
-                size="icon"
-                aria-label="Change language"
-              >
-                <component
-                  :is="GlobeIcon"
-                  class="w-5 h-5"
-                />
+              <UiButton variant="ghost" size="icon" aria-label="Change language">
+                <component :is="GlobeIcon" class="w-5 h-5" />
               </UiButton>
             </UiDropdownMenuTrigger>
-            <UiDropdownMenuContent
-              align="end"
-              class="w-40"
-            >
+            <UiDropdownMenuContent align="end" class="w-40">
               <UiDropdownMenuLabel>{{ $t('settings.language') }}</UiDropdownMenuLabel>
               <UiDropdownMenuSeparator />
               <UiDropdownMenuItem
@@ -199,21 +160,11 @@
           <!-- Theme & Mode selector (merged) -->
           <UiDropdownMenu>
             <UiDropdownMenuTrigger as-child>
-              <UiButton
-                variant="ghost"
-                size="icon"
-                aria-label="Change theme and mode"
-              >
-                <component
-                  :is="PaletteIcon"
-                  class="w-5 h-5"
-                />
+              <UiButton variant="ghost" size="icon" aria-label="Change theme and mode">
+                <component :is="PaletteIcon" class="w-5 h-5" />
               </UiButton>
             </UiDropdownMenuTrigger>
-            <UiDropdownMenuContent
-              align="end"
-              class="w-44"
-            >
+            <UiDropdownMenuContent align="end" class="w-44">
               <!-- Color Mode Section -->
               <UiDropdownMenuLabel>{{ $t('nav.mode') }}</UiDropdownMenuLabel>
               <UiDropdownMenuSeparator />
@@ -221,10 +172,7 @@
                 class="flex items-center gap-2.5 cursor-pointer"
                 @click="setMode('light')"
               >
-                <component
-                  :is="SunIcon"
-                  class="w-4 h-4"
-                />
+                <component :is="SunIcon" class="w-4 h-4" />
                 <span>{{ $t('nav.modeLight') }}</span>
                 <component
                   :is="CheckIcon"
@@ -236,10 +184,7 @@
                 class="flex items-center gap-2.5 cursor-pointer"
                 @click="setMode('dark')"
               >
-                <component
-                  :is="MoonIcon"
-                  class="w-4 h-4"
-                />
+                <component :is="MoonIcon" class="w-4 h-4" />
                 <span>{{ $t('nav.modeDark') }}</span>
                 <component
                   :is="CheckIcon"
@@ -251,10 +196,7 @@
                 class="flex items-center gap-2.5 cursor-pointer"
                 @click="setMode('system')"
               >
-                <component
-                  :is="MonitorIcon"
-                  class="w-4 h-4"
-                />
+                <component :is="MonitorIcon" class="w-4 h-4" />
                 <span>{{ $t('nav.modeSystem') }}</span>
                 <component
                   :is="CheckIcon"
@@ -289,19 +231,9 @@
           </UiDropdownMenu>
 
           <!-- Help -->
-          <UiButton
-            variant="ghost"
-            size="icon"
-            as-child
-          >
-            <NuxtLink
-              to="/help"
-              aria-label="Help"
-            >
-              <component
-                :is="CircleHelpIcon"
-                class="w-5 h-5"
-              />
+          <UiButton variant="ghost" size="icon" as-child>
+            <NuxtLink to="/help" aria-label="Help">
+              <component :is="CircleHelpIcon" class="w-5 h-5" />
             </NuxtLink>
           </UiButton>
 
@@ -313,10 +245,7 @@
             class="hover:text-destructive"
             @click="logout"
           >
-            <component
-              :is="LogOutIcon"
-              class="w-5 h-5"
-            />
+            <component :is="LogOutIcon" class="w-5 h-5" />
           </UiButton>
         </div>
       </div>
@@ -326,16 +255,28 @@
 
 <script setup lang="ts">
 import {
-  DatabaseIcon, MoonIcon, SunIcon, MonitorIcon, LogOutIcon, CircleHelpIcon, PaletteIcon,
-  CheckIcon, BellIcon, LoaderCircleIcon,
-  AlertTriangleIcon, XCircleIcon, CheckCircleIcon, InfoIcon, GlobeIcon
-} from 'lucide-vue-next'
-import type { ThemeMeta } from '~/composables/useTheme'
-import type { InAppNotification } from '~/types/api'
+  DatabaseIcon,
+  MoonIcon,
+  SunIcon,
+  MonitorIcon,
+  LogOutIcon,
+  CircleHelpIcon,
+  PaletteIcon,
+  CheckIcon,
+  BellIcon,
+  LoaderCircleIcon,
+  AlertTriangleIcon,
+  XCircleIcon,
+  CheckCircleIcon,
+  InfoIcon,
+  GlobeIcon,
+} from 'lucide-vue-next';
+import type { ThemeMeta } from '~/composables/useTheme';
+import type { InAppNotification } from '~/types/api';
 
-const { mode: colorMode, setMode } = useAppColorMode()
-const { theme, setTheme, themes } = useTheme()
-const { uiVersion, apiVersion } = useVersion()
+const { mode: colorMode, setMode } = useAppColorMode();
+const { theme, setTheme, themes } = useTheme();
+const { uiVersion, apiVersion } = useVersion();
 const {
   unreadCount,
   notifications,
@@ -345,72 +286,82 @@ const {
   markAllAsRead,
   clearAll,
   startPolling,
-  stopPolling
-} = useNotifications()
+  stopPolling,
+} = useNotifications();
 
 /** Map severity to icon component */
 function severityIcon(severity: string) {
   switch (severity) {
-    case 'info': return InfoIcon
-    case 'warning': return AlertTriangleIcon
-    case 'error': return XCircleIcon
-    case 'success': return CheckCircleIcon
-    default: return InfoIcon
+    case 'info':
+      return InfoIcon;
+    case 'warning':
+      return AlertTriangleIcon;
+    case 'error':
+      return XCircleIcon;
+    case 'success':
+      return CheckCircleIcon;
+    default:
+      return InfoIcon;
   }
 }
 
 /** Map severity to text color class */
 function severityColor(severity: string) {
   switch (severity) {
-    case 'info': return 'text-blue-500'
-    case 'warning': return 'text-amber-500'
-    case 'error': return 'text-red-500'
-    case 'success': return 'text-green-500'
-    default: return 'text-muted-foreground'
+    case 'info':
+      return 'text-blue-500';
+    case 'warning':
+      return 'text-amber-500';
+    case 'error':
+      return 'text-red-500';
+    case 'success':
+      return 'text-green-500';
+    default:
+      return 'text-muted-foreground';
   }
 }
 
 /** When the popover opens, fetch notifications; when it closes, do nothing */
 function onNotifPopoverToggle(open: boolean) {
   if (open) {
-    fetchNotifications()
+    fetchNotifications();
   }
 }
 
 /** Click a notification to mark it as read */
 function onNotifClick(notif: InAppNotification) {
   if (!notif.read) {
-    markAsRead(notif.id)
+    markAsRead(notif.id);
   }
 }
 
 onMounted(() => {
-  startPolling()
-})
+  startPolling();
+});
 
 onUnmounted(() => {
-  stopPolling()
-})
+  stopPolling();
+});
 
-const router = useRouter()
-const authenticated = useCookie('authenticated')
+const router = useRouter();
+const authenticated = useCookie('authenticated');
 
-const { t, locale, locales, setLocale } = useI18n()
+const { t, locale, locales, setLocale } = useI18n();
 
 const navLinks = computed(() => [
   { to: '/', label: t('nav.dashboard') },
   { to: '/rules', label: t('nav.scoringEngine') },
   { to: '/audit', label: t('nav.auditLog') },
-  { to: '/settings', label: t('nav.settings') }
-])
+  { to: '/settings', label: t('nav.settings') },
+]);
 
 function logout() {
-  authenticated.value = null
-  router.push('/login')
+  authenticated.value = null;
+  router.push('/login');
 }
 
 /** Return the actual primary color for the theme swatch */
 function themeSwatchColor(t: ThemeMeta): string {
-  return t.primaryColor
+  return t.primaryColor;
 }
 </script>

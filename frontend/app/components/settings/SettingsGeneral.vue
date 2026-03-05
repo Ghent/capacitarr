@@ -3,16 +3,17 @@
   <UiCard
     v-motion
     :initial="{ opacity: 0, y: 12 }"
-    :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 200 } }"
+    :enter="{
+      opacity: 1,
+      y: 0,
+      transition: { type: 'spring', stiffness: 260, damping: 24, delay: 200 },
+    }"
     class="overflow-hidden"
   >
     <UiCardHeader class="border-b border-border">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center">
-          <component
-            :is="MonitorIcon"
-            class="w-5 h-5 text-white"
-          />
+          <component :is="MonitorIcon" class="w-5 h-5 text-white" />
         </div>
         <div>
           <UiCardTitle class="text-base">
@@ -100,16 +101,17 @@
   <UiCard
     v-motion
     :initial="{ opacity: 0, y: 12 }"
-    :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 300 } }"
+    :enter="{
+      opacity: 1,
+      y: 0,
+      transition: { type: 'spring', stiffness: 260, damping: 24, delay: 300 },
+    }"
     class="overflow-hidden"
   >
     <UiCardHeader class="border-b border-border">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-          <component
-            :is="CogIcon"
-            class="w-5 h-5 text-white"
-          />
+          <component :is="CogIcon" class="w-5 h-5 text-white" />
         </div>
         <div>
           <UiCardTitle class="text-base">
@@ -133,9 +135,11 @@
             data-slot="execution-mode-card"
             :data-active="engineExecutionMode === mode.value"
             class="px-4 py-3 rounded-xl border-2 text-left transition-all"
-            :class="engineExecutionMode === mode.value
-              ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
-              : 'border-border hover:border-border'"
+            :class="
+              engineExecutionMode === mode.value
+                ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20'
+                : 'border-border hover:border-border'
+            "
             @click="setExecutionMode(mode.value)"
           >
             <div
@@ -167,21 +171,11 @@
               <UiSelectValue placeholder="Select tiebreaker" />
             </UiSelectTrigger>
             <UiSelectContent>
-              <UiSelectItem value="size_desc">
-                Largest first (free more space)
-              </UiSelectItem>
-              <UiSelectItem value="size_asc">
-                Smallest first
-              </UiSelectItem>
-              <UiSelectItem value="name_asc">
-                Alphabetical (A → Z)
-              </UiSelectItem>
-              <UiSelectItem value="oldest_first">
-                Oldest in library first
-              </UiSelectItem>
-              <UiSelectItem value="newest_first">
-                Newest in library first
-              </UiSelectItem>
+              <UiSelectItem value="size_desc"> Largest first (free more space) </UiSelectItem>
+              <UiSelectItem value="size_asc"> Smallest first </UiSelectItem>
+              <UiSelectItem value="name_asc"> Alphabetical (A → Z) </UiSelectItem>
+              <UiSelectItem value="oldest_first"> Oldest in library first </UiSelectItem>
+              <UiSelectItem value="newest_first"> Newest in library first </UiSelectItem>
             </UiSelectContent>
           </UiSelect>
         </div>
@@ -197,39 +191,26 @@
           </p>
           <UiSelect
             :model-value="String(snoozeDurationHours)"
-            @update:model-value="(v: AcceptableValue) => { snoozeDurationHours = Number(v); autoSavePreference('snoozeDuration', 'snoozeDurationHours', Number(v)) }"
+            @update:model-value="
+              (v: AcceptableValue) => {
+                snoozeDurationHours = Number(v);
+                autoSavePreference('snoozeDuration', 'snoozeDurationHours', Number(v));
+              }
+            "
           >
             <UiSelectTrigger class="w-full">
               <UiSelectValue placeholder="Select duration" />
             </UiSelectTrigger>
             <UiSelectContent>
-              <UiSelectItem value="1">
-                1 hour
-              </UiSelectItem>
-              <UiSelectItem value="6">
-                6 hours
-              </UiSelectItem>
-              <UiSelectItem value="12">
-                12 hours
-              </UiSelectItem>
-              <UiSelectItem value="24">
-                24 hours (1 day)
-              </UiSelectItem>
-              <UiSelectItem value="48">
-                48 hours (2 days)
-              </UiSelectItem>
-              <UiSelectItem value="72">
-                72 hours (3 days)
-              </UiSelectItem>
-              <UiSelectItem value="168">
-                1 week
-              </UiSelectItem>
-              <UiSelectItem value="336">
-                2 weeks
-              </UiSelectItem>
-              <UiSelectItem value="720">
-                30 days
-              </UiSelectItem>
+              <UiSelectItem value="1"> 1 hour </UiSelectItem>
+              <UiSelectItem value="6"> 6 hours </UiSelectItem>
+              <UiSelectItem value="12"> 12 hours </UiSelectItem>
+              <UiSelectItem value="24"> 24 hours (1 day) </UiSelectItem>
+              <UiSelectItem value="48"> 48 hours (2 days) </UiSelectItem>
+              <UiSelectItem value="72"> 72 hours (3 days) </UiSelectItem>
+              <UiSelectItem value="168"> 1 week </UiSelectItem>
+              <UiSelectItem value="336"> 2 weeks </UiSelectItem>
+              <UiSelectItem value="720"> 30 days </UiSelectItem>
             </UiSelectContent>
           </UiSelect>
         </div>
@@ -239,52 +220,63 @@
 </template>
 
 <script setup lang="ts">
-import { MonitorIcon, CogIcon } from 'lucide-vue-next'
-import type { PreferenceSet } from '~/types/api'
-import type { AcceptableValue } from 'reka-ui'
-import SaveIndicator from '~/components/settings/SaveIndicator.vue'
+import { MonitorIcon, CogIcon } from 'lucide-vue-next';
+import type { PreferenceSet } from '~/types/api';
+import type { AcceptableValue } from 'reka-ui';
+import SaveIndicator from '~/components/settings/SaveIndicator.vue';
 
-const api = useApi()
-const { timezone: displayTimezone, clockFormat: displayClockFormat, showExactDates, setTimezone, setClockFormat, setShowExactDates } = useDisplayPrefs()
-const { saveStatus, initFields, autoSavePreference } = useAutoSave()
+const api = useApi();
+const {
+  timezone: displayTimezone,
+  clockFormat: displayClockFormat,
+  showExactDates,
+  setTimezone,
+  setClockFormat,
+  setShowExactDates,
+} = useDisplayPrefs();
+const { saveStatus, initFields, autoSavePreference } = useAutoSave();
 
-initFields(['executionMode', 'tiebreaker', 'snoozeDuration'])
+initFields(['executionMode', 'tiebreaker', 'snoozeDuration']);
 
 // Engine behavior state
-const engineExecutionMode = ref('dry-run')
-const engineTiebreakerMethod = ref('size_desc')
-const snoozeDurationHours = ref(24)
+const engineExecutionMode = ref('dry-run');
+const engineTiebreakerMethod = ref('size_desc');
+const snoozeDurationHours = ref(24);
 
 const executionModes = [
   { value: 'dry-run', label: 'Dry Run', description: 'Log only, no deletions' },
   { value: 'approval', label: 'Approval', description: 'Queue for manual approval' },
-  { value: 'auto', label: 'Automatic', description: 'Delete automatically' }
-]
+  { value: 'auto', label: 'Automatic', description: 'Delete automatically' },
+];
 
 function setExecutionMode(mode: string) {
-  engineExecutionMode.value = mode
-  autoSavePreference('executionMode', 'executionMode', mode)
+  engineExecutionMode.value = mode;
+  autoSavePreference('executionMode', 'executionMode', mode);
 }
 
 // Watch tiebreaker — immediate save on select change
 watch(engineTiebreakerMethod, (newVal, oldVal) => {
   if (oldVal !== undefined && newVal !== oldVal) {
-    autoSavePreference('tiebreaker', 'tiebreakerMethod', newVal)
+    autoSavePreference('tiebreaker', 'tiebreakerMethod', newVal);
   }
-})
+});
 
 // ─── Fetch preferences on mount ──────────────────────────────────────────────
 async function fetchPreferences() {
   try {
-    const prefs = await api('/api/v1/preferences') as PreferenceSet
+    const prefs = (await api('/api/v1/preferences')) as PreferenceSet;
     if (prefs?.executionMode) {
-      engineExecutionMode.value = prefs.executionMode
+      engineExecutionMode.value = prefs.executionMode;
     }
     if (prefs?.tiebreakerMethod) {
-      engineTiebreakerMethod.value = prefs.tiebreakerMethod
+      engineTiebreakerMethod.value = prefs.tiebreakerMethod;
     }
-    if ((prefs as PreferenceSet & { snoozeDurationHours?: number })?.snoozeDurationHours !== undefined) {
-      snoozeDurationHours.value = (prefs as PreferenceSet & { snoozeDurationHours?: number }).snoozeDurationHours!
+    if (
+      (prefs as PreferenceSet & { snoozeDurationHours?: number })?.snoozeDurationHours !== undefined
+    ) {
+      snoozeDurationHours.value = (
+        prefs as PreferenceSet & { snoozeDurationHours?: number }
+      ).snoozeDurationHours!;
     }
   } catch {
     // Silently ignored — UI has no further handling
@@ -292,6 +284,6 @@ async function fetchPreferences() {
 }
 
 onMounted(() => {
-  fetchPreferences()
-})
+  fetchPreferences();
+});
 </script>

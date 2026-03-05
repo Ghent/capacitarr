@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { CheckIcon } from 'lucide-vue-next'
+import { CheckIcon } from 'lucide-vue-next';
 
 defineProps<{
-  status: 'idle' | 'saving' | 'saved' | 'error'
-}>()
+  status: 'idle' | 'saving' | 'saved' | 'error';
+}>();
 </script>
 
 <template>

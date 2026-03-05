@@ -15,12 +15,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 80 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 80 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.howScoringWorks') }}
           </h3>
@@ -39,12 +47,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 140 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 140 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.understandingSliders') }}
           </h3>
@@ -60,7 +76,10 @@
               class="flex items-start gap-2"
             >
               <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-              <span><strong class="text-foreground">{{ $t(factor.nameKey) }}</strong> — {{ $t(factor.descKey) }}</span>
+              <span
+                ><strong class="text-foreground">{{ $t(factor.nameKey) }}</strong> —
+                {{ $t(factor.descKey) }}</span
+              >
             </li>
           </ul>
         </div>
@@ -70,12 +89,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 200 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 200 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.readingScoreDetail') }}
           </h3>
@@ -93,11 +120,9 @@
               {{ $t('help.readingScoreDetail.rawDesc') }}
             </p>
             <ul class="space-y-1 pl-4 list-disc mt-2">
-              <li
-                v-for="factor in rawScoreExamples"
-                :key="factor.nameKey"
-              >
-                <strong class="text-foreground">{{ $t(factor.nameKey) }}</strong> — {{ $t(factor.descKey) }}
+              <li v-for="factor in rawScoreExamples" :key="factor.nameKey">
+                <strong class="text-foreground">{{ $t(factor.nameKey) }}</strong> —
+                {{ $t(factor.descKey) }}
               </li>
             </ul>
           </div>
@@ -129,12 +154,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 260 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 260 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.thresholdAndTarget') }}
           </h3>
@@ -153,12 +186,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 320 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 320 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.customRulesHelp') }}
           </h3>
@@ -171,16 +212,12 @@
             {{ $t('help.customRules.effectLevels') }}
           </p>
           <ul class="space-y-2 pl-1">
-            <li
-              v-for="effect in effectLevels"
-              :key="effect.nameKey"
-              class="flex items-start gap-2"
-            >
+            <li v-for="effect in effectLevels" :key="effect.nameKey" class="flex items-start gap-2">
+              <span class="mt-1 w-1.5 h-1.5 rounded-full shrink-0" :class="effect.colorClass" />
               <span
-                class="mt-1 w-1.5 h-1.5 rounded-full shrink-0"
-                :class="effect.colorClass"
-              />
-              <span><strong class="text-foreground">{{ $t(effect.nameKey) }}</strong> — {{ $t(effect.descKey) }}</span>
+                ><strong class="text-foreground">{{ $t(effect.nameKey) }}</strong> —
+                {{ $t(effect.descKey) }}</span
+              >
             </li>
           </ul>
           <p class="font-medium text-foreground mt-4">
@@ -199,12 +236,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 350 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 350 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.scoreTiebreaker') }}
           </h3>
@@ -214,11 +259,26 @@
             {{ $t('help.tiebreaker.intro') }}
           </p>
           <ul class="space-y-1 pl-4 list-disc">
-            <li><strong class="text-foreground">{{ $t('help.tiebreaker.largestFirst') }}</strong> — {{ $t('help.tiebreaker.largestFirstDesc') }}</li>
-            <li><strong class="text-foreground">{{ $t('help.tiebreaker.smallestFirst') }}</strong> — {{ $t('help.tiebreaker.smallestFirstDesc') }}</li>
-            <li><strong class="text-foreground">{{ $t('help.tiebreaker.alphabetical') }}</strong> — {{ $t('help.tiebreaker.alphabeticalDesc') }}</li>
-            <li><strong class="text-foreground">{{ $t('help.tiebreaker.oldestFirst') }}</strong> — {{ $t('help.tiebreaker.oldestFirstDesc') }}</li>
-            <li><strong class="text-foreground">{{ $t('help.tiebreaker.newestFirst') }}</strong> — {{ $t('help.tiebreaker.newestFirstDesc') }}</li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.tiebreaker.largestFirst') }}</strong> —
+              {{ $t('help.tiebreaker.largestFirstDesc') }}
+            </li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.tiebreaker.smallestFirst') }}</strong> —
+              {{ $t('help.tiebreaker.smallestFirstDesc') }}
+            </li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.tiebreaker.alphabetical') }}</strong> —
+              {{ $t('help.tiebreaker.alphabeticalDesc') }}
+            </li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.tiebreaker.oldestFirst') }}</strong> —
+              {{ $t('help.tiebreaker.oldestFirstDesc') }}
+            </li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.tiebreaker.newestFirst') }}</strong> —
+              {{ $t('help.tiebreaker.newestFirstDesc') }}
+            </li>
           </ul>
         </div>
       </details>
@@ -227,12 +287,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 380 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 380 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.readingAuditLog') }}
           </h3>
@@ -243,9 +311,18 @@
           </p>
           <p>{{ $t('help.auditLog.actionsTitle') }}</p>
           <ul class="space-y-1 pl-4 list-disc">
-            <li><strong class="text-foreground">{{ $t('help.auditLog.dryRun') }}</strong> — {{ $t('help.auditLog.dryRunDesc') }}</li>
-            <li><strong class="text-foreground">{{ $t('help.auditLog.queued') }}</strong> — {{ $t('help.auditLog.queuedDesc') }}</li>
-            <li><strong class="text-foreground">{{ $t('help.auditLog.deleted') }}</strong> — {{ $t('help.auditLog.deletedDesc') }}</li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.auditLog.dryRun') }}</strong> —
+              {{ $t('help.auditLog.dryRunDesc') }}
+            </li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.auditLog.queued') }}</strong> —
+              {{ $t('help.auditLog.queuedDesc') }}
+            </li>
+            <li>
+              <strong class="text-foreground">{{ $t('help.auditLog.deleted') }}</strong> —
+              {{ $t('help.auditLog.deletedDesc') }}
+            </li>
           </ul>
         </div>
       </details>
@@ -254,12 +331,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 440 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 440 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.executionModes') }}
           </h3>
@@ -268,22 +353,34 @@
           <ul class="space-y-2 pl-1">
             <li class="flex items-start gap-2">
               <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-              <span><strong class="text-foreground">{{ $t('help.executionModes.dryRun') }}</strong> — {{ $t('help.executionModes.dryRunDesc') }}</span>
+              <span
+                ><strong class="text-foreground">{{ $t('help.executionModes.dryRun') }}</strong> —
+                {{ $t('help.executionModes.dryRunDesc') }}</span
+              >
             </li>
             <li class="flex items-start gap-2">
               <span class="mt-1 w-1.5 h-1.5 rounded-full bg-warning shrink-0" />
-              <span><strong class="text-foreground">{{ $t('help.executionModes.approval') }}</strong> — {{ $t('help.executionModes.approvalDesc') }}</span>
+              <span
+                ><strong class="text-foreground">{{ $t('help.executionModes.approval') }}</strong> —
+                {{ $t('help.executionModes.approvalDesc') }}</span
+              >
             </li>
             <li class="flex items-start gap-2">
               <span class="mt-1 w-1.5 h-1.5 rounded-full bg-destructive shrink-0" />
-              <span><strong class="text-foreground">{{ $t('help.executionModes.auto') }}</strong> — {{ $t('help.executionModes.autoDesc') }}</span>
+              <span
+                ><strong class="text-foreground">{{ $t('help.executionModes.auto') }}</strong> —
+                {{ $t('help.executionModes.autoDesc') }}</span
+              >
             </li>
           </ul>
           <div class="mt-2 rounded-lg border border-border bg-muted/50 p-3">
             <p class="flex items-start gap-2">
               <ShieldIcon class="w-4 h-4 text-warning mt-0.5 shrink-0" />
               <span>
-                <strong class="text-foreground">{{ $t('help.executionModes.safetyGuardTitle') }}</strong> —
+                <strong class="text-foreground">{{
+                  $t('help.executionModes.safetyGuardTitle')
+                }}</strong>
+                —
                 {{ $t('help.executionModes.safetyGuardDesc') }}
               </span>
             </p>
@@ -295,21 +392,26 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 500 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 500 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.faq') }}
           </h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-4">
-          <div
-            v-for="item in faqItems"
-            :key="item.qKey"
-          >
+          <div v-for="item in faqItems" :key="item.qKey">
             <p class="font-medium text-foreground mb-1">
               {{ $t(item.qKey) }}
             </p>
@@ -322,12 +424,20 @@
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
-        :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24, delay: 560 } }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 560 },
+        }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
       >
-        <summary class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors">
-          <ChevronRightIcon class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90" />
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
           <h3 class="font-semibold text-primary">
             {{ $t('help.aboutCapacitarr') }}
           </h3>
@@ -335,9 +445,7 @@
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-6">
           <!-- Project Info -->
           <div class="space-y-3">
-            <p class="font-medium text-foreground">
-              Project Info
-            </p>
+            <p class="font-medium text-foreground">Project Info</p>
             <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               <span class="text-muted-foreground">App</span>
               <span class="text-foreground font-medium">Capacitarr</span>
@@ -361,9 +469,7 @@
                     <span class="text-muted-foreground text-xs ml-1">({{ apiBuildDate }})</span>
                   </template>
                 </template>
-                <template v-else>
-                  —
-                </template>
+                <template v-else> — </template>
               </span>
 
               <span class="text-muted-foreground">Source</span>
@@ -397,69 +503,46 @@
               <span class="text-muted-foreground">Contributors</span>
               <div class="flex flex-wrap items-center gap-1.5">
                 <template v-if="contributors.length > 0">
-                  <span
-                    v-for="(name, idx) in contributors"
-                    :key="name"
-                    class="text-foreground"
-                  >{{ name }}<span
-                    v-if="idx < contributors.length - 1"
-                    class="text-muted-foreground/50"
-                  >, </span></span>
+                  <span v-for="(name, idx) in contributors" :key="name" class="text-foreground"
+                    >{{ name
+                    }}<span v-if="idx < contributors.length - 1" class="text-muted-foreground/50"
+                      >,
+                    </span></span
+                  >
                 </template>
-                <span
-                  v-else
-                  class="text-muted-foreground italic"
-                >No contributors yet</span>
+                <span v-else class="text-muted-foreground italic">No contributors yet</span>
               </div>
             </div>
           </div>
 
           <!-- Tech Stack -->
           <div class="space-y-3">
-            <p class="font-medium text-foreground">
-              Tech Stack
-            </p>
+            <p class="font-medium text-foreground">Tech Stack</p>
             <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
               <span class="text-muted-foreground">Frontend</span>
               <div class="flex flex-wrap gap-1.5">
-                <UiBadge
-                  v-for="item in techStack.frontend"
-                  :key="item"
-                  variant="secondary"
-                >
+                <UiBadge v-for="item in techStack.frontend" :key="item" variant="secondary">
                   {{ item }}
                 </UiBadge>
               </div>
 
               <span class="text-muted-foreground">Backend</span>
               <div class="flex flex-wrap gap-1.5">
-                <UiBadge
-                  v-for="item in techStack.backend"
-                  :key="item"
-                  variant="secondary"
-                >
+                <UiBadge v-for="item in techStack.backend" :key="item" variant="secondary">
                   {{ item }}
                 </UiBadge>
               </div>
 
               <span class="text-muted-foreground">Auth</span>
               <div class="flex flex-wrap gap-1.5">
-                <UiBadge
-                  v-for="item in techStack.auth"
-                  :key="item"
-                  variant="secondary"
-                >
+                <UiBadge v-for="item in techStack.auth" :key="item" variant="secondary">
                   {{ item }}
                 </UiBadge>
               </div>
 
               <span class="text-muted-foreground">Infrastructure</span>
               <div class="flex flex-wrap gap-1.5">
-                <UiBadge
-                  v-for="item in techStack.infrastructure"
-                  :key="item"
-                  variant="secondary"
-                >
+                <UiBadge v-for="item in techStack.infrastructure" :key="item" variant="secondary">
                   {{ item }}
                 </UiBadge>
               </div>
@@ -468,17 +551,14 @@
 
           <!-- Credits -->
           <div class="space-y-3">
-            <p class="font-medium text-foreground">
-              Credits &amp; Acknowledgments
-            </p>
+            <p class="font-medium text-foreground">Credits &amp; Acknowledgments</p>
             <ul class="space-y-2 pl-1">
-              <li
-                v-for="credit in credits"
-                :key="credit.name"
-                class="flex items-start gap-2"
-              >
+              <li v-for="credit in credits" :key="credit.name" class="flex items-start gap-2">
                 <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                <span><strong class="text-foreground">{{ credit.name }}</strong> — {{ credit.desc }}</span>
+                <span
+                  ><strong class="text-foreground">{{ credit.name }}</strong> —
+                  {{ credit.desc }}</span
+                >
               </li>
             </ul>
           </div>
@@ -490,8 +570,11 @@
                 src="~/assets/images/flag-ua.svg"
                 alt="Ukrainian flag"
                 class="w-4 h-4 shrink-0 mt-0.5"
+              />
+              <span
+                >I stand with Ukraine. This project is built with the belief that freedom,
+                sovereignty, and self-determination matter — for people and for software.</span
               >
-              <span>I stand with Ukraine. This project is built with the belief that freedom, sovereignty, and self-determination matter — for people and for software.</span>
             </p>
           </div>
         </div>
@@ -501,11 +584,11 @@
 </template>
 
 <script setup lang="ts">
-import { ChevronRightIcon, ExternalLinkIcon, ShieldIcon } from 'lucide-vue-next'
+import { ChevronRightIcon, ExternalLinkIcon, ShieldIcon } from 'lucide-vue-next';
 
-const { uiVersion, uiBuildDate, apiVersion, apiBuildDate } = useVersion()
-const config = useRuntimeConfig()
-const contributors = computed(() => (config.public.contributors as string[]) || [])
+const { uiVersion, uiBuildDate, apiVersion, apiBuildDate } = useVersion();
+const config = useRuntimeConfig();
+const contributors = computed(() => (config.public.contributors as string[]) || []);
 
 const scoringFactors = [
   { nameKey: 'help.factor.watchHistory', descKey: 'help.factor.watchHistoryDesc' },
@@ -513,8 +596,8 @@ const scoringFactors = [
   { nameKey: 'help.factor.fileSize', descKey: 'help.factor.fileSizeDesc' },
   { nameKey: 'help.factor.rating', descKey: 'help.factor.ratingDesc' },
   { nameKey: 'help.factor.timeInLibrary', descKey: 'help.factor.timeInLibraryDesc' },
-  { nameKey: 'help.factor.seriesStatus', descKey: 'help.factor.seriesStatusDesc' }
-]
+  { nameKey: 'help.factor.seriesStatus', descKey: 'help.factor.seriesStatusDesc' },
+];
 
 const rawScoreExamples = [
   { nameKey: 'help.factor.watchHistory', descKey: 'help.rawScore.watchHistoryDesc' },
@@ -522,17 +605,41 @@ const rawScoreExamples = [
   { nameKey: 'help.factor.fileSize', descKey: 'help.rawScore.fileSizeDesc' },
   { nameKey: 'help.factor.rating', descKey: 'help.rawScore.ratingDesc' },
   { nameKey: 'help.factor.timeInLibrary', descKey: 'help.rawScore.timeInLibraryDesc' },
-  { nameKey: 'help.factor.seriesStatus', descKey: 'help.rawScore.seriesStatusDesc' }
-]
+  { nameKey: 'help.factor.seriesStatus', descKey: 'help.rawScore.seriesStatusDesc' },
+];
 
 const effectLevels = [
-  { nameKey: 'help.effect.alwaysKeep', descKey: 'help.effect.alwaysKeepDesc', colorClass: 'bg-emerald-500' },
-  { nameKey: 'help.effect.preferKeep', descKey: 'help.effect.preferKeepDesc', colorClass: 'bg-teal-400' },
-  { nameKey: 'help.effect.leanKeep', descKey: 'help.effect.leanKeepDesc', colorClass: 'bg-sky-400' },
-  { nameKey: 'help.effect.leanRemove', descKey: 'help.effect.leanRemoveDesc', colorClass: 'bg-amber-400' },
-  { nameKey: 'help.effect.preferRemove', descKey: 'help.effect.preferRemoveDesc', colorClass: 'bg-orange-500' },
-  { nameKey: 'help.effect.alwaysRemove', descKey: 'help.effect.alwaysRemoveDesc', colorClass: 'bg-red-500' }
-]
+  {
+    nameKey: 'help.effect.alwaysKeep',
+    descKey: 'help.effect.alwaysKeepDesc',
+    colorClass: 'bg-emerald-500',
+  },
+  {
+    nameKey: 'help.effect.preferKeep',
+    descKey: 'help.effect.preferKeepDesc',
+    colorClass: 'bg-teal-400',
+  },
+  {
+    nameKey: 'help.effect.leanKeep',
+    descKey: 'help.effect.leanKeepDesc',
+    colorClass: 'bg-sky-400',
+  },
+  {
+    nameKey: 'help.effect.leanRemove',
+    descKey: 'help.effect.leanRemoveDesc',
+    colorClass: 'bg-amber-400',
+  },
+  {
+    nameKey: 'help.effect.preferRemove',
+    descKey: 'help.effect.preferRemoveDesc',
+    colorClass: 'bg-orange-500',
+  },
+  {
+    nameKey: 'help.effect.alwaysRemove',
+    descKey: 'help.effect.alwaysRemoveDesc',
+    colorClass: 'bg-red-500',
+  },
+];
 
 const faqItems = [
   { qKey: 'help.faq.engineFrequencyQ', aKey: 'help.faq.engineFrequencyA' },
@@ -540,21 +647,21 @@ const faqItems = [
   { qKey: 'help.faq.deleteHappensQ', aKey: 'help.faq.deleteHappensA' },
   { qKey: 'help.faq.notificationsQ', aKey: 'help.faq.notificationsA' },
   { qKey: 'help.faq.languageQ', aKey: 'help.faq.languageA' },
-  { qKey: 'help.faq.safeToTestQ', aKey: 'help.faq.safeToTestA' }
-]
+  { qKey: 'help.faq.safeToTestQ', aKey: 'help.faq.safeToTestA' },
+];
 
 const techStack = {
   frontend: ['Vue 3', 'Nuxt 3', 'Tailwind CSS v4', 'shadcn-vue', 'ApexCharts', 'Lucide Icons'],
   backend: ['Go 1.25', 'Echo HTTP', 'GORM + SQLite', 'Goose Migrations'],
   auth: ['JWT', 'bcrypt', 'API Key', 'Plex OAuth', 'Proxy Header'],
-  infrastructure: ['Docker', 'Alpine Linux']
-}
+  infrastructure: ['Docker', 'Alpine Linux'],
+};
 
 const credits = [
   { name: 'shadcn-vue', desc: 'Component library' },
   { name: 'Tailwind CSS', desc: 'Utility-first CSS framework' },
   { name: 'Nuxt', desc: 'Vue meta-framework' },
   { name: 'Geist', desc: 'Typography (Vercel)' },
-  { name: 'The *arr community', desc: 'Inspiration and ecosystem' }
-]
+  { name: 'The *arr community', desc: 'Inspiration and ecosystem' },
+];
 </script>

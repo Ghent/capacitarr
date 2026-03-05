@@ -1,42 +1,42 @@
 export function useDisplayPrefs() {
   const timezone = useState('displayTimezone', () => {
     if (import.meta.client) {
-      return localStorage.getItem('capacitarr_timezone') || 'local'
+      return localStorage.getItem('capacitarr_timezone') || 'local';
     }
-    return 'local'
-  })
+    return 'local';
+  });
 
   const clockFormat = useState('displayClockFormat', () => {
     if (import.meta.client) {
-      return localStorage.getItem('capacitarr_clockFormat') || '12h'
+      return localStorage.getItem('capacitarr_clockFormat') || '12h';
     }
-    return '12h'
-  })
+    return '12h';
+  });
 
   function setTimezone(tz: string) {
-    timezone.value = tz
-    if (import.meta.client) localStorage.setItem('capacitarr_timezone', tz)
+    timezone.value = tz;
+    if (import.meta.client) localStorage.setItem('capacitarr_timezone', tz);
   }
 
   const showExactDates = useState('displayExactDates', () => {
     if (import.meta.client) {
-      return localStorage.getItem('capacitarr_exactDates') === 'true'
+      return localStorage.getItem('capacitarr_exactDates') === 'true';
     }
-    return false
-  })
+    return false;
+  });
 
   function setClockFormat(fmt: string) {
-    clockFormat.value = fmt
-    if (import.meta.client) localStorage.setItem('capacitarr_clockFormat', fmt)
+    clockFormat.value = fmt;
+    if (import.meta.client) localStorage.setItem('capacitarr_clockFormat', fmt);
   }
 
   function setShowExactDates(val: boolean) {
-    showExactDates.value = val
-    if (import.meta.client) localStorage.setItem('capacitarr_exactDates', String(val))
+    showExactDates.value = val;
+    if (import.meta.client) localStorage.setItem('capacitarr_exactDates', String(val));
   }
 
   function formatTimestamp(dateStr: string): string {
-    const date = new Date(dateStr)
+    const date = new Date(dateStr);
     const options: Intl.DateTimeFormatOptions = {
       hour: 'numeric',
       minute: '2-digit',
@@ -44,13 +44,21 @@ export function useDisplayPrefs() {
       hour12: clockFormat.value === '12h',
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
-    }
+      year: 'numeric',
+    };
     if (timezone.value !== 'local') {
-      options.timeZone = timezone.value
+      options.timeZone = timezone.value;
     }
-    return new Intl.DateTimeFormat(undefined, options).format(date)
+    return new Intl.DateTimeFormat(undefined, options).format(date);
   }
 
-  return { timezone, clockFormat, showExactDates, setTimezone, setClockFormat, setShowExactDates, formatTimestamp }
+  return {
+    timezone,
+    clockFormat,
+    showExactDates,
+    setTimezone,
+    setClockFormat,
+    setShowExactDates,
+    formatTimestamp,
+  };
 }
