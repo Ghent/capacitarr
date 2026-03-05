@@ -192,13 +192,14 @@ func TestConcurrencyStress(t *testing.T) {
 		channels[i] = bus.Subscribe()
 	}
 
-	var wg sync.WaitGroup
+	var pubWg sync.WaitGroup
+	var conWg sync.WaitGroup
 
 	// Start publishers
 	for p := 0; p < numPublishers; p++ {
-		wg.Add(1)
+		pubWg.Add(1)
 		go func() {
-			defer wg.Done()
+			defer pubWg.Done()
 			for e := 0; e < numEvents; e++ {
 				bus.Publish(testEvent{typ: "stress", msg: "concurrent"})
 			}
@@ -208,23 +209,23 @@ func TestConcurrencyStress(t *testing.T) {
 	// Start consumers
 	counts := make([]int, numSubscribers)
 	for i, ch := range channels {
-		wg.Add(1)
+		conWg.Add(1)
 		go func(idx int, c chan Event) {
-			defer wg.Done()
+			defer conWg.Done()
 			for range c {
 				counts[idx]++
 			}
 		}(i, ch)
 	}
 
-	// Wait for publishers, then unsubscribe all to close channels
-	wg.Wait()
+	// Wait for publishers to finish
+	pubWg.Wait()
 
-	// Close bus to end consumers
+	// Close bus to close all subscriber channels, ending consumers
 	bus.Close()
 
 	// Wait for consumers to drain
-	time.Sleep(50 * time.Millisecond)
+	conWg.Wait()
 
 	// Each subscriber should have received events (exact count depends on timing,
 	// but should be > 0 since buffer is large enough)
