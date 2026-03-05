@@ -232,7 +232,7 @@
   "settings.auditRetention": "Auditlogboek Bewaring",
   "settings.retentionWarning": "Onbeperkte bewaring zal de database continu laten groeien. Dit kan uiteindelijk de prestaties beïnvloeden.",
   "settings.clearAllData": "Alle Verzamelde Gegevens Wissen",
-  "settings.clearDataDesc": "Verwijdert alle auditlogboeken, capaciteitsgeschiedenis, motorstatistieken en schijfgroepen. Integraties, regels en voorkeuren blijven behouden.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Typ DELETE om te bevestigen",
   "engine.control": "Motorbesturing",
   "engine.executionMode": "Uitvoeringsmodus",

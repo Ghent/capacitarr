@@ -232,7 +232,7 @@
   "settings.auditRetention": "감사 로그 보존 기간",
   "settings.retentionWarning": "무기한 보존은 데이터베이스가 지속적으로 증가하게 됩니다. 이는 결국 성능에 영향을 줄 수 있습니다.",
   "settings.clearAllData": "수집된 모든 데이터 지우기",
-  "settings.clearDataDesc": "모든 감사 로그, 용량 기록, 엔진 통계 및 디스크 그룹을 제거합니다. 연동, 규칙 및 기본 설정은 보존됩니다.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "확인하려면 DELETE를 입력하세요",
   "engine.control": "엔진 제어",
   "engine.executionMode": "실행 모드",

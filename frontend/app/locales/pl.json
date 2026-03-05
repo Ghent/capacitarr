@@ -232,7 +232,7 @@
   "settings.auditRetention": "Przechowywanie Dziennika Audytu",
   "settings.retentionWarning": "Nieograniczone przechowywanie spowoduje ciągły wzrost bazy danych. Może to ostatecznie wpłynąć na wydajność.",
   "settings.clearAllData": "Wyczyść Wszystkie Zebrane Dane",
-  "settings.clearDataDesc": "Usuwa wszystkie dzienniki audytu, historię pojemności, statystyki silnika i grupy dysków. Integracje, reguły i preferencje są zachowywane.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Wpisz DELETE, aby potwierdzić",
   "engine.control": "Sterowanie Silnikiem",
   "engine.executionMode": "Tryb Wykonywania",

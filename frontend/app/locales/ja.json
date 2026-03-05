@@ -232,7 +232,7 @@
   "settings.auditRetention": "監査ログの保持期間",
   "settings.retentionWarning": "無期限の保持はデータベースが継続的に増大する原因となります。最終的にパフォーマンスに影響する可能性があります。",
   "settings.clearAllData": "収集済みデータをすべてクリア",
-  "settings.clearDataDesc": "すべての監査ログ、容量履歴、エンジン統計、ディスクグループを削除します。連携、ルール、設定は保持されます。",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "確認のため DELETE と入力してください",
   "engine.control": "エンジン制御",
   "engine.executionMode": "実行モード",

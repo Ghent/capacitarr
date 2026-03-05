@@ -232,7 +232,7 @@
   "settings.auditRetention": "Bevarande av Revisionslogg",
   "settings.retentionWarning": "Obegränsat bevarande kommer att göra att databasen växer kontinuerligt. Detta kan så småningom påverka prestandan.",
   "settings.clearAllData": "Rensa All Insamlad Data",
-  "settings.clearDataDesc": "Tar bort alla revisionsloggar, kapacitetshistorik, motorstatistik och diskgrupper. Integrationer, regler och inställningar bevaras.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Skriv DELETE för att bekräfta",
   "engine.control": "Motorstyrning",
   "engine.executionMode": "Exekveringsläge",

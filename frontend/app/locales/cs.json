@@ -232,7 +232,7 @@
   "settings.auditRetention": "Uchovávání Auditního Protokolu",
   "settings.retentionWarning": "Neomezené uchovávání způsobí neustálý růst databáze. To může nakonec ovlivnit výkon.",
   "settings.clearAllData": "Vymazat Všechna Shromážděná Data",
-  "settings.clearDataDesc": "Odstraní všechny auditní protokoly, historii kapacity, statistiky modulu a diskové skupiny. Integrace, pravidla a nastavení zůstanou zachovány.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Napište DELETE pro potvrzení",
   "engine.control": "Řízení Modulu",
   "engine.executionMode": "Režim Provádění",

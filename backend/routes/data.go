@@ -43,13 +43,16 @@ func handleDataReset(database *gorm.DB) echo.HandlerFunc {
 		}
 		summary["engineRunStats"] = res.RowsAffected
 
-		// 4. Delete all disk_groups
-		res = database.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&db.DiskGroup{})
+		// 4. Reset transient fields on disk_groups (preserve user thresholds)
+		res = database.Model(&db.DiskGroup{}).Where("1 = 1").Updates(map[string]interface{}{
+			"total_bytes": 0,
+			"used_bytes":  0,
+		})
 		if res.Error != nil {
-			slog.Error("Failed to clear disk groups", "component", "api", "operation", "clear_disk_groups", "error", res.Error)
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to clear disk groups"})
+			slog.Error("Failed to reset disk groups", "component", "api", "operation", "reset_disk_groups", "error", res.Error)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to reset disk groups"})
 		}
-		summary["diskGroups"] = res.RowsAffected
+		summary["diskGroupsReset"] = res.RowsAffected
 
 		// 5. Reset transient fields on integration_configs
 		res = database.Model(&db.IntegrationConfig{}).Where("1 = 1").Updates(map[string]interface{}{

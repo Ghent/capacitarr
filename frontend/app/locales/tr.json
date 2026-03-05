@@ -232,7 +232,7 @@
   "settings.auditRetention": "Denetim Günlüğü Saklama Süresi",
   "settings.retentionWarning": "Süresiz saklama veritabanının sürekli büyümesine neden olur. Bu sonunda performansı etkileyebilir.",
   "settings.clearAllData": "Tüm Toplanan Verileri Temizle",
-  "settings.clearDataDesc": "Tüm denetim günlüklerini, kapasite geçmişini, motor istatistiklerini ve disk gruplarını kaldırır. Entegrasyonlar, kurallar ve tercihler korunur.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Onaylamak için DELETE yazın",
   "engine.control": "Motor Kontrolü",
   "engine.executionMode": "Yürütme Modu",

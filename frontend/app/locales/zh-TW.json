@@ -232,7 +232,7 @@
   "settings.auditRetention": "稽核日誌保留期限",
   "settings.retentionWarning": "無限期保留將導致資料庫持續增長。這最終可能影響效能。",
   "settings.clearAllData": "清除所有收集的資料",
-  "settings.clearDataDesc": "刪除所有稽核日誌、容量歷史、引擎統計和磁碟群組。整合、規則和偏好將被保留。",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "輸入 DELETE 以確認",
   "engine.control": "引擎控制",
   "engine.executionMode": "執行模式",

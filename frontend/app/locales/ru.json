@@ -232,7 +232,7 @@
   "settings.auditRetention": "Хранение Журнала Аудита",
   "settings.retentionWarning": "Бессрочное хранение приведёт к непрерывному росту базы данных. Это может в конечном итоге повлиять на производительность.",
   "settings.clearAllData": "Очистить Все Собранные Данные",
-  "settings.clearDataDesc": "Удаляет все журналы аудита, историю ёмкости, статистику движка и дисковые группы. Интеграции, правила и настройки сохраняются.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Введите DELETE для подтверждения",
   "engine.control": "Управление Движком",
   "engine.executionMode": "Режим Выполнения",

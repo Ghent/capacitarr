@@ -232,7 +232,7 @@
   "settings.auditRetention": "Retenção do Registro de Auditoria",
   "settings.retentionWarning": "A retenção indefinida fará com que o banco de dados cresça continuamente. Isso pode eventualmente afetar o desempenho.",
   "settings.clearAllData": "Limpar Todos os Dados Coletados",
-  "settings.clearDataDesc": "Remove todos os registros de auditoria, histórico de capacidade, estatísticas do motor e grupos de disco. Integrações, regras e preferências são preservadas.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Digite DELETE para confirmar",
   "engine.control": "Controle do Motor",
   "engine.executionMode": "Modo de Execução",

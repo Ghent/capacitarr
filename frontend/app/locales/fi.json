@@ -232,7 +232,7 @@
   "settings.auditRetention": "Tarkastuslokin Säilytys",
   "settings.retentionWarning": "Rajaton säilytys kasvattaa tietokantaa jatkuvasti. Tämä voi lopulta vaikuttaa suorituskykyyn.",
   "settings.clearAllData": "Tyhjennä Kaikki Kerätyt Tiedot",
-  "settings.clearDataDesc": "Poistaa kaikki tarkastuslokit, kapasiteettihistorian, moottorin tilastot ja levyryhmät. Integraatiot, säännöt ja asetukset säilytetään.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Kirjoita DELETE vahvistaaksesi",
   "engine.control": "Moottorin Hallinta",
   "engine.executionMode": "Suoritustila",

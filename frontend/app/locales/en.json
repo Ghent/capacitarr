@@ -249,7 +249,7 @@
   "settings.auditRetention": "Audit Log Retention",
   "settings.retentionWarning": "Indefinite retention will cause the database to grow continuously. This may eventually impact performance.",
   "settings.clearAllData": "Clear All Scraped Data",
-  "settings.clearDataDesc": "Removes all audit logs, capacity history, engine stats, and disk groups. Integrations, rules, and preferences are preserved.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Type DELETE to confirm",
 
   "engine.control": "Engine Control",

@@ -232,7 +232,7 @@
   "settings.auditRetention": "Prüfprotokoll-Aufbewahrung",
   "settings.retentionWarning": "Unbegrenzte Aufbewahrung lässt die Datenbank kontinuierlich wachsen. Dies kann die Leistung beeinträchtigen.",
   "settings.clearAllData": "Alle Gesammelten Daten Löschen",
-  "settings.clearDataDesc": "Entfernt alle Prüfprotokolle, Kapazitätsverläufe, Motorstatistiken und Festplattengruppen. Integrationen, Regeln und Einstellungen bleiben erhalten.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Geben Sie DELETE zur Bestätigung ein",
   "engine.control": "Motorsteuerung",
   "engine.executionMode": "Ausführungsmodus",

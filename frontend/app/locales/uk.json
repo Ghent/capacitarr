@@ -232,7 +232,7 @@
   "settings.auditRetention": "Зберігання Журналу Аудиту",
   "settings.retentionWarning": "Безстрокове зберігання спричинить постійне зростання бази даних. Це може врешті вплинути на продуктивність.",
   "settings.clearAllData": "Очистити Всі Зібрані Дані",
-  "settings.clearDataDesc": "Видаляє всі журнали аудиту, історію ємності, статистику двигуна та дискові групи. Інтеграції, правила та налаштування зберігаються.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Введіть DELETE для підтвердження",
   "engine.control": "Керування Двигуном",
   "engine.executionMode": "Режим Виконання",

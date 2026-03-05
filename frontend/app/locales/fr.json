@@ -232,7 +232,7 @@
   "settings.auditRetention": "Rétention du Journal d'Audit",
   "settings.retentionWarning": "La rétention indéfinie fera croître la base de données en continu. Cela peut éventuellement affecter les performances.",
   "settings.clearAllData": "Effacer Toutes les Données Collectées",
-  "settings.clearDataDesc": "Supprime tous les journaux d'audit, l'historique de capacité, les statistiques du moteur et les groupes de disques. Les intégrations, règles et préférences sont conservées.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Tapez DELETE pour confirmer",
   "engine.control": "Contrôle du Moteur",
   "engine.executionMode": "Mode d'Exécution",

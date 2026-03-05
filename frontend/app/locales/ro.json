@@ -232,7 +232,7 @@
   "settings.auditRetention": "Retenția Jurnalului de Audit",
   "settings.retentionWarning": "Retenția nedefinită va cauza creșterea continuă a bazei de date. Aceasta poate afecta în cele din urmă performanța.",
   "settings.clearAllData": "Șterge Toate Datele Colectate",
-  "settings.clearDataDesc": "Elimină toate jurnalele de audit, istoricul capacității, statisticile motorului și grupurile de discuri. Integrările, regulile și preferințele sunt păstrate.",
+  "settings.clearDataDesc": "Removes all audit logs, capacity history, and engine stats. Disk group thresholds and targets are preserved. Integrations, rules, and preferences are preserved.",
   "settings.typeDeleteToConfirm": "Tastează DELETE pentru confirmare",
   "engine.control": "Controlul Motorului",
   "engine.executionMode": "Modul de Execuție",

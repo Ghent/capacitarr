@@ -142,18 +142,17 @@ func TestDataReset_ClearsAllData(t *testing.T) {
 	if resp.Cleared["engineRunStats"] != 1 {
 		t.Errorf("Expected 1 engine run stat cleared, got %d", resp.Cleared["engineRunStats"])
 	}
-	if resp.Cleared["diskGroups"] != 1 {
-		t.Errorf("Expected 1 disk group cleared, got %d", resp.Cleared["diskGroups"])
+	if resp.Cleared["diskGroupsReset"] != 1 {
+		t.Errorf("Expected 1 disk group reset, got %d", resp.Cleared["diskGroupsReset"])
 	}
 	if resp.Cleared["integrationsReset"] != 1 {
 		t.Errorf("Expected 1 integration reset, got %d", resp.Cleared["integrationsReset"])
 	}
 
-	// Verify tables are actually empty
+	// Verify deleted tables are actually empty
 	database.Model(&db.AuditLog{}).Count(&auditCount)
 	database.Model(&db.LibraryHistory{}).Count(&historyCount)
 	database.Model(&db.EngineRunStats{}).Count(&statsCount)
-	database.Model(&db.DiskGroup{}).Count(&diskCount)
 
 	if auditCount != 0 {
 		t.Errorf("Expected 0 audit logs after reset, got %d", auditCount)
@@ -164,8 +163,28 @@ func TestDataReset_ClearsAllData(t *testing.T) {
 	if statsCount != 0 {
 		t.Errorf("Expected 0 engine run stats after reset, got %d", statsCount)
 	}
-	if diskCount != 0 {
-		t.Errorf("Expected 0 disk groups after reset, got %d", diskCount)
+
+	// Verify disk groups still exist with thresholds preserved but transient fields zeroed
+	var diskGroups []db.DiskGroup
+	database.Find(&diskGroups)
+	if len(diskGroups) != 1 {
+		t.Fatalf("Expected 1 disk group to still exist after reset, got %d", len(diskGroups))
+	}
+	dg := diskGroups[0]
+	if dg.ThresholdPct != 85 {
+		t.Errorf("Expected ThresholdPct preserved at 85, got %v", dg.ThresholdPct)
+	}
+	if dg.TargetPct != 75 {
+		t.Errorf("Expected TargetPct preserved at 75, got %v", dg.TargetPct)
+	}
+	if dg.TotalBytes != 0 {
+		t.Errorf("Expected TotalBytes reset to 0, got %d", dg.TotalBytes)
+	}
+	if dg.UsedBytes != 0 {
+		t.Errorf("Expected UsedBytes reset to 0, got %d", dg.UsedBytes)
+	}
+	if dg.MountPath != "/mnt/media" {
+		t.Errorf("Expected MountPath preserved, got %q", dg.MountPath)
 	}
 
 	// Verify integration transient fields were reset but configs still exist
