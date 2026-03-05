@@ -154,11 +154,17 @@ Each release produces:
 
 ### Docker Image Tags
 
+Every release (including pre-releases) is tagged as `:latest` along with the full version. Stable releases additionally get `:MAJOR` and `:MINOR` convenience tags:
+
 ```
+# All releases
 registry.gitlab.com/starshadow/software/capacitarr:latest
-registry.gitlab.com/starshadow/software/capacitarr:0
-registry.gitlab.com/starshadow/software/capacitarr:0.2
-registry.gitlab.com/starshadow/software/capacitarr:0.2.0
+registry.gitlab.com/starshadow/software/capacitarr:1.0.0-rc.2
+
+# Stable releases only (additionally)
+registry.gitlab.com/starshadow/software/capacitarr:1
+registry.gitlab.com/starshadow/software/capacitarr:1.0
+registry.gitlab.com/starshadow/software/capacitarr:1.0.0
 ```
 
 ## Prerequisites

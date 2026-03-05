@@ -1,3 +1,37 @@
+## [1.0.0-rc.2] - 2026-03-05
+
+### 🚀 Features
+
+- *(ui)* Truncate API keys and reposition effect badge ([23a98e4](https://gitlab.com/starshadow/software/capacitarr/-/commit/23a98e43b744a8f13af808e776edc9098d8a427d))
+- *(auth)* Add auth status endpoint and first-login setup UX ([ec7f68a](https://gitlab.com/starshadow/software/capacitarr/-/commit/ec7f68a112285af7e5a0724bd034f85ee2660edd))
+- *(ui)* Add DateDisplay component with date toggle and settings control ([c69af7e](https://gitlab.com/starshadow/software/capacitarr/-/commit/c69af7eb1fa3ece45969e1d302e4ac3a7b703809))
+- *(plex)* Reimplement OAuth flow client-side and remove backend proxy ([a239c73](https://gitlab.com/starshadow/software/capacitarr/-/commit/a239c73b588c3f7051602ddbd289d89347ab2ec8))
+- *(rules)* Add lastplayed, requestedby, incollection, watchedbyreq rule fields with date-aware operators ([75b787d](https://gitlab.com/starshadow/software/capacitarr/-/commit/75b787db75eb17bf64964e1f326906a18d6d87ae))
+- *(approval)* Add approval queue with approve/reject endpoints and UI column ([d707eaf](https://gitlab.com/starshadow/software/capacitarr/-/commit/d707eafd3028cae2094b25d659802ef0ea4ec3f9))
+- *(approval)* Add snooze mechanism with configurable duration and auto-clear ([48dab85](https://gitlab.com/starshadow/software/capacitarr/-/commit/48dab850f3c358ab6c202cc87bd1f6a6dac6887f))
+- *(approval)* Add snooze states and undo UI for approval workflow ([8fa13f5](https://gitlab.com/starshadow/software/capacitarr/-/commit/8fa13f5491b5d62883f9cad51db9b80087c843dc))
+- Readarr full support, fix undo/run-now/capacity-chart, approval card enhancements ([23a95ff](https://gitlab.com/starshadow/software/capacitarr/-/commit/23a95ff9923e9885cd8318af84228b81461298e9))
+- *(approval)* Move checkboxes to right of snooze icon and add season-level selection ([392b8f8](https://gitlab.com/starshadow/software/capacitarr/-/commit/392b8f8adfa48469ca18d9e56f32c9c0a1d90321))
+- *(approval)* Add approve/snooze buttons to individual season rows ([e045bc8](https://gitlab.com/starshadow/software/capacitarr/-/commit/e045bc81b3bc1bf8273b0b32fa31dae4eb600e52))
+- *(engine)* Prefer season-level audit entries over show-level for granular approval ([148268c](https://gitlab.com/starshadow/software/capacitarr/-/commit/148268c3bb0757b209b823339adbfac047315d52))
+- *(site)* Add GitLab repo stats widget to header ([df19889](https://gitlab.com/starshadow/software/capacitarr/-/commit/df19889d90bc379a0871d8549ad34c0b9479d3d1))
+
+### 🐛 Bug Fixes
+
+- Resolve TypeScript strict mode issues from Phase 7 review ([be6399d](https://gitlab.com/starshadow/software/capacitarr/-/commit/be6399df4a27098beb277d566e3f47bc2322af4a))
+- *(i18n)* Disable optimizeTranslationDirective to suppress deprecation warning ([8a45e67](https://gitlab.com/starshadow/software/capacitarr/-/commit/8a45e677cbc99164ef2efa52eeb15cfed3d4956e))
+- *(rules)* Include lastplayed in conflict detection and map date-aware operators ([3c76126](https://gitlab.com/starshadow/software/capacitarr/-/commit/3c76126a6b471e6ca098f2c8b0ac789d77c50332))
+- *(rule-builder)* Replace combobox with free-text input and suggestion dropdown ([8a5a26f](https://gitlab.com/starshadow/software/capacitarr/-/commit/8a5a26f06a6b75d729203a10b1153dc6113a7de0))
+- *(settings)* Group exact dates toggle with timezone and clock format ([2f83b52](https://gitlab.com/starshadow/software/capacitarr/-/commit/2f83b52ee95ca3e72e7a0323654e25e91700c35b))
+- *(approval)* Reorder v-if chain to check snooze before pending approval ([9a8fe97](https://gitlab.com/starshadow/software/capacitarr/-/commit/9a8fe97943654b9753ed092c65cdf6f10d7545c0))
+- *(approval)* Simplify snooze display to compact icons without timestamp ([720bb22](https://gitlab.com/starshadow/software/capacitarr/-/commit/720bb227f94dbbdfaebc3a2bd71b848788228c21))
+- *(rules)* Skip snoozed items when calculating deletion line index ([14d25ee](https://gitlab.com/starshadow/software/capacitarr/-/commit/14d25ee3d5936a780ebcdf3eb0472e19e8f6294d))
+- Normalize dry_run to dry-run across frontend and backend ([6f7bd8c](https://gitlab.com/starshadow/software/capacitarr/-/commit/6f7bd8c7b8c6a02385bc4503f2f6ad1ddf6502ab))
+- *(settings)* Show masked API key placeholder when key exists but is hashed ([5b2002e](https://gitlab.com/starshadow/software/capacitarr/-/commit/5b2002efdd4f75b436d44e63bf2edb892734746e))
+- Standardize error responses, fix cache lifecycle, improve error logging ([77ce154](https://gitlab.com/starshadow/software/capacitarr/-/commit/77ce154f9d5dd62811508e654bb44e94e16f9bfe))
+- *(approval)* Show season approve/snooze buttons and align size column ([87f13e3](https://gitlab.com/starshadow/software/capacitarr/-/commit/87f13e357b0a23c25898c6d833691bb3b1793f26))
+- Correct site and docs content accuracy ([e116e51](https://gitlab.com/starshadow/software/capacitarr/-/commit/e116e510f33a57f5f7bda2c842b44eced206cd23))
+- *(site)* Replace Nuxt UI Docs TOC link with GitLab repo link ([e7c262d](https://gitlab.com/starshadow/software/capacitarr/-/commit/e7c262d2e42f5ad8855284f9c95a0cd563dc07a9))
 ## [1.0.0-rc.1] - 2026-03-03
 
 ### 🐛 Bug Fixes

@@ -167,14 +167,14 @@ release:docker:
       VERSION=${CI_COMMIT_TAG#v}
       IMAGE="${CI_REGISTRY_IMAGE}"
 
-      # Always tag with the full version (e.g., 1.0.0 or 1.0.0-rc.1)
-      TAGS="--tag ${IMAGE}:${VERSION}"
+      # Always tag with the full version (e.g., 1.0.0 or 1.0.0-rc.1) and :latest
+      TAGS="--tag ${IMAGE}:${VERSION} --tag ${IMAGE}:latest"
 
-      # Only add :latest, :MAJOR, :MINOR for stable releases (no hyphen = no pre-release suffix)
+      # Add :MAJOR and :MINOR tags for stable releases only (no hyphen = no pre-release suffix)
       if echo "$VERSION" | grep -qv '-'; then
         MAJOR=$(echo "$VERSION" | cut -d. -f1)
         MINOR=$(echo "$VERSION" | cut -d. -f1-2)
-        TAGS="$TAGS --tag ${IMAGE}:latest --tag ${IMAGE}:${MAJOR} --tag ${IMAGE}:${MINOR}"
+        TAGS="$TAGS --tag ${IMAGE}:${MAJOR} --tag ${IMAGE}:${MINOR}"
       fi
 
       docker buildx build \
