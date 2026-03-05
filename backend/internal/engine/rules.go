@@ -43,11 +43,7 @@ func applyRules(item integrations.MediaItem, rules []db.CustomRule) (bool, float
 		if matched {
 			ruleName := fmt.Sprintf("%s %s %s", rule.Field, rule.Operator, rule.Value)
 
-			// Use the new effect field if set; fall back to legacy type+intensity
 			effect := rule.Effect
-			if effect == "" {
-				effect = legacyEffect(rule.Type, rule.Intensity)
-			}
 
 			switch effect {
 			case "always_keep":
@@ -127,26 +123,7 @@ func applyRules(item integrations.MediaItem, rules []db.CustomRule) (bool, float
 	return false, modifier, strings.Join(reasons, ", "), ruleFactors
 }
 
-// legacyEffect converts old type+intensity fields to the new effect value.
-// Used for backward compatibility with rules that haven't been migrated.
-func legacyEffect(ruleType, intensity string) string {
-	switch {
-	case ruleType == "protect" && intensity == "absolute":
-		return "always_keep"
-	case ruleType == "protect" && intensity == "strong":
-		return "prefer_keep"
-	case ruleType == "protect":
-		return "lean_keep"
-	case ruleType == "target" && intensity == "absolute":
-		return "always_remove"
-	case ruleType == "target" && intensity == "strong":
-		return "prefer_remove"
-	case ruleType == "target":
-		return "lean_remove"
-	default:
-		return "lean_keep"
-	}
-}
+
 
 // matchesRuleWithValue checks if a media item matches a rule and returns the actual
 // item value that triggered (or confirmed) the match. For positive matches on array
