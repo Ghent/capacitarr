@@ -25,7 +25,7 @@ type LibraryHistory struct {
 	TotalCapacity int64     `gorm:"not null" json:"totalCapacity"`
 	UsedCapacity  int64     `gorm:"not null" json:"usedCapacity"`
 	Resolution    string    `gorm:"index;not null" json:"resolution"`   // "raw", "hourly", "daily", "weekly"
-	DiskGroupID   *uint     `gorm:"index" json:"diskGroupId,omitempty"` // Optional FK to DiskGroup
+	DiskGroupID   *uint     `gorm:"index" json:"diskGroupId,omitempty"` // FK to DiskGroup (ON DELETE CASCADE)
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
@@ -85,45 +85,74 @@ type PreferenceSet struct {
 	UpdatedAt             time.Time `json:"updatedAt"`
 }
 
-// CustomRule stores custom rules that influence media scoring via keep/remove effects
+// CustomRule stores custom rules that influence media scoring via keep/remove effects.
+// The deprecated Type and Intensity fields have been removed in the schema refactor.
 type CustomRule struct {
-	ID            uint   `gorm:"primarykey" json:"id"`
-	IntegrationID *uint  `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; nil = legacy global rule
-	Field         string `gorm:"not null" json:"field"`      // e.g. "quality", "tag", "rating"
-	Operator      string `gorm:"not null" json:"operator"`   // e.g. "==", "contains", ">"
-	Value         string `gorm:"not null" json:"value"`      // e.g. "4K", "anime", "7.5"
-	Effect        string `gorm:"not null" json:"effect"`     // e.g. "always_keep", "prefer_remove"
-	Enabled       bool   `gorm:"default:true;not null" json:"enabled"`
-	SortOrder     int    `gorm:"default:0;not null" json:"sortOrder"`
-	// Deprecated — kept for migration compatibility
-	Type      string    `json:"type,omitempty"`
-	Intensity string    `json:"intensity,omitempty"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID            uint      `gorm:"primarykey" json:"id"`
+	IntegrationID *uint     `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; nil = legacy global rule
+	Field         string    `gorm:"not null" json:"field"`      // e.g. "quality", "tag", "rating"
+	Operator      string    `gorm:"not null" json:"operator"`   // e.g. "==", "contains", ">"
+	Value         string    `gorm:"not null" json:"value"`      // e.g. "4K", "anime", "7.5"
+	Effect        string    `gorm:"not null" json:"effect"`     // e.g. "always_keep", "prefer_remove"
+	Enabled       bool      `gorm:"default:true;not null" json:"enabled"`
+	SortOrder     int       `gorm:"default:0;not null" json:"sortOrder"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
-// Audit log action constants — used in AuditLog.Action field.
+// Approval queue status constants — used in ApprovalQueueItem.Status field.
 const (
-	ActionDeleted           = "Deleted"
-	ActionDryRun            = "Dry-Run"
-	ActionQueuedForApproval = "Queued for Approval"
-	ActionApproved          = "Approved"
-	ActionRejected          = "Rejected"
+	StatusPending  = "pending"
+	StatusApproved = "approved"
+	StatusRejected = "rejected"
 )
 
-// AuditLog stores a history of what was deleted, when, and why
-type AuditLog struct {
+// ApprovalQueueItem represents an item in the approval queue (state machine).
+// Items flow through: pending → approved → (deletion) OR pending → rejected (snoozed).
+type ApprovalQueueItem struct {
 	ID            uint       `gorm:"primarykey" json:"id"`
 	MediaName     string     `gorm:"index;not null" json:"mediaName"`
-	MediaType     string     `gorm:"not null" json:"mediaType"`
-	Reason        string     `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)" — backward compat
-	ScoreDetails  string     `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
-	Action        string     `gorm:"not null" json:"action"`        // "Deleted", "Dry-Run", "Queued for Approval", "Approved", "Rejected"
-	SizeBytes     int64      `json:"sizeBytes"`
-	IntegrationID *uint      `json:"integrationId,omitempty" gorm:"column:integration_id"`
-	ExternalID    string     `json:"externalId,omitempty" gorm:"column:external_id"`
-	SnoozedUntil  *time.Time `json:"snoozedUntil,omitempty" gorm:"column:snoozed_until"`
+	MediaType     string     `gorm:"not null" json:"mediaType"`                                // movie, show, season, episode, artist, album, book
+	Reason        string     `gorm:"not null" json:"reason"`                                   // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)"
+	ScoreDetails  string     `gorm:"type:text" json:"scoreDetails"`                            // JSON-encoded []ScoreFactor
+	SizeBytes     int64      `gorm:"not null;default:0" json:"sizeBytes"`                      // File size in bytes
+	IntegrationID uint       `gorm:"not null" json:"integrationId"`                            // FK to IntegrationConfig (required)
+	ExternalID    string     `gorm:"not null;default:''" json:"externalId"`                    // External ID in the integration
+	Status        string     `gorm:"not null;default:'pending'" json:"status"`                 // pending, approved, rejected
+	SnoozedUntil  *time.Time `gorm:"column:snoozed_until" json:"snoozedUntil,omitempty"`      // When snooze expires (rejected items)
 	CreatedAt     time.Time  `json:"createdAt"`
+	UpdatedAt     time.Time  `json:"updatedAt"`
+}
+
+// TableName returns the database table name for ApprovalQueueItem.
+func (ApprovalQueueItem) TableName() string {
+	return "approval_queue"
+}
+
+// Audit log action constants — used in AuditLogEntry.Action field.
+const (
+	ActionDeleted   = "deleted"
+	ActionDryRun    = "dry_run"
+	ActionDryDelete = "dry_delete"
+)
+
+// AuditLogEntry stores a permanent record of deletions and dry-runs.
+// This table is append-only — entries are never modified after creation.
+type AuditLogEntry struct {
+	ID            uint      `gorm:"primarykey" json:"id"`
+	MediaName     string    `gorm:"index;not null" json:"mediaName"`
+	MediaType     string    `gorm:"not null" json:"mediaType"`
+	Reason        string    `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)"
+	ScoreDetails  string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
+	Action        string    `gorm:"not null" json:"action"`        // "deleted", "dry_run", "dry_delete"
+	SizeBytes     int64     `gorm:"not null;default:0" json:"sizeBytes"`
+	IntegrationID *uint     `json:"integrationId,omitempty" gorm:"column:integration_id"` // FK to IntegrationConfig (nullable — preserved on integration delete)
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
+// TableName returns the database table name for AuditLogEntry.
+func (AuditLogEntry) TableName() string {
+	return "audit_log"
 }
 
 // EngineRunStats stores one row per engine evaluation cycle, persisting metrics
@@ -181,9 +210,10 @@ type InAppNotification struct {
 // ActivityEvent stores system-level activity events for the dashboard feed.
 // These complement audit logs (which track media actions) by recording
 // operational events such as engine runs, settings changes, and logins.
+// Retention is fixed at 7 days, auto-pruned by the daily cron job.
 type ActivityEvent struct {
 	ID        uint      `gorm:"primarykey" json:"id"`
-	EventType string    `gorm:"not null;index" json:"eventType"` // "engine_start", "engine_complete", "engine_error", "settings_changed", "login", "integration_test", "integration_added", "integration_removed"
+	EventType string    `gorm:"not null;index" json:"eventType"` // "engine_start", "engine_complete", etc.
 	Message   string    `gorm:"not null" json:"message"`         // Human-readable: "Engine run completed: evaluated 97, flagged 12"
 	Metadata  string    `gorm:"type:text" json:"metadata"`       // Optional JSON for extra data
 	CreatedAt time.Time `json:"createdAt"`
