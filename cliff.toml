@@ -18,6 +18,9 @@ body = """
             {% if commit.breaking %}[**breaking**] {% endif %}\
             {{ commit.message | upper_first }} \
             ([{{ commit.id | truncate(length=7, end="") }}](<REPO>/-/commit/{{ commit.id }}))\
+            {% for footer in commit.footers %}\
+                {% if footer.token == "Reported-by" %} — reported by {{ footer.value }}{% endif %}\
+            {% endfor %}\
     {% endfor %}
 {% endfor %}
 """
