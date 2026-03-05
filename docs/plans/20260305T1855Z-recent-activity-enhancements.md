@@ -1,6 +1,6 @@
 # Service Layer, Event Bus, and Real-Time Activity
 
-**Status:** 🚧 In Progress (Phases 0–4, 8 complete; Phases 5–7, 9–16 remaining)
+**Status:** 🚧 In Progress (Phases 0–5, 7–9, 14 complete; Phases 6, 10–13, 15–16 remaining)
 **Created:** 2026-03-05T18:55Z
 **Scope:** Full-stack architectural refactor (Go backend + Vue frontend)
 **Branch:** `feature/service-layer-event-bus` (created from `main`)
@@ -601,7 +601,7 @@ Publishes: `DataResetEvent`
 - `backend/internal/services/notification_channel_test.go`
 - `backend/internal/services/data_test.go`
 
-### Phase 5: Wire Services into Route Handlers
+### Phase 5: Wire Services into Route Handlers ✅
 
 **Goal:** Refactor all route handlers to use services instead of inline business logic.
 
@@ -669,7 +669,7 @@ type Registry struct {
 
 **Remove:** All inline `notifications.Dispatch(...)` calls in route handlers and poller code (replaced by event bus subscription)
 
-### Phase 7: Refactor Poller / Engine Orchestrator
+### Phase 7: Refactor Poller / Engine Orchestrator ✅
 
 **Goal:** Refactor `poll()` to use services instead of global state.
 
@@ -733,7 +733,7 @@ protected.GET("/events", sseBroadcaster.HandleSSE)
 - `backend/internal/events/sse_broadcaster_test.go`
 - `backend/routes/sse_test.go`
 
-### Phase 9: Frontend — useEventStream Composable
+### Phase 9: Frontend — useEventStream Composable ✅
 
 **New file:** `frontend/app/composables/useEventStream.ts`
 
@@ -851,7 +851,7 @@ New imports from `lucide-vue-next`: `SlidersHorizontalIcon`, `AlarmClockOffIcon`
 - Fallback to API health check if SSE is not supported
 - Show reconnection state during SSE reconnect attempts
 
-### Phase 14: Activity Event Retention (7-Day Auto-Cleanup)
+### Phase 14: Activity Event Retention (7-Day Auto-Cleanup) ✅
 
 Activity events are transient by design — they exist for real-time dashboard context, not permanent records. Retention is fixed at 7 days, not user-configurable.
 
