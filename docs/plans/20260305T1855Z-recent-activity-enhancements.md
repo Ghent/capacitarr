@@ -1,6 +1,6 @@
 # Service Layer, Event Bus, and Real-Time Activity
 
-**Status:** 🚧 In Progress (Phases 0–5, 7–9, 14 complete; Phases 6, 10–13, 15–16 remaining)
+**Status:** 🚧 In Progress (Phases 0–9, 11, 14 complete; Phases 10, 12–13, 15–16 remaining)
 **Created:** 2026-03-05T18:55Z
 **Scope:** Full-stack architectural refactor (Go backend + Vue frontend)
 **Branch:** `feature/service-layer-event-bus` (created from `main`)
@@ -657,7 +657,7 @@ type Registry struct {
 - Pass `Registry` to route registration functions
 - Stop all services on shutdown
 
-### Phase 6: Notification Dispatcher (Subscriber)
+### Phase 6: Notification Dispatcher (Subscriber) ✅
 
 **Goal:** Replace inline `notifications.Dispatch()` calls with an event bus subscriber.
 
@@ -790,7 +790,7 @@ export function useEventStream() {
 - Query new `GET /api/v1/approval-queue` endpoint (not filtered audit endpoint)
 - Subscribe to SSE events for real-time queue updates (new items, removals after deletion)
 
-### Phase 11: Frontend — Audit Page Refactor
+### Phase 11: Frontend — Audit Page Refactor ✅
 
 **Goal:** The `/audit` page becomes a clean history-only view. Approval queue items are no longer shown here — they live exclusively on the dashboard via `ApprovalQueueCard`.
 
