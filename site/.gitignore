@@ -32,5 +32,8 @@ public/screenshots/*.png
 public/screenshots/*.jpg
 public/screenshots/*.webp
 
+# Build-time generated repo stats
+app/repo-stats.json
+
 # Preview directory
 .preview

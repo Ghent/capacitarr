@@ -6,6 +6,7 @@
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
+    "pregenerate": "node scripts/fetch-repo-stats.mjs",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "sync-docs": "node scripts/sync-docs.mjs"

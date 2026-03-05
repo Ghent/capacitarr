@@ -23,6 +23,8 @@ const { header } = useAppConfig()
     />
 
     <template #right>
+      <RepoStats class="hidden lg:flex mr-2" />
+
       <UContentSearchButton
         v-if="header?.search"
         class="lg:hidden"
