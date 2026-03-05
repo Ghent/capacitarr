@@ -347,14 +347,14 @@ func TestDeleteProtection_NonExistentID(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	// GORM's Delete with a non-existent ID doesn't error — it just affects 0 rows.
-	// The handler returns 204 regardless.
+	// The handler now looks up the rule before deleting (to include details in
+	// the activity event), so a non-existent ID returns 404.
 	req := testutil.AuthenticatedRequest(t, http.MethodDelete, "/api/custom-rules/99999", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNoContent {
-		t.Errorf("Expected 204 even for non-existent ID, got %d: %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("Expected 404 for non-existent ID, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

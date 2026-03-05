@@ -3,6 +3,7 @@ package routes
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -124,6 +125,9 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, database *gor
 			SameSite: http.SameSiteLaxMode,
 		})
 
+		// Log login activity event
+		db.LogActivity(database, db.EventLogin, fmt.Sprintf("User '%s' logged in", user.Username))
+
 		return c.JSON(http.StatusOK, map[string]string{"message": "success", "token": tokenString})
 	}, LoginRateLimit(loginRL))
 
@@ -166,6 +170,8 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, database *gor
 		if err := database.Model(&user).Update("password", string(hashed)).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update password"})
 		}
+
+		db.LogActivity(database, db.EventPasswordChanged, fmt.Sprintf("Password changed for user '%s'", username))
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "Password changed successfully"})
 	})

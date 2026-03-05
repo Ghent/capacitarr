@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -30,6 +31,10 @@ func RegisterPreferenceRoutes(protected *echo.Group, database *gorm.DB) {
 		}
 		// Force ID to 1 to ensure a single singleton record
 		payload.ID = 1
+
+		// Snapshot current execution mode for change detection
+		var oldPrefs db.PreferenceSet
+		database.FirstOrCreate(&oldPrefs, db.PreferenceSet{ID: 1})
 
 		// Validate weight values (0-10)
 		weights := []int{
@@ -76,6 +81,14 @@ func RegisterPreferenceRoutes(protected *echo.Group, database *gorm.DB) {
 
 		// Apply dynamic log level
 		logger.SetLevel(payload.LogLevel)
+
+		// Log engine mode change if execution_mode was modified
+		if oldPrefs.ExecutionMode != payload.ExecutionMode {
+			db.LogActivity(database, db.EventEngineModeChanged, fmt.Sprintf("Engine mode changed from %s to %s", oldPrefs.ExecutionMode, payload.ExecutionMode))
+		}
+
+		// Log settings change activity event
+		db.LogActivity(database, db.EventSettingsChanged, "Settings updated")
 
 		return c.JSON(http.StatusOK, payload)
 	})

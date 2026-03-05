@@ -104,6 +104,18 @@ export interface AuditResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Activity Event (system events from /api/v1/activity/recent)
+// ---------------------------------------------------------------------------
+
+export interface ActivityEvent {
+  id: number;
+  eventType: string;
+  message: string;
+  metadata: string;
+  createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // Engine / Worker Stats
 // ---------------------------------------------------------------------------
 

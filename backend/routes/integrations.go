@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -82,6 +83,9 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create integration"})
 		}
 
+		// Log integration added activity event
+		db.LogActivity(database, db.EventIntegrationAdded, fmt.Sprintf("Integration added: %s (%s)", config.Name, config.Type))
+
 		// Mask API key in response
 		config.APIKey = maskAPIKey(config.APIKey)
 		return c.JSON(http.StatusCreated, config)
@@ -137,9 +141,18 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
 		}
 
+		// Look up the integration before deleting to include its name in the activity event
+		var existing db.IntegrationConfig
+		if lookupErr := database.First(&existing, id).Error; lookupErr != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Integration not found"})
+		}
+
 		if err := database.Delete(&db.IntegrationConfig{}, id).Error; err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete integration"})
 		}
+
+		// Log integration removed activity event
+		db.LogActivity(database, db.EventIntegrationRemoved, fmt.Sprintf("Integration removed: %s (%s)", existing.Name, existing.Type))
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "Integration deleted"})
 	})
@@ -169,6 +182,7 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 		if req.Type == intTypeTautulli {
 			tautulli := integrations.NewTautulliClient(req.URL, req.APIKey)
 			if err := tautulli.TestConnection(); err != nil {
+				db.LogActivity(database, db.EventIntegrationTestFailed, fmt.Sprintf("Integration test failed: %s — %s", req.Type, err.Error()))
 				return c.JSON(http.StatusOK, map[string]interface{}{
 					"success": false,
 					"error":   err.Error(),
@@ -183,6 +197,7 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 		if req.Type == intTypeOverseerr {
 			overseerr := integrations.NewOverseerrClient(req.URL, req.APIKey)
 			if err := overseerr.TestConnection(); err != nil {
+				db.LogActivity(database, db.EventIntegrationTestFailed, fmt.Sprintf("Integration test failed: %s — %s", req.Type, err.Error()))
 				return c.JSON(http.StatusOK, map[string]interface{}{
 					"success": false,
 					"error":   err.Error(),
@@ -200,6 +215,7 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 		}
 
 		if err := client.TestConnection(); err != nil {
+			db.LogActivity(database, db.EventIntegrationTestFailed, fmt.Sprintf("Integration test failed: %s — %s", req.Type, err.Error()))
 			return c.JSON(http.StatusOK, map[string]interface{}{
 				"success": false,
 				"error":   err.Error(),
@@ -210,6 +226,9 @@ func RegisterIntegrationRoutes(g *echo.Group, database *gorm.DB) {
 		if req.IntegrationID != nil {
 			RuleValueCache.InvalidatePrefix(strconv.Itoa(*req.IntegrationID) + ":")
 		}
+
+		// Log integration test activity event
+		db.LogActivity(database, db.EventIntegrationTest, fmt.Sprintf("Integration test successful: %s", req.Type))
 
 		return c.JSON(http.StatusOK, map[string]interface{}{
 			"success": true,

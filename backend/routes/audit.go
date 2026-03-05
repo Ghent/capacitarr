@@ -20,6 +20,26 @@ import (
 
 // RegisterAuditRoutes sets up the API endpoints for audit logs
 func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
+	// Recent audit: lightweight list of the most recent N entries (for dashboard mini-feed)
+	g.GET("/audit/recent", func(c echo.Context) error {
+		limit := 5
+		if l := c.QueryParam("limit"); l != "" {
+			if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
+		if limit > 50 {
+			limit = 50
+		}
+
+		logs := make([]db.AuditLog, 0, limit)
+		if err := database.Order("created_at desc").Limit(limit).Find(&logs).Error; err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch recent audit logs"})
+		}
+
+		return c.JSON(http.StatusOK, logs)
+	})
+
 	// Grouped audit: show-level and season-level entries grouped into a tree
 	g.GET("/audit/grouped", func(c echo.Context) error {
 		limit := 200
@@ -249,6 +269,8 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 			})
 		}
 
+		db.LogActivity(database, db.EventApprovalApproved, fmt.Sprintf("Approved: %s", entry.MediaName))
+
 		return c.JSON(http.StatusOK, map[string]string{"status": "approved"})
 	})
 
@@ -287,6 +309,8 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 				"error": "Failed to update audit entry",
 			})
 		}
+
+		db.LogActivity(database, db.EventApprovalRejected, fmt.Sprintf("Rejected: %s", entry.MediaName))
 
 		return c.JSON(http.StatusOK, map[string]string{"status": "rejected"})
 	})

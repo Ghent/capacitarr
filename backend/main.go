@@ -226,6 +226,9 @@ func main() {
 		e.GET("/*", spaHandler(fsys, ""))
 	}
 
+	// Log server start activity event
+	db.LogActivity(db.DB, db.EventServerStarted, fmt.Sprintf("Capacitarr started (v%s)", version))
+
 	slog.Info("Server initialized, starting listener", "component", "main", "port", cfg.Port)
 
 	// Graceful shutdown

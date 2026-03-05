@@ -34,8 +34,23 @@ var (
 )
 
 // gitlabReleasesURL is the GitLab API endpoint for Capacitarr releases.
-// Extracted as a package-level variable so tests can override it.
+// Extracted as a package-level variable so tests can override it via
+// SetGitlabReleasesURLForTest.
 var gitlabReleasesURL = "https://gitlab.com/api/v4/projects/79833150/releases?per_page=1"
+
+// SetGitlabReleasesURLForTest overrides the GitLab releases URL.
+// Intended for use in tests only.
+func SetGitlabReleasesURLForTest(url string) {
+	gitlabReleasesURL = url
+}
+
+// ResetVersionCacheForTest clears the cached version check result so that
+// tests start with a cold cache. Intended for use in tests only.
+func ResetVersionCacheForTest() {
+	versionCheckMu.Lock()
+	cachedVersionCheck = nil
+	versionCheckMu.Unlock()
+}
 
 // RegisterVersionRoutes sets up the version check endpoint on the protected group.
 func RegisterVersionRoutes(g *echo.Group, database *gorm.DB, appVersion string) {

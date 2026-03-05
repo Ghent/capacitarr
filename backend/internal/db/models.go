@@ -177,3 +177,14 @@ type InAppNotification struct {
 	EventType string    `gorm:"not null" json:"eventType"` // "threshold_breach", "deletion_executed", etc.
 	CreatedAt time.Time `json:"createdAt"`
 }
+
+// ActivityEvent stores system-level activity events for the dashboard feed.
+// These complement audit logs (which track media actions) by recording
+// operational events such as engine runs, settings changes, and logins.
+type ActivityEvent struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	EventType string    `gorm:"not null;index" json:"eventType"` // "engine_start", "engine_complete", "engine_error", "settings_changed", "login", "integration_test", "integration_added", "integration_removed"
+	Message   string    `gorm:"not null" json:"message"`         // Human-readable: "Engine run completed: evaluated 97, flagged 12"
+	Metadata  string    `gorm:"type:text" json:"metadata"`       // Optional JSON for extra data
+	CreatedAt time.Time `json:"createdAt"`
+}

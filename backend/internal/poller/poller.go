@@ -110,6 +110,7 @@ func poll() {
 			Title:   "Engine Error",
 			Message: fmt.Sprintf("Failed to load integrations: %v", err),
 		})
+		db.LogActivity(db.DB, db.EventEngineError, fmt.Sprintf("Engine error: failed to load integrations: %v", err))
 		return
 	}
 
@@ -127,6 +128,9 @@ func poll() {
 	if err := db.DB.Create(&runStats).Error; err != nil {
 		slog.Error("Failed to create engine run stats", "component", "poller", "operation", "create_stats", "error", err)
 	}
+
+	// Log engine start activity event
+	db.LogActivity(db.DB, db.EventEngineStart, fmt.Sprintf("Engine run started in %s mode", prefs.ExecutionMode))
 
 	slog.Debug("Poll cycle starting", "component", "poller",
 		"enabledIntegrations", len(configs),
@@ -237,6 +241,10 @@ func poll() {
 			"Mode":      prefs.ExecutionMode,
 		},
 	})
+
+	// Log engine complete activity event
+	db.LogActivity(db.DB, db.EventEngineComplete,
+		fmt.Sprintf("Engine run completed: evaluated %d, flagged %d", evaluated, flagged))
 
 	slog.Debug("Poll cycle complete", "component", "poller",
 		"duration", time.Since(pollStart).String(),

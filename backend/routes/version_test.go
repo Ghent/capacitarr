@@ -11,9 +11,32 @@ import (
 	"capacitarr/routes"
 )
 
+// mockGitLabReleases spins up a local HTTP server that returns a canned
+// GitLab-style releases response, then configures the version checker to
+// use it. The server is closed and the original URL restored when the test
+// finishes.
+func mockGitLabReleases(t *testing.T, responseJSON string) {
+	t.Helper()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(responseJSON))
+	}))
+	t.Cleanup(func() {
+		srv.Close()
+		routes.SetGitlabReleasesURLForTest(
+			"https://gitlab.com/api/v4/projects/79833150/releases?per_page=1",
+		)
+	})
+
+	routes.SetGitlabReleasesURLForTest(srv.URL)
+}
+
 // ---------- GET /api/version/check ----------
 
 func TestVersionCheck_DisabledByPreference(t *testing.T) {
+	routes.ResetVersionCacheForTest()
+
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
@@ -52,6 +75,9 @@ func TestVersionCheck_DisabledByPreference(t *testing.T) {
 }
 
 func TestVersionCheck_ReturnsCurrentVersion(t *testing.T) {
+	routes.ResetVersionCacheForTest()
+	mockGitLabReleases(t, `[{"tag_name":"v1.2.3"}]`)
+
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
@@ -64,7 +90,9 @@ func TestVersionCheck_ReturnsCurrentVersion(t *testing.T) {
 	}
 
 	var resp struct {
-		Current string `json:"current"`
+		Current         string `json:"current"`
+		Latest          string `json:"latest"`
+		UpdateAvailable bool   `json:"updateAvailable"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
@@ -72,6 +100,12 @@ func TestVersionCheck_ReturnsCurrentVersion(t *testing.T) {
 
 	if resp.Current != "v0.0.0-test" {
 		t.Errorf("Expected current version 'v0.0.0-test', got %q", resp.Current)
+	}
+	if resp.Latest != "v1.2.3" {
+		t.Errorf("Expected latest version 'v1.2.3', got %q", resp.Latest)
+	}
+	if !resp.UpdateAvailable {
+		t.Error("Expected updateAvailable to be true when latest > current")
 	}
 }
 

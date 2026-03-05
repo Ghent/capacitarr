@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -72,6 +73,7 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 			slog.Error("Failed to update custom rule", "component", "api", "operation", "update_rule", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update rule"})
 		}
+		db.LogActivity(database, db.EventRuleUpdated, fmt.Sprintf("Rule updated: %s %s %s → %s", updated.Field, updated.Operator, updated.Value, updated.Effect))
 		return c.JSON(http.StatusOK, updated)
 	})
 
@@ -124,15 +126,24 @@ func RegisterRuleRoutes(protected *echo.Group, database *gorm.DB) {
 			slog.Error("Failed to create custom rule", "component", "api", "operation", "create_rule", "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create rule"})
 		}
+		db.LogActivity(database, db.EventRuleCreated, fmt.Sprintf("Rule created: %s %s %s → %s", newRule.Field, newRule.Operator, newRule.Value, newRule.Effect))
 		return c.JSON(http.StatusCreated, newRule)
 	})
 
 	protected.DELETE("/custom-rules/:id", func(c echo.Context) error {
 		id := c.Param("id")
+
+		// Look up the rule before deleting to include details in the activity event
+		var existing db.CustomRule
+		if err := database.First(&existing, id).Error; err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Rule not found"})
+		}
+
 		if err := database.Delete(&db.CustomRule{}, id).Error; err != nil {
 			slog.Error("Failed to delete custom rule", "component", "api", "operation", "delete_rule", "id", id, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete rule"})
 		}
+		db.LogActivity(database, db.EventRuleDeleted, fmt.Sprintf("Rule deleted: %s %s %s", existing.Field, existing.Operator, existing.Value))
 		return c.NoContent(http.StatusNoContent)
 	})
 }

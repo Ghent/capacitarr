@@ -211,22 +211,44 @@
             </ClientOnly>
           </div>
 
-          <!-- Space Freed -->
-          <div class="rounded-lg bg-muted px-3 py-2">
-            <div class="text-[11px] text-muted-foreground mb-0.5">
-              {{ $t('dashboard.spaceFreed') }} · {{ dateRangeLabel }}
+          <!-- Recent Activity -->
+          <div class="rounded-lg bg-muted px-3 py-2 flex flex-col">
+            <div class="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
+              <span>{{ $t('dashboard.recentActivity') }}</span>
+              <span class="text-muted-foreground/40">·</span>
+              <NuxtLink to="/audit" class="text-primary hover:text-primary/80 font-medium">
+                {{ $t('dashboard.viewAll') }}
+              </NuxtLink>
             </div>
-            <div class="text-[11px] text-muted-foreground/70 mb-1">
-              {{ $t('dashboard.totalFreed', { total: formatBytes(totalFreedBytes) }) }}
+            <UiScrollArea
+              v-if="recentActivity.length > 0"
+              class="flex-1 pr-3"
+              style="height: 160px"
+            >
+              <div
+                v-for="entry in recentActivity"
+                :key="entry.id"
+                class="flex items-center gap-1.5 py-0.5 text-[11px] leading-tight"
+              >
+                <component
+                  :is="eventIcon(entry.eventType)"
+                  class="w-3 h-3 shrink-0"
+                  :class="eventIconClass(entry.eventType)"
+                />
+                <span class="truncate line-clamp-1 flex-1 min-w-0 text-foreground">
+                  {{ entry.message }}
+                </span>
+                <span class="text-muted-foreground/70 shrink-0 whitespace-nowrap ml-auto">
+                  <DateDisplay :date="entry.createdAt" />
+                </span>
+              </div>
+            </UiScrollArea>
+            <div
+              v-else
+              class="flex-1 flex items-center justify-center text-[11px] text-muted-foreground/60"
+            >
+              {{ $t('dashboard.noActivityYet') }}
             </div>
-            <ClientOnly>
-              <apexchart
-                type="area"
-                height="70"
-                :options="freedSparklineOptions"
-                :series="freedSparklineSeries"
-              />
-            </ClientOnly>
           </div>
         </div>
 
@@ -549,9 +571,20 @@ import {
   TrendingUpIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  SettingsIcon,
+  UserIcon,
+  PlugIcon,
+  AlertCircleIcon,
+  PauseIcon,
+  XCircleIcon,
+  PlusCircleIcon,
+  PencilIcon,
+  PowerIcon,
+  KeyIcon,
 } from 'lucide-vue-next';
 import { formatBytes } from '~/utils/format';
 import type {
+  ActivityEvent,
   DiskGroup,
   IntegrationConfig,
   DashboardStats,
@@ -560,7 +593,7 @@ import type {
 
 const { t } = useI18n();
 const api = useApi();
-const { primaryColor, destructiveColor, successColor, chart3Color } = useThemeColors();
+const { primaryColor, destructiveColor, successColor } = useThemeColors();
 
 // Use shared engine control composable for isRunning detection + toast on completion
 const {
@@ -641,10 +674,89 @@ watch(showMiniSparklines, (val) => {
   }
 });
 const dashboardStats = ref<DashboardStats | null>(null);
+const recentActivity = ref<ActivityEvent[]>([]);
 const loading = ref(true);
 const lastUpdated = ref<Date | null>(null);
 const isAutoRefreshing = ref(false);
 const refreshKey = ref(0);
+
+// Icon component for activity events
+function eventIcon(eventType: string) {
+  switch (eventType) {
+    case 'engine_start':
+      return PlayIcon;
+    case 'engine_complete':
+      return CheckCircle2Icon;
+    case 'engine_error':
+      return AlertCircleIcon;
+    case 'engine_paused':
+      return PauseIcon;
+    case 'engine_resumed':
+      return PlayIcon;
+    case 'engine_mode_changed':
+      return SettingsIcon;
+    case 'approval_approved':
+      return CheckCircle2Icon;
+    case 'approval_rejected':
+      return XCircleIcon;
+    case 'rule_created':
+      return PlusCircleIcon;
+    case 'rule_updated':
+      return PencilIcon;
+    case 'rule_deleted':
+      return Trash2Icon;
+    case 'integration_test_failed':
+      return AlertCircleIcon;
+    case 'server_started':
+      return PowerIcon;
+    case 'password_changed':
+      return KeyIcon;
+    case 'login':
+      return UserIcon;
+    case 'settings_changed':
+      return SettingsIcon;
+    case 'integration_added':
+      return PlugIcon;
+    case 'integration_removed':
+      return PlugIcon;
+    case 'integration_test':
+      return PlugIcon;
+    default:
+      return ActivityIcon;
+  }
+}
+
+// Color class for activity event icons
+function eventIconClass(eventType: string): string {
+  switch (eventType) {
+    case 'engine_start':
+    case 'engine_mode_changed':
+    case 'rule_created':
+      return 'text-primary';
+    case 'engine_complete':
+    case 'engine_resumed':
+    case 'approval_approved':
+    case 'server_started':
+    case 'integration_added':
+    case 'integration_test':
+      return 'text-success';
+    case 'engine_error':
+    case 'approval_rejected':
+    case 'rule_deleted':
+    case 'integration_test_failed':
+    case 'integration_removed':
+      return 'text-destructive';
+    case 'engine_paused':
+      return 'text-warning';
+    case 'rule_updated':
+    case 'password_changed':
+    case 'login':
+    case 'settings_changed':
+      return 'text-muted-foreground';
+    default:
+      return 'text-muted-foreground';
+  }
+}
 
 // Engine stats — alias from shared composable
 const engineStats = computed(() => engineControlStats.value);
@@ -768,6 +880,8 @@ async function fetchDashboardData(silent = false) {
     fetchApprovalQueue();
     // Fetch sparkline engine history data in parallel (non-blocking)
     fetchEngineHistory();
+    // Fetch recent activity for the mini feed (non-blocking)
+    fetchRecentActivity();
     diskGroups.value = groups as DiskGroup[];
     allIntegrations.value = integrations as IntegrationConfig[];
     if (dStats) dashboardStats.value = dStats as DashboardStats;
@@ -868,10 +982,6 @@ const maxDurationMs = computed(() => {
   return Math.max(...data.map((p) => p.durationMs));
 });
 
-const totalFreedBytes = computed(() =>
-  engineHistoryData.value.reduce((acc, p) => acc + p.freedBytes, 0),
-);
-
 const durationSparklineSeries = computed(() => [
   {
     name: 'Duration',
@@ -879,14 +989,6 @@ const durationSparklineSeries = computed(() => [
       x: new Date(p.timestamp).getTime(),
       y: p.durationMs,
     })),
-  },
-]);
-
-// Freed bytes: bucketed hourly (same as main sparkline) for visual clarity
-const freedSparklineSeries = computed(() => [
-  {
-    name: 'Freed',
-    data: bucketHourly(engineHistoryData.value, 'freedBytes'),
   },
 ]);
 
@@ -924,17 +1026,6 @@ const durationSparklineOptions = computed(() => ({
   },
 }));
 
-// Freed bytes sparkline: tooltip shows formatted bytes
-const freedSparklineOptions = computed(() => ({
-  ...miniSparklineBase(chart3Color.value),
-  tooltip: {
-    enabled: true,
-    x: { show: true, format: 'MMM dd, yyyy HH:mm' },
-    y: { formatter: (val: number) => formatBytes(val) },
-    theme: 'dark',
-  },
-}));
-
 // Re-fetch engine history when time range changes
 watch(dateRange, () => {
   fetchEngineHistory();
@@ -954,6 +1045,15 @@ async function fetchEngineHistory() {
     engineHistoryData.value = data || [];
   } catch (err) {
     console.warn('[Dashboard] fetchEngineHistory failed:', err);
+  }
+}
+
+async function fetchRecentActivity() {
+  try {
+    const data = (await api('/api/v1/activity/recent?limit=10')) as ActivityEvent[];
+    recentActivity.value = data || [];
+  } catch (err) {
+    console.warn('[Dashboard] fetchRecentActivity failed:', err);
   }
 }
 </script>

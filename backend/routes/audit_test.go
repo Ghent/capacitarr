@@ -542,3 +542,124 @@ func TestRejectAuditEntry_NotFound(t *testing.T) {
 		t.Errorf("Expected 404, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+// --- /audit/recent tests ---
+
+func TestGetRecentAuditLogs_Empty(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/audit/recent", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var logs []db.AuditLog
+	if err := json.Unmarshal(rec.Body.Bytes(), &logs); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if len(logs) != 0 {
+		t.Errorf("Expected 0 items for empty state, got %d", len(logs))
+	}
+}
+
+func TestGetRecentAuditLogs_DefaultLimit(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	seedAuditLogs(t, database, 10)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/audit/recent", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var logs []db.AuditLog
+	if err := json.Unmarshal(rec.Body.Bytes(), &logs); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if len(logs) != 5 {
+		t.Errorf("Expected default limit of 5 items, got %d", len(logs))
+	}
+}
+
+func TestGetRecentAuditLogs_CustomLimit(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	seedAuditLogs(t, database, 10)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/audit/recent?limit=3", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var logs []db.AuditLog
+	if err := json.Unmarshal(rec.Body.Bytes(), &logs); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if len(logs) != 3 {
+		t.Errorf("Expected 3 items with limit=3, got %d", len(logs))
+	}
+}
+
+func TestGetRecentAuditLogs_LimitCapped(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	seedAuditLogs(t, database, 10)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/audit/recent?limit=100", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var logs []db.AuditLog
+	if err := json.Unmarshal(rec.Body.Bytes(), &logs); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	// Should return all 10 (capped at 50, but we only have 10)
+	if len(logs) != 10 {
+		t.Errorf("Expected 10 items (all available), got %d", len(logs))
+	}
+}
+
+func TestGetRecentAuditLogs_OrderedByNewest(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	seedAuditLogs(t, database, 5)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/audit/recent", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var logs []db.AuditLog
+	if err := json.Unmarshal(rec.Body.Bytes(), &logs); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Verify entries are ordered newest first
+	for i := 1; i < len(logs); i++ {
+		if logs[i].CreatedAt.After(logs[i-1].CreatedAt) {
+			t.Errorf("Entries not in descending order at index %d: %v > %v",
+				i, logs[i].CreatedAt, logs[i-1].CreatedAt)
+		}
+	}
+}

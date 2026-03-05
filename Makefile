@@ -61,7 +61,7 @@ test\:ci:
 	@echo "→ [test:go] go test (Docker: golang:1.25-alpine)..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
 	docker run --rm -v $(CURDIR)/backend:/app -w /app \
-		golang:1.25-alpine sh -c "cd /app && go test ./... -count=1"
+		golang:1.25-alpine sh -c "cd /app && go test -v ./... -count=1"
 	@echo "→ [test:frontend] vitest (Docker: node:22-alpine)..."
 	docker run --rm -e CI=true -v $(CURDIR)/frontend:/app -w /app \
 		node:22-alpine sh -c "\

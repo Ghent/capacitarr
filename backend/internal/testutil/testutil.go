@@ -47,6 +47,12 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("Failed to get underlying sql.DB: %v", err)
 	}
 
+	// Force a single connection so every operation uses the same in-memory
+	// database.  Without this, the connection pool may hand out different
+	// connections, each with its own (empty) :memory: database, causing
+	// "no such table" errors.
+	sqlDB.SetMaxOpenConns(1)
+
 	if err := db.RunMigrations(sqlDB); err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
 	}
@@ -113,6 +119,7 @@ func SetupTestServer(t *testing.T, database *gorm.DB) *echo.Echo {
 	routes.RegisterIntegrationRoutes(protected, database)
 	routes.RegisterRuleRoutes(protected, database)
 	routes.RegisterAuditRoutes(protected, database)
+	routes.RegisterActivityRoutes(protected, database)
 	routes.RegisterEngineHistoryRoutes(protected, database)
 	routes.RegisterDataRoutes(protected, database)
 	routes.RegisterVersionRoutes(protected, database, "v0.0.0-test")

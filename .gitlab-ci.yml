@@ -59,7 +59,7 @@ test:go:
     # Create placeholder for go:embed directive (frontend isn't built during test)
     - mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
   script:
-    - cd backend && go test ./... -count=1
+    - cd backend && go test -v ./... -count=1
 
 test:frontend:
   stage: test
