@@ -105,13 +105,13 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 
 	var bytesFreed int64
 
-	// Pre-build set of shows that have show-level entries in the evaluation results.
-	// When a show-level item exists, its size includes all seasons, so logging
-	// individual seasons would create duplicates.
-	showsInResults := make(map[string]bool)
+	// Pre-build set of shows that have season-level entries in the evaluation results.
+	// When season entries exist, prefer them over show-level entries so each season
+	// can be individually approved/snoozed/deleted in the approval queue.
+	showsWithSeasons := make(map[string]bool)
 	for _, ev := range evaluated {
-		if ev.Item.Type == integrations.MediaTypeShow {
-			showsInResults[ev.Item.Title] = true
+		if ev.Item.Type == integrations.MediaTypeSeason && ev.Item.ShowTitle != "" {
+			showsWithSeasons[ev.Item.ShowTitle] = true
 		}
 	}
 
@@ -123,10 +123,10 @@ func evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem,
 			continue
 		}
 
-		// Dedup: skip season entries when a show-level entry exists for the same parent.
-		// The show entry already covers all seasons in its size total.
-		if ev.Item.Type == integrations.MediaTypeSeason && ev.Item.ShowTitle != "" {
-			if showsInResults[ev.Item.ShowTitle] {
+		// Dedup: skip show-level entries when season entries exist for the same show.
+		// Season entries allow granular per-season approval and deletion.
+		if ev.Item.Type == integrations.MediaTypeShow {
+			if showsWithSeasons[ev.Item.Title] {
 				continue
 			}
 		}
