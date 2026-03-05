@@ -43,48 +43,61 @@ By submitting a merge request or otherwise contributing to this project, you agr
 
 ### Code Standards
 
-- **Go backend**: Follow `gofmt` formatting. Run `golangci-lint` before submitting
+- **Go backend**: Follow `gofmt` formatting; `golangci-lint` is run automatically via Docker
 - **Vue frontend**: Follow the project's ESLint and Prettier configuration
 - **Commits**: Use Conventional Commits format (required for changelog generation)
 - **Documentation**: Update relevant docs when changing user-facing behavior
 
-### Testing
+### Local Development Checks
 
-All changes must pass the existing test suites:
+Run the full CI pipeline locally before pushing:
 
-**Go backend tests** (uses the standard `testing` package):
 ```bash
-cd backend && go test ./... -race -count=1
+make ci
 ```
 
-**Frontend tests** (uses Vitest):
+This runs lint, test, and security checks using the **same Docker images** as the GitLab CI pipeline. No additional tool installation required beyond Docker and pnpm.
+
+Individual stages can be run separately:
+
 ```bash
-cd frontend && pnpm test
+make lint:ci       # golangci-lint + ESLint + Prettier format check
+make test:ci       # go test + vitest
+make security:ci   # govulncheck + pnpm audit
 ```
 
-**Linting:**
+For auto-fixing lint and formatting issues during development:
+
 ```bash
-cd backend && golangci-lint run ./...
-cd frontend && pnpm lint
+make lint          # ESLint --fix + golangci-lint (via Docker)
+make format        # Prettier --write + gofmt
 ```
 
 **Full build verification via Docker:**
+
 ```bash
 docker compose up --build
 ```
 
 > **Note:** Do not run the backend or frontend directly for testing. Use Docker Compose to ensure the build matches the production environment.
 
+**Recommended workflow:**
+
+```
+make lint format → make ci → commit → push
+     (fix)         (verify)
+```
+
 ### CI/CD Pipeline
 
 Every push and merge request triggers a GitLab CI pipeline with these stages:
 
-1. **Lint** — `golangci-lint` (Go) and ESLint (frontend)
-2. **Test** — `go test` with race detection and Vitest for the frontend
+1. **Lint** — `golangci-lint` (Go), ESLint + Prettier format check (frontend)
+2. **Test** — `go test` and Vitest for the frontend
 3. **Build** — Docker image build verification
 4. **Security** — `govulncheck` (Go) and `pnpm audit` (frontend)
 
-Ensure all CI checks pass before requesting review.
+The `make ci` command runs the same checks using the same Docker images, so if it passes locally it will pass in CI. Ensure all CI checks pass before requesting review.
 
 ### Merge Request Guidelines
 

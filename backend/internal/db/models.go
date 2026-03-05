@@ -102,6 +102,15 @@ type CustomRule struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// Audit log action constants — used in AuditLog.Action field.
+const (
+	ActionDeleted           = "Deleted"
+	ActionDryRun            = "Dry-Run"
+	ActionQueuedForApproval = "Queued for Approval"
+	ActionApproved          = "Approved"
+	ActionRejected          = "Rejected"
+)
+
 // AuditLog stores a history of what was deleted, when, and why
 type AuditLog struct {
 	ID            uint       `gorm:"primarykey" json:"id"`

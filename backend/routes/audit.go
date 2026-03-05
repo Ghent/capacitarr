@@ -176,7 +176,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Audit entry not found"})
 		}
 
-		if entry.Action != "Queued for Approval" {
+		if entry.Action != db.ActionQueuedForApproval {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "Entry is not queued for approval",
 			})
@@ -242,7 +242,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 		}
 
 		// Update audit entry to "Approved"
-		if err := database.Model(&entry).Update("action", "Approved").Error; err != nil {
+		if err := database.Model(&entry).Update("action", db.ActionApproved).Error; err != nil {
 			slog.Error("Failed to update audit entry to Approved", "id", entry.ID, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to update audit entry",
@@ -261,7 +261,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Audit entry not found"})
 		}
 
-		if entry.Action != "Queued for Approval" {
+		if entry.Action != db.ActionQueuedForApproval {
 			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": "Entry is not queued for approval",
 			})
@@ -279,7 +279,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 		snoozedUntil := time.Now().UTC().Add(time.Duration(prefs.SnoozeDurationHours) * time.Hour)
 
 		if err := database.Model(&entry).Updates(map[string]interface{}{
-			"action":        "Rejected",
+			"action":        db.ActionRejected,
 			"snoozed_until": snoozedUntil,
 		}).Error; err != nil {
 			slog.Error("Failed to update audit entry to Rejected", "id", entry.ID, "error", err)
@@ -302,7 +302,7 @@ func RegisterAuditRoutes(g *echo.Group, database *gorm.DB) {
 
 		if err := database.Model(&entry).Updates(map[string]interface{}{
 			"snoozed_until": nil,
-			"action":        "Queued for Approval",
+			"action":        db.ActionQueuedForApproval,
 		}).Error; err != nil {
 			slog.Error("Failed to unsnooze audit entry", "id", entry.ID, "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{

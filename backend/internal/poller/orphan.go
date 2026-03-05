@@ -18,7 +18,7 @@ func RecoverOrphanedApprovals() {
 	}
 
 	var orphans []orphan
-	if err := db.DB.Raw("SELECT id, media_name FROM audit_logs WHERE action = 'Approved'").Scan(&orphans).Error; err != nil {
+	if err := db.DB.Raw("SELECT id, media_name FROM audit_logs WHERE action = ?", db.ActionApproved).Scan(&orphans).Error; err != nil {
 		slog.Error("Failed to query orphaned approvals", "component", "poller", "operation", "recover_orphans", "error", err)
 		return
 	}
@@ -35,7 +35,7 @@ func RecoverOrphanedApprovals() {
 		)
 	}
 
-	if err := db.DB.Exec("UPDATE audit_logs SET action = 'Queued for Approval' WHERE action = 'Approved'").Error; err != nil {
+	if err := db.DB.Exec("UPDATE audit_logs SET action = ? WHERE action = ?", db.ActionQueuedForApproval, db.ActionApproved).Error; err != nil {
 		slog.Error("Failed to revert orphaned approvals", "component", "poller", "operation", "recover_orphans", "error", err)
 		return
 	}

@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 /* Enable class-based dark mode (Tailwind v4 defaults to prefers-color-scheme) */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -22,7 +22,7 @@
   --color-card-foreground: oklch(0.18 0.02 280);
   --color-border: oklch(0.88 0.025 280);
   --color-muted: oklch(0.94 0.02 270);
-  --color-muted-foreground: oklch(0.50 0.02 280);
+  --color-muted-foreground: oklch(0.5 0.02 280);
   --color-popover: oklch(0.995 0.003 270);
   --color-popover-foreground: oklch(0.18 0.02 280);
   --color-secondary: oklch(0.93 0.02 270);
@@ -39,7 +39,7 @@
   --color-primary: oklch(0.606 0.25 292.717);
   --color-primary-foreground: oklch(1 0 0);
   --color-ring: oklch(0.606 0.25 292.717);
-  --color-input: oklch(0.90 0.025 280);
+  --color-input: oklch(0.9 0.025 280);
   --color-chart-1: oklch(0.606 0.25 292.717);
   --color-chart-2: oklch(0.55 0.22 280);
   --color-chart-3: oklch(0.65 0.18 305);
@@ -67,27 +67,27 @@
   --color-popover: oklch(0.17 0.018 280);
   --color-popover-foreground: oklch(0.93 0.008 270);
   --color-secondary: oklch(0.23 0.035 280);
-  --color-secondary-foreground: oklch(0.90 0.008 270);
+  --color-secondary-foreground: oklch(0.9 0.008 270);
   --color-accent: oklch(0.25 0.04 280);
-  --color-accent-foreground: oklch(0.90 0.008 270);
+  --color-accent-foreground: oklch(0.9 0.008 270);
 }
 
 /* ========================================
    Theme 1: Violet (Default) — Analogous
    Hue family: 280–310, cool violet primary
    ======================================== */
-[data-theme="violet"] {
+[data-theme='violet'] {
   --color-primary: oklch(0.606 0.25 292.717);
   --color-primary-foreground: oklch(1 0 0);
   --color-ring: oklch(0.606 0.25 292.717);
-  --color-input: oklch(0.90 0.025 280);
+  --color-input: oklch(0.9 0.025 280);
   --color-chart-1: oklch(0.606 0.25 292.717);
   --color-chart-2: oklch(0.55 0.22 280);
   --color-chart-3: oklch(0.65 0.18 305);
   --color-chart-4: oklch(0.7 0.15 320);
 }
 
-.dark[data-theme="violet"],
+.dark[data-theme='violet'],
 .dark:not([data-theme]) {
   --color-input: oklch(0.25 0.04 280);
   --color-ring: oklch(0.606 0.25 292.717);
@@ -97,19 +97,19 @@
    Theme 2: Ocean — Analogous
    Hue family: 210–250, blue-cyan-teal
    ======================================== */
-[data-theme="ocean"] {
+[data-theme='ocean'] {
   --color-primary: oklch(0.55 0.2 230);
   --color-primary-foreground: oklch(1 0 0);
   --color-ring: oklch(0.55 0.2 230);
-  --color-input: oklch(0.90 0.025 280);
+  --color-input: oklch(0.9 0.025 280);
 
   --color-chart-1: oklch(0.55 0.2 230);
-  --color-chart-2: oklch(0.50 0.18 215);
-  --color-chart-3: oklch(0.60 0.16 245);
+  --color-chart-2: oklch(0.5 0.18 215);
+  --color-chart-3: oklch(0.6 0.16 245);
   --color-chart-4: oklch(0.65 0.14 200);
 }
 
-.dark[data-theme="ocean"] {
+.dark[data-theme='ocean'] {
   --color-primary: oklch(0.65 0.18 230);
   --color-input: oklch(0.25 0.04 280);
   --color-ring: oklch(0.65 0.18 230);
@@ -119,42 +119,42 @@
    Theme 3: Emerald — Analogous
    Hue family: 140–180, green-teal-mint
    ======================================== */
-[data-theme="emerald"] {
-  --color-primary: oklch(0.60 0.19 160);
+[data-theme='emerald'] {
+  --color-primary: oklch(0.6 0.19 160);
   --color-primary-foreground: oklch(1 0 0);
-  --color-ring: oklch(0.60 0.19 160);
-  --color-input: oklch(0.90 0.025 280);
+  --color-ring: oklch(0.6 0.19 160);
+  --color-input: oklch(0.9 0.025 280);
 
-  --color-chart-1: oklch(0.60 0.19 160);
+  --color-chart-1: oklch(0.6 0.19 160);
   --color-chart-2: oklch(0.55 0.17 145);
   --color-chart-3: oklch(0.65 0.15 175);
-  --color-chart-4: oklch(0.70 0.13 130);
+  --color-chart-4: oklch(0.7 0.13 130);
 }
 
-.dark[data-theme="emerald"] {
-  --color-primary: oklch(0.70 0.17 160);
+.dark[data-theme='emerald'] {
+  --color-primary: oklch(0.7 0.17 160);
   --color-primary-foreground: oklch(0.15 0.02 160);
   --color-input: oklch(0.25 0.04 280);
-  --color-ring: oklch(0.70 0.17 160);
+  --color-ring: oklch(0.7 0.17 160);
 }
 
 /* ========================================
    Theme 4: Sunset — Complementary
    Hue family: 40–70, warm amber/orange
    ======================================== */
-[data-theme="sunset"] {
-  --color-primary: oklch(0.70 0.18 55);
+[data-theme='sunset'] {
+  --color-primary: oklch(0.7 0.18 55);
   --color-primary-foreground: oklch(0.15 0.03 55);
-  --color-ring: oklch(0.70 0.18 55);
-  --color-input: oklch(0.90 0.025 280);
+  --color-ring: oklch(0.7 0.18 55);
+  --color-input: oklch(0.9 0.025 280);
 
-  --color-chart-1: oklch(0.70 0.18 55);
+  --color-chart-1: oklch(0.7 0.18 55);
   --color-chart-2: oklch(0.65 0.16 42);
   --color-chart-3: oklch(0.75 0.14 68);
-  --color-chart-4: oklch(0.60 0.20 35);
+  --color-chart-4: oklch(0.6 0.2 35);
 }
 
-.dark[data-theme="sunset"] {
+.dark[data-theme='sunset'] {
   --color-primary: oklch(0.78 0.15 55);
   --color-primary-foreground: oklch(0.15 0.03 55);
   --color-input: oklch(0.25 0.04 280);
@@ -165,41 +165,41 @@
    Theme 5: Rose — Complementary
    Hue family: 335–15, pink-rose-red
    ======================================== */
-[data-theme="rose"] {
-  --color-primary: oklch(0.60 0.22 350);
+[data-theme='rose'] {
+  --color-primary: oklch(0.6 0.22 350);
   --color-primary-foreground: oklch(1 0 0);
-  --color-ring: oklch(0.60 0.22 350);
-  --color-input: oklch(0.90 0.025 280);
+  --color-ring: oklch(0.6 0.22 350);
+  --color-input: oklch(0.9 0.025 280);
 
-  --color-chart-1: oklch(0.60 0.22 350);
-  --color-chart-2: oklch(0.55 0.20 337);
+  --color-chart-1: oklch(0.6 0.22 350);
+  --color-chart-2: oklch(0.55 0.2 337);
   --color-chart-3: oklch(0.65 0.18 5);
-  --color-chart-4: oklch(0.70 0.16 15);
+  --color-chart-4: oklch(0.7 0.16 15);
 }
 
-.dark[data-theme="rose"] {
-  --color-primary: oklch(0.70 0.19 350);
+.dark[data-theme='rose'] {
+  --color-primary: oklch(0.7 0.19 350);
   --color-input: oklch(0.25 0.04 280);
-  --color-ring: oklch(0.70 0.19 350);
+  --color-ring: oklch(0.7 0.19 350);
 }
 
 /* ========================================
    Theme 6: Slate — Monochrome
    Hue family: 250–270, desaturated blue-gray
    ======================================== */
-[data-theme="slate"] {
+[data-theme='slate'] {
   --color-primary: oklch(0.45 0.03 260);
   --color-primary-foreground: oklch(1 0 0);
   --color-ring: oklch(0.45 0.03 260);
-  --color-input: oklch(0.90 0.025 280);
+  --color-input: oklch(0.9 0.025 280);
 
   --color-chart-1: oklch(0.45 0.03 260);
-  --color-chart-2: oklch(0.40 0.025 250);
+  --color-chart-2: oklch(0.4 0.025 250);
   --color-chart-3: oklch(0.55 0.025 270);
-  --color-chart-4: oklch(0.60 0.02 245);
+  --color-chart-4: oklch(0.6 0.02 245);
 }
 
-.dark[data-theme="slate"] {
+.dark[data-theme='slate'] {
   --color-primary: oklch(0.65 0.03 260);
   --color-input: oklch(0.25 0.04 280);
   --color-ring: oklch(0.65 0.03 260);
@@ -221,17 +221,20 @@ body {
 /* Subtle radial gradient texture — adds depth without distraction */
 .dark body,
 body:where(.dark *) {
-  background-image:
-    radial-gradient(
-      ellipse 80% 60% at 5% 0%,
-      oklch(from var(--color-primary) l c h / 0.04) 0%,
-      transparent 60%
-    );
+  background-image: radial-gradient(
+    ellipse 80% 60% at 5% 0%,
+    oklch(from var(--color-primary) l c h / 0.04) 0%,
+    transparent 60%
+  );
   background-attachment: fixed;
 }
 
 /* Geist Mono for numbers, scores, and monospaced elements */
-.font-mono, code, kbd, pre, .tabular-nums {
+.font-mono,
+code,
+kbd,
+pre,
+.tabular-nums {
   font-family: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -255,17 +258,36 @@ body:where(.dark *) {
    Consistent heading sizes and weights
    ======================================== */
 
-h1 { font-size: 1.875rem; line-height: 2.25rem; font-weight: 700; letter-spacing: -0.025em; }
-h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 600; letter-spacing: -0.02em; }
-h3 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 600; }
-h4 { font-size: 1.125rem; line-height: 1.5rem; font-weight: 500; }
+h1 {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+h2 {
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+h3 {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+}
+h4 {
+  font-size: 1.125rem;
+  line-height: 1.5rem;
+  font-weight: 500;
+}
 
 /* ========================================
    Navbar Content Spacing
    Prevent content from hiding behind sticky navbar
    ======================================== */
 
-main, [data-slot="page-content"] {
+main,
+[data-slot='page-content'] {
   padding-top: 1rem;
 }
 
@@ -274,7 +296,8 @@ main, [data-slot="page-content"] {
    Gradient-tinted dividers — no stark monochrome lines
    ======================================== */
 
-hr, [data-slot="separator"] {
+hr,
+[data-slot='separator'] {
   border-color: transparent;
   background: linear-gradient(
     90deg,
@@ -288,7 +311,8 @@ hr, [data-slot="separator"] {
   border: none;
 }
 
-.dark hr, .dark [data-slot="separator"] {
+.dark hr,
+.dark [data-slot='separator'] {
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -304,19 +328,19 @@ hr, [data-slot="separator"] {
    More visual weight on scoring presets / badges
    ======================================== */
 
-[data-slot="badge"][data-variant="outline"] {
+[data-slot='badge'][data-variant='outline'] {
   border-width: 1.5px;
   font-weight: 600;
 }
 
 /* Active execution mode card */
-[data-slot="execution-mode-card"][data-active="true"] {
+[data-slot='execution-mode-card'][data-active='true'] {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px oklch(from var(--color-primary) l c h / 0.15);
   background-color: oklch(from var(--color-primary) l c h / 0.05);
 }
 
-.dark [data-slot="execution-mode-card"][data-active="true"] {
+.dark [data-slot='execution-mode-card'][data-active='true'] {
   border-color: oklch(from var(--color-primary) l c h / 0.5);
   box-shadow: 0 0 0 2px oklch(from var(--color-primary) l c h / 0.1);
   background-color: oklch(from var(--color-primary) l c h / 0.08);
@@ -341,7 +365,7 @@ html {
    ======================================== */
 
 /* Light mode: soft layered shadow with primary-tinted edge glow */
-[data-slot="card"] {
+[data-slot='card'] {
   background: linear-gradient(
     135deg,
     oklch(from var(--color-card) l c h / 1) 0%,
@@ -352,12 +376,15 @@ html {
     0 1px 2px oklch(from var(--color-primary) l c h / 0.04),
     0 2px 8px oklch(from var(--color-primary) l c h / 0.03),
     0 4px 16px oklch(0 0 0 / 0.02);
-  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
 }
 
 /* Card hover lift — primary accent (pointer devices only) */
 @media (hover: hover) {
-  [data-slot="card"]:hover {
+  [data-slot='card']:hover {
     border-color: oklch(from var(--color-primary) l c h / 0.15);
     box-shadow:
       0 2px 4px oklch(from var(--color-primary) l c h / 0.06),
@@ -368,22 +395,22 @@ html {
 }
 
 /* Dark mode: richer primary-colored glow border + vibrant glow shadow */
-.dark [data-slot="card"] {
+.dark [data-slot='card'] {
   background: linear-gradient(
     135deg,
     oklch(from var(--color-card) l c h / 1) 0%,
     oklch(from var(--color-primary) l c h / 0.06) 100%
   );
-  border-color: oklch(from var(--color-primary) 0.30 0.06 h);
+  border-color: oklch(from var(--color-primary) 0.3 0.06 h);
   box-shadow:
     0 1px 2px oklch(0 0 0 / 0.3),
-    0 0 0 1px oklch(from var(--color-primary) l c h / 0.10),
+    0 0 0 1px oklch(from var(--color-primary) l c h / 0.1),
     0 2px 16px oklch(from var(--color-primary) l c h / 0.06),
     0 0 15px -5px oklch(from var(--color-primary) l c h / 0.08);
 }
 
 @media (hover: hover) {
-  .dark [data-slot="card"]:hover {
+  .dark [data-slot='card']:hover {
     border-color: oklch(from var(--color-primary) 0.35 0.08 h);
     box-shadow:
       0 2px 4px oklch(0 0 0 / 0.4),
@@ -399,16 +426,18 @@ html {
    Frosted glass with gradient border
    ======================================== */
 
-[data-slot="navbar"] {
+[data-slot='navbar'] {
   background: oklch(from var(--color-background) l c h / 0.95);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border-bottom: 1px solid oklch(from var(--color-border) l c h / 0.5);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.04), 0 4px 12px oklch(0 0 0 / 0.02);
+  box-shadow:
+    0 1px 3px oklch(0 0 0 / 0.04),
+    0 4px 12px oklch(0 0 0 / 0.02);
 }
 
 /* Gradient shimmer line beneath navbar */
-[data-slot="navbar"]::after {
+[data-slot='navbar']::after {
   content: '';
   position: absolute;
   bottom: -1px;
@@ -425,15 +454,17 @@ html {
   );
 }
 
-.dark [data-slot="navbar"] {
+.dark [data-slot='navbar'] {
   background: oklch(from var(--color-background) l c h / 0.92);
   backdrop-filter: blur(24px) saturate(1.5);
   -webkit-backdrop-filter: blur(24px) saturate(1.5);
   border-bottom-color: oklch(from var(--color-border) l c h / 0.4);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.2), 0 4px 16px oklch(0 0 0 / 0.15);
+  box-shadow:
+    0 1px 3px oklch(0 0 0 / 0.2),
+    0 4px 16px oklch(0 0 0 / 0.15);
 }
 
-.dark [data-slot="navbar"]::after {
+.dark [data-slot='navbar']::after {
   background: linear-gradient(
     90deg,
     transparent 0%,
@@ -445,11 +476,11 @@ html {
 }
 
 /* Active nav link — gradient underline indicator */
-[data-slot="nav-link-active"] {
+[data-slot='nav-link-active'] {
   position: relative;
 }
 
-[data-slot="nav-link-active"]::after {
+[data-slot='nav-link-active']::after {
   content: '';
   position: absolute;
   bottom: -2px;
@@ -468,7 +499,7 @@ html {
    Brand Icon Glow
    ======================================== */
 
-[data-slot="brand-icon"] {
+[data-slot='brand-icon'] {
   box-shadow:
     0 0 0 3px oklch(from var(--color-primary) l c h / 0.15),
     0 4px 12px oklch(from var(--color-primary) l c h / 0.25);
@@ -476,7 +507,7 @@ html {
 }
 
 @media (hover: hover) {
-  [data-slot="brand-icon"]:hover {
+  [data-slot='brand-icon']:hover {
     box-shadow:
       0 0 0 4px oklch(from var(--color-primary) l c h / 0.2),
       0 4px 16px oklch(from var(--color-primary) l c h / 0.35);
@@ -488,7 +519,7 @@ html {
    Subtle gradient wash from primary
    ======================================== */
 
-[data-slot="stat-card"] {
+[data-slot='stat-card'] {
   background: linear-gradient(
     135deg,
     oklch(from var(--color-primary) l c h / 0.04) 0%,
@@ -496,7 +527,7 @@ html {
   );
 }
 
-.dark [data-slot="stat-card"] {
+.dark [data-slot='stat-card'] {
   background: linear-gradient(
     135deg,
     oklch(from var(--color-primary) l c h / 0.08) 0%,
@@ -505,7 +536,7 @@ html {
 }
 
 /* Colored icon circle backgrounds for stat cards */
-[data-slot="stat-icon"] {
+[data-slot='stat-icon'] {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -514,10 +545,12 @@ html {
   border-radius: 0.625rem;
   background: oklch(from var(--color-primary) l c h / 0.12);
   color: var(--color-primary);
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.dark [data-slot="stat-icon"] {
+.dark [data-slot='stat-icon'] {
   background: oklch(from var(--color-primary) l c h / 0.2);
   box-shadow: 0 0 12px oklch(from var(--color-primary) l c h / 0.15);
 }
@@ -527,27 +560,27 @@ html {
    Color-matched glow beneath the fill bar
    ======================================== */
 
-[data-slot="progress-bar-fill"] {
+[data-slot='progress-bar-fill'] {
   box-shadow: 0 0 8px oklch(from var(--color-primary) l c h / 0.3);
 }
 
-[data-slot="progress-bar-fill"][data-status="warning"] {
+[data-slot='progress-bar-fill'][data-status='warning'] {
   box-shadow: 0 0 8px oklch(0.75 0.183 55.934 / 0.4);
 }
 
-[data-slot="progress-bar-fill"][data-status="danger"] {
+[data-slot='progress-bar-fill'][data-status='danger'] {
   box-shadow: 0 0 8px oklch(0.577 0.245 27.325 / 0.4);
 }
 
-.dark [data-slot="progress-bar-fill"] {
+.dark [data-slot='progress-bar-fill'] {
   box-shadow: 0 0 12px oklch(from var(--color-primary) l c h / 0.35);
 }
 
-.dark [data-slot="progress-bar-fill"][data-status="warning"] {
+.dark [data-slot='progress-bar-fill'][data-status='warning'] {
   box-shadow: 0 0 12px oklch(0.75 0.183 55.934 / 0.45);
 }
 
-.dark [data-slot="progress-bar-fill"][data-status="danger"] {
+.dark [data-slot='progress-bar-fill'][data-status='danger'] {
   box-shadow: 0 0 12px oklch(0.577 0.245 27.325 / 0.45);
 }
 
@@ -558,12 +591,12 @@ html {
    Subtle shadow, slight gradient overlay
    ======================================== */
 
-[data-slot="badge"] {
+[data-slot='badge'] {
   box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
   text-shadow: 0 0.5px 0 oklch(0 0 0 / 0.03);
 }
 
-.dark [data-slot="badge"] {
+.dark [data-slot='badge'] {
   box-shadow: 0 1px 3px oklch(0 0 0 / 0.2);
 }
 
@@ -573,11 +606,11 @@ html {
    ======================================== */
 
 @media (hover: hover) {
-  tr[data-slot="table-row"]:hover {
+  tr[data-slot='table-row']:hover {
     background-color: oklch(from var(--color-primary) l c h / 0.04);
   }
 
-  .dark tr[data-slot="table-row"]:hover {
+  .dark tr[data-slot='table-row']:hover {
     background-color: oklch(from var(--color-primary) l c h / 0.06);
   }
 }
@@ -587,36 +620,66 @@ html {
    Subtle background mesh effect
    ======================================== */
 
-[data-slot="page-header"] {
+[data-slot='page-header'] {
   position: relative;
 }
 
-[data-slot="page-header"]::before {
+[data-slot='page-header']::before {
   content: '';
   position: absolute;
   inset: -1rem -2rem;
   border-radius: 1rem;
   background:
-    radial-gradient(ellipse at 20% 50%, oklch(from var(--color-primary) l c h / 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, oklch(from var(--color-primary) l c h / 0.03) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 80%, oklch(from var(--color-primary) l c h / 0.02) 0%, transparent 50%);
+    radial-gradient(
+      ellipse at 20% 50%,
+      oklch(from var(--color-primary) l c h / 0.04) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 80% 20%,
+      oklch(from var(--color-primary) l c h / 0.03) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 60% 80%,
+      oklch(from var(--color-primary) l c h / 0.02) 0%,
+      transparent 50%
+    );
   z-index: -1;
   animation: header-mesh 8s ease-in-out infinite alternate;
 }
 
-.dark [data-slot="page-header"]::before {
+.dark [data-slot='page-header']::before {
   background:
-    radial-gradient(ellipse at 20% 50%, oklch(from var(--color-primary) l c h / 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, oklch(from var(--color-primary) l c h / 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 80%, oklch(from var(--color-primary) l c h / 0.03) 0%, transparent 50%);
+    radial-gradient(
+      ellipse at 20% 50%,
+      oklch(from var(--color-primary) l c h / 0.06) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 80% 20%,
+      oklch(from var(--color-primary) l c h / 0.04) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      ellipse at 60% 80%,
+      oklch(from var(--color-primary) l c h / 0.03) 0%,
+      transparent 50%
+    );
 }
 
 @keyframes header-mesh {
   0% {
-    background-position: 0% 0%, 100% 0%, 50% 100%;
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%;
   }
   100% {
-    background-position: 100% 100%, 0% 100%, 50% 0%;
+    background-position:
+      100% 100%,
+      0% 100%,
+      50% 0%;
   }
 }
 
@@ -626,7 +689,7 @@ html {
    ======================================== */
 
 /* Light mode: subtle warm gradient backdrop */
-[data-slot="app-shell"] {
+[data-slot='app-shell'] {
   background:
     radial-gradient(
       ellipse at 30% 0%,
@@ -641,7 +704,7 @@ html {
     var(--color-background);
 }
 
-.dark [data-slot="app-shell"] {
+.dark [data-slot='app-shell'] {
   background:
     radial-gradient(
       ellipse at 30% 0%,
@@ -665,14 +728,14 @@ html {
    Login Card — Dramatic Shadow
    ======================================== */
 
-[data-slot="login-card"] {
+[data-slot='login-card'] {
   box-shadow:
     0 4px 6px oklch(0 0 0 / 0.04),
     0 10px 30px oklch(0 0 0 / 0.08),
     0 20px 60px oklch(from var(--color-primary) l c h / 0.06);
 }
 
-.dark [data-slot="login-card"] {
+.dark [data-slot='login-card'] {
   border-color: oklch(from var(--color-primary) l c h / 0.15);
   box-shadow:
     0 4px 6px oklch(0 0 0 / 0.3),
@@ -685,14 +748,14 @@ html {
    Login Icon — Enhanced Glow
    ======================================== */
 
-[data-slot="login-icon"] {
+[data-slot='login-icon'] {
   box-shadow:
     0 0 0 4px oklch(from var(--color-primary) l c h / 0.12),
     0 0 0 8px oklch(from var(--color-primary) l c h / 0.06),
     0 4px 16px oklch(from var(--color-primary) l c h / 0.25);
 }
 
-.dark [data-slot="login-icon"] {
+.dark [data-slot='login-icon'] {
   box-shadow:
     0 0 0 4px oklch(from var(--color-primary) l c h / 0.15),
     0 0 0 8px oklch(from var(--color-primary) l c h / 0.08),
@@ -706,12 +769,12 @@ html {
 
 @media (hover: hover) {
   button:not([disabled]):hover,
-  [role="button"]:not([disabled]):hover {
+  [role='button']:not([disabled]):hover {
     filter: brightness(1.02);
   }
 
   /* Primary button glow */
-  [data-slot="button"].bg-primary:hover {
+  [data-slot='button'].bg-primary:hover {
     box-shadow:
       0 2px 8px oklch(from var(--color-primary) l c h / 0.3),
       0 4px 16px oklch(from var(--color-primary) l c h / 0.15);
@@ -724,19 +787,20 @@ html {
    ======================================== */
 
 /* Track — rounded pill, taller for direct-fill feel */
-[data-slot="slider-track"] {
+[data-slot='slider-track'] {
   background-color: oklch(from var(--color-primary) l c h / 0.12);
   border: 1px solid oklch(from var(--color-primary) l c h / 0.08);
 }
 
-.dark [data-slot="slider-track"] {
+.dark [data-slot='slider-track'] {
   background-color: oklch(from var(--color-primary) l c h / 0.15);
   border-color: oklch(from var(--color-primary) l c h / 0.12);
 }
 
 /* Range fill — rich primary gradient */
-[data-slot="slider-range"] {
-  background: linear-gradient(90deg,
+[data-slot='slider-range'] {
+  background: linear-gradient(
+    90deg,
     color-mix(in oklch, var(--color-primary), black 8%),
     var(--color-primary),
     color-mix(in oklch, var(--color-primary), white 10%)
@@ -744,12 +808,12 @@ html {
   box-shadow: 0 0 6px oklch(from var(--color-primary) l c h / 0.25);
 }
 
-.dark [data-slot="slider-range"] {
+.dark [data-slot='slider-range'] {
   box-shadow: 0 0 10px oklch(from var(--color-primary) l c h / 0.3);
 }
 
 /* Thumb — small pill that sits flush in the track, not a big floating circle */
-[data-slot="slider-thumb"] {
+[data-slot='slider-thumb'] {
   width: 14px;
   height: 14px;
   background: var(--color-primary);
@@ -757,11 +821,13 @@ html {
   box-shadow:
     0 1px 4px oklch(from var(--color-primary) l c h / 0.3),
     0 0 0 2px oklch(from var(--color-primary) l c h / 0.1);
-  transition: box-shadow 0.15s ease, transform 0.15s ease;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 
 @media (hover: hover) {
-  [data-slot="slider-thumb"]:hover {
+  [data-slot='slider-thumb']:hover {
     transform: scale(1.2);
     box-shadow:
       0 2px 8px oklch(from var(--color-primary) l c h / 0.4),
@@ -769,13 +835,13 @@ html {
   }
 }
 
-[data-slot="slider-thumb"]:focus-visible {
+[data-slot='slider-thumb']:focus-visible {
   box-shadow:
     0 2px 8px oklch(from var(--color-primary) l c h / 0.4),
     0 0 0 4px oklch(from var(--color-primary) l c h / 0.3);
 }
 
-.dark [data-slot="slider-thumb"] {
+.dark [data-slot='slider-thumb'] {
   background: var(--color-primary);
   border-color: color-mix(in oklch, var(--color-primary), white 33%);
   box-shadow:
@@ -785,7 +851,7 @@ html {
 }
 
 @media (hover: hover) {
-  .dark [data-slot="slider-thumb"]:hover {
+  .dark [data-slot='slider-thumb']:hover {
     transform: scale(1.2);
     box-shadow:
       0 2px 10px oklch(from var(--color-primary) l c h / 0.5),
@@ -799,12 +865,12 @@ html {
    ======================================== */
 
 @media (hover: hover) {
-  [data-slot="table-row"]:hover,
+  [data-slot='table-row']:hover,
   tr:hover td {
     background-color: oklch(from var(--color-primary) l c h / 0.05);
   }
 
-  .dark [data-slot="table-row"]:hover,
+  .dark [data-slot='table-row']:hover,
   .dark tr:hover td {
     background-color: oklch(from var(--color-primary) l c h / 0.08);
   }
@@ -832,18 +898,18 @@ table tr {
    Badge / Chip Enhancement
    ======================================== */
 
-[data-slot="badge"] {
+[data-slot='badge'] {
   border-width: 1px;
   font-weight: 500;
 }
 
-[data-slot="badge"][data-variant="secondary"] {
+[data-slot='badge'][data-variant='secondary'] {
   background-color: oklch(from var(--color-primary) l c h / 0.08);
   color: var(--color-primary);
   border-color: oklch(from var(--color-primary) l c h / 0.15);
 }
 
-.dark [data-slot="badge"][data-variant="secondary"] {
+.dark [data-slot='badge'][data-variant='secondary'] {
   background-color: oklch(from var(--color-primary) l c h / 0.12);
   border-color: oklch(from var(--color-primary) l c h / 0.2);
 }
@@ -852,16 +918,16 @@ table tr {
    Popover / Dropdown Depth
    ======================================== */
 
-[data-slot="dropdown-menu-content"],
-[data-slot="popover-content"],
-[data-slot="select-content"] {
+[data-slot='dropdown-menu-content'],
+[data-slot='popover-content'],
+[data-slot='select-content'] {
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
 }
 
-.dark [data-slot="dropdown-menu-content"],
-.dark [data-slot="popover-content"],
-.dark [data-slot="select-content"] {
+.dark [data-slot='dropdown-menu-content'],
+.dark [data-slot='popover-content'],
+.dark [data-slot='select-content'] {
   background-color: oklch(from var(--color-popover) l c h / 0.95);
   border-color: oklch(from var(--color-border) l c h / 0.6);
   box-shadow:
@@ -874,7 +940,7 @@ table tr {
    Solid, rich background with primary accent
    ======================================== */
 
-[data-slot="dialog-content"] {
+[data-slot='dialog-content'] {
   background: linear-gradient(
     135deg,
     oklch(from var(--color-card) l c h / 1) 0%,
@@ -886,7 +952,7 @@ table tr {
     0 0 0 1px oklch(from var(--color-primary) l c h / 0.06);
 }
 
-.dark [data-slot="dialog-content"] {
+.dark [data-slot='dialog-content'] {
   background: linear-gradient(
     135deg,
     oklch(0.14 0.015 285.823) 0%,
@@ -904,8 +970,12 @@ table tr {
    ======================================== */
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-shimmer {
@@ -936,12 +1006,24 @@ table tr {
   animation: stagger-in 0.4s ease-out forwards;
 }
 
-[data-stagger] > *:nth-child(1) { animation-delay: 0ms; }
-[data-stagger] > *:nth-child(2) { animation-delay: 60ms; }
-[data-stagger] > *:nth-child(3) { animation-delay: 120ms; }
-[data-stagger] > *:nth-child(4) { animation-delay: 180ms; }
-[data-stagger] > *:nth-child(5) { animation-delay: 240ms; }
-[data-stagger] > *:nth-child(6) { animation-delay: 300ms; }
+[data-stagger] > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+[data-stagger] > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+[data-stagger] > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+[data-stagger] > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+[data-stagger] > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+[data-stagger] > *:nth-child(6) {
+  animation-delay: 300ms;
+}
 
 @keyframes stagger-in {
   to {
@@ -952,7 +1034,8 @@ table tr {
 
 /* Engine Activity — pulsing border glow when engine is running */
 @keyframes engine-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4);
   }
   50% {
@@ -968,7 +1051,9 @@ table tr {
 /* Page transitions (Nuxt pageTransition: 'page') */
 .page-enter-active,
 .page-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .page-enter-from {
@@ -1021,32 +1106,32 @@ table tr {
 /* Ensure all interactive elements meet WCAG 44×44px minimum tap target */
 @media (pointer: coarse) {
   /* Nav links need larger tap targets on touch */
-  [data-slot="navbar"] nav a {
+  [data-slot='navbar'] nav a {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
   }
 
   /* Icon buttons need minimum size */
-  [data-slot="button"][data-size="icon"],
-  [data-slot="button"][data-size="icon-sm"] {
+  [data-slot='button'][data-size='icon'],
+  [data-slot='button'][data-size='icon-sm'] {
     min-width: 44px;
     min-height: 44px;
   }
 
   /* Select triggers need adequate height */
-  [data-slot="select-trigger"] {
+  [data-slot='select-trigger'] {
     min-height: 44px;
   }
 
   /* Table rows need adequate height for tap */
-  [data-slot="table-row"] td {
+  [data-slot='table-row'] td {
     padding-top: 0.75rem;
     padding-bottom: 0.75rem;
   }
 
   /* Slider thumb needs larger touch target */
-  [data-slot="slider-thumb"] {
+  [data-slot='slider-thumb'] {
     width: 20px;
     height: 20px;
     /* Invisible extended hit area */
@@ -1056,7 +1141,7 @@ table tr {
   }
 
   /* Toggle switch needs larger tap target */
-  [data-slot="switch"] {
+  [data-slot='switch'] {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
@@ -1069,8 +1154,8 @@ table tr {
    Command (combobox) search inputs
    ======================================== */
 
-[data-slot="command-input"]:focus-visible,
-[data-slot="command-input"] input:focus-visible {
+[data-slot='command-input']:focus-visible,
+[data-slot='command-input'] input:focus-visible {
   outline: none;
   box-shadow: none;
 }

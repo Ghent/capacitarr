@@ -47,6 +47,7 @@ lint:frontend:
     - cd frontend && pnpm install --frozen-lockfile
   script:
     - pnpm lint
+    - pnpm format:check
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
