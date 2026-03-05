@@ -190,7 +190,7 @@
         <!-- Mini sparklines: duration + freed bytes -->
         <div
           v-if="showMiniSparklines && engineHistoryData.length > 0"
-          class="grid grid-cols-2 gap-3 mb-3"
+          class="grid grid-cols-2 gap-3 mb-3 items-start"
         >
           <!-- Run Duration -->
           <div class="rounded-lg bg-muted px-3 py-2">
@@ -212,7 +212,7 @@
           </div>
 
           <!-- Recent Activity -->
-          <div class="rounded-lg bg-muted px-3 py-2 flex flex-col">
+          <div class="rounded-lg bg-muted px-3 py-2">
             <div class="text-[11px] text-muted-foreground mb-1 flex items-center gap-1">
               <span>{{ $t('dashboard.recentActivity') }}</span>
               <span class="text-muted-foreground/40">·</span>
@@ -222,7 +222,7 @@
             </div>
             <UiScrollArea
               v-if="recentActivity.length > 0"
-              class="flex-1 pr-3"
+              class="pr-3"
               style="height: 70px"
             >
               <div
@@ -245,7 +245,8 @@
             </UiScrollArea>
             <div
               v-else
-              class="flex-1 flex items-center justify-center text-[11px] text-muted-foreground/60"
+              class="flex items-center justify-center text-[11px] text-muted-foreground/60"
+              style="height: 70px"
             >
               {{ $t('dashboard.noActivityYet') }}
             </div>
