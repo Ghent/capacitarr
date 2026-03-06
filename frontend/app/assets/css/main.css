@@ -884,6 +884,11 @@ html {
   box-shadow: none;
 }
 
+/* Ensure thumbs render above the zone color overlays */
+[data-slot='threshold-slider'] [data-slot='slider-thumb'] {
+  z-index: 2;
+}
+
 /* ========================================
    Table Enhancement — Richer Colors & Depth
    ======================================== */
