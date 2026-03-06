@@ -1,3 +1,21 @@
+## [1.0.0-rc.6] - 2026-03-06
+
+### 🚀 Features
+
+- *(events)* Add event bus infrastructure and 34 typed event structs ([b284237](https://gitlab.com/starshadow/software/capacitarr/-/commit/b28423748cf693e61dd910a5aa7d8a54ecce9fa7))
+- *(events)* Add activity persister subscriber ([f830168](https://gitlab.com/starshadow/software/capacitarr/-/commit/f830168471e17fc74d4cf5acbbc5131e5516a039))
+- *(services)* Add core service layer — ApprovalService, DeletionService, AuditLogService, EngineService ([101082f](https://gitlab.com/starshadow/software/capacitarr/-/commit/101082f62dc5d317c8789923408890b71c87c4c0))
+- *(services)* Add secondary services and registry ([6b91961](https://gitlab.com/starshadow/software/capacitarr/-/commit/6b9196140eab1e54c0906ea506010aa25cb0e641))
+- *(events)* Add SSE broadcaster for real-time event streaming ([8905f0e](https://gitlab.com/starshadow/software/capacitarr/-/commit/8905f0efc873b8e38f6de0b418cdfcac42a24fd9))
+- Add frontend SSE composable, activity pruning to 7-day retention ([86002a9](https://gitlab.com/starshadow/software/capacitarr/-/commit/86002a9f2586a1f7ef659a9e033f7418a787125c))
+- *(notifications)* Add event bus subscriber for notification dispatch ([d1a9cc5](https://gitlab.com/starshadow/software/capacitarr/-/commit/d1a9cc5552ab19d06d057e791b7ded8ebfd15074))
+- *(frontend)* Update types and API endpoints for new schema ([d00c7ad](https://gitlab.com/starshadow/software/capacitarr/-/commit/d00c7adee79acf2ff6d2105772cf7a2a2e863eea))
+- *(frontend)* Add icon/color mapping for all 34 event types ([1e35936](https://gitlab.com/starshadow/software/capacitarr/-/commit/1e35936a42be06ee24850d5501e6f644db5bfc0a))
+- *(approval)* Add section jump navigation to approval queue ([197d716](https://gitlab.com/starshadow/software/capacitarr/-/commit/197d716abbf90f16c44ebcfc6fc02aeb08d3e676))
+
+### 🐛 Bug Fixes
+
+- *(events)* Fix deadlock in concurrency stress test ([00b50c1](https://gitlab.com/starshadow/software/capacitarr/-/commit/00b50c18253464657b00f57800a35ebe4687db97))
 ## [1.0.0-rc.5] - 2026-03-05
 
 ### 🚀 Features
