@@ -1,3 +1,8 @@
+## [1.0.0-rc.8] - 2026-03-06
+
+### 🐛 Bug Fixes
+
+- *(lint)* Use NewRequestWithContext in test files ([277f558](https://gitlab.com/starshadow/software/capacitarr/-/commit/277f55809d606350501ca672f75b412f16699b1f))
 ## [1.0.0-rc.7] - 2026-03-06
 
 ### 🚀 Features
@@ -67,6 +72,11 @@
 - Sparkline accuracy, tooltips, and visual quality ([e48d60c](https://gitlab.com/starshadow/software/capacitarr/-/commit/e48d60c38cfe36e9de64cf9ba1322e2fbc4270c2))
 ## [1.0.0-rc.3] - 2026-03-05
 
+### 🐛 Bug Fixes
+
+- Resolve golangci-lint issues and align local linting with CI ([975bf6d](https://gitlab.com/starshadow/software/capacitarr/-/commit/975bf6d6d076e32eac5e770fdc601a897b8b3b7f))
+## [1.0.0-rc.2] - 2026-03-05
+
 ### 🚀 Features
 
 - *(ui)* Truncate API keys and reposition effect badge ([23a98e4](https://gitlab.com/starshadow/software/capacitarr/-/commit/23a98e43b744a8f13af808e776edc9098d8a427d))
@@ -99,7 +109,6 @@
 - *(approval)* Show season approve/snooze buttons and align size column ([87f13e3](https://gitlab.com/starshadow/software/capacitarr/-/commit/87f13e357b0a23c25898c6d833691bb3b1793f26))
 - Correct site and docs content accuracy ([e116e51](https://gitlab.com/starshadow/software/capacitarr/-/commit/e116e510f33a57f5f7bda2c842b44eced206cd23))
 - *(site)* Replace Nuxt UI Docs TOC link with GitLab repo link ([e7c262d](https://gitlab.com/starshadow/software/capacitarr/-/commit/e7c262d2e42f5ad8855284f9c95a0cd563dc07a9))
-- Resolve golangci-lint issues and align local linting with CI ([975bf6d](https://gitlab.com/starshadow/software/capacitarr/-/commit/975bf6d6d076e32eac5e770fdc601a897b8b3b7f))
 ## [1.0.0-rc.1] - 2026-03-03
 
 ### 🐛 Bug Fixes
