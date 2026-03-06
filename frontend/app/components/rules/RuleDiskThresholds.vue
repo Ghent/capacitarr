@@ -156,15 +156,18 @@
           <div class="space-y-1.5">
             <UiLabel>{{ $t('rules.cleanupThreshold') }}</UiLabel>
             <div class="flex items-center gap-2">
-              <UiInput
-                :model-value="String(thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct)"
-                type="number"
-                min="1"
-                max="99"
-                @update:model-value="
-                  (v: string | number) => updateThresholdEdit(dg.id, 'threshold', Number(v), dg)
-                "
-              />
+              <UiNumberField
+                :model-value="thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct"
+                :min="1"
+                :max="99"
+                @update:model-value="(v: number) => updateThresholdEdit(dg.id, 'threshold', v, dg)"
+              >
+                <UiNumberFieldContent>
+                  <UiNumberFieldDecrement />
+                  <UiNumberFieldInput />
+                  <UiNumberFieldIncrement />
+                </UiNumberFieldContent>
+              </UiNumberField>
               <span class="w-2 h-2 rounded-full bg-red-400 shrink-0" />
             </div>
             <p class="text-[11px] text-muted-foreground">
@@ -174,15 +177,18 @@
           <div class="space-y-1.5">
             <UiLabel>{{ $t('rules.cleanupTarget') }}</UiLabel>
             <div class="flex items-center gap-2">
-              <UiInput
-                :model-value="String(thresholdEdits[dg.id]?.target ?? dg.targetPct)"
-                type="number"
-                min="1"
-                max="99"
-                @update:model-value="
-                  (v: string | number) => updateThresholdEdit(dg.id, 'target', Number(v), dg)
-                "
-              />
+              <UiNumberField
+                :model-value="thresholdEdits[dg.id]?.target ?? dg.targetPct"
+                :min="1"
+                :max="99"
+                @update:model-value="(v: number) => updateThresholdEdit(dg.id, 'target', v, dg)"
+              >
+                <UiNumberFieldContent>
+                  <UiNumberFieldDecrement />
+                  <UiNumberFieldInput />
+                  <UiNumberFieldIncrement />
+                </UiNumberFieldContent>
+              </UiNumberField>
               <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
             </div>
             <p class="text-[11px] text-muted-foreground">

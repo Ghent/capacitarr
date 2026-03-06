@@ -101,38 +101,59 @@
 
         <!-- Free-text input (numbers and text) with optional suffix and suggestions -->
         <template v-else>
-          <div class="relative">
-            <div class="flex items-center gap-2">
-              <UiInput
-                v-model="form.value"
-                :disabled="!form.operator"
-                :type="freeInputType"
-                :placeholder="freeInputPlaceholder"
-                class="flex-1"
-                @focus="suggestionsOpen = true"
-                @blur="onSuggestionsBlur"
-              />
-              <span
-                v-if="freeInputSuffix"
-                class="text-xs text-muted-foreground whitespace-nowrap shrink-0"
-              >
-                {{ freeInputSuffix }}
-              </span>
-            </div>
-            <!-- Suggestion dropdown for fields with known options -->
-            <div
-              v-if="suggestionsOpen && filteredSuggestions.length > 0"
-              class="absolute z-50 mt-1 w-full max-h-48 overflow-auto rounded-md border border-border bg-popover shadow-md"
+          <!-- Combobox mode: free-text input with suggestion dropdown -->
+          <div v-if="hasSuggestions" class="flex items-center gap-2">
+            <UiCombobox
+              v-model="form.value"
+              v-model:search-term="comboboxSearch"
+              :ignore-filter="true"
+              :open-on-focus="true"
+              :reset-search-term-on-blur="false"
+              :reset-search-term-on-select="false"
+              :disabled="!form.operator"
+              class="flex-1"
+              @update:model-value="onComboboxSelect"
             >
-              <button
-                v-for="sug in filteredSuggestions"
-                :key="sug.value"
-                class="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer"
-                @mousedown.prevent="selectSuggestion(sug.value)"
-              >
-                {{ sug.label }}
-              </button>
-            </div>
+              <UiComboboxAnchor>
+                <UiComboboxInput
+                  :placeholder="freeInputPlaceholder"
+                  :type="freeInputType"
+                  :disabled="!form.operator"
+                />
+              </UiComboboxAnchor>
+              <UiComboboxContent>
+                <UiComboboxEmpty>No matching suggestions</UiComboboxEmpty>
+                <UiComboboxItem
+                  v-for="sug in filteredSuggestions"
+                  :key="sug.value"
+                  :value="sug.value"
+                >
+                  {{ sug.label }}
+                </UiComboboxItem>
+              </UiComboboxContent>
+            </UiCombobox>
+            <span
+              v-if="freeInputSuffix"
+              class="text-xs text-muted-foreground whitespace-nowrap shrink-0"
+            >
+              {{ freeInputSuffix }}
+            </span>
+          </div>
+          <!-- Plain input mode: no suggestions available -->
+          <div v-else class="flex items-center gap-2">
+            <UiInput
+              v-model="form.value"
+              :disabled="!form.operator"
+              :type="freeInputType"
+              :placeholder="freeInputPlaceholder"
+              class="flex-1"
+            />
+            <span
+              v-if="freeInputSuffix"
+              class="text-xs text-muted-foreground whitespace-nowrap shrink-0"
+            >
+              {{ freeInputSuffix }}
+            </span>
           </div>
           <!-- Validation warning for size field: show GB equivalent -->
           <p
@@ -275,8 +296,8 @@ const fields = ref<FieldDef[]>([]);
 const ruleValues = ref<RuleValuesResponse | null>(null);
 const valueLoading = ref(false);
 
-// Suggestion dropdown state (for free-text fields with suggestions)
-const suggestionsOpen = ref(false);
+// Combobox search term (synced with the combobox input)
+const comboboxSearch = ref('');
 
 // Get the service type from the selected integration
 const selectedServiceType = computed(() => {
@@ -318,13 +339,19 @@ const closedOptions = computed((): NameValue[] => {
   return ruleValues.value?.options ?? [];
 });
 
-// Filtered suggestions for the dropdown (from API suggestions)
+// Whether the current field has suggestions available (determines combobox vs plain input)
+const hasSuggestions = computed((): boolean => {
+  if (!ruleValues.value) return false;
+  return (ruleValues.value.suggestions ?? []).length > 0;
+});
+
+// Filtered suggestions for the combobox dropdown (from API suggestions)
 const filteredSuggestions = computed((): NameValue[] => {
   if (!ruleValues.value) return [];
   const all = ruleValues.value.suggestions ?? [];
   if (all.length === 0) return [];
-  if (!form.value) return all;
-  const needle = form.value.toLowerCase();
+  if (!comboboxSearch.value) return all;
+  const needle = comboboxSearch.value.toLowerCase();
   return all.filter(
     (s) => s.label.toLowerCase().includes(needle) || s.value.toLowerCase().includes(needle),
   );
@@ -439,7 +466,7 @@ async function onFieldChange() {
   form.value = '';
   form.effect = '';
   ruleValues.value = null;
-  suggestionsOpen.value = false;
+  comboboxSearch.value = '';
 
   if (!form.field || !form.integrationId) return;
 
@@ -463,17 +490,18 @@ async function onFieldChange() {
   }
 }
 
-function selectSuggestion(value: string) {
+// When a combobox suggestion is selected, sync the search term to show the selected value
+function onComboboxSelect(value: string) {
   form.value = value;
-  suggestionsOpen.value = false;
+  comboboxSearch.value = value;
 }
 
-function onSuggestionsBlur() {
-  // Small delay to allow click events on suggestions to fire first
-  setTimeout(() => {
-    suggestionsOpen.value = false;
-  }, 150);
-}
+// Sync combobox search term to form.value when user types freely (no selection)
+watch(comboboxSearch, (newVal) => {
+  if (hasSuggestions.value && newVal !== form.value) {
+    form.value = newVal;
+  }
+});
 
 function submitRule() {
   if (!isFormValid.value) return;
@@ -492,5 +520,6 @@ function submitRule() {
   form.effect = '';
   fields.value = [];
   ruleValues.value = null;
+  comboboxSearch.value = '';
 }
 </script>
