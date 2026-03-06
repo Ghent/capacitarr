@@ -889,6 +889,42 @@ html {
   z-index: 2;
 }
 
+/* Target thumb (first) — emerald green to match the target zone/label */
+[data-slot='threshold-slider'] [data-slot='slider-thumb']:first-of-type {
+  background: oklch(0.648 0.2 160);
+  border-color: oklch(0.75 0.18 160);
+  box-shadow:
+    0 1px 4px oklch(0.648 0.2 160 / 0.3),
+    0 0 0 2px oklch(0.648 0.2 160 / 0.1);
+}
+
+.dark [data-slot='threshold-slider'] [data-slot='slider-thumb']:first-of-type {
+  background: oklch(0.648 0.2 160);
+  border-color: oklch(0.75 0.18 160);
+  box-shadow:
+    0 1px 6px oklch(0.648 0.2 160 / 0.4),
+    0 0 0 2px oklch(0.648 0.2 160 / 0.15),
+    0 0 10px oklch(0.648 0.2 160 / 0.12);
+}
+
+/* Threshold thumb (last) — red to match the threshold zone/label */
+[data-slot='threshold-slider'] [data-slot='slider-thumb']:last-of-type {
+  background: oklch(0.577 0.245 27.325);
+  border-color: oklch(0.65 0.22 27);
+  box-shadow:
+    0 1px 4px oklch(0.577 0.245 27.325 / 0.3),
+    0 0 0 2px oklch(0.577 0.245 27.325 / 0.1);
+}
+
+.dark [data-slot='threshold-slider'] [data-slot='slider-thumb']:last-of-type {
+  background: oklch(0.577 0.245 27.325);
+  border-color: oklch(0.65 0.22 27);
+  box-shadow:
+    0 1px 6px oklch(0.577 0.245 27.325 / 0.4),
+    0 0 0 2px oklch(0.577 0.245 27.325 / 0.15),
+    0 0 10px oklch(0.577 0.245 27.325 / 0.12);
+}
+
 /* ========================================
    Table Enhancement — Richer Colors & Depth
    ======================================== */
