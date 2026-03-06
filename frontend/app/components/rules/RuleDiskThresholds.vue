@@ -23,13 +23,7 @@
           <div class="flex items-center gap-3">
             <div
               class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-              :class="
-                diskStatusBgClass(
-                  diskUsagePct(dg),
-                  thresholdEdits[dg.id]?.target ?? dg.targetPct,
-                  thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct,
-                )
-              "
+              :class="diskStatusBgClass(diskUsagePct(dg), editTarget(dg), editThreshold(dg))"
             >
               <component :is="HardDriveIcon" class="w-4.5 h-4.5 text-white" />
             </div>
@@ -44,13 +38,7 @@
           </div>
           <span
             class="text-2xl font-bold tabular-nums"
-            :class="
-              diskStatusTextClass(
-                diskUsagePct(dg),
-                thresholdEdits[dg.id]?.target ?? dg.targetPct,
-                thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct,
-              )
-            "
+            :class="diskStatusTextClass(diskUsagePct(dg), editTarget(dg), editThreshold(dg))"
           >
             {{ Math.round(diskUsagePct(dg)) }}%
           </span>
@@ -65,24 +53,21 @@
               <div
                 class="h-full"
                 :style="{
-                  width: (thresholdEdits[dg.id]?.target ?? dg.targetPct) + '%',
+                  width: editTarget(dg) + '%',
                   backgroundColor: 'oklch(0.648 0.2 160 / 0.2)',
                 }"
               />
               <div
                 class="h-full"
                 :style="{
-                  width:
-                    (thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct) -
-                    (thresholdEdits[dg.id]?.target ?? dg.targetPct) +
-                    '%',
+                  width: editThreshold(dg) - editTarget(dg) + '%',
                   backgroundColor: 'oklch(0.75 0.183 55.934 / 0.2)',
                 }"
               />
               <div
                 class="h-full"
                 :style="{
-                  width: 100 - (thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct) + '%',
+                  width: 100 - editThreshold(dg) + '%',
                   backgroundColor: 'oklch(0.577 0.245 27.325 / 0.2)',
                 }"
               />
@@ -95,20 +80,14 @@
               aria-valuemin="0"
               aria-valuemax="100"
               :aria-label="`Disk usage: ${Math.round(diskUsagePct(dg))}%`"
-              :data-status="
-                diskUsageStatus(
-                  diskUsagePct(dg),
-                  thresholdEdits[dg.id]?.target ?? dg.targetPct,
-                  thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct,
-                )
-              "
+              :data-status="diskUsageStatus(diskUsagePct(dg), editTarget(dg), editThreshold(dg))"
               class="relative h-full rounded-full transition-all duration-700 ease-out z-10"
               :style="{
                 width: Math.min(diskUsagePct(dg), 100) + '%',
                 backgroundColor: diskStatusFillColor(
                   diskUsagePct(dg),
-                  thresholdEdits[dg.id]?.target ?? dg.targetPct,
-                  thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct,
+                  editTarget(dg),
+                  editThreshold(dg),
                 ),
               }"
             />
@@ -117,31 +96,25 @@
           <!-- Target marker ABOVE the bar -->
           <div
             class="absolute bottom-3 flex flex-col items-center z-20"
-            :style="{
-              left: (thresholdEdits[dg.id]?.target ?? dg.targetPct) + '%',
-              transform: 'translateX(-50%)',
-            }"
+            :style="{ left: editTarget(dg) + '%', transform: 'translateX(-50%)' }"
           >
             <span
               class="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 whitespace-nowrap mb-0.5"
             >
-              Target {{ thresholdEdits[dg.id]?.target ?? dg.targetPct }}%
+              Target {{ editTarget(dg) }}%
             </span>
             <span class="text-emerald-500 text-[10px] leading-none mb-0.5">▼</span>
           </div>
           <!-- Threshold marker BELOW the bar -->
           <div
             class="absolute top-3 flex flex-col items-center z-20"
-            :style="{
-              left: (thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct) + '%',
-              transform: 'translateX(-50%)',
-            }"
+            :style="{ left: editThreshold(dg) + '%', transform: 'translateX(-50%)' }"
           >
             <span class="text-red-500 text-[10px] leading-none mt-0.5">▲</span>
             <span
               class="text-[10px] font-medium text-red-500 dark:text-red-400 whitespace-nowrap mt-0.5"
             >
-              Threshold {{ thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct }}%
+              Threshold {{ editThreshold(dg) }}%
             </span>
           </div>
         </div>
@@ -151,88 +124,73 @@
           <span>{{ formatBytes(dg.totalBytes - dg.usedBytes) }} free</span>
         </div>
 
-        <!-- Editable inputs -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="space-y-1.5">
-            <UiLabel>{{ $t('rules.cleanupThreshold') }}</UiLabel>
-            <div class="flex items-center gap-2">
-              <UiNumberField
-                :model-value="thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct"
-                :min="1"
-                :max="99"
-                @update:model-value="(v: number) => updateThresholdEdit(dg.id, 'threshold', v, dg)"
-              >
-                <UiNumberFieldContent>
-                  <UiNumberFieldDecrement />
-                  <UiNumberFieldInput />
-                  <UiNumberFieldIncrement />
-                </UiNumberFieldContent>
-              </UiNumberField>
-              <span class="w-2 h-2 rounded-full bg-red-400 shrink-0" />
-            </div>
-            <p class="text-[11px] text-muted-foreground">
-              {{ $t('rules.cleanupThresholdDesc') }}
-            </p>
+        <!-- Dual-thumb range slider -->
+        <div class="space-y-2">
+          <div data-slot="threshold-slider" class="relative">
+            <UiSlider
+              :model-value="[editTarget(dg), editThreshold(dg)]"
+              :min="1"
+              :max="99"
+              :step="1"
+              :min-steps-between-thumbs="1"
+              @update:model-value="(v: number[]) => onSliderChange(dg, v)"
+            />
+            <!-- Zone color overlay on the slider track -->
+            <div
+              class="absolute top-1/2 -translate-y-1/2 h-2.5 rounded-full pointer-events-none z-0"
+              :style="{
+                left: '0%',
+                width: editTarget(dg) + '%',
+                background: 'oklch(0.648 0.2 160 / 0.25)',
+              }"
+            />
+            <div
+              class="absolute top-1/2 -translate-y-1/2 h-2.5 rounded-full pointer-events-none z-0"
+              :style="{
+                left: editTarget(dg) + '%',
+                width: editThreshold(dg) - editTarget(dg) + '%',
+                background: 'oklch(0.75 0.183 55.934 / 0.25)',
+              }"
+            />
+            <div
+              class="absolute top-1/2 -translate-y-1/2 h-2.5 rounded-full pointer-events-none z-0"
+              :style="{
+                left: editThreshold(dg) + '%',
+                width: 100 - editThreshold(dg) + '%',
+                background: 'oklch(0.577 0.245 27.325 / 0.25)',
+              }"
+            />
           </div>
-          <div class="space-y-1.5">
-            <UiLabel>{{ $t('rules.cleanupTarget') }}</UiLabel>
-            <div class="flex items-center gap-2">
-              <UiNumberField
-                :model-value="thresholdEdits[dg.id]?.target ?? dg.targetPct"
-                :min="1"
-                :max="99"
-                @update:model-value="(v: number) => updateThresholdEdit(dg.id, 'target', v, dg)"
-              >
-                <UiNumberFieldContent>
-                  <UiNumberFieldDecrement />
-                  <UiNumberFieldInput />
-                  <UiNumberFieldIncrement />
-                </UiNumberFieldContent>
-              </UiNumberField>
-              <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
-            </div>
-            <p class="text-[11px] text-muted-foreground">
-              {{ $t('rules.cleanupTargetDesc') }}
-            </p>
+
+          <!-- Labels below the slider -->
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-emerald-600 dark:text-emerald-400 font-medium">
+              ● Target {{ editTarget(dg) }}%
+            </span>
+            <span class="text-red-500 dark:text-red-400 font-medium">
+              ● Threshold {{ editThreshold(dg) }}%
+            </span>
           </div>
         </div>
 
-        <!-- Validation error -->
-        <p v-if="thresholdValidation(dg.id, dg)" class="text-xs text-red-500">
-          {{ thresholdValidation(dg.id, dg) }}
-        </p>
-
-        <!-- Auto-save status indicator -->
-        <div class="flex items-center gap-2 h-5">
-          <Transition
-            enter-active-class="transition-all duration-300 ease-out"
-            leave-active-class="transition-all duration-300 ease-in"
-            enter-from-class="opacity-0 translate-y-1"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 translate-y-1"
+        <!-- Validation error + Save button row -->
+        <div class="flex items-center justify-between">
+          <p v-if="thresholdValidation(dg.id, dg)" class="text-xs text-red-500">
+            {{ thresholdValidation(dg.id, dg) }}
+          </p>
+          <span v-else />
+          <UiButton
+            size="sm"
+            :disabled="!hasChanges(dg) || !!thresholdValidation(dg.id, dg) || isSaving(dg.id)"
+            @click="saveThresholds(dg)"
           >
-            <span
-              v-if="thresholdEdits[dg.id]?.saving"
-              class="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
-            >
-              <component :is="LoaderCircleIcon" class="w-3.5 h-3.5 animate-spin" />
-              {{ $t('common.saving') }}
-            </span>
-            <span
-              v-else-if="thresholdEdits[dg.id]?.success && thresholdEdits[dg.id]?.message"
-              class="inline-flex items-center gap-1.5 text-xs text-emerald-500"
-            >
-              <component :is="CheckIcon" class="w-3.5 h-3.5" />
-              {{ $t('common.saved') }}
-            </span>
-            <span
-              v-else-if="thresholdEdits[dg.id]?.message && !thresholdEdits[dg.id]?.success"
-              class="inline-flex items-center gap-1.5 text-xs text-red-500"
-            >
-              {{ thresholdEdits[dg.id]?.message }}
-            </span>
-          </Transition>
+            <component
+              :is="isSaving(dg.id) ? LoaderCircleIcon : SaveIcon"
+              class="w-3.5 h-3.5 mr-1.5"
+              :class="{ 'animate-spin': isSaving(dg.id) }"
+            />
+            {{ isSaving(dg.id) ? $t('common.saving') : $t('common.save') }}
+          </UiButton>
         </div>
       </div>
     </UiCardContent>
@@ -240,7 +198,7 @@
 </template>
 
 <script setup lang="ts">
-import { HardDriveIcon, LoaderCircleIcon, CheckIcon } from 'lucide-vue-next';
+import { HardDriveIcon, LoaderCircleIcon, SaveIcon } from 'lucide-vue-next';
 import {
   formatBytes,
   diskUsageStatus,
@@ -269,8 +227,6 @@ const thresholdEdits = reactive<
       threshold: number;
       target: number;
       saving: boolean;
-      message: string;
-      success: boolean;
     }
   >
 >({});
@@ -280,53 +236,54 @@ function diskUsagePct(dg: DiskGroup): number {
   return (dg.usedBytes / dg.totalBytes) * 100;
 }
 
+/** Get the current edit target value or fall back to saved value. */
+function editTarget(dg: DiskGroup): number {
+  return thresholdEdits[dg.id]?.target ?? dg.targetPct;
+}
+
+/** Get the current edit threshold value or fall back to saved value. */
+function editThreshold(dg: DiskGroup): number {
+  return thresholdEdits[dg.id]?.threshold ?? dg.thresholdPct;
+}
+
+/** Whether the user has unsaved changes for this disk group. */
+function hasChanges(dg: DiskGroup): boolean {
+  const edit = thresholdEdits[dg.id];
+  if (!edit) return false;
+  return edit.target !== dg.targetPct || edit.threshold !== dg.thresholdPct;
+}
+
+/** Whether this disk group is currently saving. */
+function isSaving(dgId: number): boolean {
+  return thresholdEdits[dgId]?.saving ?? false;
+}
+
 function ensureThresholdEdit(dgId: number, dg: DiskGroup) {
   if (!thresholdEdits[dgId]) {
     thresholdEdits[dgId] = {
       threshold: dg.thresholdPct,
       target: dg.targetPct,
       saving: false,
-      message: '',
-      success: false,
     };
   }
 }
 
-// Debounce timers for auto-save per disk group
-const debounceTimers: Record<number, ReturnType<typeof setTimeout>> = {};
-
-function updateThresholdEdit(
-  dgId: number,
-  field: 'threshold' | 'target',
-  value: number,
-  dg: DiskGroup,
-) {
-  ensureThresholdEdit(dgId, dg);
-  const edit = thresholdEdits[dgId]!;
-  edit[field] = value;
-  edit.message = '';
-  edit.success = false;
-
-  // Cancel any pending debounce for this disk group
-  if (debounceTimers[dgId]) {
-    clearTimeout(debounceTimers[dgId]);
-  }
-
-  // Auto-save after 1 second debounce (skip if validation fails)
-  debounceTimers[dgId] = setTimeout(() => {
-    if (!thresholdValidation(dgId, dg)) {
-      saveThresholds(dg);
-    }
-  }, 1000);
+/** Handle slider value changes — array is [target, threshold]. */
+function onSliderChange(dg: DiskGroup, values: number[]) {
+  ensureThresholdEdit(dg.id, dg);
+  const edit = thresholdEdits[dg.id]!;
+  edit.target = values[0];
+  edit.threshold = values[1];
 }
 
 function thresholdValidation(dgId: number, dg: DiskGroup): string {
-  const edit = thresholdEdits[dgId];
-  const t = edit?.threshold ?? dg.thresholdPct;
-  const g = edit?.target ?? dg.targetPct;
+  const t = editThreshold(dg);
+  const g = editTarget(dg);
   if (t == null || g == null) return 'Both values are required';
   if (t < 1 || t > 99 || g < 1 || g > 99) return 'Values must be between 1 and 99';
   if (t <= g) return 'Threshold must be greater than target';
+  // Suppress false positives when dgId is used only for lookup
+  void dgId;
   return '';
 }
 
@@ -336,8 +293,6 @@ async function saveThresholds(dg: DiskGroup) {
   if (thresholdValidation(dg.id, dg)) return;
 
   edit.saving = true;
-  edit.message = '';
-  edit.success = false;
 
   try {
     const updated = (await api(`/api/v1/disk-groups/${dg.id}`, {
@@ -347,9 +302,6 @@ async function saveThresholds(dg: DiskGroup) {
         targetPct: edit.target,
       },
     })) as DiskGroup;
-
-    edit.success = true;
-    edit.message = 'Saved';
 
     // Emit updated disk group to parent for sync
     if (updated) {
@@ -361,14 +313,9 @@ async function saveThresholds(dg: DiskGroup) {
       emit('update:diskGroup', { ...dg, thresholdPct: edit.threshold, targetPct: edit.target });
     }
 
-    setTimeout(() => {
-      edit.message = '';
-      edit.success = false;
-    }, 2500);
+    addToast(`Thresholds saved for ${dg.mountPath}`, 'success');
   } catch (err: unknown) {
-    edit.success = false;
     const errMsg = (err as ApiError)?.message || 'Failed to save thresholds';
-    edit.message = errMsg;
     addToast('Failed to save: ' + errMsg, 'error');
   } finally {
     edit.saving = false;
