@@ -52,10 +52,11 @@ type lidarrArtist struct {
 	Ratings    struct {
 		Value float64 `json:"value"`
 	} `json:"ratings"`
-	Genres           []string `json:"genres"`
-	Tags             []int    `json:"tags"`
-	QualityProfileID int      `json:"qualityProfileId"`
-	Added            string   `json:"added"`
+	Genres           []string   `json:"genres"`
+	Tags             []int      `json:"tags"`
+	QualityProfileID int        `json:"qualityProfileId"`
+	Added            string     `json:"added"`
+	Images           []arrImage `json:"images"`
 	Statistics       struct {
 		SizeOnDisk int64 `json:"sizeOnDisk"`
 		AlbumCount int   `json:"albumCount"`
@@ -112,6 +113,7 @@ func (l *LidarrClient) GetMediaItems() ([]MediaItem, error) {
 			Title:          a.ArtistName,
 			SizeBytes:      a.Statistics.SizeOnDisk,
 			Path:           a.Path,
+			PosterURL:      arrExtractPosterURL(a.Images),
 			QualityProfile: profileMap[a.QualityProfileID],
 			Rating:         rating,
 			Genre:          strings.Join(a.Genres, ", "),

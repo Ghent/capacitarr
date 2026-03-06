@@ -59,10 +59,11 @@ type radarrMovie struct {
 			Value float64 `json:"value"`
 		} `json:"tmdb"`
 	} `json:"ratings"`
-	Genres           []string `json:"genres"`
-	Tags             []int    `json:"tags"`
-	QualityProfileID int      `json:"qualityProfileId"`
-	Added            string   `json:"added"`
+	Genres           []string   `json:"genres"`
+	Tags             []int      `json:"tags"`
+	QualityProfileID int        `json:"qualityProfileId"`
+	Added            string     `json:"added"`
+	Images           []arrImage `json:"images"`
 }
 
 // GetMediaItems fetches all movies from Radarr with quality and tag metadata.
@@ -118,6 +119,7 @@ func (r *RadarrClient) GetMediaItems() ([]MediaItem, error) {
 			Year:           m.Year,
 			SizeBytes:      m.SizeOnDisk,
 			Path:           m.Path,
+			PosterURL:      arrExtractPosterURL(m.Images),
 			QualityProfile: profileMap[m.QualityProfileID],
 			Rating:         rating,
 			Genre:          strings.Join(m.Genres, ", "),

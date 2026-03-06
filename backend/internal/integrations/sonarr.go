@@ -46,16 +46,17 @@ func (s *SonarrClient) GetRootFolders() ([]string, error) {
 
 // sonarrSeries maps the Sonarr series API response
 type sonarrSeries struct {
-	ID               int      `json:"id"`
-	Title            string   `json:"title"`
-	Year             int      `json:"year"`
-	Path             string   `json:"path"`
-	Monitored        bool     `json:"monitored"`
-	Status           string   `json:"status"` // continuing, ended
-	Genres           []string `json:"genres"`
-	Tags             []int    `json:"tags"`
-	QualityProfileID int      `json:"qualityProfileId"`
-	Added            string   `json:"added"`
+	ID               int        `json:"id"`
+	Title            string     `json:"title"`
+	Year             int        `json:"year"`
+	Path             string     `json:"path"`
+	Monitored        bool       `json:"monitored"`
+	Status           string     `json:"status"` // continuing, ended
+	Genres           []string   `json:"genres"`
+	Tags             []int      `json:"tags"`
+	QualityProfileID int        `json:"qualityProfileId"`
+	Added            string     `json:"added"`
+	Images           []arrImage `json:"images"`
 	Ratings          struct {
 		Value float64 `json:"value"`
 	} `json:"ratings"`
@@ -117,6 +118,8 @@ func (s *SonarrClient) GetMediaItems() ([]MediaItem, error) {
 			}
 		}
 
+		posterURL := arrExtractPosterURL(show.Images)
+
 		// Emit each season as a separate scoreable item
 		for _, season := range show.Seasons {
 			if season.SeasonNumber == 0 || season.Statistics.SizeOnDisk == 0 {
@@ -133,6 +136,7 @@ func (s *SonarrClient) GetMediaItems() ([]MediaItem, error) {
 				EpisodeCount:   season.Statistics.EpisodeFileCount,
 				SizeBytes:      season.Statistics.SizeOnDisk,
 				Path:           show.Path,
+				PosterURL:      posterURL,
 				SeriesStatus:   show.Status,
 				QualityProfile: profileMap[show.QualityProfileID],
 				Rating:         show.Ratings.Value,
@@ -151,6 +155,7 @@ func (s *SonarrClient) GetMediaItems() ([]MediaItem, error) {
 			Year:           show.Year,
 			SizeBytes:      show.Statistics.SizeOnDisk,
 			Path:           show.Path,
+			PosterURL:      posterURL,
 			SeriesStatus:   show.Status,
 			EpisodeCount:   show.Statistics.EpisodeCount,
 			QualityProfile: profileMap[show.QualityProfileID],

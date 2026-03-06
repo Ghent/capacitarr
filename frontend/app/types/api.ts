@@ -110,6 +110,7 @@ export interface ApprovalQueueItem {
   reason: string;
   scoreDetails: string;
   sizeBytes: number;
+  posterUrl?: string;
   integrationId: number;
   externalId: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -174,6 +175,7 @@ export interface MediaItem {
   year?: number;
   sizeBytes: number;
   path: string;
+  posterUrl?: string;
   seasonNumber?: number;
   episodeCount?: number;
   showTitle?: string;

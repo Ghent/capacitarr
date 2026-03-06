@@ -50,7 +50,8 @@ type MediaItem struct {
 	Title         string    `json:"title"`
 	Year          int       `json:"year,omitempty"`
 	SizeBytes     int64     `json:"sizeBytes"`
-	Path          string    `json:"path"` // File path on disk
+	Path          string    `json:"path"`                // File path on disk
+	PosterURL     string    `json:"posterUrl,omitempty"` // Poster image URL (from *arr's images array, coverType=poster)
 
 	// TV-specific
 	SeasonNumber int    `json:"seasonNumber,omitempty"`

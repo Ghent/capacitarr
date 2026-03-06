@@ -37,6 +37,38 @@ type arrTag struct {
 	Label string `json:"label"`
 }
 
+// arrImage represents an image entry in *arr API responses.
+type arrImage struct {
+	CoverType string `json:"coverType"`
+	RemoteURL string `json:"remoteUrl"`
+	URL       string `json:"url"`
+}
+
+// arrExtractPosterURL finds the poster URL from an *arr images array.
+// Prefers remoteUrl (external CDN) over url (local *arr path).
+// Checks for coverType "poster" first, then "cover" (used by Readarr for book covers).
+func arrExtractPosterURL(images []arrImage) string {
+	// First pass: look for "poster" (movies, shows, artists)
+	for _, img := range images {
+		if img.CoverType == "poster" {
+			if img.RemoteURL != "" {
+				return img.RemoteURL
+			}
+			return img.URL
+		}
+	}
+	// Second pass: look for "cover" (books in Readarr)
+	for _, img := range images {
+		if img.CoverType == "cover" {
+			if img.RemoteURL != "" {
+				return img.RemoteURL
+			}
+			return img.URL
+		}
+	}
+	return ""
+}
+
 // --- Shared *arr fetch helpers ---
 
 // arrFetchDiskSpace fetches and parses disk space from any *arr service.

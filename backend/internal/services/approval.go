@@ -133,6 +133,7 @@ func (s *ApprovalService) UpsertPending(item db.ApprovalQueueItem) (bool, error)
 			"reason":         item.Reason,
 			"score_details":  item.ScoreDetails,
 			"size_bytes":     item.SizeBytes,
+			"poster_url":     item.PosterURL,
 			"integration_id": item.IntegrationID,
 			"external_id":    item.ExternalID,
 			"updated_at":     now,

@@ -50,10 +50,11 @@ type readarrBook struct {
 	Author   struct {
 		AuthorName string `json:"authorName"`
 	} `json:"author"`
-	SizeOnDisk int64  `json:"sizeOnDisk"`
-	Added      string `json:"added"`
-	Monitored  bool   `json:"monitored"`
-	Path       string `json:"path"`
+	SizeOnDisk int64      `json:"sizeOnDisk"`
+	Added      string     `json:"added"`
+	Monitored  bool       `json:"monitored"`
+	Path       string     `json:"path"`
+	Images     []arrImage `json:"images"`
 	Ratings    struct {
 		Value float64 `json:"value"`
 	} `json:"ratings"`
@@ -116,6 +117,7 @@ func (r *ReadarrClient) GetMediaItems() ([]MediaItem, error) {
 			AddedAt:        addedAt,
 			Monitored:      b.Monitored,
 			Path:           b.Path,
+			PosterURL:      arrExtractPosterURL(b.Images),
 			Rating:         b.Ratings.Value,
 			Genre:          genre,
 			Tags:           tagNames,
