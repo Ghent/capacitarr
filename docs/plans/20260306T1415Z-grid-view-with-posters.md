@@ -528,6 +528,39 @@ Any of those introduce real business logic worth encapsulating. The current plan
 - Existing items in the queue won't have posters until the next engine run re-evaluates them — this is acceptable since the fallback placeholder handles it gracefully
 - The `posterUrl` field in `MediaItem` is `omitempty`, so API responses are backward-compatible
 
+## Phase 3: Grid View Interactions
+
+**Goal:** Complete the grid view experience with season drill-down and batch selection.
+
+> **Status:** 📋 Planned — identified during Phase 2 implementation
+
+### Step 3.1: Season popover for show cards
+
+When a show card with `seasonCount > 0` is clicked in grid view:
+- Show a `UiPopover` anchored to the card listing individual seasons
+- Each season entry shows: title, score, size, and approve/snooze action buttons
+- For non-show items (movies, artists, books), click goes straight to score detail modal
+
+**Implementation notes:**
+- Add `seasonCount` prop to `MediaPosterCard.vue` (or handle in parent)
+- Show a "×N seasons" badge on cards with `seasonCount > 0`
+- Popover uses existing `approveSeason()` / `snoozeSeason()` from `useApprovalQueue()`
+
+### Step 3.2: Selection checkboxes in grid view
+
+Adapt the existing "Select All" / batch approve workflow for grid mode:
+- Add a `selectable` and `selected` prop to `MediaPosterCard.vue`
+- When `selectable`, show a checkbox overlay in the bottom-left corner (doesn't overlap score badge top-right or media type top-left)
+- Clicking the checkbox toggles selection without opening the detail modal
+- The existing batch approve bar (Select All / Approve N Selected) works identically
+- Selection state uses the same `selectedIds` reactive set as list view
+
+### Step 3.3: Verify with `make ci`
+
+### Step 3.4: Rebuild container and test both interactions
+
+---
+
 ## Estimated Effort
 
 | Phase | Effort | Description |
@@ -535,4 +568,5 @@ Any of those introduce real business logic worth encapsulating. The current plan
 | Phase 0 | ~5 min | Branch creation |
 | Phase 1 | ~3-4 hours | Backend plumbing, migration, poster caching, type updates |
 | Phase 2 | ~5-7 hours | Grid component, toggle, fallback system, image caching, approval actions adaptation, polish |
-| **Total** | **~8-11 hours** | |
+| Phase 3 | ~2-3 hours | Season popover, selection checkboxes, grid interaction polish |
+| **Total** | **~10-14 hours** | |

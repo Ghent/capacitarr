@@ -424,7 +424,11 @@ onUnmounted(() => {
                 :media-type="group.type"
                 :score="group.score"
                 :size-bytes="group.totalSizeBytes"
+                :selectable="group.auditIds.length > 0"
+                :selected="isGroupFullySelected(group)"
+                :season-count="group.seasonCount"
                 @click="showDetail(group)"
+                @select="toggleGroupSelect(group)"
               />
             </div>
             <!-- List view for pending items -->

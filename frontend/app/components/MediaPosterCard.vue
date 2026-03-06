@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Film, Tv, Music, BookOpen } from 'lucide-vue-next';
+import { Film, Tv, Music, BookOpen, CheckSquare, Square } from 'lucide-vue-next';
 
 const props = defineProps<{
   title: string;
@@ -10,10 +10,14 @@ const props = defineProps<{
   sizeBytes?: number;
   isProtected?: boolean;
   isFlagged?: boolean;
+  selectable?: boolean;
+  selected?: boolean;
+  seasonCount?: number;
 }>();
 
 defineEmits<{
   click: [];
+  select: [];
 }>();
 
 const imageError = ref(false);
@@ -90,6 +94,7 @@ const showFallback = computed(() => !props.posterUrl || imageError.value || !ima
     :class="{
       'ring-2 ring-emerald-500/50': isProtected,
       'ring-2 ring-red-500/40': isFlagged && !isProtected,
+      'ring-2 ring-primary bg-primary/5': selected,
     }"
     @click="$emit('click')"
   >
@@ -173,6 +178,25 @@ const showFallback = computed(() => !props.posterUrl || imageError.value || !ima
           d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
         />
       </svg>
+    </div>
+
+    <!-- Selection checkbox (bottom-left, only when selectable) -->
+    <button
+      v-if="selectable"
+      class="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/40 backdrop-blur-sm p-0.5 transition-colors hover:bg-black/60"
+      :class="{ 'bg-primary/80 hover:bg-primary/90': selected }"
+      @click.stop="$emit('select')"
+    >
+      <component :is="selected ? CheckSquare : Square" class="w-4 h-4 text-white" />
+    </button>
+
+    <!-- Seasons badge (for show groups with multiple seasons) -->
+    <div
+      v-if="seasonCount && seasonCount > 0"
+      class="absolute bottom-1.5 left-1.5 rounded-full bg-black/50 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white/80"
+      :class="{ 'left-8': selectable }"
+    >
+      ×{{ seasonCount }}
     </div>
   </div>
 </template>
