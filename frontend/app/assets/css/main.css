@@ -884,13 +884,15 @@ html {
   box-shadow: none;
 }
 
-/* Ensure thumbs render above the zone color overlays */
+/* Ensure thumbs render above the zone color overlays + make them slightly larger */
 [data-slot='threshold-slider'] [data-slot='slider-thumb'] {
   z-index: 2;
+  width: 18px;
+  height: 18px;
 }
 
-/* Target thumb (first) — emerald green to match the target zone/label */
-[data-slot='threshold-slider'] [data-slot='slider-thumb']:first-of-type {
+/* Target thumb (first = 2nd child after the track) — emerald green */
+[data-slot='threshold-slider'] [data-slot='slider-thumb']:nth-child(2) {
   background: oklch(0.648 0.2 160);
   border-color: oklch(0.75 0.18 160);
   box-shadow:
@@ -898,7 +900,7 @@ html {
     0 0 0 2px oklch(0.648 0.2 160 / 0.1);
 }
 
-.dark [data-slot='threshold-slider'] [data-slot='slider-thumb']:first-of-type {
+.dark [data-slot='threshold-slider'] [data-slot='slider-thumb']:nth-child(2) {
   background: oklch(0.648 0.2 160);
   border-color: oklch(0.75 0.18 160);
   box-shadow:
@@ -907,8 +909,8 @@ html {
     0 0 10px oklch(0.648 0.2 160 / 0.12);
 }
 
-/* Threshold thumb (last) — red to match the threshold zone/label */
-[data-slot='threshold-slider'] [data-slot='slider-thumb']:last-of-type {
+/* Threshold thumb (last = 3rd child after track + target thumb) — red */
+[data-slot='threshold-slider'] [data-slot='slider-thumb']:nth-child(3) {
   background: oklch(0.577 0.245 27.325);
   border-color: oklch(0.65 0.22 27);
   box-shadow:
@@ -916,7 +918,7 @@ html {
     0 0 0 2px oklch(0.577 0.245 27.325 / 0.1);
 }
 
-.dark [data-slot='threshold-slider'] [data-slot='slider-thumb']:last-of-type {
+.dark [data-slot='threshold-slider'] [data-slot='slider-thumb']:nth-child(3) {
   background: oklch(0.577 0.245 27.325);
   border-color: oklch(0.65 0.22 27);
   box-shadow:
