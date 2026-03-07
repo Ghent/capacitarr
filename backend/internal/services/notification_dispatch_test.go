@@ -319,7 +319,7 @@ func TestNotificationDispatch_ApprovalActivityFiltering(t *testing.T) {
 func TestNotificationDispatch_ApprovalModeFreedBytes(t *testing.T) {
 	channels := &mockChannelProvider{
 		configs: []db.NotificationConfig{
-			{ID: 1, Type: "discord", Name: "Test", Enabled: true, OnCycleDigest: true},
+			{ID: 1, Type: "discord", Name: "Test", Enabled: true, OnCycleDigest: true, OnApprovalActivity: true},
 		},
 	}
 
@@ -354,5 +354,76 @@ func TestNotificationDispatch_ApprovalModeFreedBytes(t *testing.T) {
 	}
 	if digests[0].Flagged != 80 {
 		t.Errorf("expected flagged=80, got %d", digests[0].Flagged)
+	}
+}
+
+func TestNotificationDispatch_ApprovalModeDigestSuppressed(t *testing.T) {
+	// When OnApprovalActivity=false, approval-mode cycle digests should be
+	// suppressed — users who turn off "Approval Activity" expect ALL
+	// approval-related notifications to stop, including the engine cycle
+	// digest that says "Items Queued for Approval".
+	channels := &mockChannelProvider{
+		configs: []db.NotificationConfig{
+			{ID: 1, Type: "discord", Name: "No Approval Digest", Enabled: true,
+				OnCycleDigest: true, OnApprovalActivity: false},
+		},
+	}
+
+	svc, mock := newTestDispatch(t, channels)
+
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "approval"})
+	time.Sleep(50 * time.Millisecond)
+
+	svc.bus.Publish(events.EngineCompleteEvent{
+		Evaluated:     100,
+		Flagged:       5,
+		DurationMs:    500,
+		ExecutionMode: "approval",
+		FreedBytes:    1073741824,
+	})
+	time.Sleep(50 * time.Millisecond)
+
+	svc.bus.Publish(events.DeletionBatchCompleteEvent{Succeeded: 0, Failed: 0})
+	time.Sleep(200 * time.Millisecond)
+
+	digests := mock.getDigests()
+	if len(digests) != 0 {
+		t.Fatalf("expected 0 digests (OnApprovalActivity=false suppresses approval-mode digests), got %d", len(digests))
+	}
+}
+
+func TestNotificationDispatch_NonApprovalDigestNotAffected(t *testing.T) {
+	// When OnApprovalActivity=false, non-approval-mode digests (auto, dry-run)
+	// should still be delivered normally.
+	channels := &mockChannelProvider{
+		configs: []db.NotificationConfig{
+			{ID: 1, Type: "discord", Name: "Test", Enabled: true,
+				OnCycleDigest: true, OnApprovalActivity: false},
+		},
+	}
+
+	svc, mock := newTestDispatch(t, channels)
+
+	// Run an auto-mode cycle
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "auto"})
+	time.Sleep(50 * time.Millisecond)
+
+	svc.bus.Publish(events.EngineCompleteEvent{
+		Evaluated:     50,
+		Flagged:       2,
+		DurationMs:    300,
+		ExecutionMode: "auto",
+	})
+	time.Sleep(50 * time.Millisecond)
+
+	svc.bus.Publish(events.DeletionBatchCompleteEvent{Succeeded: 2, Failed: 0})
+	time.Sleep(200 * time.Millisecond)
+
+	digests := mock.getDigests()
+	if len(digests) != 1 {
+		t.Fatalf("expected 1 digest (auto mode unaffected by OnApprovalActivity=false), got %d", len(digests))
+	}
+	if digests[0].ExecutionMode != "auto" {
+		t.Errorf("expected execution mode 'auto', got %q", digests[0].ExecutionMode)
 	}
 }

@@ -275,7 +275,10 @@ func (s *NotificationDispatchService) tryFlush() {
 }
 
 // dispatchDigest sends the cycle digest to all enabled channels that
-// subscribe to OnCycleDigest.
+// subscribe to OnCycleDigest. For approval-mode digests, channels must
+// also subscribe to OnApprovalActivity — users who disable "Approval
+// Activity" expect all approval-related notifications to be silenced,
+// including the cycle digest that summarises items queued for approval.
 func (s *NotificationDispatchService) dispatchDigest(digest notifications.CycleDigest) {
 	configs, err := s.channels.ListEnabled()
 	if err != nil {
@@ -285,6 +288,12 @@ func (s *NotificationDispatchService) dispatchDigest(digest notifications.CycleD
 
 	for _, cfg := range configs {
 		if !cfg.OnCycleDigest {
+			continue
+		}
+		// Approval-mode digests are gated by both OnCycleDigest and
+		// OnApprovalActivity so that disabling "Approval Activity"
+		// silences all approval-related notifications.
+		if digest.ExecutionMode == notifications.ModeApproval && !cfg.OnApprovalActivity {
 			continue
 		}
 
