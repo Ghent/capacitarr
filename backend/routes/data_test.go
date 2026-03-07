@@ -260,7 +260,7 @@ func TestDataReset_PreservesCustomRules(t *testing.T) {
 	rule := db.CustomRule{
 		Field:    "title",
 		Operator: "contains",
-		Value:    "Star Wars",
+		Value:    "Serenity",
 		Effect:   "always_keep",
 		Enabled:  true,
 	}

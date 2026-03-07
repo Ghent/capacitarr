@@ -12,7 +12,7 @@ func TestAuditLogService_Create(t *testing.T) {
 	svc := NewAuditLogService(database)
 
 	entry := db.AuditLogEntry{
-		MediaName: "Breaking Bad",
+		MediaName: "Firefly",
 		MediaType: "show",
 		Reason:    "Score: 0.85 (WatchHistory: 1.0)",
 		Action:    db.ActionDeleted,
@@ -31,8 +31,8 @@ func TestAuditLogService_Create(t *testing.T) {
 
 	var saved db.AuditLogEntry
 	database.First(&saved)
-	if saved.MediaName != "Breaking Bad" {
-		t.Errorf("expected media name 'Breaking Bad', got %q", saved.MediaName)
+	if saved.MediaName != "Firefly" {
+		t.Errorf("expected media name 'Firefly', got %q", saved.MediaName)
 	}
 	if saved.Action != db.ActionDeleted {
 		t.Errorf("expected action %q, got %q", db.ActionDeleted, saved.Action)
@@ -44,7 +44,7 @@ func TestAuditLogService_UpsertDryRun_Create(t *testing.T) {
 	svc := NewAuditLogService(database)
 
 	entry := db.AuditLogEntry{
-		MediaName: "The Wire",
+		MediaName: "Firefly",
 		MediaType: "show",
 		Reason:    "Score: 0.70",
 		Action:    db.ActionDryRun,
@@ -68,7 +68,7 @@ func TestAuditLogService_UpsertDryRun_Update(t *testing.T) {
 
 	// Create initial dry-run entry
 	entry := db.AuditLogEntry{
-		MediaName: "The Wire",
+		MediaName: "Firefly",
 		MediaType: "show",
 		Reason:    "Score: 0.70",
 		Action:    db.ActionDryRun,

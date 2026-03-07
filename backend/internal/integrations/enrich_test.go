@@ -89,11 +89,11 @@ type plexMockItem struct {
 func TestEnrichItems_PlexEnrichment(t *testing.T) {
 	srv := newPlexMockServer(t,
 		[]plexMockItem{
-			{RatingKey: "101", Title: "Inception", Year: 2010, ViewCount: 5, LastViewedAt: 1700000000},
-			{RatingKey: "102", Title: "Interstellar", Year: 2014, ViewCount: 3, LastViewedAt: 1699000000},
+			{RatingKey: "101", Title: "Serenity", Year: 2010, ViewCount: 5, LastViewedAt: 1700000000},
+			{RatingKey: "102", Title: "Serenity 2", Year: 2014, ViewCount: 3, LastViewedAt: 1699000000},
 		},
 		[]plexMockItem{
-			{RatingKey: "200", Title: "Breaking Bad", Year: 2008, ViewCount: 10, LastViewedAt: 1700000000},
+			{RatingKey: "200", Title: "Firefly", Year: 2008, ViewCount: 10, LastViewedAt: 1700000000},
 		},
 	)
 	defer srv.Close()
@@ -102,39 +102,39 @@ func TestEnrichItems_PlexEnrichment(t *testing.T) {
 
 	// Simulate *arr items with no watch data
 	items := []MediaItem{
-		{Title: "Inception", Type: MediaTypeMovie, ExternalID: "1"},
-		{Title: "Interstellar", Type: MediaTypeMovie, ExternalID: "2"},
-		{Title: "Breaking Bad", Type: MediaTypeShow, ExternalID: "3"},
-		{Title: "The Wire", Type: MediaTypeShow, ExternalID: "4"}, // not in Plex
+		{Title: "Serenity", Type: MediaTypeMovie, ExternalID: "1"},
+		{Title: "Serenity 2", Type: MediaTypeMovie, ExternalID: "2"},
+		{Title: "Firefly", Type: MediaTypeShow, ExternalID: "3"},
+		{Title: "Firefly 2", Type: MediaTypeShow, ExternalID: "4"}, // not in Plex
 	}
 
 	ec := EnrichmentClients{Plex: plexClient}
 	EnrichItems(items, ec)
 
-	// Inception should be enriched
+	// Serenity should be enriched
 	if items[0].PlayCount != 5 {
-		t.Errorf("Inception: expected PlayCount 5, got %d", items[0].PlayCount)
+		t.Errorf("Serenity: expected PlayCount 5, got %d", items[0].PlayCount)
 	}
 	if items[0].LastPlayed == nil {
-		t.Error("Inception: expected LastPlayed to be set")
+		t.Error("Serenity: expected LastPlayed to be set")
 	}
 
-	// Interstellar should be enriched
+	// Serenity 2 should be enriched
 	if items[1].PlayCount != 3 {
-		t.Errorf("Interstellar: expected PlayCount 3, got %d", items[1].PlayCount)
+		t.Errorf("Serenity 2: expected PlayCount 3, got %d", items[1].PlayCount)
 	}
 
-	// Breaking Bad should be enriched
+	// Firefly should be enriched
 	if items[2].PlayCount != 10 {
-		t.Errorf("Breaking Bad: expected PlayCount 10, got %d", items[2].PlayCount)
+		t.Errorf("Firefly: expected PlayCount 10, got %d", items[2].PlayCount)
 	}
 
-	// The Wire should NOT be enriched (not in Plex)
+	// Firefly 2 should NOT be enriched (not in Plex)
 	if items[3].PlayCount != 0 {
-		t.Errorf("The Wire: expected PlayCount 0, got %d", items[3].PlayCount)
+		t.Errorf("Firefly 2: expected PlayCount 0, got %d", items[3].PlayCount)
 	}
 	if items[3].LastPlayed != nil {
-		t.Error("The Wire: expected LastPlayed to be nil")
+		t.Error("Firefly 2: expected LastPlayed to be nil")
 	}
 }
 
@@ -142,7 +142,7 @@ func TestEnrichItems_PlexEnrichment_SeasonMatchesByShowTitle(t *testing.T) {
 	srv := newPlexMockServer(t,
 		nil,
 		[]plexMockItem{
-			{RatingKey: "200", Title: "Breaking Bad", Year: 2008, ViewCount: 10, LastViewedAt: 1700000000},
+			{RatingKey: "200", Title: "Firefly", Year: 2008, ViewCount: 10, LastViewedAt: 1700000000},
 		},
 	)
 	defer srv.Close()
@@ -153,7 +153,7 @@ func TestEnrichItems_PlexEnrichment_SeasonMatchesByShowTitle(t *testing.T) {
 	items := []MediaItem{
 		{
 			Title:     "Season 2",
-			ShowTitle: "Breaking Bad",
+			ShowTitle: "Firefly",
 			Type:      MediaTypeSeason,
 		},
 	}
@@ -169,7 +169,7 @@ func TestEnrichItems_PlexEnrichment_SeasonMatchesByShowTitle(t *testing.T) {
 func TestEnrichItems_TautulliTakesPriorityOverPlex(t *testing.T) {
 	srv := newPlexMockServer(t,
 		[]plexMockItem{
-			{RatingKey: "101", Title: "Inception", Year: 2010, ViewCount: 5, LastViewedAt: 1700000000},
+			{RatingKey: "101", Title: "Serenity", Year: 2010, ViewCount: 5, LastViewedAt: 1700000000},
 		},
 		nil,
 	)
@@ -181,7 +181,7 @@ func TestEnrichItems_TautulliTakesPriorityOverPlex(t *testing.T) {
 	tautulliTime := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	items := []MediaItem{
 		{
-			Title:      "Inception",
+			Title:      "Serenity",
 			Type:       MediaTypeMovie,
 			ExternalID: "1",
 			PlayCount:  20,            // Already set by Tautulli
@@ -204,7 +204,7 @@ func TestEnrichItems_TautulliTakesPriorityOverPlex(t *testing.T) {
 func TestEnrichItems_PlexDoesNotOverwriteExistingData(t *testing.T) {
 	srv := newPlexMockServer(t,
 		[]plexMockItem{
-			{RatingKey: "101", Title: "Inception", Year: 2010, ViewCount: 5, LastViewedAt: 1700000000},
+			{RatingKey: "101", Title: "Serenity", Year: 2010, ViewCount: 5, LastViewedAt: 1700000000},
 		},
 		nil,
 	)
@@ -216,7 +216,7 @@ func TestEnrichItems_PlexDoesNotOverwriteExistingData(t *testing.T) {
 	existingTime := time.Date(2025, 12, 1, 0, 0, 0, 0, time.UTC)
 	items := []MediaItem{
 		{
-			Title:      "Inception",
+			Title:      "Serenity",
 			Type:       MediaTypeMovie,
 			ExternalID: "1",
 			PlayCount:  3,

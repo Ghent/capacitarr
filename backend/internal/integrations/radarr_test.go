@@ -114,9 +114,9 @@ func TestRadarrClient_GetMediaItems(t *testing.T) {
 			resp := []radarrMovie{
 				{
 					ID:               1,
-					Title:            "Inception",
+					Title:            "Serenity",
 					Year:             2010,
-					Path:             "/media/movies/Inception (2010)",
+					Path:             "/media/movies/Serenity (2010)",
 					Monitored:        true,
 					HasFile:          true,
 					SizeOnDisk:       8000000000,
@@ -184,24 +184,24 @@ func TestRadarrClient_GetMediaItems(t *testing.T) {
 	}
 
 	// First movie
-	inception := items[0]
-	if inception.Type != MediaTypeMovie {
-		t.Errorf("Expected MediaTypeMovie, got %v", inception.Type)
+	movie := items[0]
+	if movie.Type != MediaTypeMovie {
+		t.Errorf("Expected MediaTypeMovie, got %v", movie.Type)
 	}
-	if inception.Title != "Inception" {
-		t.Errorf("Expected 'Inception', got %q", inception.Title)
+	if movie.Title != "Serenity" {
+		t.Errorf("Expected 'Serenity', got %q", movie.Title)
 	}
-	if inception.Rating != 8.8 {
-		t.Errorf("Expected IMDB rating 8.8, got %v", inception.Rating)
+	if movie.Rating != 8.8 {
+		t.Errorf("Expected IMDB rating 8.8, got %v", movie.Rating)
 	}
-	if inception.QualityProfile != "HD-1080p" {
-		t.Errorf("Expected quality 'HD-1080p', got %q", inception.QualityProfile)
+	if movie.QualityProfile != "HD-1080p" {
+		t.Errorf("Expected quality 'HD-1080p', got %q", movie.QualityProfile)
 	}
-	if len(inception.Tags) != 1 || inception.Tags[0] != "classic" {
-		t.Errorf("Expected tags [classic], got %v", inception.Tags)
+	if len(movie.Tags) != 1 || movie.Tags[0] != "classic" {
+		t.Errorf("Expected tags [classic], got %v", movie.Tags)
 	}
-	if inception.Year != 2010 {
-		t.Errorf("Expected year 2010, got %d", inception.Year)
+	if movie.Year != 2010 {
+		t.Errorf("Expected year 2010, got %d", movie.Year)
 	}
 
 	// Second movie — TMDB fallback rating

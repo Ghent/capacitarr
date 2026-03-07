@@ -94,7 +94,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"Items": [
 				{
-					"Name": "Inception",
+					"Name": "Serenity",
 					"UserData": {
 						"PlayCount": 5,
 						"LastPlayedDate": "2024-11-01T20:00:00Z",
@@ -102,7 +102,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 					}
 				},
 				{
-					"Name": "The Matrix",
+					"Name": "Serenity 2",
 					"UserData": {
 						"PlayCount": 2,
 						"LastPlayedDate": "2024-10-15T14:00:00Z",
@@ -132,19 +132,19 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 		t.Fatalf("Expected 3 entries, got %d", len(data))
 	}
 
-	// Check Inception (normalized to lowercase)
-	inception, ok := data["inception"]
+	// Check Serenity (normalized to lowercase)
+	movie, ok := data["serenity"]
 	if !ok {
-		t.Fatal("Expected 'inception' key in result")
+		t.Fatal("Expected 'serenity' key in result")
 	}
-	if inception.PlayCount != 5 {
-		t.Errorf("Expected PlayCount 5 for Inception, got %d", inception.PlayCount)
+	if movie.PlayCount != 5 {
+		t.Errorf("Expected PlayCount 5 for Serenity, got %d", movie.PlayCount)
 	}
-	if !inception.Played {
-		t.Error("Expected Inception to be marked as Played")
+	if !movie.Played {
+		t.Error("Expected Serenity to be marked as Played")
 	}
-	if inception.LastPlayed == nil {
-		t.Error("Expected non-nil LastPlayed for Inception")
+	if movie.LastPlayed == nil {
+		t.Error("Expected non-nil LastPlayed for Serenity")
 	}
 
 	// Check unwatched movie
@@ -207,8 +207,8 @@ func TestEmbyClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testing.T)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"Items": [
-				{"Name": "Inception", "UserData": {"PlayCount": 1, "Played": true}},
-				{"Name": "Inception", "UserData": {"PlayCount": 5, "Played": true}}
+				{"Name": "Serenity", "UserData": {"PlayCount": 1, "Played": true}},
+				{"Name": "Serenity", "UserData": {"PlayCount": 5, "Played": true}}
 			],
 			"TotalRecordCount": 2
 		}`))
@@ -220,12 +220,12 @@ func TestEmbyClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testing.T)
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
-	inception, ok := data["inception"]
+	movie, ok := data["serenity"]
 	if !ok {
-		t.Fatal("Expected 'inception' key")
+		t.Fatal("Expected 'serenity' key")
 	}
-	if inception.PlayCount != 5 {
-		t.Errorf("Expected higher PlayCount 5 to be kept, got %d", inception.PlayCount)
+	if movie.PlayCount != 5 {
+		t.Errorf("Expected higher PlayCount 5 to be kept, got %d", movie.PlayCount)
 	}
 }
 

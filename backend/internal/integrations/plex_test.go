@@ -111,7 +111,7 @@ func TestPlexClient_GetMediaItems_Movies(t *testing.T) {
 			resp.MediaContainer.Metadata = []plexMetadata{
 				{
 					RatingKey:      "101",
-					Title:          "Inception",
+					Title:          "Serenity",
 					Year:           2010,
 					Type:           "movie",
 					AudienceRating: 8.8,
@@ -130,12 +130,12 @@ func TestPlexClient_GetMediaItems_Movies(t *testing.T) {
 						{Part: []struct {
 							File string `json:"file"`
 							Size int64  `json:"size"`
-						}{{File: "/media/movies/Inception.mkv", Size: 8000000000}}},
+						}{{File: "/media/movies/Serenity.mkv", Size: 8000000000}}},
 					},
 				},
 				{
 					RatingKey: "102",
-					Title:     "Interstellar",
+					Title:     "Serenity 2",
 					Year:      2014,
 					Type:      "movie",
 					Rating:    9.0, // Only critic rating, no audience
@@ -148,7 +148,7 @@ func TestPlexClient_GetMediaItems_Movies(t *testing.T) {
 						{Part: []struct {
 							File string `json:"file"`
 							Size int64  `json:"size"`
-						}{{File: "/media/movies/Interstellar.mkv", Size: 12000000000}}},
+						}{{File: "/media/movies/Serenity2.mkv", Size: 12000000000}}},
 					},
 				},
 			}
@@ -172,45 +172,45 @@ func TestPlexClient_GetMediaItems_Movies(t *testing.T) {
 	}
 
 	// First movie
-	inception := items[0]
-	if inception.Type != MediaTypeMovie {
-		t.Errorf("Expected MediaTypeMovie, got %v", inception.Type)
+	movie := items[0]
+	if movie.Type != MediaTypeMovie {
+		t.Errorf("Expected MediaTypeMovie, got %v", movie.Type)
 	}
-	if inception.Title != "Inception" {
-		t.Errorf("Expected 'Inception', got %q", inception.Title)
+	if movie.Title != "Serenity" {
+		t.Errorf("Expected 'Serenity', got %q", movie.Title)
 	}
-	if inception.Year != 2010 {
-		t.Errorf("Expected year 2010, got %d", inception.Year)
+	if movie.Year != 2010 {
+		t.Errorf("Expected year 2010, got %d", movie.Year)
 	}
-	if inception.ExternalID != "101" {
-		t.Errorf("Expected ExternalID '101', got %q", inception.ExternalID)
+	if movie.ExternalID != "101" {
+		t.Errorf("Expected ExternalID '101', got %q", movie.ExternalID)
 	}
-	if inception.SizeBytes != 8000000000 {
-		t.Errorf("Expected SizeBytes 8000000000, got %d", inception.SizeBytes)
+	if movie.SizeBytes != 8000000000 {
+		t.Errorf("Expected SizeBytes 8000000000, got %d", movie.SizeBytes)
 	}
-	if inception.Path != "/media/movies/Inception.mkv" {
-		t.Errorf("Expected path '/media/movies/Inception.mkv', got %q", inception.Path)
+	if movie.Path != "/media/movies/Serenity.mkv" {
+		t.Errorf("Expected path '/media/movies/Serenity.mkv', got %q", movie.Path)
 	}
-	if inception.Rating != 8.8 {
-		t.Errorf("Expected audience rating 8.8, got %v", inception.Rating)
+	if movie.Rating != 8.8 {
+		t.Errorf("Expected audience rating 8.8, got %v", movie.Rating)
 	}
-	if inception.PlayCount != 3 {
-		t.Errorf("Expected PlayCount 3, got %d", inception.PlayCount)
+	if movie.PlayCount != 3 {
+		t.Errorf("Expected PlayCount 3, got %d", movie.PlayCount)
 	}
-	if inception.Genre != "Action, Sci-Fi" {
-		t.Errorf("Expected genre 'Action, Sci-Fi', got %q", inception.Genre)
+	if movie.Genre != "Action, Sci-Fi" {
+		t.Errorf("Expected genre 'Action, Sci-Fi', got %q", movie.Genre)
 	}
-	if inception.LastPlayed == nil {
+	if movie.LastPlayed == nil {
 		t.Error("Expected LastPlayed to be set")
 	}
-	if inception.AddedAt == nil {
+	if movie.AddedAt == nil {
 		t.Error("Expected AddedAt to be set")
 	}
 
 	// Second movie — falls back to Rating since AudienceRating=0
-	interstellar := items[1]
-	if interstellar.Rating != 9.0 {
-		t.Errorf("Expected critic rating fallback 9.0, got %v", interstellar.Rating)
+	movie2 := items[1]
+	if movie2.Rating != 9.0 {
+		t.Errorf("Expected critic rating fallback 9.0, got %v", movie2.Rating)
 	}
 }
 
@@ -235,7 +235,7 @@ func TestPlexClient_GetMediaItems_ShowLibrary(t *testing.T) {
 			resp.MediaContainer.Metadata = []plexMetadata{
 				{
 					RatingKey: "200",
-					Title:     "Breaking Bad",
+					Title:     "Firefly",
 					Year:      2008,
 					Type:      "show",
 					Rating:    9.5,
@@ -263,8 +263,8 @@ func TestPlexClient_GetMediaItems_ShowLibrary(t *testing.T) {
 	if items[0].Type != MediaTypeShow {
 		t.Errorf("Expected MediaTypeShow, got %v", items[0].Type)
 	}
-	if items[0].Title != "Breaking Bad" {
-		t.Errorf("Expected 'Breaking Bad', got %q", items[0].Title)
+	if items[0].Title != "Firefly" {
+		t.Errorf("Expected 'Firefly', got %q", items[0].Title)
 	}
 }
 
@@ -414,7 +414,7 @@ func TestPlexClient_SeasonMetadata(t *testing.T) {
 	m := plexMetadata{
 		RatingKey:   "300",
 		Title:       "Season 2",
-		ParentTitle: "Breaking Bad",
+		ParentTitle: "Firefly",
 		Type:        "season",
 		Index:       2,
 		LeafCount:   13,
@@ -427,7 +427,7 @@ func TestPlexClient_SeasonMetadata(t *testing.T) {
 			{Part: []struct {
 				File string `json:"file"`
 				Size int64  `json:"size"`
-			}{{File: "/media/tv/Breaking Bad/Season 2", Size: 15000000000}}},
+			}{{File: "/media/tv/Firefly/Season 2", Size: 15000000000}}},
 		},
 	}
 
@@ -444,8 +444,8 @@ func TestPlexClient_SeasonMetadata(t *testing.T) {
 	if item.EpisodeCount != 13 {
 		t.Errorf("Expected EpisodeCount 13, got %d", item.EpisodeCount)
 	}
-	if item.ShowTitle != "Breaking Bad" {
-		t.Errorf("Expected ShowTitle 'Breaking Bad', got %q", item.ShowTitle)
+	if item.ShowTitle != "Firefly" {
+		t.Errorf("Expected ShowTitle 'Firefly', got %q", item.ShowTitle)
 	}
 }
 
@@ -484,7 +484,7 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 			resp.MediaContainer.Metadata = []plexMetadata{
 				{
 					RatingKey:    "101",
-					Title:        "Inception",
+					Title:        "Serenity",
 					Year:         2010,
 					Type:         "movie",
 					ViewCount:    5,
@@ -492,7 +492,7 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 				},
 				{
 					RatingKey: "102",
-					Title:     "Interstellar",
+					Title:     "Serenity 2",
 					Year:      2014,
 					Type:      "movie",
 					ViewCount: 0,
@@ -518,33 +518,33 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 	}
 
 	// Verify title normalization (lowercase)
-	inception, ok := watchMap["inception"]
+	movie1, ok := watchMap["serenity"]
 	if !ok {
-		t.Fatal("Expected 'inception' key in watch map")
+		t.Fatal("Expected 'serenity' key in watch map")
 	}
-	if inception.PlayCount != 5 {
-		t.Errorf("Expected PlayCount 5, got %d", inception.PlayCount)
+	if movie1.PlayCount != 5 {
+		t.Errorf("Expected PlayCount 5, got %d", movie1.PlayCount)
 	}
-	if !inception.Played {
-		t.Error("Expected Played=true for Inception")
+	if !movie1.Played {
+		t.Error("Expected Played=true for Serenity")
 	}
-	if inception.LastPlayed == nil {
-		t.Error("Expected LastPlayed to be set for Inception")
+	if movie1.LastPlayed == nil {
+		t.Error("Expected LastPlayed to be set for Serenity")
 	}
 
 	// Unwatched movie should still be in map with PlayCount=0
-	interstellar, ok := watchMap["interstellar"]
+	movie2, ok := watchMap["serenity 2"]
 	if !ok {
-		t.Fatal("Expected 'interstellar' key in watch map")
+		t.Fatal("Expected 'serenity 2' key in watch map")
 	}
-	if interstellar.PlayCount != 0 {
-		t.Errorf("Expected PlayCount 0, got %d", interstellar.PlayCount)
+	if movie2.PlayCount != 0 {
+		t.Errorf("Expected PlayCount 0, got %d", movie2.PlayCount)
 	}
-	if interstellar.Played {
-		t.Error("Expected Played=false for Interstellar")
+	if movie2.Played {
+		t.Error("Expected Played=false for Serenity 2")
 	}
-	if interstellar.LastPlayed != nil {
-		t.Error("Expected LastPlayed to be nil for Interstellar")
+	if movie2.LastPlayed != nil {
+		t.Error("Expected LastPlayed to be nil for Serenity 2")
 	}
 }
 
@@ -569,7 +569,7 @@ func TestPlexClient_GetBulkWatchData_Shows(t *testing.T) {
 			resp.MediaContainer.Metadata = []plexMetadata{
 				{
 					RatingKey:    "200",
-					Title:        "Breaking Bad",
+					Title:        "Firefly",
 					Year:         2008,
 					Type:         "show",
 					ViewCount:    10,
@@ -591,12 +591,12 @@ func TestPlexClient_GetBulkWatchData_Shows(t *testing.T) {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
 
-	bb, ok := watchMap["breaking bad"]
+	show, ok := watchMap["firefly"]
 	if !ok {
-		t.Fatal("Expected 'breaking bad' key in watch map")
+		t.Fatal("Expected 'firefly' key in watch map")
 	}
-	if bb.PlayCount != 10 {
-		t.Errorf("Expected PlayCount 10, got %d", bb.PlayCount)
+	if show.PlayCount != 10 {
+		t.Errorf("Expected PlayCount 10, got %d", show.PlayCount)
 	}
 }
 

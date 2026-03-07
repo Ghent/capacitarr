@@ -76,7 +76,7 @@ func setupEvaluateTestDB(t *testing.T) (*gorm.DB, *services.Registry) {
 func TestApprovalDedup_SingleEntry(t *testing.T) {
 	database, reg := setupEvaluateTestDB(t)
 
-	mediaName := "Adventure Time - Season 1"
+	mediaName := "Firefly - Season 1"
 	mediaType := "season"
 	integrationID := uint(1)
 
@@ -173,7 +173,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	database, reg := setupEvaluateTestDB(t)
 
-	mediaName := "Breaking Bad - Season 1"
+	mediaName := "Firefly - Season 1"
 	mediaType := "season"
 	integrationID := uint(1)
 

@@ -230,9 +230,9 @@ func TestGetAuditLogs_SearchFilter(t *testing.T) {
 
 	// Seed specific named items
 	logs := []db.AuditLogEntry{
-		{MediaName: "Inception", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 1000},
-		{MediaName: "Interstellar", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 2000},
-		{MediaName: "The Dark Knight", MediaType: "movie", Reason: "test", Action: "dry_run", SizeBytes: 3000},
+		{MediaName: "Serenity", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 1000},
+		{MediaName: "Serenity 2", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 2000},
+		{MediaName: "Serenity 3", MediaType: "movie", Reason: "test", Action: "dry_run", SizeBytes: 3000},
 	}
 	for _, log := range logs {
 		if err := database.Create(&log).Error; err != nil {
@@ -240,7 +240,7 @@ func TestGetAuditLogs_SearchFilter(t *testing.T) {
 		}
 	}
 
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/audit-log?search=Inter", nil)
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/audit-log?search=Serenity+2", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -257,10 +257,10 @@ func TestGetAuditLogs_SearchFilter(t *testing.T) {
 	}
 
 	if resp.Total != 1 {
-		t.Errorf("Expected 1 result for search 'Inter', got %d", resp.Total)
+		t.Errorf("Expected 1 result for search 'Serenity 2', got %d", resp.Total)
 	}
-	if len(resp.Data) > 0 && resp.Data[0].MediaName != "Interstellar" {
-		t.Errorf("Expected 'Interstellar', got %q", resp.Data[0].MediaName)
+	if len(resp.Data) > 0 && resp.Data[0].MediaName != "Serenity 2" {
+		t.Errorf("Expected 'Serenity 2', got %q", resp.Data[0].MediaName)
 	}
 }
 

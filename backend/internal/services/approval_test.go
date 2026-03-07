@@ -72,7 +72,7 @@ func seedIntegration(t *testing.T, database *gorm.DB) uint {
 func seedPendingItem(t *testing.T, database *gorm.DB, integrationID uint) db.ApprovalQueueItem {
 	t.Helper()
 	item := db.ApprovalQueueItem{
-		MediaName:     "Breaking Bad",
+		MediaName:     "Firefly",
 		MediaType:     "show",
 		Reason:        "Score: 0.85",
 		SizeBytes:     5069636198,
@@ -356,7 +356,7 @@ func TestApprovalService_IsSnoozed(t *testing.T) {
 	item := seedPendingItem(t, database, intID)
 
 	// Not snoozed initially
-	if svc.IsSnoozed("Breaking Bad", "show") {
+	if svc.IsSnoozed("Firefly", "show") {
 		t.Error("expected IsSnoozed=false for pending item")
 	}
 
@@ -366,12 +366,12 @@ func TestApprovalService_IsSnoozed(t *testing.T) {
 	}
 
 	// Now snoozed
-	if !svc.IsSnoozed("Breaking Bad", "show") {
+	if !svc.IsSnoozed("Firefly", "show") {
 		t.Error("expected IsSnoozed=true for rejected item with active snooze")
 	}
 
 	// Different media name should not be snoozed
-	if svc.IsSnoozed("The Wire", "show") {
+	if svc.IsSnoozed("Other Show", "show") {
 		t.Error("expected IsSnoozed=false for different media")
 	}
 }

@@ -130,7 +130,7 @@ func TestTautulliClient_GetWatchHistory(t *testing.T) {
 							"watched_status": 1,
 							"user": "alice",
 							"rating_key": "12345",
-							"title": "Inception",
+							"title": "Serenity",
 							"media_type": "movie"
 						},
 						{
@@ -141,7 +141,7 @@ func TestTautulliClient_GetWatchHistory(t *testing.T) {
 							"watched_status": 1,
 							"user": "bob",
 							"rating_key": "12345",
-							"title": "Inception",
+							"title": "Serenity",
 							"media_type": "movie"
 						},
 						{
@@ -152,7 +152,7 @@ func TestTautulliClient_GetWatchHistory(t *testing.T) {
 							"watched_status": 0,
 							"user": "alice",
 							"rating_key": "12345",
-							"title": "Inception",
+							"title": "Serenity",
 							"media_type": "movie"
 						}
 					]

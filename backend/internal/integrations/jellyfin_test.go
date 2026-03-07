@@ -158,7 +158,7 @@ func TestJellyfinClient_GetBulkWatchData(t *testing.T) {
 				"Items": [
 					{
 						"Id":"item-1",
-						"Name":"Inception",
+						"Name":"Serenity",
 						"Type":"Movie",
 						"UserData":{
 							"PlayCount":3,
@@ -168,7 +168,7 @@ func TestJellyfinClient_GetBulkWatchData(t *testing.T) {
 					},
 					{
 						"Id":"item-2",
-						"Name":"Interstellar",
+						"Name":"Serenity 2",
 						"Type":"Movie",
 						"UserData":{
 							"PlayCount":1,
@@ -206,14 +206,14 @@ func TestJellyfinClient_GetBulkWatchData(t *testing.T) {
 	}
 
 	// Items are keyed by lowercase title
-	inception, ok := data["inception"]
+	movie, ok := data["serenity"]
 	if !ok {
-		t.Fatal("Expected 'inception' key in data map")
+		t.Fatal("Expected 'serenity' key in data map")
 	}
-	if inception.PlayCount != 3 {
-		t.Errorf("Expected PlayCount 3, got %d", inception.PlayCount)
+	if movie.PlayCount != 3 {
+		t.Errorf("Expected PlayCount 3, got %d", movie.PlayCount)
 	}
-	if inception.LastPlayed == nil {
+	if movie.LastPlayed == nil {
 		t.Error("Expected LastPlayed to be set")
 	}
 
@@ -238,13 +238,13 @@ func TestJellyfinClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testin
 				"Items": [
 					{
 						"Id":"item-1",
-						"Name":"Inception",
+						"Name":"Serenity",
 						"Type":"Movie",
 						"UserData":{"PlayCount":2,"LastPlayedDate":"","Played":true}
 					},
 					{
 						"Id":"item-2",
-						"Name":"Inception",
+						"Name":"Serenity",
 						"Type":"Series",
 						"UserData":{"PlayCount":5,"LastPlayedDate":"","Played":true}
 					}
@@ -264,12 +264,12 @@ func TestJellyfinClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testin
 	}
 
 	// Should keep the entry with higher play count
-	inception, ok := data["inception"]
+	movie, ok := data["serenity"]
 	if !ok {
-		t.Fatal("Expected 'inception' key in data map")
+		t.Fatal("Expected 'serenity' key in data map")
 	}
-	if inception.PlayCount != 5 {
-		t.Errorf("Expected higher PlayCount 5 for duplicate, got %d", inception.PlayCount)
+	if movie.PlayCount != 5 {
+		t.Errorf("Expected higher PlayCount 5 for duplicate, got %d", movie.PlayCount)
 	}
 }
 

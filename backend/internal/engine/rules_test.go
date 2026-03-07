@@ -16,14 +16,14 @@ func TestStringMatch(t *testing.T) {
 		expected string
 		result   bool
 	}{
-		{"exact equal", "the matrix", "==", "the matrix", true},
-		{"exact equal case sensitive", "The Matrix", "==", "the matrix", false},
-		{"not equal true", "the matrix", "!=", "avatar", true},
-		{"not equal false", "the matrix", "!=", "the matrix", false},
-		{"contains match", "the matrix", "contains", "matrix", true},
-		{"contains no match", "the matrix", "contains", "avatar", false},
-		{"not contains match", "the matrix", "!contains", "avatar", true},
-		{"not contains no match", "the matrix", "!contains", "matrix", false},
+		{"exact equal", "serenity", "==", "serenity", true},
+		{"exact equal case sensitive", "Serenity", "==", "serenity", false},
+		{"not equal true", "serenity", "!=", "other", true},
+		{"not equal false", "serenity", "!=", "serenity", false},
+		{"contains match", "serenity", "contains", "seren", true},
+		{"contains no match", "serenity", "contains", "other", false},
+		{"not contains match", "serenity", "!contains", "other", true},
+		{"not contains no match", "serenity", "!contains", "seren", false},
 		{"contains empty string", "anything", "contains", "", true},
 		{"not contains empty string", "anything", "!contains", "", false},
 		{"equal empty strings", "", "==", "", true},
@@ -83,7 +83,7 @@ func TestMatchesRule_AllFieldTypes(t *testing.T) {
 	oneYearAgo := now.Add(-365 * 24 * time.Hour)
 
 	baseItem := integrations.MediaItem{
-		Title:          "The Matrix",
+		Title:          "Serenity",
 		QualityProfile: "HD-1080p",
 		SeriesStatus:   "Ended",
 		Genre:          "action, sci-fi",
@@ -109,10 +109,10 @@ func TestMatchesRule_AllFieldTypes(t *testing.T) {
 		matched bool
 	}{
 		// Title field
-		{"title == match", db.CustomRule{Enabled: true, Field: "title", Operator: "==", Value: "the matrix"}, true},
-		{"title == no match", db.CustomRule{Enabled: true, Field: "title", Operator: "==", Value: "avatar"}, false},
-		{"title contains match", db.CustomRule{Enabled: true, Field: "title", Operator: "contains", Value: "matrix"}, true},
-		{"title !contains match", db.CustomRule{Enabled: true, Field: "title", Operator: "!contains", Value: "avatar"}, true},
+		{"title == match", db.CustomRule{Enabled: true, Field: "title", Operator: "==", Value: "serenity"}, true},
+		{"title == no match", db.CustomRule{Enabled: true, Field: "title", Operator: "==", Value: "other"}, false},
+		{"title contains match", db.CustomRule{Enabled: true, Field: "title", Operator: "contains", Value: "seren"}, true},
+		{"title !contains match", db.CustomRule{Enabled: true, Field: "title", Operator: "!contains", Value: "other"}, true},
 
 		// Quality field
 		{"quality == match", db.CustomRule{Enabled: true, Field: "quality", Operator: "==", Value: "hd-1080p"}, true},
@@ -231,7 +231,7 @@ func TestApplyRules(t *testing.T) {
 	now := time.Now()
 
 	baseItem := integrations.MediaItem{
-		Title:         "The Matrix",
+		Title:         "Serenity",
 		SeriesStatus:  "Ended",
 		Rating:        8.5,
 		AddedAt:       &now,
@@ -256,7 +256,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Always keep by title (new effect field)",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "the matrix", Effect: "always_keep"},
+				{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 			},
 			isAbs:    true,
 			modifier: 0.0,
@@ -310,8 +310,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Multiple cascading modifiers multiply",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},        // ×0.2
-				{Enabled: true, Field: "title", Operator: "contains", Value: "matrix", Effect: "lean_keep"}, // ×0.5
+				{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},       // ×0.2
+				{Enabled: true, Field: "title", Operator: "contains", Value: "seren", Effect: "lean_keep"}, // ×0.5
 			},
 			isAbs:    false,
 			modifier: 0.1, // 0.2 × 0.5
@@ -330,7 +330,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Always keep wins over always remove",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "the matrix", Effect: "always_keep"},
+				{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "always_remove"},
 			},
 			isAbs:    true,
@@ -340,7 +340,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Always keep wins over prefer remove",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "the matrix", Effect: "always_keep"},
+				{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 				{Enabled: true, Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},
 			},
 			isAbs:    true,
@@ -370,7 +370,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Non-matching rule has no effect",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "avatar", Effect: "always_keep"},
+				{Enabled: true, Field: "title", Operator: "==", Value: "other", Effect: "always_keep"},
 			},
 			isAbs:    false,
 			modifier: 1.0,
@@ -396,7 +396,7 @@ func TestApplyRules_IntegrationIDFiltering(t *testing.T) {
 	integrationID2 := uint(2)
 
 	item := integrations.MediaItem{
-		Title:         "The Matrix",
+		Title:         "Serenity",
 		Rating:        8.5,
 		AddedAt:       &now,
 		IntegrationID: 1,
@@ -411,7 +411,7 @@ func TestApplyRules_IntegrationIDFiltering(t *testing.T) {
 		{
 			name: "Rule scoped to matching integration applies",
 			rules: []db.CustomRule{
-				{Enabled: true, IntegrationID: &integrationID1, Field: "title", Operator: "==", Value: "the matrix", Effect: "always_keep"},
+				{Enabled: true, IntegrationID: &integrationID1, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 			},
 			isAbs:    true,
 			modifier: 0.0,
@@ -419,7 +419,7 @@ func TestApplyRules_IntegrationIDFiltering(t *testing.T) {
 		{
 			name: "Rule scoped to different integration is skipped",
 			rules: []db.CustomRule{
-				{Enabled: true, IntegrationID: &integrationID2, Field: "title", Operator: "==", Value: "the matrix", Effect: "always_keep"},
+				{Enabled: true, IntegrationID: &integrationID2, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 			},
 			isAbs:    false,
 			modifier: 1.0,
@@ -427,7 +427,7 @@ func TestApplyRules_IntegrationIDFiltering(t *testing.T) {
 		{
 			name: "Global rule (nil integration_id) applies to all items",
 			rules: []db.CustomRule{
-				{Enabled: true, IntegrationID: nil, Field: "title", Operator: "==", Value: "the matrix", Effect: "prefer_keep"},
+				{Enabled: true, IntegrationID: nil, Field: "title", Operator: "==", Value: "serenity", Effect: "prefer_keep"},
 			},
 			isAbs:    false,
 			modifier: 0.2,
@@ -435,8 +435,8 @@ func TestApplyRules_IntegrationIDFiltering(t *testing.T) {
 		{
 			name: "Mixed: global rule applies, scoped rule skipped",
 			rules: []db.CustomRule{
-				{Enabled: true, IntegrationID: nil, Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},                      // ×0.5 (applies)
-				{Enabled: true, IntegrationID: &integrationID2, Field: "title", Operator: "==", Value: "the matrix", Effect: "always_keep"}, // skipped
+				{Enabled: true, IntegrationID: nil, Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},                    // ×0.5 (applies)
+				{Enabled: true, IntegrationID: &integrationID2, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"}, // skipped
 			},
 			isAbs:    false,
 			modifier: 0.5,
@@ -459,7 +459,7 @@ func TestApplyRules_IntegrationIDFiltering(t *testing.T) {
 func TestApplyRules_ReturnsFactors(t *testing.T) {
 	now := time.Now()
 	item := integrations.MediaItem{
-		Title:         "The Matrix",
+		Title:         "Serenity",
 		Rating:        8.5,
 		AddedAt:       &now,
 		IntegrationID: 1,
@@ -481,7 +481,7 @@ func TestApplyRules_ReturnsFactors(t *testing.T) {
 func TestApplyRules_AlwaysKeepReturnsImmediately(t *testing.T) {
 	now := time.Now()
 	item := integrations.MediaItem{
-		Title:         "The Matrix",
+		Title:         "Serenity",
 		Rating:        8.5,
 		AddedAt:       &now,
 		IntegrationID: 1,
@@ -489,7 +489,7 @@ func TestApplyRules_AlwaysKeepReturnsImmediately(t *testing.T) {
 
 	// always_keep is first followed by modifiers that would change things
 	rules := []db.CustomRule{
-		{Enabled: true, Field: "title", Operator: "==", Value: "the matrix", Effect: "always_keep"},
+		{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 		{Enabled: true, Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},
 	}
 

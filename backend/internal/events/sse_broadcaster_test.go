@@ -298,7 +298,7 @@ func TestSSEBroadcaster_MessageContainsHumanReadableMessage(t *testing.T) {
 	broadcaster.mu.Unlock()
 
 	bus.Publish(DeletionSuccessEvent{
-		MediaName: "Breaking Bad",
+		MediaName: "Firefly",
 		MediaType: "show",
 		SizeBytes: 5069636198,
 	})
@@ -307,8 +307,8 @@ func TestSSEBroadcaster_MessageContainsHumanReadableMessage(t *testing.T) {
 	case msg := <-client.events:
 		sseMsg := string(msg)
 		// The message field should contain the human-readable EventMessage()
-		if !strings.Contains(sseMsg, "Breaking Bad") {
-			t.Errorf("expected 'Breaking Bad' in SSE payload, got: %s", sseMsg)
+		if !strings.Contains(sseMsg, "Firefly") {
+			t.Errorf("expected 'Firefly' in SSE payload, got: %s", sseMsg)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for SSE message")

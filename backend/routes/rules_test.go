@@ -149,7 +149,7 @@ func TestCreateProtection_ValidWithEffect(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	body := `{"field":"title","operator":"contains","value":"Star Wars","effect":"always_keep"}`
+	body := `{"field":"title","operator":"contains","value":"Serenity","effect":"always_keep"}`
 	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)

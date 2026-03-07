@@ -132,9 +132,9 @@ func TestSonarrClient_GetMediaItems(t *testing.T) {
 			resp := []sonarrSeries{
 				{
 					ID:               1,
-					Title:            "Breaking Bad",
+					Title:            "Firefly",
 					Year:             2008,
-					Path:             "/media/tv/Breaking Bad",
+					Path:             "/media/tv/Firefly",
 					Monitored:        true,
 					Status:           "ended",
 					Genres:           []string{"drama", "thriller"},
@@ -196,7 +196,7 @@ func TestSonarrClient_GetMediaItems(t *testing.T) {
 		t.Fatalf("GetMediaItems should succeed: %v", err)
 	}
 
-	// Expect: 1 season + 1 show-level item (Breaking Bad)
+	// Expect: 1 season + 1 show-level item (Firefly)
 	// Specials (season 0) skipped, Empty Show skipped
 	if len(items) != 2 {
 		t.Fatalf("Expected 2 items (1 season + 1 show), got %d", len(items))
@@ -207,8 +207,8 @@ func TestSonarrClient_GetMediaItems(t *testing.T) {
 	if season.Type != MediaTypeSeason {
 		t.Errorf("Expected MediaTypeSeason, got %v", season.Type)
 	}
-	if season.Title != "Breaking Bad - Season 1" {
-		t.Errorf("Expected 'Breaking Bad - Season 1', got %q", season.Title)
+	if season.Title != "Firefly - Season 1" {
+		t.Errorf("Expected 'Firefly - Season 1', got %q", season.Title)
 	}
 	if season.QualityProfile != "HD-1080p" {
 		t.Errorf("Expected quality profile 'HD-1080p', got %q", season.QualityProfile)
@@ -225,8 +225,8 @@ func TestSonarrClient_GetMediaItems(t *testing.T) {
 	if show.Type != MediaTypeShow {
 		t.Errorf("Expected MediaTypeShow, got %v", show.Type)
 	}
-	if show.Title != "Breaking Bad" {
-		t.Errorf("Expected 'Breaking Bad', got %q", show.Title)
+	if show.Title != "Firefly" {
+		t.Errorf("Expected 'Firefly', got %q", show.Title)
 	}
 	if show.Rating != 9.5 {
 		t.Errorf("Expected rating 9.5, got %v", show.Rating)
