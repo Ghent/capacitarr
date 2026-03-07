@@ -1,3 +1,15 @@
+## [1.0.0] - 2026-03-07
+
+### 🚀 Features
+
+- *(notifications)* Make in-app notifications always-on ([735c234](https://gitlab.com/starshadow/software/capacitarr/-/commit/735c2349c40e1ad7948b16744d803fa1059ca795))
+- Add features and polish (Phase 3) ([5705d53](https://gitlab.com/starshadow/software/capacitarr/-/commit/5705d53b9fbfcd78a66b358bbaefb7e823066862))
+- Complete 1.0.0 pre-release cleanup (phases 2-5) ([08ed33f](https://gitlab.com/starshadow/software/capacitarr/-/commit/08ed33f6d2f4ffab6d6eadf38e5537e4b87bbfc9))
+- Complete all remaining plan steps ([6b9907a](https://gitlab.com/starshadow/software/capacitarr/-/commit/6b9907a309b23ecab3bd223c49ad22e6162f601a))
+
+### 🛡️ Security
+
+- 1.0.0 pre-release cleanup ([14cae5d](https://gitlab.com/starshadow/software/capacitarr/-/commit/14cae5d162d19848332a695057f0676ee182d7f0))
 ## [1.0.0-rc.12] - 2026-03-07
 
 ### 🐛 Bug Fixes
