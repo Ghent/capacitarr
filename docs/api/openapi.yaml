@@ -1347,6 +1347,215 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /auth/status:
+    get:
+      operationId: getAuthStatus
+      tags: [Auth]
+      summary: Check authentication initialization status
+      description: Returns whether the server has at least one user configured. Used by the frontend for first-login UX detection.
+      security: []
+      responses:
+        "200":
+          description: Auth initialization status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  initialized:
+                    type: boolean
+                    description: True if at least one user exists
+
+  /activity/recent:
+    get:
+      operationId: getRecentActivity
+      tags: [Activity]
+      summary: List recent activity events
+      description: Returns the most recent system activity events for the dashboard feed. Activity events have a fixed 7-day retention.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 5
+            maximum: 100
+      responses:
+        "200":
+          description: List of recent activity events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /notifications/channels:
+    get:
+      operationId: listNotificationChannels
+      tags: [Notifications]
+      summary: List all notification channels
+      responses:
+        "200":
+          description: List of notification channels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/NotificationChannel"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createNotificationChannel
+      tags: [Notifications]
+      summary: Create a notification channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationChannelInput"
+      responses:
+        "201":
+          description: Created notification channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationChannel"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /notifications/channels/{id}:
+    put:
+      operationId: updateNotificationChannel
+      tags: [Notifications]
+      summary: Update a notification channel
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationChannelInput"
+      responses:
+        "200":
+          description: Updated notification channel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationChannel"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteNotificationChannel
+      tags: [Notifications]
+      summary: Delete a notification channel
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Channel deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /notifications/channels/{id}/test:
+    post:
+      operationId: testNotificationChannel
+      tags: [Notifications]
+      summary: Send a test notification
+      description: Sends a test notification to the specified channel to verify webhook connectivity.
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Test notification sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: Test notification delivery failed
+
+  /version/check:
+    get:
+      operationId: checkVersion
+      tags: [Version]
+      summary: Check for updates (cached)
+      description: Returns cached update check results. Checks the GitLab releases API with a 6-hour cache TTL.
+      responses:
+        "200":
+          description: Version check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionCheckResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: forceCheckVersion
+      tags: [Version]
+      summary: Force check for updates (bypass cache)
+      description: Forces a fresh check against the GitLab releases API, bypassing the cache.
+      responses:
+        "200":
+          description: Version check result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionCheckResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /custom-rules/reorder:
+    put:
+      operationId: reorderCustomRules
+      tags: [Rules]
+      summary: Reorder custom rules
+      description: Sets the sort order for all custom rules based on the provided ID array.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order]
+              properties:
+                order:
+                  type: array
+                  items:
+                    type: integer
+                  description: Ordered array of rule IDs
+      responses:
+        "200":
+          description: Rules reordered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatusResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
 # =============================================================================
 # Components
 # =============================================================================
@@ -2554,6 +2763,112 @@ components:
       required: [showTitle, children, totalSize, action, createdAt]
 
     # ---- Data Reset ----
+    StatusResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+    ActivityEvent:
+      type: object
+      properties:
+        id:
+          type: integer
+        eventType:
+          type: string
+          description: Machine-readable event type
+        message:
+          type: string
+          description: Human-readable event description
+        metadata:
+          type: string
+          description: Optional JSON metadata
+        createdAt:
+          type: string
+          format: date-time
+
+    NotificationChannel:
+      type: object
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [discord, slack]
+        name:
+          type: string
+        webhookUrl:
+          type: string
+        enabled:
+          type: boolean
+        onCycleDigest:
+          type: boolean
+        onError:
+          type: boolean
+        onModeChanged:
+          type: boolean
+        onServerStarted:
+          type: boolean
+        onThresholdBreach:
+          type: boolean
+        onUpdateAvailable:
+          type: boolean
+        onApprovalActivity:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    NotificationChannelInput:
+      type: object
+      required: [type, name]
+      properties:
+        type:
+          type: string
+          enum: [discord, slack]
+        name:
+          type: string
+        webhookUrl:
+          type: string
+        enabled:
+          type: boolean
+        onCycleDigest:
+          type: boolean
+        onError:
+          type: boolean
+        onModeChanged:
+          type: boolean
+        onServerStarted:
+          type: boolean
+        onThresholdBreach:
+          type: boolean
+        onUpdateAvailable:
+          type: boolean
+        onApprovalActivity:
+          type: boolean
+
+    VersionCheckResult:
+      type: object
+      properties:
+        current:
+          type: string
+          description: Current application version
+        latest:
+          type: string
+          description: Latest available version
+        updateAvailable:
+          type: boolean
+        releaseUrl:
+          type: string
+          description: URL to the release page
+        checkedAt:
+          type: string
+          format: date-time
+
     DataResetResponse:
       type: object
       properties:
