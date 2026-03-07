@@ -127,12 +127,7 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 		return c.JSON(http.StatusOK, group)
 	})
 
-	// Worker Metrics
-	protected.GET("/metrics/worker", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, reg.Metrics.GetWorkerMetrics())
-	})
-
-	// Worker Stats (alias for dashboard consumption)
+	// Worker Stats
 	protected.GET("/worker/stats", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, reg.Metrics.GetWorkerMetrics())
 	})

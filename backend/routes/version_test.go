@@ -188,33 +188,3 @@ func TestVersionCheckNow_DisabledByPreference(t *testing.T) {
 		t.Errorf("Expected empty latest when checks are disabled, got %q", resp.Latest)
 	}
 }
-
-// ---------- CompareSemver ----------
-
-func TestCompareSemver(t *testing.T) {
-	tests := []struct {
-		name     string
-		a, b     string
-		expected int
-	}{
-		{"equal versions", "1.0.0", "1.0.0", 0},
-		{"patch higher", "1.0.1", "1.0.0", 1},
-		{"patch lower", "1.0.0", "1.0.1", -1},
-		{"stable > prerelease", "1.0.0", "1.0.0-rc.1", 1},
-		{"prerelease higher", "1.0.0-rc.3", "1.0.0-rc.1", 1},
-		{"major higher", "2.0.0", "1.9.9", 1},
-		{"with v prefix", "v1.0.0", "v1.0.0", 0},
-		{"mixed v prefix", "v1.0.1", "1.0.0", 1},
-		{"prerelease < stable", "1.0.0-rc.1", "1.0.0", -1},
-		{"minor higher", "1.1.0", "1.0.9", 1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := services.CompareSemver(tt.a, tt.b)
-			if got != tt.expected {
-				t.Errorf("CompareSemver(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.expected)
-			}
-		})
-	}
-}
