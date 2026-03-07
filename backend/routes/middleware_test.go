@@ -13,6 +13,8 @@ import (
 
 	"capacitarr/internal/config"
 	"capacitarr/internal/db"
+	"capacitarr/internal/events"
+	"capacitarr/internal/services"
 	"capacitarr/internal/testutil"
 	"capacitarr/routes"
 )
@@ -37,12 +39,15 @@ func setupAuthTest(t *testing.T, cfg *config.Config) *echo.Echo {
 		t.Fatalf("Failed to create test user: %v", err)
 	}
 
+	bus := events.NewEventBus()
+	reg := services.NewRegistry(database, bus, cfg)
+
 	e := echo.New()
 	e.HideBanner = true
 	e.HidePort = true
 
 	g := e.Group("/api")
-	g.Use(routes.RequireAuth(database, cfg))
+	g.Use(routes.RequireAuth(reg))
 	g.GET("/protected", func(c echo.Context) error {
 		username := c.Get("user").(string)
 		return c.JSON(http.StatusOK, map[string]string{"user": username})

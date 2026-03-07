@@ -132,7 +132,7 @@ func SetupTestServerWithRegistry(t *testing.T, database *gorm.DB) (*echo.Echo, *
 
 	// Protected routes
 	protected := api.Group("")
-	protected.Use(routes.RequireAuth(database, cfg))
+	protected.Use(routes.RequireAuth(reg))
 
 	routes.RegisterAuthRoutes(api, protected, reg)
 	routes.RegisterIntegrationRoutes(protected, reg)

@@ -10,9 +10,6 @@ import (
 	"capacitarr/internal/services"
 )
 
-// bcryptCost references the shared bcrypt cost factor from the services package.
-const bcryptCost = services.BcryptCost
-
 // LoginRequest holds the JSON body of login requests.
 type LoginRequest struct {
 	Username string `json:"username"`

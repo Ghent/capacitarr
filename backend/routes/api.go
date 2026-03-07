@@ -37,9 +37,6 @@ func IsHashedAPIKey(stored string) bool {
 // RegisterAPIRoutes sets up all API routes: public endpoints, auth, and
 // protected resource endpoints.
 func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCommit, appBuildDate string, sseBroadcaster *events.SSEBroadcaster) {
-	database := reg.DB // TODO(phase3): remove after middleware migration
-	cfg := reg.Cfg
-
 	// Health check
 	g.GET("/health", func(c echo.Context) error {
 		return c.String(http.StatusOK, "OK")
@@ -56,7 +53,7 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 
 	// Protected Routes
 	protected := g.Group("")
-	protected.Use(RequireAuth(database, cfg))
+	protected.Use(RequireAuth(reg))
 
 	// Auth routes (login is public, password/username/apikey are protected)
 	RegisterAuthRoutes(g, protected, reg)

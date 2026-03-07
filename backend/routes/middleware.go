@@ -1,62 +1,27 @@
 package routes
 
 import (
-	"log/slog"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 
-	"capacitarr/internal/config"
-	"capacitarr/internal/db"
+	"capacitarr/internal/services"
 )
 
-// validateAPIKey checks the given plaintext API key against stored (hashed or
-// legacy plaintext) keys. If a legacy plaintext key matches, it is
-// transparently upgraded to a SHA-256 hash in the database. Returns the
-// matching AuthConfig on success, or nil if no match.
-func validateAPIKey(database *gorm.DB, plaintextKey string) *db.AuthConfig {
-	hashedKey := HashAPIKey(plaintextKey)
-
-	// Fast path: look up by the hashed value (new-style keys)
-	var auth db.AuthConfig
-	if err := database.Where("api_key = ?", hashedKey).First(&auth).Error; err == nil {
-		return &auth
-	}
-
-	// Slow path: legacy plaintext key — look up directly and upgrade in-place
-	if err := database.Where("api_key = ?", plaintextKey).First(&auth).Error; err == nil {
-		if !IsHashedAPIKey(auth.APIKey) {
-			database.Model(&auth).Update("api_key", hashedKey)
-			slog.Info("Upgraded legacy plaintext API key to SHA-256 hash", "component", "middleware", "username", auth.Username)
-		}
-		return &auth
-	}
-
-	return nil
-}
-
 // RequireAuth returns Echo middleware that authenticates requests via trusted proxy header, JWT, or API key.
-func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
+func RequireAuth(reg *services.Registry) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			cfg := reg.Cfg
+
 			// 1. Trusted reverse proxy auth header (Authelia/Authentik/Organizr)
 			if cfg.AuthHeader != "" {
 				headerUser := strings.TrimSpace(c.Request().Header.Get(cfg.AuthHeader))
 				if headerUser != "" {
 					// Auto-create user record if the header user doesn't exist
-					var auth db.AuthConfig
-					if err := database.Where("username = ?", headerUser).First(&auth).Error; err != nil {
-						// Generate a random unusable password hash for proxy-auth users
-						placeholder, _ := bcrypt.GenerateFromPassword([]byte("proxy-auth-placeholder"), bcryptCost)
-						auth = db.AuthConfig{
-							Username: headerUser,
-							Password: string(placeholder),
-						}
-						database.Create(&auth)
-						slog.Info("Auto-created user from proxy auth header", "component", "middleware", "username", headerUser) //nolint:gosec // G706: headerUser is from a trusted reverse proxy header
+					if err := reg.Auth.EnsureProxyUser(headerUser); err != nil {
+						return echo.ErrUnauthorized
 					}
 					c.Set("user", headerUser)
 					return next(c)
@@ -77,11 +42,12 @@ func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
 				case "Bearer": //nolint:gocritic // auth method branches test different conditions
 					tokenStr = parts[1]
 				case "ApiKey":
-					if auth := validateAPIKey(database, parts[1]); auth != nil {
-						c.Set("user", auth.Username)
-						return next(c)
+					auth, err := reg.Auth.ValidateAPIKey(parts[1])
+					if err != nil {
+						return echo.ErrUnauthorized
 					}
-					return echo.ErrUnauthorized
+					c.Set("user", auth.Username)
+					return next(c)
 				default:
 					return echo.ErrUnauthorized
 				}
@@ -94,11 +60,12 @@ func RequireAuth(database *gorm.DB, cfg *config.Config) echo.MiddlewareFunc {
 					apiKey = c.QueryParam("apikey")
 				}
 				if apiKey != "" {
-					if auth := validateAPIKey(database, apiKey); auth != nil {
-						c.Set("user", auth.Username)
-						return next(c)
+					auth, err := reg.Auth.ValidateAPIKey(apiKey)
+					if err != nil {
+						return echo.ErrUnauthorized
 					}
-					return echo.ErrUnauthorized
+					c.Set("user", auth.Username)
+					return next(c)
 				}
 			}
 
