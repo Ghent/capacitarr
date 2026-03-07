@@ -2,6 +2,7 @@
 
 **Created:** 2026-03-07T03:02Z
 **Status:** 📋 Ready for review
+**Branch:** `refactor/service-layer-audit`
 **Scope:** Backend service layer consistency, route cleanup, code quality hardening
 
 ---
