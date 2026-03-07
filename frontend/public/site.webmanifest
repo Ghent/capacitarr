@@ -1,0 +1,14 @@
+{
+  "name": "Capacitarr",
+  "short_name": "Capacitarr",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#7c3aed",
+  "background_color": "#09090b",
+  "display": "standalone"
+}

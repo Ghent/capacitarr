@@ -433,6 +433,26 @@ func (e UpdateAvailableEvent) EventMessage() string {
 	return fmt.Sprintf("Update available: %s → %s", e.CurrentVersion, e.LatestVersion)
 }
 
+// VersionCheckEvent is published every time the VersionService performs an
+// update check, regardless of whether an update is available. This provides
+// activity log visibility into when checks are happening.
+type VersionCheckEvent struct {
+	CurrentVersion  string `json:"currentVersion"`
+	LatestVersion   string `json:"latestVersion"`
+	UpdateAvailable bool   `json:"updateAvailable"`
+}
+
+// EventType implements Event.
+func (e VersionCheckEvent) EventType() string { return "version_check" }
+
+// EventMessage implements Event.
+func (e VersionCheckEvent) EventMessage() string {
+	if e.UpdateAvailable {
+		return fmt.Sprintf("Version check: update available (%s → %s)", e.CurrentVersion, e.LatestVersion)
+	}
+	return fmt.Sprintf("Version check: up to date (%s)", e.CurrentVersion)
+}
+
 // =============================================================================
 // Rule Events
 // =============================================================================

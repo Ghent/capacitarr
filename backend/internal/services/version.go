@@ -203,6 +203,15 @@ func (s *VersionService) fetchLatestRelease() VersionCheckResult {
 		CheckedAt:       time.Now(),
 	}
 
+	// Always publish a check event for activity log visibility
+	if s.bus != nil {
+		s.bus.Publish(events.VersionCheckEvent{
+			CurrentVersion:  s.appVersion,
+			LatestVersion:   latestTag,
+			UpdateAvailable: updateAvailable,
+		})
+	}
+
 	// Publish UpdateAvailableEvent once per detected version to avoid
 	// repeated notifications on every cache refresh cycle.
 	if updateAvailable && s.bus != nil && latestClean != s.lastNotifiedVersion {
@@ -274,8 +283,14 @@ func CompareSemver(a, b string) int {
 }
 
 // splitPrerelease splits "1.2.3-rc.1" into ("1.2.3", "rc.1").
+// Build metadata (everything after "+") is stripped per SemVer spec —
+// it MUST be ignored when determining version precedence.
 // If there is no prerelease suffix, the second return value is "".
 func splitPrerelease(v string) (string, string) {
+	// Strip build metadata first (e.g., "1.0.0+build.123" → "1.0.0")
+	if plusIdx := strings.Index(v, "+"); plusIdx >= 0 {
+		v = v[:plusIdx]
+	}
 	idx := strings.Index(v, "-")
 	if idx < 0 {
 		return v, ""

@@ -1,12 +1,8 @@
 package notifications
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
 )
 
 // SlackSender implements Sender for Slack webhook delivery using Block Kit.
@@ -113,31 +109,11 @@ func (s *SlackSender) SendAlert(webhookURL string, alert Alert) error {
 	return sendSlackPayload(webhookURL, slackPayload{Blocks: blocks})
 }
 
-// sendSlackPayload marshals and sends a Slack webhook payload.
+// sendSlackPayload marshals and sends a Slack webhook payload with retry.
 func sendSlackPayload(webhookURL string, payload slackPayload) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal slack payload: %w", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("create slack request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := webhookHTTPClient.Do(req) //nolint:gosec // URL is from admin-configured webhook settings
-	if err != nil {
-		return fmt.Errorf("slack webhook request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("slack webhook returned status %d", resp.StatusCode)
-	}
-
-	return nil
+	return sendWebhookRequest(webhookURL, body)
 }

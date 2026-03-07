@@ -195,6 +195,10 @@ func TestVersionService_CompareSemver(t *testing.T) {
 		{"mixed v prefix", "v1.0.1", "1.0.0", 1},
 		{"prerelease < stable", "1.0.0-rc.1", "1.0.0", -1},
 		{"minor higher", "1.1.0", "1.0.9", 1},
+		{"build metadata ignored equal", "1.0.0+build.1", "1.0.0", 0},
+		{"build metadata ignored both", "1.0.0+build.1", "1.0.0+build.2", 0},
+		{"prerelease with build metadata", "1.0.0-rc.1+build.1", "1.0.0", -1},
+		{"major higher with build metadata", "2.0.0+meta", "1.0.0", 1},
 	}
 
 	for _, tt := range tests {

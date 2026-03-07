@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Background rounded square -->
+  <rect width="32" height="32" rx="7" fill="#7c3aed"/>
+  <!-- Database/cylinder icon — matches splash screen motif -->
+  <ellipse cx="16" cy="10" rx="8" ry="3" stroke="white" stroke-width="1.8" fill="none"/>
+  <path d="M8 10v12a8 3 0 0 0 16 0V10" stroke="white" stroke-width="1.8" fill="none"/>
+  <path d="M8 16a8 3 0 0 0 16 0" stroke="white" stroke-width="1.8" fill="none"/>
+</svg>

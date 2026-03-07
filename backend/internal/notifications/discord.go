@@ -2,12 +2,8 @@
 package notifications
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
 )
 
 // DiscordSender implements Sender for Discord webhook delivery using rich embeds.
@@ -32,8 +28,13 @@ type discordEmbed struct {
 }
 
 type discordAuthor struct {
-	Name string `json:"name"`
+	Name    string `json:"name"`
+	IconURL string `json:"icon_url,omitempty"`
 }
+
+// TODO: populate capacitarrIconURL once a hosted logo is available.
+// Discord gracefully ignores empty/missing icon_url fields.
+const capacitarrIconURL = ""
 
 type discordField struct {
 	Name   string `json:"name"`
@@ -71,7 +72,7 @@ func (s *DiscordSender) SendDigest(webhookURL string, digest CycleDigest) error 
 	}
 
 	embed := discordEmbed{
-		Author:      &discordAuthor{Name: authorName},
+		Author:      &discordAuthor{Name: authorName, IconURL: capacitarrIconURL},
 		Title:       digestTitle(digest),
 		Description: desc,
 		Color:       digestColor(digest),
@@ -89,7 +90,7 @@ func (s *DiscordSender) SendAlert(webhookURL string, alert Alert) error {
 	authorName := fmt.Sprintf("⚡ Capacitarr %s", alert.Version)
 
 	embed := discordEmbed{
-		Author:      &discordAuthor{Name: authorName},
+		Author:      &discordAuthor{Name: authorName, IconURL: capacitarrIconURL},
 		Title:       alert.Title,
 		Description: alert.Message,
 		Color:       alertColor(alert.Type),
@@ -107,31 +108,11 @@ func (s *DiscordSender) SendAlert(webhookURL string, alert Alert) error {
 	return sendDiscordPayload(webhookURL, discordPayload{Embeds: []discordEmbed{embed}})
 }
 
-// sendDiscordPayload marshals and sends a Discord webhook payload.
+// sendDiscordPayload marshals and sends a Discord webhook payload with retry.
 func sendDiscordPayload(webhookURL string, payload discordPayload) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal discord payload: %w", err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("create discord request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := webhookHTTPClient.Do(req) //nolint:gosec // URL is from admin-configured webhook settings
-	if err != nil {
-		return fmt.Errorf("discord webhook request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("discord webhook returned status %d", resp.StatusCode)
-	}
-
-	return nil
+	return sendWebhookRequest(webhookURL, body)
 }

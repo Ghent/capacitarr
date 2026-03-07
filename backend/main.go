@@ -63,6 +63,15 @@ func serveEmbeddedFile(c echo.Context, fsys fs.FS, filePath string) error {
 		contentType = http.DetectContentType(data)
 	}
 
+	// Set Cache-Control based on whether the file is a hashed asset
+	if strings.HasPrefix(filePath, "_assets/") {
+		// Hashed assets from Nuxt build — immutable, cache forever
+		c.Response().Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else if filePath == "index.html" || filePath == "200.html" {
+		// Entry points — always revalidate
+		c.Response().Header().Set("Cache-Control", "no-cache")
+	}
+
 	return c.Blob(http.StatusOK, contentType, data)
 }
 
@@ -203,6 +212,37 @@ func main() {
 	pollerInstance.Start()
 	cronScheduler := jobs.Start(reg)
 
+	// Non-blocking startup self-test — check connectivity to all enabled integrations
+	go func() {
+		configs, err := reg.Integration.ListEnabled()
+		if err != nil {
+			slog.Warn("Startup self-test: failed to list integrations", "component", "main", "error", err)
+			return
+		}
+		if len(configs) == 0 {
+			slog.Info("Startup self-test: no integrations configured", "component", "main")
+			return
+		}
+		for _, cfg := range configs {
+			result := reg.Integration.TestConnection(cfg.Type, cfg.URL, cfg.APIKey, nil)
+			if result.Success {
+				slog.Info("Startup self-test: connection OK",
+					"component", "main",
+					"integration", cfg.Name,
+					"type", cfg.Type,
+				)
+			} else {
+				slog.Warn("Startup self-test: connection failed",
+					"component", "main",
+					"integration", cfg.Name,
+					"type", cfg.Type,
+					"error", result.Error,
+				)
+			}
+		}
+		slog.Info("Startup self-test complete", "component", "main", "integrations", len(configs))
+	}()
+
 	// Initialize Echo instance
 	e := echo.New()
 
@@ -237,6 +277,16 @@ func main() {
 		},
 	}))
 	e.Use(middleware.Recover())
+
+	// Security headers middleware
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+			c.Response().Header().Set("X-Frame-Options", "DENY")
+			c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			return next(c)
+		}
+	})
 
 	// Add CORS middleware — only if origins are configured
 	if len(cfg.CORSOrigins) > 0 {

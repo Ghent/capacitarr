@@ -59,6 +59,10 @@ export default defineNuxtConfig({
         },
       ],
       noscript: [{ innerHTML: '<style>#capacitarr-splash{display:none}</style>' }],
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        { rel: 'manifest', href: '/site.webmanifest' },
+      ],
     },
   },
 
