@@ -418,6 +418,32 @@ func (e RuleDeletedEvent) EventMessage() string {
 	return fmt.Sprintf("Custom rule deleted: %s (ID %d)", e.Field, e.RuleID)
 }
 
+// RulesExportedEvent is published when custom rules are exported.
+type RulesExportedEvent struct {
+	Count int `json:"count"`
+}
+
+// EventType implements Event.
+func (e RulesExportedEvent) EventType() string { return "rules_exported" }
+
+// EventMessage implements Event.
+func (e RulesExportedEvent) EventMessage() string {
+	return fmt.Sprintf("Exported %d custom rules", e.Count)
+}
+
+// RulesImportedEvent is published when custom rules are imported.
+type RulesImportedEvent struct {
+	Count int `json:"count"`
+}
+
+// EventType implements Event.
+func (e RulesImportedEvent) EventType() string { return "rules_imported" }
+
+// EventMessage implements Event.
+func (e RulesImportedEvent) EventMessage() string {
+	return fmt.Sprintf("Imported %d custom rules", e.Count)
+}
+
 // =============================================================================
 // Notification Events
 // =============================================================================

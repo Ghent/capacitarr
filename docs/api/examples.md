@@ -460,6 +460,54 @@ curl -s -X DELETE -H "X-Api-Key: $CAPACITARR_API_KEY" \
   "$CAPACITARR_URL/custom-rules/1" | jq
 ```
 
+### Export custom rules
+
+```bash
+# Export all custom rules to a JSON file
+curl -s http://localhost:2187/api/v1/custom-rules/export \
+  -H "Authorization: Bearer $TOKEN" \
+  -o capacitarr-rules.json
+
+# View the export without saving
+curl -s http://localhost:2187/api/v1/custom-rules/export \
+  -H "Authorization: Bearer $TOKEN" | jq .
+```
+
+### Import custom rules
+
+```bash
+# Import rules from an export file (auto-match integrations)
+curl -s http://localhost:2187/api/v1/custom-rules/import \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"payload\": $(cat capacitarr-rules.json)}"
+
+# Import with explicit integration mapping
+curl -s http://localhost:2187/api/v1/custom-rules/import \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payload": {
+      "version": 1,
+      "exportedAt": "2026-03-06T22:00:00Z",
+      "rules": [
+        {
+          "field": "genre",
+          "operator": "contains",
+          "value": "Anime",
+          "effect": "always_keep",
+          "enabled": true,
+          "integrationName": "Main",
+          "integrationType": "sonarr"
+        }
+      ]
+    },
+    "integrationMapping": {
+      "sonarr:Main": 3
+    }
+  }'
+```
+
 ---
 
 ## Preview

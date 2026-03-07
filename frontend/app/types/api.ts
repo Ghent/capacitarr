@@ -297,6 +297,36 @@ export interface SelectedDetailItem {
 }
 
 // ---------------------------------------------------------------------------
+// Custom Rule Import/Export (API endpoints: /api/v1/custom-rules/export, /import)
+// ---------------------------------------------------------------------------
+
+export interface ExportedRule {
+  field: string;
+  operator: string;
+  value: string;
+  effect: string;
+  enabled: boolean;
+  integrationName: string | null;
+  integrationType: string | null;
+}
+
+export interface RuleExportEnvelope {
+  version: number;
+  exportedAt: string;
+  rules: ExportedRule[];
+}
+
+export interface RuleImportRequest {
+  payload: RuleExportEnvelope;
+  integrationMapping?: Record<string, number>;
+}
+
+export interface RuleImportResponse {
+  imported: number;
+  skipped: number;
+}
+
+// ---------------------------------------------------------------------------
 // Notification Channel
 // ---------------------------------------------------------------------------
 

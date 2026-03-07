@@ -24,6 +24,9 @@ func RegisterRuleRoutes(protected *echo.Group, reg *services.Registry) {
 	// Delegate rule-field and rule-value routes to rulefields.go
 	registerRuleFieldRoutes(protected, database)
 
+	// Delegate import/export routes to rules_portability.go
+	RegisterRulePortabilityRoutes(protected, reg)
+
 	// ---------------------------------------------------------
 	// CUSTOM RULES (protection/targeting)
 	// ---------------------------------------------------------

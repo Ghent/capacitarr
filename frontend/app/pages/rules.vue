@@ -29,6 +29,8 @@
       @delete-rule="deleteRule"
       @toggle-enabled="toggleRuleEnabled"
       @reorder="reorderRules"
+      @export-rules="exportRules"
+      @import-rules="importRules"
     />
 
     <!-- Live Preview -->
@@ -50,11 +52,14 @@ import type {
   PreferenceSet,
   EvaluatedItem,
   PreviewResponse,
+  RuleExportEnvelope,
+  RuleImportResponse,
 } from '~/types/api';
 import type { WeightKeys } from '~/components/rules/RuleWeightEditor.vue';
 
 const api = useApi();
 const { addToast } = useToast();
+const { t } = useI18n();
 
 // ---------------------------------------------------------------------------
 // Disk Groups
@@ -213,6 +218,44 @@ async function reorderRules(order: number[]) {
     // Revert — re-fetch from server
     await fetchRules();
     addToast('Failed to reorder rules', 'error');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Import / Export
+// ---------------------------------------------------------------------------
+
+async function exportRules() {
+  try {
+    const data = (await api('/api/v1/custom-rules/export')) as RuleExportEnvelope;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().slice(0, 10);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `capacitarr-rules-${date}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast(t('rules.exportSuccess'), 'success');
+  } catch {
+    addToast(t('rules.exportEmpty'), 'error');
+  }
+}
+
+async function importRules(data: {
+  payload: RuleExportEnvelope;
+  integrationMapping?: Record<string, number>;
+}) {
+  try {
+    const result = (await api('/api/v1/custom-rules/import', {
+      method: 'POST',
+      body: data,
+    })) as RuleImportResponse;
+    addToast(t('rules.importSuccess', { count: result.imported }, result.imported), 'success');
+    await fetchRules();
+    await fetchPreview();
+  } catch {
+    addToast(t('rules.importError'), 'error');
   }
 }
 

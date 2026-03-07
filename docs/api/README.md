@@ -162,7 +162,7 @@ The SSE endpoint supports reconnection replay via the `Last-Event-ID` header. Se
 | **Disk Groups** | `GET /disk-groups`, `PUT /disk-groups/:id` |
 | **Engine** | `POST /engine/run`, `GET /engine/history` |
 | **Integrations** | `GET /integrations`, `GET /integrations/:id`, `POST /integrations`, `PUT /integrations/:id`, `DELETE /integrations/:id`, `POST /integrations/test`, `POST /integrations/sync` |
-| **Rules** | `GET /custom-rules`, `POST /custom-rules`, `PUT /custom-rules/:id`, `DELETE /custom-rules/:id`, `PUT /custom-rules/reorder`, `GET /rule-fields`, `GET /rule-values` |
+| **Rules** | `GET /custom-rules`, `POST /custom-rules`, `PUT /custom-rules/:id`, `DELETE /custom-rules/:id`, `PUT /custom-rules/reorder`, `GET /custom-rules/export`, `POST /custom-rules/import`, `GET /rule-fields`, `GET /rule-values` |
 | **Approval Queue** | `GET /approval-queue`, `POST /approval-queue/:id/approve`, `POST /approval-queue/:id/reject`, `POST /approval-queue/:id/unsnooze` |
 | **Audit Log** | `GET /audit-log`, `GET /audit-log/recent`, `GET /audit-log/grouped` |
 | **Activity** | `GET /activity/recent` |

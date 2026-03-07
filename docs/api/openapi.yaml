@@ -895,6 +895,76 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /custom-rules/export:
+    get:
+      operationId: exportCustomRules
+      tags: [Rules]
+      summary: Export all custom rules as portable JSON
+      description: |
+        Returns all custom rules in a portable JSON format suitable for
+        backup, sharing, or importing into another Capacitarr instance.
+        Integration IDs are replaced with human-readable names and types.
+        Sets a Content-Disposition header suggesting a dated filename.
+      responses:
+        "200":
+          description: Portable rules export
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleExportPayload"
+          headers:
+            Content-Disposition:
+              description: Suggested download filename
+              schema:
+                type: string
+                example: 'attachment; filename="capacitarr-rules-2026-03-06.json"'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /custom-rules/import:
+    post:
+      operationId: importCustomRules
+      tags: [Rules]
+      summary: Import custom rules from a portable export
+      description: |
+        Imports rules from a portable export payload. Rules are appended
+        to the existing ruleset (additive, never destructive).
+
+        Each rule's integrationName and integrationType are matched against
+        locally configured integrations. Include integrationMapping to
+        manually resolve ambiguous matches. Returns 400 with an unmapped
+        list if any integrations cannot be resolved.
+
+        Valid effects: always_keep, prefer_keep, lean_keep, lean_remove,
+        prefer_remove, always_remove.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RuleImportRequest"
+      responses:
+        "200":
+          description: Import completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleImportResponse"
+        "400":
+          description: Validation failed or unmapped integrations
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ErrorResponse"
+                  - $ref: "#/components/schemas/RuleImportUnmappedError"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   # ===========================================================================
   # Preview
   # ===========================================================================
@@ -1792,6 +1862,97 @@ components:
           description: "Deprecated: use `effect` instead. Legacy values: absolute, strong, moderate"
           deprecated: true
       required: [field, operator, value]
+
+    RuleExportPayload:
+      type: object
+      description: Portable export envelope containing all custom rules
+      properties:
+        version:
+          type: integer
+          description: Schema version for forward compatibility
+          example: 1
+        exportedAt:
+          type: string
+          format: date-time
+          description: UTC timestamp when the export was generated
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortableRule"
+      required: [version, exportedAt, rules]
+
+    PortableRule:
+      type: object
+      description: |
+        A custom rule in portable format with integration name/type
+        instead of numeric IDs for cross-instance compatibility.
+      properties:
+        field:
+          type: string
+          example: genre
+        operator:
+          type: string
+          example: contains
+        value:
+          type: string
+          example: Anime
+        effect:
+          type: string
+          enum: [always_keep, prefer_keep, lean_keep, lean_remove, prefer_remove, always_remove]
+          example: always_keep
+        enabled:
+          type: boolean
+          default: true
+        integrationName:
+          type: ["string", "null"]
+          description: Human-readable integration name, null for global rules
+          example: Main
+        integrationType:
+          type: ["string", "null"]
+          description: Integration type (sonarr, radarr, lidarr, readarr)
+          example: sonarr
+      required: [field, operator, value, effect, enabled]
+
+    RuleImportRequest:
+      type: object
+      properties:
+        payload:
+          $ref: "#/components/schemas/RuleExportPayload"
+        integrationMapping:
+          type: object
+          additionalProperties:
+            type: integer
+          description: |
+            Optional mapping of "type:name" keys to local integration IDs.
+            Example: {"sonarr:Main": 3, "radarr:Movies": 7}
+      required: [payload]
+
+    RuleImportResponse:
+      type: object
+      properties:
+        imported:
+          type: integer
+          description: Number of rules successfully imported
+          example: 5
+        skipped:
+          type: integer
+          description: Number of rules skipped
+          example: 0
+      required: [imported, skipped]
+
+    RuleImportUnmappedError:
+      type: object
+      description: Returned when some integration references cannot be resolved
+      properties:
+        error:
+          type: string
+          example: unmapped integrations
+        unmapped:
+          type: array
+          items:
+            type: string
+          example: ["sonarr:OldServer"]
+      required: [error, unmapped]
 
     RuleField:
       type: object

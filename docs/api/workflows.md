@@ -448,3 +448,55 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ```
 
 You should see media from both Sonarr and Radarr in the scored list. If the new integration's media is missing, check that the integration is enabled and the engine run completed successfully.
+
+---
+
+## Workflow 8: Import/Export Rules
+
+Portable rule import/export allows backing up, sharing, and migrating custom rule configurations between Capacitarr instances.
+
+### Export Workflow
+
+1. **Export rules** — `GET /custom-rules/export`
+2. Save the JSON response to a file
+
+The export replaces integration IDs with human-readable `integrationName` and `integrationType` fields so the file is portable across instances.
+
+### Import Workflow
+
+1. **Read export file** — parse the JSON
+2. **Attempt import** — `POST /custom-rules/import` with the payload
+3. **Handle unmapped integrations** — if the response is 400 with an `unmapped` array:
+   a. List local integrations — `GET /integrations`
+   b. Build an `integrationMapping` object mapping each unmapped `"type:name"` to a local integration ID
+   c. Retry the import with the mapping included
+
+Import is always **additive** — existing rules are never modified or deleted. Imported rules are appended after the last existing rule's sort order.
+
+### Example: Full Migration
+
+```bash
+# 1. Export from source instance
+curl -s http://source:2187/api/v1/custom-rules/export \
+  -H "Authorization: Bearer $SOURCE_TOKEN" \
+  -o rules-backup.json
+
+# 2. Import into target instance
+curl -s http://target:2187/api/v1/custom-rules/import \
+  -H "Authorization: Bearer $TARGET_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"payload\": $(cat rules-backup.json)}"
+
+# 3. If unmapped, check available integrations on target
+curl -s http://target:2187/api/v1/integrations \
+  -H "Authorization: Bearer $TARGET_TOKEN" | jq '.[] | {id, name, type}'
+
+# 4. Retry with mapping
+curl -s http://target:2187/api/v1/custom-rules/import \
+  -H "Authorization: Bearer $TARGET_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "payload": '"$(cat rules-backup.json)"',
+    "integrationMapping": {"sonarr:OldName": 5}
+  }'
+```

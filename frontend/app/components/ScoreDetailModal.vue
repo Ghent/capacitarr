@@ -7,9 +7,9 @@
       }
     "
   >
-    <UiDialogContent class="max-w-lg">
+    <UiDialogContent class="max-w-lg flex flex-col max-h-[85vh]">
       <!-- Header -->
-      <UiDialogHeader>
+      <UiDialogHeader class="shrink-0">
         <span class="text-[10px] font-medium uppercase tracking-widest text-muted-foreground"
           >Score Detail</span
         >
@@ -24,7 +24,7 @@
       </UiDialogHeader>
 
       <!-- Body -->
-      <div class="max-h-[60vh] overflow-y-auto space-y-4">
+      <div class="flex-1 min-h-0 overflow-y-auto space-y-4">
         <!-- Protected Item (always_keep) -->
         <div
           v-if="isProtected"
@@ -172,7 +172,7 @@
 
       <!-- Footer -->
       <UiDialogFooter
-        class="flex-row items-center justify-between border-t border-primary/10 dark:border-primary/15 pt-3"
+        class="shrink-0 flex-row items-center justify-between border-t border-primary/10 dark:border-primary/15 pt-3"
       >
         <div class="flex items-center gap-3">
           <span class="text-sm text-muted-foreground font-mono tabular-nums">
