@@ -1,3 +1,8 @@
+## [1.0.0-rc.12] - 2026-03-07
+
+### 🐛 Bug Fixes
+
+- *(notifications)* Gate approval-mode cycle digest by OnApprovalActivity ([53434a9](https://gitlab.com/starshadow/software/capacitarr/-/commit/53434a932f0851b0ade8aca9e74ad795c8cc4137))
 ## [1.0.0-rc.11] - 2026-03-07
 
 ### 🚀 Features
