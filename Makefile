@@ -1,4 +1,4 @@
-.PHONY: lint format check build build\:frontend build\:backend down clean help
+.PHONY: lint format check build build\:frontend build\:backend down clean clean\:all help
 .PHONY: ci lint\:ci test\:ci security\:ci cache\:clean
 
 # ─── Docker Cache Volumes ──────────────────────────────────────────────────────
@@ -134,8 +134,13 @@ build:
 down:
 	docker compose down
 
-## Full clean: remove containers, volumes, and build cache
+## Safe clean: remove containers and build cache (preserves volumes)
 clean:
+	docker compose down
+	docker builder prune -f
+
+## Full clean: remove containers, volumes, and build cache (DESTROYS DATA)
+clean\:all:
 	docker compose down -v
 	docker builder prune -f
 
@@ -170,7 +175,8 @@ help:
 	@echo "Docker:"
 	@echo "  make build          - Build and start via Docker Compose"
 	@echo "  make down           - Stop containers"
-	@echo "  make clean          - Remove containers, volumes, and build cache"
+	@echo "  make clean          - Remove containers and build cache (safe)"
+	@echo "  make clean:all      - Remove containers, volumes, and build cache (DESTROYS DATA)"
 	@echo "  make cache:clean    - Remove CI cache volumes (Go modules, pnpm store)"
 	@echo ""
 	@echo "Workflow: make lint format → make ci → commit → push"

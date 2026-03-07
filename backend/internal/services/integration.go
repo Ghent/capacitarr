@@ -81,7 +81,7 @@ type TestConnectionResult struct {
 // On success/failure, the appropriate event is published to the event bus.
 func (s *IntegrationService) TestConnection(intType, url, apiKey string, integrationID *int) TestConnectionResult {
 	// Resolve masked or empty API keys to the stored value
-	if (apiKey == "" || isMaskedKey(apiKey)) && integrationID != nil && *integrationID > 0 {
+	if (apiKey == "" || IsMaskedKey(apiKey)) && integrationID != nil && *integrationID > 0 {
 		existing, err := s.GetByID(uint(*integrationID))
 		if err == nil {
 			apiKey = existing.APIKey
@@ -328,8 +328,8 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 	return result, nil
 }
 
-// isMaskedKey checks if an API key string is a masked version (starts with "•").
-func isMaskedKey(key string) bool {
+// IsMaskedKey checks if an API key string is a masked version (starts with "•").
+func IsMaskedKey(key string) bool {
 	return len(key) > 0 && strings.HasPrefix(key, "•")
 }
 

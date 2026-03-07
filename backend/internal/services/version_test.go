@@ -8,6 +8,16 @@ import (
 	"capacitarr/internal/db"
 )
 
+// mockPreferencesReader satisfies the PreferencesReader interface for testing.
+type mockPreferencesReader struct {
+	pref db.PreferenceSet
+	err  error
+}
+
+func (m *mockPreferencesReader) GetPreferences() (db.PreferenceSet, error) {
+	return m.pref, m.err
+}
+
 // mockGitLabServer creates a test HTTP server that returns canned release JSON.
 func mockGitLabServer(t *testing.T, responseJSON string) string {
 	t.Helper()
@@ -22,14 +32,11 @@ func mockGitLabServer(t *testing.T, responseJSON string) string {
 // ---------- CheckForUpdate ----------
 
 func TestVersionService_CheckForUpdate_Disabled(t *testing.T) {
-	database := setupTestDB(t)
-
-	// Disable update checks in preferences
-	if err := database.Model(&db.PreferenceSet{}).Where("id = 1").Update("check_for_updates", false).Error; err != nil {
-		t.Fatalf("Failed to update preferences: %v", err)
+	mock := &mockPreferencesReader{
+		pref: db.PreferenceSet{CheckForUpdates: false},
 	}
 
-	svc := NewVersionService(database, nil, "v1.0.0", "http://unused")
+	svc := NewVersionService(mock, nil, "v1.0.0", "http://unused")
 
 	result, err := svc.CheckForUpdate()
 	if err != nil {
@@ -47,7 +54,9 @@ func TestVersionService_CheckForUpdate_Disabled(t *testing.T) {
 }
 
 func TestVersionService_CheckForUpdate_Cached(t *testing.T) {
-	database := setupTestDB(t)
+	mock := &mockPreferencesReader{
+		pref: db.PreferenceSet{CheckForUpdates: true},
+	}
 
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -57,7 +66,7 @@ func TestVersionService_CheckForUpdate_Cached(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	svc := NewVersionService(database, nil, "v1.0.0", srv.URL)
+	svc := NewVersionService(mock, nil, "v1.0.0", srv.URL)
 
 	// First call — should fetch from server
 	result1, err := svc.CheckForUpdate()
@@ -88,10 +97,12 @@ func TestVersionService_CheckForUpdate_Cached(t *testing.T) {
 }
 
 func TestVersionService_CheckForUpdate_Enabled(t *testing.T) {
-	database := setupTestDB(t)
+	mock := &mockPreferencesReader{
+		pref: db.PreferenceSet{CheckForUpdates: true},
+	}
 	url := mockGitLabServer(t, `[{"tag_name":"v3.0.0"}]`)
 
-	svc := NewVersionService(database, nil, "v1.0.0", url)
+	svc := NewVersionService(mock, nil, "v1.0.0", url)
 
 	result, err := svc.CheckForUpdate()
 	if err != nil {
@@ -114,7 +125,9 @@ func TestVersionService_CheckForUpdate_Enabled(t *testing.T) {
 // ---------- ForceCheck ----------
 
 func TestVersionService_ForceCheck(t *testing.T) {
-	database := setupTestDB(t)
+	mock := &mockPreferencesReader{
+		pref: db.PreferenceSet{CheckForUpdates: true},
+	}
 
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -124,7 +137,7 @@ func TestVersionService_ForceCheck(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	svc := NewVersionService(database, nil, "v1.0.0", srv.URL)
+	svc := NewVersionService(mock, nil, "v1.0.0", srv.URL)
 
 	// Warm the cache
 	_, err := svc.CheckForUpdate()
@@ -149,14 +162,11 @@ func TestVersionService_ForceCheck(t *testing.T) {
 }
 
 func TestVersionService_ForceCheck_Disabled(t *testing.T) {
-	database := setupTestDB(t)
-
-	// Disable update checks
-	if err := database.Model(&db.PreferenceSet{}).Where("id = 1").Update("check_for_updates", false).Error; err != nil {
-		t.Fatalf("Failed to update preferences: %v", err)
+	mock := &mockPreferencesReader{
+		pref: db.PreferenceSet{CheckForUpdates: false},
 	}
 
-	svc := NewVersionService(database, nil, "v1.0.0", "http://unused")
+	svc := NewVersionService(mock, nil, "v1.0.0", "http://unused")
 
 	result, err := svc.ForceCheck()
 	if err != nil {
@@ -200,7 +210,9 @@ func TestVersionService_CompareSemver(t *testing.T) {
 // ---------- ResetCache ----------
 
 func TestVersionService_ResetCache(t *testing.T) {
-	database := setupTestDB(t)
+	mock := &mockPreferencesReader{
+		pref: db.PreferenceSet{CheckForUpdates: true},
+	}
 
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -210,7 +222,7 @@ func TestVersionService_ResetCache(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	svc := NewVersionService(database, nil, "v1.0.0", srv.URL)
+	svc := NewVersionService(mock, nil, "v1.0.0", srv.URL)
 
 	// Warm cache
 	_, _ = svc.CheckForUpdate()

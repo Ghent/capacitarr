@@ -336,8 +336,8 @@ func (e DeletionSuccessEvent) EventType() string { return "deletion_success" }
 
 // EventMessage implements Event.
 func (e DeletionSuccessEvent) EventMessage() string {
-	sizeMB := float64(e.SizeBytes) / (1024 * 1024 * 1024)
-	return fmt.Sprintf("Deleted: %s (%.2f GB freed)", e.MediaName, sizeMB)
+	sizeGB := float64(e.SizeBytes) / (1024 * 1024 * 1024)
+	return fmt.Sprintf("Deleted: %s (%.2f GB freed)", e.MediaName, sizeGB)
 }
 
 // DeletionFailedEvent is published when a deletion attempt fails.

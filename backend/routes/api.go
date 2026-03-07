@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -63,19 +62,8 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 		protected.GET("/events", sseBroadcaster.HandleSSE)
 	}
 
-	// Metrics History
-	protected.GET("/metrics/history", func(c echo.Context) error {
-		resolution := c.QueryParam("resolution")
-		diskGroupID := c.QueryParam("disk_group_id")
-		since := c.QueryParam("since")
-
-		history, err := reg.Metrics.GetHistory(resolution, diskGroupID, since)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error fetching metrics"})
-		}
-
-		return c.JSON(http.StatusOK, map[string]interface{}{"status": "success", "data": history})
-	})
+	// Metrics and statistics routes
+	RegisterMetricsRoutes(protected, reg)
 
 	// Integration management routes
 	RegisterIntegrationRoutes(protected, reg)
@@ -84,78 +72,7 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 	RegisterRuleRoutes(protected, reg)
 
 	// Disk Groups routes
-	protected.GET("/disk-groups", func(c echo.Context) error {
-		groups, err := reg.Settings.ListDiskGroups()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch disk groups"})
-		}
-		return c.JSON(http.StatusOK, groups)
-	})
-
-	protected.PUT("/disk-groups/:id", func(c echo.Context) error {
-		id := c.Param("id")
-		idNum, convErr := strconv.ParseUint(id, 10, 64)
-		if convErr != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
-		}
-
-		group, err := reg.Settings.GetDiskGroup(uint(idNum))
-		if err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Disk group not found"})
-		}
-
-		var req struct {
-			ThresholdPct float64 `json:"thresholdPct"`
-			TargetPct    float64 `json:"targetPct"`
-		}
-		if err := c.Bind(&req); err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
-		}
-
-		// Validate thresholds
-		if req.ThresholdPct < 1 || req.ThresholdPct > 99 || req.TargetPct < 1 || req.TargetPct > 99 {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Threshold and target must be between 1 and 99"})
-		}
-		if req.ThresholdPct <= req.TargetPct {
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Threshold must be greater than target"})
-		}
-
-		updated, err := reg.Settings.UpdateThresholds(group.ID, req.ThresholdPct, req.TargetPct)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update disk group"})
-		}
-
-		return c.JSON(http.StatusOK, updated)
-	})
-
-	// Worker Stats
-	protected.GET("/worker/stats", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, reg.Metrics.GetWorkerMetrics())
-	})
-
-	// Engine Run Now - trigger an immediate evaluation cycle
-	protected.POST("/engine/run", func(c echo.Context) error {
-		status := reg.Engine.TriggerRun()
-		return c.JSON(http.StatusOK, map[string]string{"status": status})
-	})
-
-	// Lifetime stats (cumulative counters, not cleared by data reset)
-	protected.GET("/lifetime-stats", func(c echo.Context) error {
-		stats, err := reg.Metrics.GetLifetimeStats()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch lifetime stats"})
-		}
-		return c.JSON(http.StatusOK, stats)
-	})
-
-	// Dashboard stats (aggregates lifetime stats, protected count, library growth rate)
-	protected.GET("/dashboard-stats", func(c echo.Context) error {
-		stats, err := reg.Metrics.GetDashboardStats()
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch dashboard stats"})
-		}
-		return c.JSON(http.StatusOK, stats)
-	})
+	RegisterDiskGroupRoutes(protected, reg)
 
 	// Audit routes (history-only)
 	RegisterAuditRoutes(protected, reg)
@@ -166,8 +83,8 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 	// Activity event routes
 	RegisterActivityRoutes(protected, reg)
 
-	// Engine history routes
-	RegisterEngineHistoryRoutes(protected, reg)
+	// Engine routes (history + run)
+	RegisterEngineRoutes(protected, reg)
 
 	// Notification routes (channels CRUD + in-app notifications)
 	RegisterNotificationRoutes(protected, reg)

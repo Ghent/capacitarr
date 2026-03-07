@@ -110,12 +110,12 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 		if update.URL != "" {
 			// Validate URL scheme on update as well
 			parsedURL, urlErr := url.Parse(update.URL)
-			if urlErr != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+			if urlErr != nil || (parsedURL.Scheme != schemeHTTP && parsedURL.Scheme != schemeHTTPS) || parsedURL.Host == "" {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": "url must be a valid HTTP or HTTPS URL"})
 			}
 			existing.URL = update.URL
 		}
-		if update.APIKey != "" && !isMaskedKey(update.APIKey) {
+		if update.APIKey != "" && !services.IsMaskedKey(update.APIKey) {
 			existing.APIKey = update.APIKey
 		}
 		existing.Enabled = update.Enabled
@@ -141,7 +141,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Integration not found"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]string{"message": "Integration deleted"})
+		return c.JSON(http.StatusOK, map[string]string{"status": "deleted"})
 	})
 
 	// Test connection — delegates to IntegrationService.TestConnection()
@@ -185,9 +185,4 @@ func maskAPIKey(key string) string {
 		return "••••"
 	}
 	return strings.Repeat("•", len(key)-4) + key[len(key)-4:]
-}
-
-// isMaskedKey checks if an API key string is a masked version (starts with "•").
-func isMaskedKey(key string) bool {
-	return strings.HasPrefix(key, "•")
 }

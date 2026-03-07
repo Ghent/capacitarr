@@ -39,8 +39,8 @@ func parseDuration(s string) (time.Duration, error) {
 	}
 }
 
-// RegisterEngineHistoryRoutes registers engine history endpoints on the protected group.
-func RegisterEngineHistoryRoutes(g *echo.Group, reg *services.Registry) {
+// RegisterEngineRoutes registers engine history and control endpoints on the protected group.
+func RegisterEngineRoutes(g *echo.Group, reg *services.Registry) {
 	g.GET("/engine/history", func(c echo.Context) error {
 		rangeParam := c.QueryParam("range")
 		if rangeParam == "" {
@@ -58,5 +58,11 @@ func RegisterEngineHistoryRoutes(g *echo.Group, reg *services.Registry) {
 		}
 
 		return c.JSON(http.StatusOK, points)
+	})
+
+	// Engine Run Now - trigger an immediate evaluation cycle
+	g.POST("/engine/run", func(c echo.Context) error {
+		status := reg.Engine.TriggerRun()
+		return c.JSON(http.StatusOK, map[string]string{"status": status})
 	})
 }

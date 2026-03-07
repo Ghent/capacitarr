@@ -12,14 +12,18 @@ import (
 	"sync"
 	"time"
 
-	"gorm.io/gorm"
-
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
 )
 
 // DefaultGitLabReleasesURL is the GitLab API endpoint for Capacitarr releases.
 const DefaultGitLabReleasesURL = "https://gitlab.com/api/v4/projects/79833150/releases?per_page=1"
+
+// PreferencesReader provides read access to application preferences.
+// Satisfied by SettingsService.
+type PreferencesReader interface {
+	GetPreferences() (db.PreferenceSet, error)
+}
 
 // VersionCheckResult holds the cached update check response.
 type VersionCheckResult struct {
@@ -32,7 +36,7 @@ type VersionCheckResult struct {
 
 // VersionService manages update checks against the GitLab releases API.
 type VersionService struct {
-	db                  *gorm.DB
+	preferences         PreferencesReader
 	bus                 *events.EventBus
 	appVersion          string
 	releasesURL         string
@@ -44,9 +48,9 @@ type VersionService struct {
 
 // NewVersionService creates a new VersionService.
 // releasesURL is the GitLab releases API URL; pass DefaultGitLabReleasesURL for production.
-func NewVersionService(database *gorm.DB, bus *events.EventBus, appVersion, releasesURL string) *VersionService {
+func NewVersionService(preferences PreferencesReader, bus *events.EventBus, appVersion, releasesURL string) *VersionService {
 	return &VersionService{
-		db:          database,
+		preferences: preferences,
 		bus:         bus,
 		appVersion:  appVersion,
 		releasesURL: releasesURL,
@@ -73,8 +77,8 @@ func (s *VersionService) SetReleasesURL(url string) {
 // a cached result if fresh or fetches a new one from the GitLab releases API.
 func (s *VersionService) CheckForUpdate() (*VersionCheckResult, error) {
 	// Load preferences to check if update checks are enabled
-	var pref db.PreferenceSet
-	if err := s.db.First(&pref, 1).Error; err != nil {
+	pref, err := s.preferences.GetPreferences()
+	if err != nil {
 		slog.Warn("Failed to load preferences for version check", "component", "version", "error", err)
 		return &VersionCheckResult{Current: s.appVersion}, nil
 	}
@@ -107,8 +111,8 @@ func (s *VersionService) CheckForUpdate() (*VersionCheckResult, error) {
 // GitLab releases API.
 func (s *VersionService) ForceCheck() (*VersionCheckResult, error) {
 	// Load preferences to check if update checks are enabled
-	var pref db.PreferenceSet
-	if err := s.db.First(&pref, 1).Error; err != nil {
+	pref, err := s.preferences.GetPreferences()
+	if err != nil {
 		slog.Warn("Failed to load preferences for version check", "component", "version", "error", err)
 		return &VersionCheckResult{Current: s.appVersion}, nil
 	}
