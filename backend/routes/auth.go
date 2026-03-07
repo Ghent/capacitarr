@@ -28,7 +28,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to check auth status"})
 		}
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"initialized": initialized,
 		})
 	})
@@ -195,7 +195,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 		// return whether a key has been generated and the last 4 chars hint
 		// so the UI can show a recognisable masked version.
 		hasKey := user.APIKey != ""
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"has_key": hasKey,
 			"hint":    user.APIKeyHint,
 		})

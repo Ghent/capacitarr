@@ -45,7 +45,7 @@ func (s *ApprovalService) Approve(entryID uint) (*db.ApprovalQueueItem, error) {
 		return nil, fmt.Errorf("%w (current: %s)", ErrApprovalNotPending, entry.Status)
 	}
 
-	if err := s.db.Model(&entry).Updates(map[string]interface{}{
+	if err := s.db.Model(&entry).Updates(map[string]any{
 		"status":     db.StatusApproved,
 		"updated_at": time.Now().UTC(),
 	}).Error; err != nil {
@@ -76,7 +76,7 @@ func (s *ApprovalService) Reject(entryID uint, snoozeDurationHours int) (*db.App
 
 	snoozedUntil := time.Now().UTC().Add(time.Duration(snoozeDurationHours) * time.Hour)
 
-	if err := s.db.Model(&entry).Updates(map[string]interface{}{
+	if err := s.db.Model(&entry).Updates(map[string]any{
 		"status":        db.StatusRejected,
 		"snoozed_until": snoozedUntil,
 		"updated_at":    time.Now().UTC(),
@@ -106,7 +106,7 @@ func (s *ApprovalService) Unsnooze(entryID uint) (*db.ApprovalQueueItem, error) 
 		return nil, fmt.Errorf("%w (current: %s)", ErrApprovalNotPending, entry.Status)
 	}
 
-	if err := s.db.Model(&entry).Updates(map[string]interface{}{
+	if err := s.db.Model(&entry).Updates(map[string]any{
 		"status":        db.StatusPending,
 		"snoozed_until": nil,
 		"updated_at":    time.Now().UTC(),
@@ -139,7 +139,7 @@ func (s *ApprovalService) UpsertPending(item db.ApprovalQueueItem) (bool, error)
 
 	if result.Error == nil {
 		// Update existing pending entry
-		if err := s.db.Model(&existing).Updates(map[string]interface{}{
+		if err := s.db.Model(&existing).Updates(map[string]any{
 			"reason":         item.Reason,
 			"score_details":  item.ScoreDetails,
 			"size_bytes":     item.SizeBytes,
@@ -177,7 +177,7 @@ func (s *ApprovalService) IsSnoozed(mediaName, mediaType string) bool {
 func (s *ApprovalService) BulkUnsnooze() (int, error) {
 	result := s.db.Model(&db.ApprovalQueueItem{}).
 		Where("status = ? AND snoozed_until IS NOT NULL", db.StatusRejected).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":        db.StatusPending,
 			"snoozed_until": nil,
 			"updated_at":    time.Now().UTC(),
@@ -202,7 +202,7 @@ func (s *ApprovalService) CleanExpiredSnoozes() (int, error) {
 	now := time.Now().UTC()
 	result := s.db.Model(&db.ApprovalQueueItem{}).
 		Where("status = ? AND snoozed_until IS NOT NULL AND snoozed_until <= ?", db.StatusRejected, now).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":        db.StatusPending,
 			"snoozed_until": nil,
 			"updated_at":    now,
@@ -304,7 +304,7 @@ type ExecuteApprovalDeps struct {
 func (s *ApprovalService) RecoverOrphans() (int, error) {
 	result := s.db.Model(&db.ApprovalQueueItem{}).
 		Where("status = ?", db.StatusApproved).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":     db.StatusPending,
 			"updated_at": time.Now().UTC(),
 		})

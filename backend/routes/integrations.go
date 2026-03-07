@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -24,7 +23,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 
 		// Mask API keys in response
 		for i := range configs {
-			configs[i].APIKey = maskAPIKey(configs[i].APIKey)
+			configs[i].APIKey = db.MaskAPIKey(configs[i].APIKey)
 		}
 
 		return c.JSON(http.StatusOK, configs)
@@ -46,7 +45,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 		}
 
 		// Mask API key
-		config.APIKey = maskAPIKey(config.APIKey)
+		config.APIKey = db.MaskAPIKey(config.APIKey)
 
 		return c.JSON(http.StatusOK, config)
 	})
@@ -82,7 +81,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 		}
 
 		// Mask API key in response
-		created.APIKey = maskAPIKey(created.APIKey)
+		created.APIKey = db.MaskAPIKey(created.APIKey)
 		return c.JSON(http.StatusCreated, created)
 	})
 
@@ -115,7 +114,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 			}
 			existing.URL = update.URL
 		}
-		if update.APIKey != "" && !services.IsMaskedKey(update.APIKey) {
+		if update.APIKey != "" && !db.IsMaskedKey(update.APIKey) {
 			existing.APIKey = update.APIKey
 		}
 		existing.Enabled = update.Enabled
@@ -126,7 +125,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 		}
 
 		// Mask API key in response
-		updated.APIKey = maskAPIKey(updated.APIKey)
+		updated.APIKey = db.MaskAPIKey(updated.APIKey)
 		return c.JSON(http.StatusOK, updated)
 	})
 
@@ -173,16 +172,8 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to sync integrations"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"results": results,
 		})
 	})
-}
-
-// maskAPIKey returns a masked version of the key, showing only the last 4 characters.
-func maskAPIKey(key string) string {
-	if len(key) <= 4 {
-		return "••••"
-	}
-	return strings.Repeat("•", len(key)-4) + key[len(key)-4:]
 }

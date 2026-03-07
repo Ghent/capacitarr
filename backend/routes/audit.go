@@ -86,5 +86,4 @@ func RegisterAuditRoutes(g *echo.Group, reg *services.Registry) {
 
 		return c.JSON(http.StatusOK, result)
 	})
-
 }

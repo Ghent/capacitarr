@@ -33,7 +33,7 @@ func setupAuthTest(t *testing.T, cfg *config.Config) *echo.Echo {
 	user := db.AuthConfig{
 		Username: "testadmin",
 		Password: string(hashed),
-		APIKey:   routes.HashAPIKey("valid-api-key-12345"),
+		APIKey:   services.HashAPIKey("valid-api-key-12345"),
 	}
 	if err := database.Create(&user).Error; err != nil {
 		t.Fatalf("Failed to create test user: %v", err)

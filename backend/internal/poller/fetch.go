@@ -182,9 +182,3 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 
 	return result
 }
-
-// enrichItems is a convenience wrapper that delegates to integrations.EnrichItems.
-// It exists so the poller can call enrichment without changing callers.
-func enrichItems(items []integrations.MediaItem, ec integrations.EnrichmentClients) {
-	integrations.EnrichItems(items, ec)
-}

@@ -48,12 +48,17 @@ func Init(cfg *config.Config) error {
 		ExecutionMode:         "dry-run",
 		LogLevel:              "info",
 		AuditLogRetentionDays: 30,
+		PollIntervalSeconds:   300,
 		WatchHistoryWeight:    10,
 		LastWatchedWeight:     8,
 		FileSizeWeight:        6,
 		RatingWeight:          5,
 		TimeInLibraryWeight:   4,
 		SeriesStatusWeight:    3,
+		TiebreakerMethod:      "size_desc",
+		DeletionsEnabled:      true,
+		SnoozeDurationHours:   24,
+		CheckForUpdates:       true,
 	}).Error; err != nil {
 		slog.Error("Failed to seed default preferences", "component", "db", "operation", "seed_preferences", "error", err)
 	}

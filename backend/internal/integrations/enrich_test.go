@@ -24,8 +24,8 @@ func newPlexMockServer(t *testing.T, movies []plexMockItem, shows []plexMockItem
 			if len(shows) > 0 {
 				dirs = append(dirs, map[string]string{"key": "2", "title": "TV Shows", "type": "show"})
 			}
-			resp := map[string]interface{}{
-				"MediaContainer": map[string]interface{}{
+			resp := map[string]any{
+				"MediaContainer": map[string]any{
 					"Directory": dirs,
 				},
 			}
@@ -33,9 +33,9 @@ func newPlexMockServer(t *testing.T, movies []plexMockItem, shows []plexMockItem
 				t.Fatalf("Failed to encode sections: %v", err)
 			}
 		case testPlexPathMoviesAll:
-			metadata := make([]map[string]interface{}, len(movies))
+			metadata := make([]map[string]any, len(movies))
 			for i, m := range movies {
-				metadata[i] = map[string]interface{}{
+				metadata[i] = map[string]any{
 					"ratingKey":    m.RatingKey,
 					"title":        m.Title,
 					"year":         m.Year,
@@ -44,8 +44,8 @@ func newPlexMockServer(t *testing.T, movies []plexMockItem, shows []plexMockItem
 					"lastViewedAt": m.LastViewedAt,
 				}
 			}
-			resp := map[string]interface{}{
-				"MediaContainer": map[string]interface{}{
+			resp := map[string]any{
+				"MediaContainer": map[string]any{
 					"Metadata": metadata,
 				},
 			}
@@ -53,9 +53,9 @@ func newPlexMockServer(t *testing.T, movies []plexMockItem, shows []plexMockItem
 				t.Fatalf("Failed to encode movies: %v", err)
 			}
 		case "/library/sections/2/all":
-			metadata := make([]map[string]interface{}, len(shows))
+			metadata := make([]map[string]any, len(shows))
 			for i, s := range shows {
-				metadata[i] = map[string]interface{}{
+				metadata[i] = map[string]any{
 					"ratingKey":    s.RatingKey,
 					"title":        s.Title,
 					"year":         s.Year,
@@ -64,8 +64,8 @@ func newPlexMockServer(t *testing.T, movies []plexMockItem, shows []plexMockItem
 					"lastViewedAt": s.LastViewedAt,
 				}
 			}
-			resp := map[string]interface{}{
-				"MediaContainer": map[string]interface{}{
+			resp := map[string]any{
+				"MediaContainer": map[string]any{
 					"Metadata": metadata,
 				},
 			}

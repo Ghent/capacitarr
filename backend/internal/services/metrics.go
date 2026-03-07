@@ -80,7 +80,7 @@ func (s *MetricsService) GetLifetimeStats() (db.LifetimeStats, error) {
 
 // GetDashboardStats aggregates lifetime stats, protected count, and library
 // growth rate into a single response for the dashboard.
-func (s *MetricsService) GetDashboardStats() (map[string]interface{}, error) {
+func (s *MetricsService) GetDashboardStats() (map[string]any, error) {
 	// 1. Lifetime stats
 	var lifetime db.LifetimeStats
 	if err := s.db.FirstOrCreate(&lifetime, db.LifetimeStats{ID: 1}).Error; err != nil {
@@ -113,7 +113,7 @@ func (s *MetricsService) GetDashboardStats() (map[string]interface{}, error) {
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"totalBytesReclaimed": lifetime.TotalBytesReclaimed,
 		"totalItemsRemoved":   lifetime.TotalItemsRemoved,
 		"totalEngineRuns":     lifetime.TotalEngineRuns,
@@ -144,7 +144,7 @@ func (s *MetricsService) IncrementEngineRuns() error {
 // after a successful deletion.
 func (s *MetricsService) IncrementDeletionStats(sizeBytes int64) error {
 	result := s.db.Model(&db.LifetimeStats{}).Where("id = 1").
-		UpdateColumns(map[string]interface{}{
+		UpdateColumns(map[string]any{
 			"total_bytes_reclaimed": gorm.Expr("total_bytes_reclaimed + ?", sizeBytes),
 			"total_items_removed":   gorm.Expr("total_items_removed + ?", 1),
 		})
@@ -155,7 +155,7 @@ func (s *MetricsService) IncrementDeletionStats(sizeBytes int64) error {
 	if result.RowsAffected == 0 {
 		s.db.FirstOrCreate(&db.LifetimeStats{}, db.LifetimeStats{ID: 1})
 		s.db.Model(&db.LifetimeStats{}).Where("id = 1").
-			UpdateColumns(map[string]interface{}{
+			UpdateColumns(map[string]any{
 				"total_bytes_reclaimed": gorm.Expr("total_bytes_reclaimed + ?", sizeBytes),
 				"total_items_removed":   gorm.Expr("total_items_removed + ?", 1),
 			})
@@ -231,7 +231,7 @@ func (s *MetricsService) PruneHistory(resolution string, before time.Time) (int6
 
 // GetWorkerMetrics assembles worker metrics from the EngineService and DeletionService.
 // Keys match the frontend TypeScript WorkerStats interface.
-func (s *MetricsService) GetWorkerMetrics() map[string]interface{} {
+func (s *MetricsService) GetWorkerMetrics() map[string]any {
 	stats := s.engine.GetStats()
 
 	// Add poll interval from preferences via SettingsService

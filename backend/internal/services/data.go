@@ -57,7 +57,7 @@ func (s *DataService) Reset() (map[string]int64, error) {
 	summary["engineRunStats"] = res.RowsAffected
 
 	// 5. Reset transient fields on disk_groups (preserve user thresholds)
-	res = s.db.Model(&db.DiskGroup{}).Where("1 = 1").Updates(map[string]interface{}{
+	res = s.db.Model(&db.DiskGroup{}).Where("1 = 1").Updates(map[string]any{
 		"total_bytes": 0,
 		"used_bytes":  0,
 	})
@@ -67,7 +67,7 @@ func (s *DataService) Reset() (map[string]int64, error) {
 	summary["diskGroupsReset"] = res.RowsAffected
 
 	// 6. Reset transient fields on integration_configs
-	res = s.db.Model(&db.IntegrationConfig{}).Where("1 = 1").Updates(map[string]interface{}{
+	res = s.db.Model(&db.IntegrationConfig{}).Where("1 = 1").Updates(map[string]any{
 		"media_size_bytes": 0,
 		"media_count":      0,
 		"last_sync":        nil,

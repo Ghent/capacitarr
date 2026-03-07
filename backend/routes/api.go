@@ -2,36 +2,13 @@
 package routes
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 
 	"capacitarr/internal/events"
 	"capacitarr/internal/services"
 )
-
-// apiKeyHashPrefix marks a stored API key as already hashed with SHA-256.
-// Legacy plaintext keys (without this prefix) are transparently upgraded
-// on first use.
-const apiKeyHashPrefix = "sha256:"
-
-// HashAPIKey produces a deterministic SHA-256 hash of the given plaintext
-// API key, prefixed with "sha256:" so we can distinguish hashed from legacy
-// plaintext keys in the database. SHA-256 (without salt) is appropriate here
-// because API keys are 256-bit random values — effectively unguessable and
-// immune to rainbow table attacks.
-func HashAPIKey(plaintext string) string {
-	h := sha256.Sum256([]byte(plaintext))
-	return apiKeyHashPrefix + hex.EncodeToString(h[:])
-}
-
-// IsHashedAPIKey returns true if the stored key already uses the hashed format.
-func IsHashedAPIKey(stored string) bool {
-	return strings.HasPrefix(stored, apiKeyHashPrefix)
-}
 
 // RegisterAPIRoutes sets up all API routes: public endpoints, auth, and
 // protected resource endpoints.

@@ -24,7 +24,7 @@ func TestGetPreview_EmptyState(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -37,7 +37,7 @@ func TestGetPreview_EmptyState(t *testing.T) {
 	// items should be an empty array (or null) when no integrations exist
 	items, ok := resp["items"]
 	if ok && items != nil {
-		itemList, isList := items.([]interface{})
+		itemList, isList := items.([]any)
 		if isList && len(itemList) != 0 {
 			t.Errorf("Expected empty items with no integrations, got %d items", len(itemList))
 		}
@@ -64,8 +64,8 @@ func TestGetPreview_ResponseStructure(t *testing.T) {
 
 	// Verify the JSON can be decoded and has the expected shape
 	var resp struct {
-		Items       interface{} `json:"items"`
-		DiskContext interface{} `json:"diskContext"`
+		Items       any `json:"items"`
+		DiskContext any `json:"diskContext"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response into expected structure: %v", err)
@@ -133,7 +133,7 @@ func TestGetPreview_SkipsNonArrIntegrations(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -142,7 +142,7 @@ func TestGetPreview_SkipsNonArrIntegrations(t *testing.T) {
 	// because non-arr integrations are skipped during media fetch
 	items := resp["items"]
 	if items != nil {
-		if itemList, ok := items.([]interface{}); ok && len(itemList) != 0 {
+		if itemList, ok := items.([]any); ok && len(itemList) != 0 {
 			t.Errorf("Expected no items from non-arr integrations, got %d", len(itemList))
 		}
 	}

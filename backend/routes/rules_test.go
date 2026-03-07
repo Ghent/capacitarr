@@ -416,7 +416,7 @@ func TestGetRuleFields_NoFilter(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var fields []map[string]interface{}
+	var fields []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &fields); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestGetRuleFields_SonarrFilter(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var fields []map[string]interface{}
+	var fields []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &fields); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -501,7 +501,7 @@ func TestGetRuleFields_RadarrFilter(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var fields []map[string]interface{}
+	var fields []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &fields); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -598,7 +598,7 @@ func TestGetRuleValues_StaticActions(t *testing.T) {
 				t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 			}
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 				t.Fatalf("Failed to parse response: %v", err)
 			}
@@ -632,12 +632,12 @@ func TestGetRuleValues_ClosedOptionsHaveValues(t *testing.T) {
 				t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 			}
 
-			var resp map[string]interface{}
+			var resp map[string]any
 			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 				t.Fatalf("Failed to parse response: %v", err)
 			}
 
-			options, ok := resp["options"].([]interface{})
+			options, ok := resp["options"].([]any)
 			if !ok {
 				t.Fatal("Expected 'options' array in closed response")
 			}

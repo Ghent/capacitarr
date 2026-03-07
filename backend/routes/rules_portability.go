@@ -67,7 +67,7 @@ func RegisterRulePortabilityRoutes(protected *echo.Group, reg *services.Registry
 		imported, unmapped, err := reg.Rules.Import(req.Payload.Rules, req.IntegrationMapping)
 		if err != nil {
 			if len(unmapped) > 0 {
-				return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				return c.JSON(http.StatusBadRequest, map[string]any{
 					"error":    "unmapped integrations",
 					"unmapped": unmapped,
 				})
@@ -75,7 +75,7 @@ func RegisterRulePortabilityRoutes(protected *echo.Group, reg *services.Registry
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to import rules"})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"imported": imported,
 			"skipped":  0,
 		})

@@ -24,7 +24,7 @@ func TestAuthStatus_NoUser(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestAuthStatus_AfterUserCreated(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -303,7 +303,7 @@ func TestAPIKeyGeneration(t *testing.T) {
 		t.Fatalf("Expected 200, got %d", rec.Code)
 	}
 
-	var statusResp map[string]interface{}
+	var statusResp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &statusResp); err != nil {
 		t.Fatalf("Failed to parse: %v", err)
 	}

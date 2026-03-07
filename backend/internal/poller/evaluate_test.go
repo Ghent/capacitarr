@@ -101,7 +101,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 		mediaName, mediaType, "pending",
 	).First(&existing)
 	if result.Error == nil {
-		reg.DB.Model(&existing).Updates(map[string]interface{}{
+		reg.DB.Model(&existing).Updates(map[string]any{
 			"reason":         firstEntry.Reason,
 			"score_details":  firstEntry.ScoreDetails,
 			"size_bytes":     firstEntry.SizeBytes,
@@ -140,7 +140,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 		mediaName, mediaType, "pending",
 	).First(&existing2)
 	if result2.Error == nil {
-		reg.DB.Model(&existing2).Updates(map[string]interface{}{
+		reg.DB.Model(&existing2).Updates(map[string]any{
 			"reason":         secondEntry.Reason,
 			"score_details":  secondEntry.ScoreDetails,
 			"size_bytes":     secondEntry.SizeBytes,
@@ -213,7 +213,7 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 		mediaName, mediaType, "pending",
 	).First(&existing)
 	if result.Error == nil {
-		reg.DB.Model(&existing).Updates(map[string]interface{}{
+		reg.DB.Model(&existing).Updates(map[string]any{
 			"reason":         newEntry.Reason,
 			"score_details":  newEntry.ScoreDetails,
 			"size_bytes":     newEntry.SizeBytes,

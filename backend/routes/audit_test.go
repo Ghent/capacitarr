@@ -399,7 +399,7 @@ func TestApproveEntry_HappyPath(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
@@ -529,7 +529,7 @@ func TestRejectEntry_HappyPath(t *testing.T) {
 		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}

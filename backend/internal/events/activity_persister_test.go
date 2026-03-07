@@ -72,7 +72,7 @@ func TestActivityPersister_PersistsSingleEvent(t *testing.T) {
 	}
 
 	// Verify metadata contains JSON-encoded event
-	var meta map[string]interface{}
+	var meta map[string]any
 	if err := json.Unmarshal([]byte(evt.Metadata), &meta); err != nil {
 		t.Fatalf("failed to parse metadata JSON: %v", err)
 	}

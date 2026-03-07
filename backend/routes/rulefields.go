@@ -39,28 +39,28 @@ func detectEnrichment(reg *services.Registry) enrichmentPresence {
 // appendEnrichmentFields adds enrichment-dependent rule fields (play count,
 // last watched, requested, in collection, watched by requestor) based on
 // which enrichment integrations are enabled.
-func appendEnrichmentFields(fields []map[string]interface{}, p enrichmentPresence) []map[string]interface{} {
+func appendEnrichmentFields(fields []map[string]any, p enrichmentPresence) []map[string]any {
 	if p.hasTautulli || p.hasMedia {
 		fields = append(fields,
-			map[string]interface{}{"field": "playcount", "label": "Play Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
-			map[string]interface{}{"field": "lastplayed", "label": "Last Watched", "type": "date", "operators": []string{"in_last", "over_ago", "never"}},
+			map[string]any{"field": "playcount", "label": "Play Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
+			map[string]any{"field": "lastplayed", "label": "Last Watched", "type": "date", "operators": []string{"in_last", "over_ago", "never"}},
 		)
 	}
 	if p.hasOverseerr {
 		fields = append(fields,
-			map[string]interface{}{"field": "requested", "label": "Is Requested", "type": "boolean", "operators": []string{"=="}},
-			map[string]interface{}{"field": "requestcount", "label": "Request Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
-			map[string]interface{}{"field": "requestedby", "label": "Requested By", "type": "string", "operators": []string{"==", "!=", "contains", "!contains"}},
+			map[string]any{"field": "requested", "label": "Is Requested", "type": "boolean", "operators": []string{"=="}},
+			map[string]any{"field": "requestcount", "label": "Request Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
+			map[string]any{"field": "requestedby", "label": "Requested By", "type": "string", "operators": []string{"==", "!=", "contains", "!contains"}},
 		)
 	}
 	if p.hasMedia {
 		fields = append(fields,
-			map[string]interface{}{"field": "incollection", "label": "In Collection", "type": "boolean", "operators": []string{"=="}},
+			map[string]any{"field": "incollection", "label": "In Collection", "type": "boolean", "operators": []string{"=="}},
 		)
 	}
 	if p.hasOverseerr && (p.hasTautulli || p.hasMedia) {
 		fields = append(fields,
-			map[string]interface{}{"field": "watchedbyreq", "label": "Watched by Requestor", "type": "boolean", "operators": []string{"=="}},
+			map[string]any{"field": "watchedbyreq", "label": "Watched by Requestor", "type": "boolean", "operators": []string{"=="}},
 		)
 	}
 	return fields
@@ -78,7 +78,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 		serviceType := c.QueryParam("service_type")
 
 		// Base fields available for all *arr integration types
-		fields := []map[string]interface{}{
+		fields := []map[string]any{
 			{"field": "title", "label": "Title", "type": "string", "operators": []string{"==", "!=", "contains", "!contains"}},
 			{"field": "quality", "label": "Quality Profile", "type": "string", "operators": []string{"==", "!="}},
 			{"field": "tag", "label": "Tags", "type": "string", "operators": []string{"contains", "!contains"}},
@@ -94,7 +94,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 		// When service_type is specified, add type-specific fields
 		if serviceType == intTypeSonarr || serviceType == "" {
 			// Sonarr-specific fields (TV)
-			sonarrFields := []map[string]interface{}{
+			sonarrFields := []map[string]any{
 				{"field": "seriesstatus", "label": "Show Status", "type": "string", "operators": []string{"==", "!="}},
 				{"field": "seasoncount", "label": "Season Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
 				{"field": "episodecount", "label": "Episode Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
@@ -132,7 +132,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 
 		// Media Type field (always available)
 		fields = append(fields,
-			map[string]interface{}{"field": "type", "label": "Media Type", "type": "string", "operators": []string{"==", "!="}},
+			map[string]any{"field": "type", "label": "Media Type", "type": "string", "operators": []string{"==", "!="}},
 		)
 
 		return c.JSON(http.StatusOK, fields)

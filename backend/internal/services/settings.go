@@ -68,7 +68,7 @@ func (s *SettingsService) UpdateThresholds(groupID uint, threshold, target float
 		return nil, fmt.Errorf("disk group not found: %w", err)
 	}
 
-	if err := s.db.Model(&group).Updates(map[string]interface{}{
+	if err := s.db.Model(&group).Updates(map[string]any{
 		"threshold_pct": threshold,
 		"target_pct":    target,
 	}).Error; err != nil {
@@ -124,7 +124,7 @@ func (s *SettingsService) UpsertDiskGroup(disk integrations.DiskSpace) (*db.Disk
 		}
 	} else {
 		// Update existing
-		if err := s.db.Model(&group).Updates(map[string]interface{}{
+		if err := s.db.Model(&group).Updates(map[string]any{
 			"total_bytes": disk.TotalBytes,
 			"used_bytes":  usedBytes,
 		}).Error; err != nil {

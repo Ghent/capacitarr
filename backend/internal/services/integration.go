@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -81,7 +80,7 @@ type TestConnectionResult struct {
 // On success/failure, the appropriate event is published to the event bus.
 func (s *IntegrationService) TestConnection(intType, url, apiKey string, integrationID *int) TestConnectionResult {
 	// Resolve masked or empty API keys to the stored value
-	if (apiKey == "" || IsMaskedKey(apiKey)) && integrationID != nil && *integrationID > 0 {
+	if (apiKey == "" || db.IsMaskedKey(apiKey)) && integrationID != nil && *integrationID > 0 {
 		existing, err := s.GetByID(uint(*integrationID))
 		if err == nil {
 			apiKey = existing.APIKey
@@ -160,7 +159,7 @@ func (s *IntegrationService) TestConnection(intType, url, apiKey string, integra
 // from the specified integration. Results are cached with a 5-minute TTL.
 // Returns (result, error). Static field types (booleans, free-text) are handled
 // inline without an external API call.
-func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) (interface{}, error) {
+func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) (any, error) {
 	cacheKey := fmt.Sprintf("%d:%s", integrationID, action)
 
 	// Check cache first
@@ -171,7 +170,7 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 	// Static field types — no external API call needed
 	switch action {
 	case "seriesstatus":
-		result := map[string]interface{}{
+		result := map[string]any{
 			"type": "closed",
 			"options": []integrations.NameValue{
 				{Value: "continuing", Label: "Continuing"},
@@ -184,7 +183,7 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 		return result, nil
 
 	case "monitored", "requested", "incollection", "watchedbyreq":
-		result := map[string]interface{}{
+		result := map[string]any{
 			"type": "closed",
 			"options": []integrations.NameValue{
 				{Value: "true", Label: "Yes"},
@@ -195,7 +194,7 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 		return result, nil
 
 	case "type":
-		result := map[string]interface{}{
+		result := map[string]any{
 			"type": "closed",
 			"options": []integrations.NameValue{
 				{Value: "movie", Label: "Movie"},
@@ -210,47 +209,47 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 
 	// Free-text field metadata — no caching needed, return immediately
 	case "title":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "text", "placeholder": "e.g., Breaking Bad", "suffix": "",
 		}, nil
 	case "rating":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 7.5", "suffix": "",
 		}, nil
 	case "sizebytes":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 5368709120", "suffix": "bytes (≈ GB)",
 		}, nil
 	case "timeinlibrary":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 30", "suffix": "days",
 		}, nil
 	case "year":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 2020", "suffix": "",
 		}, nil
 	case "seasoncount":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 5", "suffix": "",
 		}, nil
 	case "episodecount":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 100", "suffix": "",
 		}, nil
 	case "playcount":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 0", "suffix": "",
 		}, nil
 	case "requestcount":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 3", "suffix": "",
 		}, nil
 	case "lastplayed":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "number", "placeholder": "e.g., 30", "suffix": "days",
 		}, nil
 	case "requestedby":
-		return map[string]interface{}{
+		return map[string]any{
 			"type": "free", "inputType": "text", "placeholder": "e.g., john", "suffix": "",
 		}, nil
 	}
@@ -271,7 +270,7 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 		return nil, ErrIntegrationNoRuleValues
 	}
 
-	var result map[string]interface{}
+	var result map[string]any
 
 	switch action {
 	case "quality":
@@ -279,17 +278,17 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 		if fetchErr != nil {
 			return nil, fmt.Errorf("failed to fetch quality profiles: %w", fetchErr)
 		}
-		result = map[string]interface{}{"type": "closed", "options": profiles}
+		result = map[string]any{"type": "closed", "options": profiles}
 
 	case "tag":
 		tags, fetchErr := fetcher.GetTags()
 		if fetchErr != nil {
 			return nil, fmt.Errorf("failed to fetch tags: %w", fetchErr)
 		}
-		result = map[string]interface{}{"type": "combobox", "suggestions": tags}
+		result = map[string]any{"type": "combobox", "suggestions": tags}
 
 	case "genre":
-		result = map[string]interface{}{
+		result = map[string]any{
 			"type": "combobox",
 			"suggestions": []integrations.NameValue{
 				{Value: "Action", Label: "Action"},
@@ -314,11 +313,11 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 			return nil, fmt.Errorf("failed to fetch languages: %w", fetchErr)
 		}
 		if langs == nil {
-			return map[string]interface{}{
+			return map[string]any{
 				"type": "free", "inputType": "text", "placeholder": "e.g., English", "suffix": "",
 			}, nil
 		}
-		result = map[string]interface{}{"type": "closed", "options": langs}
+		result = map[string]any{"type": "closed", "options": langs}
 
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnknownAction, action)
@@ -326,11 +325,6 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 
 	s.ruleValueCache.Set(cacheKey, result)
 	return result, nil
-}
-
-// IsMaskedKey checks if an API key string is a masked version (starts with "•").
-func IsMaskedKey(key string) bool {
-	return len(key) > 0 && strings.HasPrefix(key, "•")
 }
 
 // Create persists a new integration config.
@@ -441,7 +435,7 @@ func (s *IntegrationService) ListEnabled() ([]db.IntegrationConfig, error) {
 
 // UpdateSyncStatus updates the last_sync and last_error fields on an integration config.
 func (s *IntegrationService) UpdateSyncStatus(id uint, lastSync *time.Time, lastError string) error {
-	result := s.db.Model(&db.IntegrationConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
+	result := s.db.Model(&db.IntegrationConfig{}).Where("id = ?", id).Updates(map[string]any{
 		"last_sync":  lastSync,
 		"last_error": lastError,
 	})
@@ -456,7 +450,7 @@ func (s *IntegrationService) UpdateSyncStatus(id uint, lastSync *time.Time, last
 
 // UpdateMediaStats updates the media size and count for an integration.
 func (s *IntegrationService) UpdateMediaStats(id uint, sizeBytes int64, count int) error {
-	result := s.db.Model(&db.IntegrationConfig{}).Where("id = ?", id).Updates(map[string]interface{}{
+	result := s.db.Model(&db.IntegrationConfig{}).Where("id = ?", id).Updates(map[string]any{
 		"media_size_bytes": sizeBytes,
 		"media_count":      count,
 	})

@@ -174,7 +174,7 @@ func (s *AuthService) IsUsernameTaken(username string) (bool, error) {
 // legacy plaintext) keys. If a legacy plaintext key matches, it is transparently
 // upgraded to a SHA-256 hash. Returns the matching AuthConfig on success.
 func (s *AuthService) ValidateAPIKey(plaintextKey string) (*db.AuthConfig, error) {
-	hashedKey := hashAPIKey(plaintextKey)
+	hashedKey := HashAPIKey(plaintextKey)
 
 	// Fast path: look up by the hashed value (new-style keys)
 	var auth db.AuthConfig
@@ -184,7 +184,7 @@ func (s *AuthService) ValidateAPIKey(plaintextKey string) (*db.AuthConfig, error
 
 	// Slow path: legacy plaintext key — look up directly and upgrade in-place
 	if err := s.db.Where("api_key = ?", plaintextKey).First(&auth).Error; err == nil {
-		if !strings.HasPrefix(auth.APIKey, "sha256:") {
+		if !IsHashedAPIKey(auth.APIKey) {
 			s.db.Model(&auth).Update("api_key", hashedKey)
 			slog.Info("Upgraded legacy plaintext API key to SHA-256 hash", "component", "auth", "username", auth.Username)
 		}
@@ -214,10 +214,24 @@ func (s *AuthService) EnsureProxyUser(username string) error {
 	return nil
 }
 
-// hashAPIKey produces a SHA-256 hash of the given plaintext API key.
-func hashAPIKey(plaintext string) string {
+// apiKeyHashPrefix marks a stored API key as already hashed with SHA-256.
+// Legacy plaintext keys (without this prefix) are transparently upgraded
+// on first use.
+const apiKeyHashPrefix = "sha256:"
+
+// HashAPIKey produces a deterministic SHA-256 hash of the given plaintext
+// API key, prefixed with "sha256:" so we can distinguish hashed from legacy
+// plaintext keys in the database. SHA-256 (without salt) is appropriate here
+// because API keys are 256-bit random values — effectively unguessable and
+// immune to rainbow table attacks.
+func HashAPIKey(plaintext string) string {
 	h := sha256.Sum256([]byte(plaintext))
-	return "sha256:" + hex.EncodeToString(h[:])
+	return apiKeyHashPrefix + hex.EncodeToString(h[:])
+}
+
+// IsHashedAPIKey returns true if the stored key already uses the hashed format.
+func IsHashedAPIKey(stored string) bool {
+	return strings.HasPrefix(stored, apiKeyHashPrefix)
 }
 
 // GenerateAPIKey creates a new API key, stores its SHA-256 hash and hint,
@@ -236,11 +250,10 @@ func (s *AuthService) GenerateAPIKey(username string) (string, error) {
 	plaintext := hex.EncodeToString(keyBytes)
 
 	// Store SHA-256 hash and hint (last 4 chars)
-	hashBytes := sha256.Sum256([]byte(plaintext))
-	hashHex := "sha256:" + hex.EncodeToString(hashBytes[:])
+	hashHex := HashAPIKey(plaintext)
 	hint := plaintext[len(plaintext)-4:]
 
-	if err := s.db.Model(&auth).Updates(map[string]interface{}{
+	if err := s.db.Model(&auth).Updates(map[string]any{
 		"api_key":      hashHex,
 		"api_key_hint": hint,
 	}).Error; err != nil {

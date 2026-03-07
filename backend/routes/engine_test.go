@@ -35,7 +35,7 @@ func TestEngineHistory_ReturnsStats(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var points []map[string]interface{}
+	var points []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &points); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
@@ -76,7 +76,7 @@ func TestEngineHistory_DefaultRange(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 
-	var points []map[string]interface{}
+	var points []map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &points); err != nil {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}

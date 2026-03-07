@@ -4,6 +4,6 @@
     "private": true,
     "license": "PolyForm-Noncommercial-1.0.0",
     "scripts": {
-        "release": "make ci && git cliff --bump -o CHANGELOG.md && npm version $(git cliff --bumped-version) --no-git-tag-version && cd frontend && npm version $(cd .. && git cliff --bumped-version) --no-git-tag-version && cd .. && git add CHANGELOG.md package.json package-lock.json frontend/package.json && git commit -m \"chore(release): $(git cliff --bumped-version)\" && git tag $(git cliff --bumped-version)"
+        "release": "make ci && VERSION=$(git cliff --bumped-version) && SEMVER=${VERSION#v} && git cliff --bump -o CHANGELOG.md && npm version \"$SEMVER\" --no-git-tag-version && cd frontend && npm version \"$SEMVER\" --no-git-tag-version && cd .. && git add CHANGELOG.md package.json package-lock.json frontend/package.json && git commit -m \"chore(release): $VERSION\" && git tag \"$VERSION\""
     }
 }

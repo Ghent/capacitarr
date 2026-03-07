@@ -81,7 +81,7 @@ func (e ManualRunTriggeredEvent) EventMessage() string { return "Manual engine r
 
 // SettingsChangedEvent is published when preferences are saved.
 type SettingsChangedEvent struct {
-	Changes map[string]interface{} `json:"changes,omitempty"` // Fields that changed
+	Changes map[string]any `json:"changes,omitempty"` // Fields that changed
 }
 
 // EventType implements Event.

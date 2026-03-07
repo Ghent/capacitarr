@@ -227,7 +227,7 @@ func (s *SonarrClient) DeleteMediaItem(item MediaItem) error {
 			return nil // Nothing to delete
 		}
 
-		payload, _ := json.Marshal(map[string]interface{}{
+		payload, _ := json.Marshal(map[string]any{
 			"episodeFileIds": fileIDs,
 		})
 

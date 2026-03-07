@@ -73,6 +73,9 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		TimeInLibraryWeight:   4,
 		SeriesStatusWeight:    3,
 		TiebreakerMethod:      "size_desc",
+		DeletionsEnabled:      true,
+		SnoozeDurationHours:   24,
+		CheckForUpdates:       true,
 	}
 	if err := database.FirstOrCreate(&pref, db.PreferenceSet{ID: 1}).Error; err != nil {
 		t.Fatalf("Failed to seed preferences: %v", err)

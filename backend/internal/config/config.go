@@ -82,14 +82,14 @@ func Load() *Config {
 
 	authHeader := strings.TrimSpace(os.Getenv("AUTH_HEADER"))
 	if authHeader != "" {
-		slog.Info("Trusted reverse proxy auth header configured", "component", "config", "header", authHeader) //nolint:gosec // G706: authHeader is from trusted env var
+		slog.Info("Trusted reverse proxy auth header configured", "component", "config", "header", authHeader) //nolint:gosec // G706: authHeader is from trusted env var, not user input
 		// SECURITY: When AUTH_HEADER is set, the server trusts that header
 		// unconditionally for authentication. If the server is directly
 		// exposed to the internet (not behind a reverse proxy), any client
 		// can spoof this header and gain access. Only use this setting when
 		// Capacitarr is behind a trusted reverse proxy (Authelia, Authentik,
 		// Organizr, Caddy, Traefik, etc.) that strips and re-sets the header.
-		slog.Warn("SECURITY: AUTH_HEADER is set — ensure Capacitarr is behind a trusted reverse proxy. If exposed directly, any client can spoof this header and bypass authentication.", "component", "config", "header", authHeader) //nolint:gosec // G706: authHeader is from trusted env var
+		slog.Warn("SECURITY: AUTH_HEADER is set — ensure Capacitarr is behind a trusted reverse proxy. If exposed directly, any client can spoof this header and bypass authentication.", "component", "config", "header", authHeader) //nolint:gosec // G706: authHeader is from trusted env var, not user input
 	}
 
 	return &Config{

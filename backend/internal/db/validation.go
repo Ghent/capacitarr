@@ -1,5 +1,20 @@
 package db
 
+import "strings"
+
+// IsMaskedKey checks if an API key string is a masked version (starts with "•").
+func IsMaskedKey(key string) bool {
+	return len(key) > 0 && strings.HasPrefix(key, "•")
+}
+
+// MaskAPIKey returns a masked version of the key, showing only the last 4 characters.
+func MaskAPIKey(key string) string {
+	if len(key) <= 4 {
+		return "••••"
+	}
+	return strings.Repeat("•", len(key)-4) + key[len(key)-4:]
+}
+
 // ValidEffects defines the allowed rule effect values.
 var ValidEffects = map[string]bool{
 	"always_keep": true, "prefer_keep": true, "lean_keep": true,

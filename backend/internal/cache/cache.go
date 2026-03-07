@@ -10,7 +10,7 @@ import (
 
 // Entry holds a cached value with its expiration time.
 type Entry struct {
-	Value     interface{}
+	Value     any
 	ExpiresAt time.Time
 }
 
@@ -36,7 +36,7 @@ func New(ttl time.Duration) *TTLCache {
 
 // Get retrieves a value from the cache. Returns (value, true) if found and not
 // expired, or (nil, false) otherwise.
-func (c *TTLCache) Get(key string) (interface{}, bool) {
+func (c *TTLCache) Get(key string) (any, bool) {
 	c.mu.RLock()
 	entry, ok := c.items[key]
 	c.mu.RUnlock()
@@ -49,7 +49,7 @@ func (c *TTLCache) Get(key string) (interface{}, bool) {
 }
 
 // Set stores a value in the cache with the default TTL.
-func (c *TTLCache) Set(key string, value interface{}) {
+func (c *TTLCache) Set(key string, value any) {
 	c.mu.Lock()
 	c.items[key] = Entry{
 		Value:     value,

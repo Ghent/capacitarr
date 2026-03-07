@@ -47,7 +47,7 @@ Capacitarr uses a layered architecture with clear separation of concerns:
 
 - **HTTP Layer** — Thin route handlers that parse requests, call services, and return responses
 - **Service Layer** — All business logic lives in `backend/internal/services/`. Each service receives a `*gorm.DB` and `*events.EventBus` via constructor injection — no global state
-- **Event Bus** — A typed pub/sub system with fan-out to three subscribers: activity persister (dashboard feed), notification dispatcher (Discord/Slack/in-app), and SSE broadcaster (real-time browser updates)
+- **Event Bus** — A typed pub/sub system with fan-out to three subscribers: activity persister (dashboard feed), notification dispatcher (Discord/Slack), and SSE broadcaster (real-time browser updates)
 - **Data Layer** — SQLite via GORM with a single baseline migration. Two purpose-specific tables: `approval_queue` (state machine) and `audit_log` (append-only history)
 
 For the full architecture documentation with diagrams, see [docs/architecture.md](docs/architecture.md).

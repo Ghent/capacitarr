@@ -79,7 +79,7 @@ func RequireAuth(reg *services.Registry) echo.MiddlewareFunc {
 			}
 
 			// 5. Validate JWT token
-			token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+			token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (any, error) {
 				// Ensure the signing method is what we expect
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, echo.ErrUnauthorized

@@ -155,7 +155,7 @@ func (p *Poller) poll() {
 	fetched := fetchAllIntegrations(configs, p.reg.Integration)
 
 	// Enrich items with watch history and request data
-	enrichItems(fetched.allItems, fetched.enrichment)
+	integrations.EnrichItems(fetched.allItems, fetched.enrichment)
 
 	// Find the most specific mount for each root folder
 	mediaMounts := findMediaMounts(fetched.diskMap, fetched.rootFolders)

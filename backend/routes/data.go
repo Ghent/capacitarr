@@ -20,7 +20,7 @@ func handleDataReset(reg *services.Registry) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
-		return c.JSON(http.StatusOK, map[string]interface{}{
+		return c.JSON(http.StatusOK, map[string]any{
 			"status":  "success",
 			"message": "All scraped data has been cleared",
 			"cleared": summary,

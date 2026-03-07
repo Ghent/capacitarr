@@ -211,7 +211,7 @@ func TestDifferentValueTypes(t *testing.T) {
 
 	tests := []struct {
 		key      string
-		expected interface{}
+		expected any
 	}{
 		{"int", 42},
 		{"string", "hello"},

@@ -162,5 +162,4 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 
 		return c.JSON(http.StatusOK, map[string]string{"status": "sent"})
 	})
-
 }

@@ -1,6 +1,8 @@
 package routes
 
 // Integration type constants used across route handlers.
+// These MUST match the keys in db.ValidIntegrationTypes and the
+// IntegrationType constants in integrations/types.go.
 const (
 	intTypeSonarr    = "sonarr"
 	intTypeRadarr    = "radarr"

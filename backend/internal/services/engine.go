@@ -216,7 +216,7 @@ func (s *EngineService) CreateRunStats(mode string) (*db.EngineRunStats, error) 
 
 // UpdateRunStats updates a run stats entry with the final evaluation results.
 func (s *EngineService) UpdateRunStats(id uint, evaluated, flagged int, durationMs int64) error {
-	result := s.db.Model(&db.EngineRunStats{}).Where("id = ?", id).Updates(map[string]interface{}{
+	result := s.db.Model(&db.EngineRunStats{}).Where("id = ?", id).Updates(map[string]any{
 		"evaluated":   evaluated,
 		"flagged":     flagged,
 		"duration_ms": durationMs,
@@ -276,7 +276,7 @@ func (s *EngineService) IncrementDeletedStats(runStatsID uint, sizeBytes int64) 
 		return nil
 	}
 	result := s.db.Model(&db.EngineRunStats{}).Where("id = ?", runStatsID).
-		UpdateColumns(map[string]interface{}{
+		UpdateColumns(map[string]any{
 			"deleted":     gorm.Expr("deleted + ?", 1),
 			"freed_bytes": gorm.Expr("freed_bytes + ?", sizeBytes),
 		})
@@ -288,8 +288,8 @@ func (s *EngineService) IncrementDeletedStats(runStatsID uint, sizeBytes int64) 
 
 // GetStats returns the current engine statistics as a map.
 // Keys match the frontend TypeScript WorkerStats interface.
-func (s *EngineService) GetStats() map[string]interface{} {
-	stats := map[string]interface{}{
+func (s *EngineService) GetStats() map[string]any {
+	stats := map[string]any{
 		"isRunning":        s.pollRunning.Load(),
 		"lastRunEvaluated": s.lastEvaluated.Load(),
 		"lastRunFlagged":   s.lastFlagged.Load(),
