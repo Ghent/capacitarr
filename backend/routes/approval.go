@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -9,16 +8,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"capacitarr/internal/db"
-	"capacitarr/internal/engine"
-	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
 )
 
 // RegisterApprovalRoutes sets up the API endpoints for the approval queue.
 func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
-	database := reg.DB
-
 	// List approval queue items
 	g.GET("/approval-queue", func(c echo.Context) error {
 		limit := 200
@@ -31,14 +25,9 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 			limit = 2000
 		}
 
-		items := make([]db.ApprovalQueueItem, 0)
-		query := database.Model(&db.ApprovalQueueItem{})
-
-		if status := c.QueryParam("status"); status != "" {
-			query = query.Where("status = ?", status)
-		}
-
-		if err := query.Order("created_at desc").Limit(limit).Find(&items).Error; err != nil {
+		status := c.QueryParam("status")
+		items, err := reg.Approval.ListQueue(status, limit)
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch approval queue"})
 		}
 
@@ -67,8 +56,11 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 			})
 		}
 
-		// Mark as approved via service (single fetch + status validation)
-		approved, err := reg.Approval.Approve(uint(entryID))
+		// Execute the full approval workflow via service
+		approved, err := reg.Approval.ExecuteApproval(uint(entryID), services.ExecuteApprovalDeps{
+			Integration: reg.Integration,
+			Deletion:    reg.Deletion,
+		})
 		if err != nil {
 			if errors.Is(err, services.ErrApprovalNotPending) {
 				return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -76,52 +68,8 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 			if errors.Is(err, services.ErrApprovalNotFound) {
 				return c.JSON(http.StatusNotFound, map[string]string{"error": "Approval queue entry not found"})
 			}
+			slog.Error("Approval execution failed", "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to approve entry"})
-		}
-
-		// Look up the integration to construct a client for deletion
-		var integration db.IntegrationConfig
-		if err := database.First(&integration, approved.IntegrationID).Error; err != nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "Integration not found",
-			})
-		}
-
-		client := integrations.NewClient(integration.Type, integration.URL, integration.APIKey)
-		if client == nil {
-			return c.JSON(http.StatusBadRequest, map[string]string{
-				"error": "Unsupported integration type",
-			})
-		}
-
-		// Reconstruct the MediaItem from stored approval data
-		item := integrations.MediaItem{
-			ExternalID:    approved.ExternalID,
-			IntegrationID: approved.IntegrationID,
-			Type:          integrations.MediaType(approved.MediaType),
-			Title:         approved.MediaName,
-			SizeBytes:     approved.SizeBytes,
-		}
-
-		// Parse stored score details back into factors
-		var factors []engine.ScoreFactor
-		if approved.ScoreDetails != "" {
-			if err := json.Unmarshal([]byte(approved.ScoreDetails), &factors); err != nil {
-				slog.Warn("Failed to parse score details for approval", "id", approved.ID, "error", err)
-			}
-		}
-
-		// Queue for background deletion via DeletionService
-		if err := reg.Deletion.QueueDeletion(services.DeleteJob{
-			Client:  client,
-			Item:    item,
-			Reason:  approved.Reason,
-			Score:   0,
-			Factors: factors,
-		}); err != nil {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{
-				"error": "Deletion queue is full, try again later",
-			})
 		}
 
 		return c.JSON(http.StatusOK, approved)

@@ -6,10 +6,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 
-	"capacitarr/internal/db"
 	"capacitarr/internal/services"
 )
 
@@ -25,15 +22,16 @@ type LoginRequest struct {
 // RegisterAuthRoutes sets up login, logout, password change, first-user
 // bootstrap, and API key management endpoints.
 func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services.Registry) {
-	database := reg.DB
 	cfg := reg.Cfg
 
 	// Auth status — public endpoint for first-login UX detection
 	public.GET("/auth/status", func(c echo.Context) error {
-		var count int64
-		database.Model(&db.AuthConfig{}).Count(&count)
+		initialized, err := reg.Auth.IsInitialized()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to check auth status"})
+		}
 		return c.JSON(http.StatusOK, map[string]interface{}{
-			"initialized": count > 0,
+			"initialized": initialized,
 		})
 	})
 
@@ -50,38 +48,16 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Username and password are required"})
 		}
 
-		var user db.AuthConfig
-		if err := database.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		// Try to find existing user
+		_, err := reg.Auth.GetByUsername(req.Username)
+		if err != nil {
 			// If no user exists in DB at all, bootstrap the first user.
-			// Use a transaction to prevent a race condition where two concurrent
-			// requests both see count==0 and create duplicate users. The unique
-			// index on username provides an additional safety net.
-			var bootstrapped bool
-			txErr := database.Transaction(func(tx *gorm.DB) error {
-				var count int64
-				if err := tx.Model(&db.AuthConfig{}).Count(&count).Error; err != nil {
-					return err
-				}
-				if count > 0 {
-					return nil // Another request already created the first user
-				}
-				hashed, hashErr := bcrypt.GenerateFromPassword([]byte(req.Password), bcryptCost)
-				if hashErr != nil {
-					return hashErr
-				}
-				user = db.AuthConfig{Username: req.Username, Password: string(hashed)}
-				if err := tx.Create(&user).Error; err != nil {
-					return err
-				}
-				bootstrapped = true
-				slog.Info("First user bootstrapped", "component", "auth", "username", req.Username)
-				return nil
-			})
-			if txErr != nil {
-				slog.Error("First-user bootstrap failed", "component", "auth", "operation", "bootstrap_user", "error", txErr)
+			user, bootstrapErr := reg.Auth.Bootstrap(req.Username, req.Password)
+			if bootstrapErr != nil {
+				slog.Error("First-user bootstrap failed", "component", "auth", "operation", "bootstrap_user", "error", bootstrapErr)
 				return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create initial user"})
 			}
-			if !bootstrapped {
+			if user == nil {
 				return c.JSON(http.StatusUnauthorized, map[string]string{"error": "Invalid credentials"})
 			}
 		}
@@ -173,8 +149,11 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 		}
 
 		// Check if new username is already taken
-		var existing db.AuthConfig
-		if err := database.Where("username = ?", req.NewUsername).First(&existing).Error; err == nil {
+		taken, err := reg.Auth.IsUsernameTaken(req.NewUsername)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to check username availability"})
+		}
+		if taken {
 			return c.JSON(http.StatusConflict, map[string]string{"error": "Username already taken"})
 		}
 
@@ -210,8 +189,8 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 			return echo.ErrUnauthorized
 		}
 
-		var user db.AuthConfig
-		if err := database.Where("username = ?", username).First(&user).Error; err != nil {
+		user, err := reg.Auth.GetByUsername(username)
+		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 		}
 

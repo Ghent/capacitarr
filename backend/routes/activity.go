@@ -6,13 +6,11 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"capacitarr/internal/db"
 	"capacitarr/internal/services"
 )
 
 // RegisterActivityRoutes sets up the API endpoints for activity events.
 func RegisterActivityRoutes(g *echo.Group, reg *services.Registry) {
-	database := reg.DB
 	// Recent activity events (system events only)
 	g.GET("/activity/recent", func(c echo.Context) error {
 		limit := 5
@@ -25,11 +23,14 @@ func RegisterActivityRoutes(g *echo.Group, reg *services.Registry) {
 			limit = 100
 		}
 
-		events := make([]db.ActivityEvent, 0, limit)
-		if err := database.Order("created_at desc").Limit(limit).Find(&events).Error; err != nil {
+		// Decision: Activity reads go through SettingsService rather than creating
+		// a dedicated ActivityService, since activity events are a lightweight
+		// operational concern (7-day retention, no business logic).
+		activities, err := reg.Settings.ListRecentActivities(limit)
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch recent activity events"})
 		}
 
-		return c.JSON(http.StatusOK, events)
+		return c.JSON(http.StatusOK, activities)
 	})
 }

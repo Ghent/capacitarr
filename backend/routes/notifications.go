@@ -9,7 +9,6 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"capacitarr/internal/db"
-	"capacitarr/internal/notifications"
 	"capacitarr/internal/services"
 )
 
@@ -23,13 +22,12 @@ const (
 // RegisterNotificationRoutes sets up CRUD endpoints for notification channels
 // and management endpoints for in-app notifications.
 func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
-	database := reg.DB
 	// --- Notification Channel CRUD ---
 
 	// GET /api/v1/notifications/channels — list all notification configs
 	g.GET("/notifications/channels", func(c echo.Context) error {
-		configs := make([]db.NotificationConfig, 0)
-		if err := database.Order("id ASC").Find(&configs).Error; err != nil {
+		configs, err := reg.NotificationChannel.List()
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch notification channels"})
 		}
 		return c.JSON(http.StatusOK, configs)
@@ -77,8 +75,13 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 	g.PUT("/notifications/channels/:id", func(c echo.Context) error {
 		id := c.Param("id")
 
-		var existing db.NotificationConfig
-		if err := database.First(&existing, id).Error; err != nil {
+		idNum, convErr := strconv.ParseUint(id, 10, 64)
+		if convErr != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
+		}
+
+		existing, err := reg.NotificationChannel.GetByID(uint(idNum))
+		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Notification channel not found"})
 		}
 
@@ -115,7 +118,7 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 		existing.OnEngineComplete = req.OnEngineComplete
 		existing.UpdatedAt = time.Now()
 
-		updated, updateErr := reg.NotificationChannel.Update(existing.ID, existing)
+		updated, updateErr := reg.NotificationChannel.Update(existing.ID, *existing)
 		if updateErr != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update notification channel"})
 		}
@@ -143,34 +146,15 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 	g.POST("/notifications/channels/:id/test", func(c echo.Context) error {
 		id := c.Param("id")
 
-		var cfg db.NotificationConfig
-		if err := database.First(&cfg, id).Error; err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Notification channel not found"})
+		idNum, convErr := strconv.ParseUint(id, 10, 64)
+		if convErr != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
 		}
 
-		event := notifications.NotificationEvent{
-			Type:    notifications.EventEngineComplete,
-			Title:   "Test Notification",
-			Message: "This is a test notification from Capacitarr. If you see this, the channel is working correctly!",
-			Fields: map[string]string{
-				"Channel": cfg.Name,
-				"Type":    cfg.Type,
-			},
-		}
-
-		var err error
-		switch cfg.Type {
-		case notifTypeDiscord:
-			err = notifications.SendDiscord(cfg.WebhookURL, event)
-		case notifTypeSlack:
-			err = notifications.SendSlack(cfg.WebhookURL, event)
-		case notifTypeInApp:
-			err = notifications.SendInApp(database, event)
-		default:
-			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Unknown channel type"})
-		}
-
-		if err != nil {
+		if err := reg.NotificationChannel.TestChannel(uint(idNum)); err != nil {
+			if err.Error() == "not found" {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "Notification channel not found"})
+			}
 			return c.JSON(http.StatusBadGateway, map[string]string{"error": "Test notification failed: " + err.Error()})
 		}
 
@@ -181,8 +165,8 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 
 	// GET /api/v1/notifications — list in-app notifications (newest first, limit 50)
 	g.GET("/notifications", func(c echo.Context) error {
-		items := make([]db.InAppNotification, 0)
-		if err := database.Order("created_at DESC").Limit(50).Find(&items).Error; err != nil {
+		items, err := reg.NotificationChannel.ListInApp(50)
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch notifications"})
 		}
 		return c.JSON(http.StatusOK, items)
@@ -190,8 +174,8 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 
 	// GET /api/v1/notifications/unread-count — return count of unread notifications
 	g.GET("/notifications/unread-count", func(c echo.Context) error {
-		var count int64
-		if err := database.Model(&db.InAppNotification{}).Where("read = ?", false).Count(&count).Error; err != nil {
+		count, err := reg.NotificationChannel.UnreadCount()
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to count unread notifications"})
 		}
 		return c.JSON(http.StatusOK, map[string]int64{"count": count})
@@ -201,13 +185,13 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 	g.PUT("/notifications/:id/read", func(c echo.Context) error {
 		id := c.Param("id")
 
-		var notif db.InAppNotification
-		if err := database.First(&notif, id).Error; err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Notification not found"})
+		idNum, convErr := strconv.ParseUint(id, 10, 64)
+		if convErr != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
 		}
 
-		if err := database.Model(&notif).Update("read", true).Error; err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to mark notification as read"})
+		if err := reg.NotificationChannel.MarkRead(uint(idNum)); err != nil {
+			return c.JSON(http.StatusNotFound, map[string]string{"error": "Notification not found"})
 		}
 
 		return c.JSON(http.StatusOK, map[string]string{"status": "read"})
@@ -215,7 +199,7 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 
 	// PUT /api/v1/notifications/read-all — mark all notifications as read
 	g.PUT("/notifications/read-all", func(c echo.Context) error {
-		if err := database.Model(&db.InAppNotification{}).Where("read = ?", false).Update("read", true).Error; err != nil {
+		if err := reg.NotificationChannel.MarkAllRead(); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to mark all notifications as read"})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "all_read"})
@@ -223,7 +207,7 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 
 	// DELETE /api/v1/notifications — delete all in-app notifications
 	g.DELETE("/notifications", func(c echo.Context) error {
-		if err := database.Where("1 = 1").Delete(&db.InAppNotification{}).Error; err != nil {
+		if err := reg.NotificationChannel.ClearAllInApp(); err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to clear notifications"})
 		}
 		return c.JSON(http.StatusOK, map[string]string{"status": "cleared"})

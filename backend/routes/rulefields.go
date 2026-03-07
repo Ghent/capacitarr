@@ -16,7 +16,7 @@ import (
 // RegisterRuleFieldRoutes sets up the /rule-fields and /rule-values endpoints.
 // These are extracted from RegisterRuleRoutes for modularity.
 func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
-	database := reg.DB
+
 	ruleValueCache := reg.RuleValueCache
 
 	// ---------------------------------------------------------
@@ -55,7 +55,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 			} else {
 				// No service_type filter: conditionally add based on enabled integrations
 				var configs []db.IntegrationConfig
-				database.Where("enabled = ?", true).Find(&configs)
+				configs, _ = reg.Integration.ListEnabled()
 				hasTV := false
 				for _, cfg := range configs {
 					if cfg.Type == intTypeSonarr {
@@ -74,7 +74,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 		if serviceType == "" {
 			// No filter: check which enrichment services are enabled
 			var configs []db.IntegrationConfig
-			database.Where("enabled = ?", true).Find(&configs)
+			configs, _ = reg.Integration.ListEnabled()
 			hasTautulli := false
 			hasOverseerr := false
 			hasMediaServer := false
@@ -116,7 +116,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 			arrTypes := map[string]bool{intTypeSonarr: true, intTypeRadarr: true, intTypeLidarr: true, intTypeReadarr: true}
 			if arrTypes[serviceType] {
 				var configs []db.IntegrationConfig
-				database.Where("enabled = ?", true).Find(&configs)
+				configs, _ = reg.Integration.ListEnabled()
 				hasTautulli := false
 				hasOverseerr := false
 				hasMediaServer := false
@@ -176,7 +176,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "integration_id and action are required"})
 		}
 
-		integrationID, err := strconv.Atoi(integrationIDStr)
+		integrationID, err := strconv.ParseUint(integrationIDStr, 10, 64)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid integration_id"})
 		}
@@ -275,8 +275,8 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 		}
 
 		// Dynamic fields — require API call to the *arr service
-		var cfg db.IntegrationConfig
-		if err := database.First(&cfg, integrationID).Error; err != nil {
+		cfg, err := reg.Integration.GetByID(uint(integrationID))
+		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Integration not found"})
 		}
 

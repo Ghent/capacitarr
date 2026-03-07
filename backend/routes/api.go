@@ -5,11 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
 
-	"capacitarr/internal/db"
 	"capacitarr/internal/events"
 	"capacitarr/internal/services"
 )
@@ -37,7 +37,7 @@ func IsHashedAPIKey(stored string) bool {
 // RegisterAPIRoutes sets up all API routes: public endpoints, auth, and
 // protected resource endpoints.
 func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCommit, appBuildDate string, sseBroadcaster *events.SSEBroadcaster) {
-	database := reg.DB
+	database := reg.DB // TODO(phase3): remove after middleware migration
 	cfg := reg.Cfg
 
 	// Health check
@@ -88,8 +88,8 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 
 	// Disk Groups routes
 	protected.GET("/disk-groups", func(c echo.Context) error {
-		groups := make([]db.DiskGroup, 0)
-		if err := database.Find(&groups).Error; err != nil {
+		groups, err := reg.Settings.ListDiskGroups()
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch disk groups"})
 		}
 		return c.JSON(http.StatusOK, groups)
@@ -97,8 +97,13 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 
 	protected.PUT("/disk-groups/:id", func(c echo.Context) error {
 		id := c.Param("id")
-		var group db.DiskGroup
-		if err := database.First(&group, id).Error; err != nil {
+		idNum, convErr := strconv.ParseUint(id, 10, 64)
+		if convErr != nil {
+			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
+		}
+
+		group, err := reg.Settings.GetDiskGroup(uint(idNum))
+		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Disk group not found"})
 		}
 

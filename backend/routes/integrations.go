@@ -1,13 +1,13 @@
 package routes
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/integrations"
@@ -16,11 +16,10 @@ import (
 
 // RegisterIntegrationRoutes adds integration management endpoints
 func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
-	database := reg.DB
 	// List all integrations
 	g.GET("/integrations", func(c echo.Context) error {
-		configs := make([]db.IntegrationConfig, 0)
-		if err := database.Order("created_at asc").Find(&configs).Error; err != nil {
+		configs, err := reg.Integration.List()
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch integrations"})
 		}
 
@@ -34,14 +33,17 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 
 	// Get single integration
 	g.GET("/integrations/:id", func(c echo.Context) error {
-		id, err := strconv.Atoi(c.Param("id"))
+		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
 		}
 
-		var config db.IntegrationConfig
-		if err := database.First(&config, id).Error; err != nil {
-			return c.JSON(http.StatusNotFound, map[string]string{"error": "Integration not found"})
+		config, err := reg.Integration.GetByID(uint(id))
+		if err != nil {
+			if errors.Is(err, services.ErrNotFound) {
+				return c.JSON(http.StatusNotFound, map[string]string{"error": "Integration not found"})
+			}
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch integration"})
 		}
 
 		// Mask API key
@@ -87,13 +89,13 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 
 	// Update integration
 	g.PUT("/integrations/:id", func(c echo.Context) error {
-		id, err := strconv.Atoi(c.Param("id"))
+		id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID"})
 		}
 
-		var existing db.IntegrationConfig
-		if err := database.First(&existing, id).Error; err != nil {
+		existing, err := reg.Integration.GetByID(uint(id))
+		if err != nil {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Integration not found"})
 		}
 
@@ -119,7 +121,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 		}
 		existing.Enabled = update.Enabled
 
-		updated, updateErr := reg.Integration.Update(existing.ID, existing)
+		updated, updateErr := reg.Integration.Update(existing.ID, *existing)
 		if updateErr != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update integration"})
 		}
@@ -156,9 +158,9 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 		}
 
 		// If the API key is masked and we have an integration ID, look up the real key
-		if (req.APIKey == "" || isMaskedKey(req.APIKey)) && req.IntegrationID != nil {
-			var existing db.IntegrationConfig
-			if err := database.First(&existing, *req.IntegrationID).Error; err == nil {
+		if (req.APIKey == "" || isMaskedKey(req.APIKey)) && req.IntegrationID != nil && *req.IntegrationID > 0 {
+			existing, err := reg.Integration.GetByID(uint(*req.IntegrationID))
+			if err == nil {
 				req.APIKey = existing.APIKey
 			}
 		}
@@ -225,8 +227,8 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 
 	// Sync all integrations (trigger a manual poll)
 	g.POST("/integrations/sync", func(c echo.Context) error {
-		var configs []db.IntegrationConfig
-		if err := database.Where("enabled = ?", true).Find(&configs).Error; err != nil {
+		configs, err := reg.Integration.ListEnabled()
+		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch integrations"})
 		}
 
@@ -260,9 +262,9 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 				result["diskError"] = err.Error()
 			} else {
 				result["diskSpace"] = disks
-				// Update disk groups
+				// Update disk groups via service
 				for _, d := range disks {
-					updateDiskGroup(database, d)
+					_, _ = reg.Settings.UpsertDiskGroup(d)
 				}
 			}
 
@@ -282,30 +284,6 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 			"results": results,
 		})
 	})
-}
-
-// updateDiskGroup creates or updates a disk group from discovered disk space
-func updateDiskGroup(database *gorm.DB, disk integrations.DiskSpace) {
-	var group db.DiskGroup
-	result := database.Where("mount_path = ?", disk.Path).First(&group)
-
-	usedBytes := disk.TotalBytes - disk.FreeBytes
-
-	if result.Error != nil {
-		// Create new disk group
-		group = db.DiskGroup{
-			MountPath:  disk.Path,
-			TotalBytes: disk.TotalBytes,
-			UsedBytes:  usedBytes,
-		}
-		database.Create(&group)
-	} else {
-		// Update existing
-		database.Model(&group).Updates(map[string]interface{}{
-			"total_bytes": disk.TotalBytes,
-			"used_bytes":  usedBytes,
-		})
-	}
 }
 
 // maskAPIKey returns a masked version of the key, showing only the last 4 characters.
