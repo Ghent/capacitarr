@@ -18,6 +18,23 @@ type fetchResult struct {
 	enrichment     integrations.EnrichmentClients
 }
 
+// connectEnrichment tests an enrichment client's connection and updates sync status.
+// Returns true on success, false on failure. Logs are emitted at appropriate levels.
+func connectEnrichment(cfg db.IntegrationConfig, testFn func() error, integrationSvc *services.IntegrationService) bool {
+	start := time.Now()
+	now := time.Now()
+	if err := testFn(); err != nil {
+		slog.Warn("Enrichment connection failed", "component", "poller",
+			"operation", cfg.Type+"_connect", "integration", cfg.Name, "error", err)
+		_ = integrationSvc.UpdateSyncStatus(cfg.ID, nil, err.Error())
+		return false
+	}
+	_ = integrationSvc.UpdateSyncStatus(cfg.ID, &now, "")
+	slog.Debug("Enrichment connected", "component", "poller",
+		"integration", cfg.Name, "type", cfg.Type, "duration", time.Since(start).String())
+	return true
+}
+
 // fetchAllIntegrations queries all enabled integrations and collects media items,
 // root folders, disk space info, and enrichment clients.
 func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *services.IntegrationService) fetchResult {
@@ -31,70 +48,27 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 		fetchStart := time.Now()
 		now := time.Now()
 
-		// Tautulli is an enrichment-only service, not a full Integration
-		if cfg.Type == "tautulli" {
+		// Enrichment-only services — create client, test connection, continue
+		switch cfg.Type {
+		case "tautulli":
 			result.enrichment.Tautulli = integrations.NewTautulliClient(cfg.URL, cfg.APIKey)
-			if err := result.enrichment.Tautulli.TestConnection(); err != nil {
-				slog.Warn("Tautulli connection failed", "component", "poller", "operation", "tautulli_connect", "integration", cfg.Name, "error", err)
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, nil, err.Error())
-			} else {
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, &now, "")
-				slog.Debug("Tautulli connected", "component", "poller", "integration", cfg.Name, "duration", time.Since(fetchStart).String())
-			}
+			connectEnrichment(cfg, result.enrichment.Tautulli.TestConnection, integrationSvc)
 			continue
-		}
-
-		// Overseerr is an enrichment-only service for tracking media requests
-		if cfg.Type == "overseerr" {
+		case "overseerr":
 			result.enrichment.Overseerr = integrations.NewOverseerrClient(cfg.URL, cfg.APIKey)
-			if err := result.enrichment.Overseerr.TestConnection(); err != nil {
-				slog.Warn("Overseerr connection failed", "component", "poller", "operation", "overseerr_connect", "integration", cfg.Name, "error", err)
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, nil, err.Error())
-			} else {
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, &now, "")
-				slog.Debug("Overseerr connected", "component", "poller", "integration", cfg.Name, "duration", time.Since(fetchStart).String())
-			}
+			connectEnrichment(cfg, result.enrichment.Overseerr.TestConnection, integrationSvc)
 			continue
-		}
-
-		// Jellyfin is an enrichment-only service for watch history
-		if cfg.Type == "jellyfin" {
+		case "jellyfin":
 			result.enrichment.Jellyfin = integrations.NewJellyfinClient(cfg.URL, cfg.APIKey)
-			if err := result.enrichment.Jellyfin.TestConnection(); err != nil {
-				slog.Warn("Jellyfin connection failed", "component", "poller", "operation", "jellyfin_connect", "integration", cfg.Name, "error", err)
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, nil, err.Error())
-			} else {
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, &now, "")
-				slog.Debug("Jellyfin connected", "component", "poller", "integration", cfg.Name, "duration", time.Since(fetchStart).String())
-			}
+			connectEnrichment(cfg, result.enrichment.Jellyfin.TestConnection, integrationSvc)
 			continue
-		}
-
-		// Emby is an enrichment-only service for watch history
-		if cfg.Type == "emby" {
+		case "emby":
 			result.enrichment.Emby = integrations.NewEmbyClient(cfg.URL, cfg.APIKey)
-			if err := result.enrichment.Emby.TestConnection(); err != nil {
-				slog.Warn("Emby connection failed", "component", "poller", "operation", "emby_connect", "integration", cfg.Name, "error", err)
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, nil, err.Error())
-			} else {
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, &now, "")
-				slog.Debug("Emby connected", "component", "poller", "integration", cfg.Name, "duration", time.Since(fetchStart).String())
-			}
+			connectEnrichment(cfg, result.enrichment.Emby.TestConnection, integrationSvc)
 			continue
-		}
-
-		// Plex is an enrichment-only service for watch history cross-referencing
-		if cfg.Type == "plex" {
+		case "plex":
 			result.enrichment.Plex = integrations.NewPlexClient(cfg.URL, cfg.APIKey)
-			if err := result.enrichment.Plex.TestConnection(); err != nil {
-				slog.Warn("Plex connection failed", "component", "poller",
-					"operation", "plex_connect", "integration", cfg.Name, "error", err)
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, nil, err.Error())
-			} else {
-				_ = integrationSvc.UpdateSyncStatus(cfg.ID, &now, "")
-				slog.Debug("Plex connected for enrichment", "component", "poller",
-					"integration", cfg.Name, "duration", time.Since(fetchStart).String())
-			}
+			connectEnrichment(cfg, result.enrichment.Plex.TestConnection, integrationSvc)
 			continue
 		}
 

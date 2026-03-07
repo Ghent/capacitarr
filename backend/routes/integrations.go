@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/labstack/echo/v4"
 
@@ -144,6 +145,8 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 	})
 
 	// Test connection — delegates to IntegrationService.TestConnection()
+	// Rate-limited: 30 attempts per IP per 5-minute window to prevent abuse of outbound connections
+	integrationTestRL := newLoginRateLimiter(30, 5*time.Minute)
 	g.POST("/integrations/test", func(c echo.Context) error {
 		var req struct {
 			Type          string `json:"type"`
@@ -157,7 +160,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 
 		result := reg.Integration.TestConnection(req.Type, req.URL, req.APIKey, req.IntegrationID)
 		return c.JSON(http.StatusOK, result)
-	})
+	}, LoginRateLimit(integrationTestRL))
 
 	// Sync all integrations (trigger a manual poll)
 	g.POST("/integrations/sync", func(c echo.Context) error {
