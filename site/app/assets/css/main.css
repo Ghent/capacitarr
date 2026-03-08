@@ -119,6 +119,16 @@ header[data-slot="header"] {
 }
 
 /* ═══════════════════════════════════════════
+   SHIELDS.IO BADGE SIZING
+   ═══════════════════════════════════════════ */
+.prose img[src*="img.shields.io"] {
+  display: inline;
+  height: 20px;
+  width: auto;
+  vertical-align: middle;
+}
+
+/* ═══════════════════════════════════════════
    PAGE TRANSITION
    ═══════════════════════════════════════════ */
 .page-enter-active,
