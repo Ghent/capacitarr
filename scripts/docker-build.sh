@@ -54,6 +54,7 @@ echo "===================="
 # shellcheck disable=SC2086  # Intentional word splitting of $TAGS
 docker buildx build \
     --platform linux/amd64,linux/arm64 \
+    --provenance=false \
     --build-arg APP_VERSION="${CI_COMMIT_TAG}" \
     --build-arg BUILD_DATE="${BUILD_DATE}" \
     --build-arg COMMIT_SHA="${CI_COMMIT_SHORT_SHA}" \
