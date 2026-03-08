@@ -2,7 +2,7 @@ import { ofetch } from 'ofetch';
 
 export const useApi = () => {
   const config = useRuntimeConfig();
-  const authenticated = useCookie('authenticated');
+  const authenticated = useAuthCookie();
   const { onConnectionLost, onConnectionRestored } = useConnectionHealth();
 
   const apiFetch = ofetch.create({

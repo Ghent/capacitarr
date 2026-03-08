@@ -6,7 +6,7 @@
  * because the 'jwt' cookie is HttpOnly and cannot be read by client-side JS.
  */
 export default defineNuxtRouteMiddleware((to) => {
-  const authenticated = useCookie('authenticated');
+  const authenticated = useAuthCookie();
 
   if (to.path !== '/login' && !authenticated.value) {
     return navigateTo('/login');

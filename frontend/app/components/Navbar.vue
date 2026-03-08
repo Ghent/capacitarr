@@ -410,7 +410,7 @@ const { uiVersion, apiVersion, updateAvailable, latestVersion, releaseUrl, check
   useVersion();
 
 const router = useRouter();
-const authenticated = useCookie('authenticated');
+const authenticated = useAuthCookie();
 
 const { t, locale, locales, setLocale } = useI18n();
 

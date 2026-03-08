@@ -40,6 +40,7 @@
                 id="username"
                 v-model="state.username"
                 type="text"
+                autocomplete="username"
                 :placeholder="isSetupMode ? 'Choose a username' : 'admin'"
                 autofocus
               />
@@ -53,6 +54,7 @@
                 id="password"
                 v-model="state.password"
                 type="password"
+                autocomplete="current-password"
                 placeholder="••••••••"
               />
             </div>
@@ -129,13 +131,21 @@ async function onSubmit() {
   errorMsg.value = '';
   loading.value = true;
 
+  // Browser autofill can populate DOM inputs without triggering Vue's input
+  // events, leaving v-model state empty. Read values directly from the DOM
+  // as a fallback so autofilled credentials aren't silently discarded.
+  const username =
+    state.username || (document.getElementById('username') as HTMLInputElement | null)?.value || '';
+  const password =
+    state.password || (document.getElementById('password') as HTMLInputElement | null)?.value || '';
+
   try {
     const response = await ofetch(`${config.public.apiBaseUrl}/api/v1/auth/login`, {
       method: 'POST',
       credentials: 'include',
       body: {
-        username: state.username,
-        password: state.password,
+        username,
+        password,
       },
     });
 

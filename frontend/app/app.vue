@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-const authenticated = useCookie('authenticated');
+const authenticated = useAuthCookie();
 const isAuthenticated = computed(() => !!authenticated.value);
 
 // Initialize color mode and theme on client
