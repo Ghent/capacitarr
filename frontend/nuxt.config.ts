@@ -49,7 +49,7 @@ export default defineNuxtConfig({
     head: {
       script: [
         {
-          innerHTML: `(function(){var t=localStorage.getItem('capacitarr-theme')||'violet';var m=localStorage.getItem('capacitarr-color-mode');document.documentElement.setAttribute('data-theme',t);if(m==='dark'||(!m&&matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}var s=document.createElement('div');s.id='capacitarr-splash';s.innerHTML='<div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></div><span class="label">Loading Capacitarr\\u2026</span>';document.body.prepend(s)})();`,
+          innerHTML: `(function(){var t=localStorage.getItem('capacitarr-theme')||'violet';var m=localStorage.getItem('capacitarr-color-mode');document.documentElement.setAttribute('data-theme',t);if(m==='dark'||(!m&&matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}function showSplash(){var s=document.createElement('div');s.id='capacitarr-splash';s.innerHTML='<div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></div><span class="label">Loading Capacitarr\\u2026</span>';document.body.prepend(s)}if(document.body){showSplash()}else{document.addEventListener('DOMContentLoaded',showSplash)}})();`,
           type: 'text/javascript',
         },
       ],
@@ -60,8 +60,8 @@ export default defineNuxtConfig({
       ],
       noscript: [{ innerHTML: '<style>#capacitarr-splash{display:none}</style>' }],
       link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
-        { rel: 'manifest', href: '/site.webmanifest' },
+        { rel: 'icon', type: 'image/svg+xml', href: 'favicon.svg' },
+        { rel: 'manifest', href: 'site.webmanifest' },
       ],
     },
   },
