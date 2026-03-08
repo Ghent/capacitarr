@@ -1295,7 +1295,7 @@ paths:
       description: |
         Opens a long-lived Server-Sent Events (SSE) connection that streams
         typed events in real-time. Events include engine runs, deletions,
-        config changes, approval actions, and more (39 event types total).
+        config changes, approval actions, and more (40 event types total).
 
         Supports reconnection replay via the `Last-Event-ID` header.
         A keepalive comment is sent every 30 seconds to prevent proxy timeouts.

@@ -220,6 +220,30 @@ func (s *ApprovalService) CleanExpiredSnoozes() (int, error) {
 	return count, nil
 }
 
+// ClearQueue removes all pending and rejected items from the approval queue.
+// Approved items (mid-deletion) are preserved. This is called when disk usage
+// drops below threshold to ensure the queue only contains current, actionable
+// candidates.
+func (s *ApprovalService) ClearQueue() (int, error) {
+	result := s.db.Where(
+		"status IN ?",
+		[]string{string(db.StatusPending), string(db.StatusRejected)},
+	).Delete(&db.ApprovalQueueItem{})
+
+	if result.Error != nil {
+		return 0, fmt.Errorf("failed to clear approval queue: %w", result.Error)
+	}
+
+	count := int(result.RowsAffected)
+	if count > 0 {
+		s.bus.Publish(events.ApprovalQueueClearedEvent{Count: count})
+		slog.Info("Approval queue cleared (disk below threshold)",
+			"component", "services", "count", count)
+	}
+
+	return count, nil
+}
+
 // ListQueue returns approval queue items filtered by optional status and capped to limit.
 func (s *ApprovalService) ListQueue(status string, limit int) ([]db.ApprovalQueueItem, error) {
 	items := make([]db.ApprovalQueueItem, 0, limit)

@@ -601,3 +601,177 @@ func TestApprovalService_ListQueue_Limit(t *testing.T) {
 		t.Errorf("expected 3 items (limit), got %d", len(items))
 	}
 }
+
+func TestApprovalService_ClearQueue(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+
+	// Create 3 items: 1 pending, 1 rejected, 1 approved
+	pending := db.ApprovalQueueItem{
+		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		SizeBytes: 5000, IntegrationID: intID, ExternalID: "1",
+		Status: db.StatusPending,
+	}
+	if err := database.Create(&pending).Error; err != nil {
+		t.Fatalf("Failed to create pending item: %v", err)
+	}
+
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+	rejected := db.ApprovalQueueItem{
+		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.70",
+		SizeBytes: 3000, IntegrationID: intID, ExternalID: "2",
+		Status: db.StatusRejected, SnoozedUntil: &snoozedUntil,
+	}
+	if err := database.Create(&rejected).Error; err != nil {
+		t.Fatalf("Failed to create rejected item: %v", err)
+	}
+
+	approved := db.ApprovalQueueItem{
+		MediaName: "Firefly - Season 1", MediaType: "season", Reason: "Score: 0.90",
+		SizeBytes: 8000, IntegrationID: intID, ExternalID: "3",
+		Status: db.StatusApproved,
+	}
+	if err := database.Create(&approved).Error; err != nil {
+		t.Fatalf("Failed to create approved item: %v", err)
+	}
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	count, err := svc.ClearQueue()
+	if err != nil {
+		t.Fatalf("ClearQueue returned error: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("expected 2 items cleared, got %d", count)
+	}
+
+	// Verify only the approved item remains
+	var remaining []db.ApprovalQueueItem
+	database.Find(&remaining)
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining item, got %d", len(remaining))
+	}
+	if remaining[0].Status != db.StatusApproved {
+		t.Errorf("expected remaining item to be approved, got %q", remaining[0].Status)
+	}
+	if remaining[0].MediaName != "Firefly - Season 1" {
+		t.Errorf("expected remaining item to be 'Firefly - Season 1', got %q", remaining[0].MediaName)
+	}
+
+	// Verify event published
+	select {
+	case evt := <-ch:
+		if evt.EventType() != "approval_queue_cleared" {
+			t.Errorf("expected event type 'approval_queue_cleared', got %q", evt.EventType())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for queue cleared event")
+	}
+}
+
+func TestApprovalService_ClearQueue_PreservesApproved(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+
+	// Create only an approved item
+	approved := db.ApprovalQueueItem{
+		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		SizeBytes: 5000, IntegrationID: intID, ExternalID: "1",
+		Status: db.StatusApproved,
+	}
+	if err := database.Create(&approved).Error; err != nil {
+		t.Fatalf("Failed to create approved item: %v", err)
+	}
+
+	count, err := svc.ClearQueue()
+	if err != nil {
+		t.Fatalf("ClearQueue returned error: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 items cleared (only approved present), got %d", count)
+	}
+
+	// Verify approved item still exists
+	var remaining int64
+	database.Model(&db.ApprovalQueueItem{}).Count(&remaining)
+	if remaining != 1 {
+		t.Errorf("expected 1 item remaining, got %d", remaining)
+	}
+}
+
+func TestApprovalService_ClearQueue_Empty(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	count, err := svc.ClearQueue()
+	if err != nil {
+		t.Fatalf("ClearQueue returned error: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("expected 0 items cleared on empty queue, got %d", count)
+	}
+
+	// No event should be published for empty queue
+	select {
+	case evt := <-ch:
+		t.Errorf("unexpected event published: %q", evt.EventType())
+	case <-time.After(100 * time.Millisecond):
+		// Expected: no event
+	}
+}
+
+func TestApprovalService_ClearQueue_PublishesEvent(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+
+	// Create multiple pending items
+	for i, name := range []string{"Firefly", "Serenity"} {
+		item := db.ApprovalQueueItem{
+			MediaName: name, MediaType: "show", Reason: "Score: 0.50",
+			SizeBytes: 1000, IntegrationID: intID, ExternalID: string(rune('1' + i)),
+			Status: db.StatusPending,
+		}
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("Failed to create item: %v", err)
+		}
+	}
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	count, err := svc.ClearQueue()
+	if err != nil {
+		t.Fatalf("ClearQueue returned error: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("expected 2 items cleared, got %d", count)
+	}
+
+	// Verify event with correct count
+	select {
+	case evt := <-ch:
+		cleared, ok := evt.(events.ApprovalQueueClearedEvent)
+		if !ok {
+			t.Fatalf("expected ApprovalQueueClearedEvent, got %T", evt)
+		}
+		if cleared.Count != 2 {
+			t.Errorf("expected event count 2, got %d", cleared.Count)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for queue cleared event")
+	}
+}

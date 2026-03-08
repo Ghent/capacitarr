@@ -340,6 +340,7 @@ export function useApprovalQueue() {
     sseOn('deletion_failed', refreshOnEvent);
     sseOn('approval_orphans_recovered', refreshOnEvent);
     sseOn('approval_bulk_unsnoozed', refreshOnEvent);
+    sseOn('approval_queue_cleared', refreshOnEvent);
   }
 
   return {

@@ -168,6 +168,73 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	}
 }
 
+// TestEvaluateAndCleanDisk_BelowThreshold_ClearsQueue verifies that when disk
+// usage is below the threshold, evaluateAndCleanDisk clears pending and rejected
+// approval queue items but preserves approved items (mid-deletion).
+func TestEvaluateAndCleanDisk_BelowThreshold_ClearsQueue(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	integrationID := uint(1)
+
+	// Seed approval queue items in all three states
+	pending := db.ApprovalQueueItem{
+		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		SizeBytes: 5000, IntegrationID: integrationID, ExternalID: "1",
+		Status: db.StatusPending,
+	}
+	if err := database.Create(&pending).Error; err != nil {
+		t.Fatalf("Failed to create pending item: %v", err)
+	}
+
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+	rejected := db.ApprovalQueueItem{
+		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.70",
+		SizeBytes: 3000, IntegrationID: integrationID, ExternalID: "2",
+		Status: db.StatusRejected, SnoozedUntil: &snoozedUntil,
+	}
+	if err := database.Create(&rejected).Error; err != nil {
+		t.Fatalf("Failed to create rejected item: %v", err)
+	}
+
+	approved := db.ApprovalQueueItem{
+		MediaName: "Firefly - Season 1", MediaType: "season", Reason: "Score: 0.90",
+		SizeBytes: 8000, IntegrationID: integrationID, ExternalID: "3",
+		Status: db.StatusApproved,
+	}
+	if err := database.Create(&approved).Error; err != nil {
+		t.Fatalf("Failed to create approved item: %v", err)
+	}
+
+	// Create a disk group that is BELOW threshold (50% used, 80% threshold)
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100000,
+		UsedBytes:    50000,
+		ThresholdPct: 80.0,
+		TargetPct:    70.0,
+	}
+
+	// Call evaluateAndCleanDisk — should trigger ClearQueue since below threshold
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0)
+	if result != 0 {
+		t.Errorf("expected 0 deletions queued, got %d", result)
+	}
+
+	// Verify: pending and rejected items are deleted
+	var remaining []db.ApprovalQueueItem
+	database.Find(&remaining)
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining item (approved only), got %d", len(remaining))
+	}
+	if remaining[0].Status != db.StatusApproved {
+		t.Errorf("expected remaining item to be approved, got %q", remaining[0].Status)
+	}
+	if remaining[0].MediaName != "Firefly - Season 1" {
+		t.Errorf("expected remaining item to be 'Firefly - Season 1', got %q", remaining[0].MediaName)
+	}
+}
+
 // TestApprovalDedup_DoesNotTouchApproved verifies that the dedup logic does
 // NOT overwrite entries whose status has been changed to "approved" by the user.
 func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {

@@ -143,8 +143,9 @@ async function onSubmit() {
       // The server sets both an HttpOnly 'jwt' cookie and a non-HttpOnly
       // 'authenticated' cookie via Set-Cookie headers. No need to set
       // cookies manually from JS.
-      // Full page reload to ensure all components pick up the auth state
-      window.location.href = '/';
+      // Full page reload to ensure all components pick up the auth state.
+      // Use config.app.baseURL to respect subdirectory deployments (BASE_URL).
+      window.location.href = config.app.baseURL || '/';
     } else {
       errorMsg.value = t('login.authFailed');
     }

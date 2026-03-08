@@ -35,10 +35,11 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			"mount", group.MountPath, "usedPct", fmt.Sprintf("%.1f", currentPct),
 			"threshold", group.ThresholdPct)
 
-		// Auto-clear all active snoozes when below threshold — gives a clean slate
-		// for the next cleanup cycle. Resets rejected items back to pending.
-		if _, err := p.reg.Approval.BulkUnsnooze(); err != nil {
-			slog.Error("Failed to clear active snoozes", "component", "poller", "error", err)
+		// Clear all pending and rejected items when below threshold — the queue
+		// should only contain current, actionable candidates. Approved items
+		// (mid-deletion) are preserved.
+		if _, err := p.reg.Approval.ClearQueue(); err != nil {
+			slog.Error("Failed to clear approval queue", "component", "poller", "error", err)
 		}
 
 		return 0

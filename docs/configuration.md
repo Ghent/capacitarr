@@ -135,6 +135,14 @@ If the container restarts while items are in the **approved** (processing) state
 
 This recovery also runs at the start of each engine poll cycle as an additional safety measure. The `approval_orphans_recovered` activity event is published when orphans are detected and recovered.
 
+### Automatic Queue Clearing
+
+When disk usage drops below the configured threshold, the approval queue is automatically cleared of all **pending** and **rejected** (snoozed) items. This ensures the queue only contains current, actionable deletion candidates — stale items from a previous threshold breach are removed rather than left for manual cleanup.
+
+Items that have already been **approved** and are actively being processed for deletion are preserved and will complete normally.
+
+When the threshold is breached again on a subsequent engine run, the scoring engine re-evaluates all media and populates the queue with fresh candidates based on current disk usage and media metadata.
+
 ## Real-Time Updates (SSE)
 
 Capacitarr uses Server-Sent Events (SSE) to push real-time updates to all connected browser tabs. The SSE endpoint is `GET /api/v1/events` (authenticated).

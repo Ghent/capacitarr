@@ -319,6 +319,20 @@ func (e ApprovalOrphansRecoveredEvent) EventMessage() string {
 	return fmt.Sprintf("Recovered %d orphaned approval items", e.Count)
 }
 
+// ApprovalQueueClearedEvent is published when the approval queue is cleared
+// because disk usage dropped below threshold.
+type ApprovalQueueClearedEvent struct {
+	Count int `json:"count"`
+}
+
+// EventType implements Event.
+func (e ApprovalQueueClearedEvent) EventType() string { return "approval_queue_cleared" }
+
+// EventMessage implements Event.
+func (e ApprovalQueueClearedEvent) EventMessage() string {
+	return fmt.Sprintf("Approval queue cleared: %d items removed (disk below threshold)", e.Count)
+}
+
 // =============================================================================
 // Deletion Events
 // =============================================================================
