@@ -1,3 +1,8 @@
+## [1.1.0] - 2026-03-08
+
+### 🚀 Features
+
+- Fix engine mode switching, add social links, notification triggers, shields.io badges ([6494d44](https://gitlab.com/starshadow/software/capacitarr/-/commit/6494d4412354bb13b260cbe0d035361ce1bcb6c5))
 ## [1.0.0] - 2026-03-07
 
 ### 🚀 Features
