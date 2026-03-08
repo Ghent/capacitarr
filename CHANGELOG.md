@@ -1,3 +1,8 @@
+## [1.2.1] - 2026-03-08
+
+### 🐛 Bug Fixes
+
+- *(ci)* Use POSIX sh for Docker CI scripts ([02eab40](https://gitlab.com/starshadow/software/capacitarr/-/commit/02eab403726c863a111981df1d6e383a4e71d3ec))
 ## [1.2.0] - 2026-03-08
 
 ### 🚀 Features
