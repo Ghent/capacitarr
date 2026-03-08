@@ -14,7 +14,10 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   capacitarr:
-    image: registry.gitlab.com/starshadow/software/capacitarr:stable
+    image: ghentstarshadow/capacitarr:stable
+    # Or use an alternative registry:
+    #   image: ghcr.io/ghent/capacitarr:stable
+    #   image: registry.gitlab.com/starshadow/software/capacitarr:stable
     container_name: capacitarr
     ports:
       - "2187:2187"

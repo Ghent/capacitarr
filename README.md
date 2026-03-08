@@ -3,7 +3,9 @@
 [![Pipeline](https://img.shields.io/gitlab/pipeline-status/starshadow%2Fsoftware%2Fcapacitarr?branch=main&logo=gitlab&label=pipeline)](https://gitlab.com/starshadow/software/capacitarr/-/pipelines)
 [![Release](https://img.shields.io/gitlab/v/release/starshadow%2Fsoftware%2Fcapacitarr?logo=gitlab&label=release)](https://gitlab.com/starshadow/software/capacitarr/-/releases)
 [![License](https://img.shields.io/badge/license-PolyForm%20NC%201.0-blue)](LICENSE)
-[![Container Registry](https://img.shields.io/badge/Container_Registry-GitLab-orange?logo=gitlab)](https://gitlab.com/starshadow/software/capacitarr/container_registry)
+[![Docker Hub](https://img.shields.io/docker/v/ghentstarshadow/capacitarr?label=Docker%20Hub&logo=docker&sort=semver)](https://hub.docker.com/r/ghentstarshadow/capacitarr)
+[![GHCR](https://img.shields.io/badge/GHCR-ghcr.io-blue?logo=github)](https://github.com/ghent/packages/container/package/capacitarr)
+[![GitLab Registry](https://img.shields.io/badge/GitLab_Registry-orange?logo=gitlab)](https://gitlab.com/starshadow/software/capacitarr/container_registry)
 [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fbFkND5qgt)
 [![Reddit](https://img.shields.io/badge/r%2Fcapacitarr-join-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/capacitarr/)
 
@@ -35,7 +37,10 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   capacitarr:
-    image: registry.gitlab.com/starshadow/software/capacitarr:stable
+    image: ghentstarshadow/capacitarr:stable
+    # Or use an alternative registry:
+    #   image: ghcr.io/ghent/capacitarr:stable
+    #   image: registry.gitlab.com/starshadow/software/capacitarr:stable
     container_name: capacitarr
     ports:
       - "2187:2187"

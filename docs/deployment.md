@@ -29,7 +29,7 @@ The simplest approach — no `BASE_URL` configuration required.
 ```yaml
 services:
   capacitarr:
-    image: registry.gitlab.com/starshadow/software/capacitarr:stable
+    image: ghentstarshadow/capacitarr:stable
     environment:
       - JWT_SECRET=your-secret-here
       - SECURE_COOKIES=true
@@ -71,7 +71,7 @@ When serving Capacitarr at a subdirectory (e.g. `https://example.com/capacitarr/
 ```yaml
 services:
   capacitarr:
-    image: registry.gitlab.com/starshadow/software/capacitarr:stable
+    image: ghentstarshadow/capacitarr:stable
     environment:
       - BASE_URL=/capacitarr/
       - NUXT_APP_BASE_URL=/capacitarr/
@@ -168,7 +168,7 @@ Set `AUTH_HEADER` to the name of the header your auth proxy sets:
 ```yaml
 services:
   capacitarr:
-    image: registry.gitlab.com/starshadow/software/capacitarr:stable
+    image: ghentstarshadow/capacitarr:stable
     environment:
       - AUTH_HEADER=Remote-User
       - JWT_SECRET=your-secret-here

@@ -155,7 +155,7 @@ release:goreleaser:
     - if: $CI_COMMIT_TAG
 
 # Build and push multi-arch Docker images to GitLab Container Registry
-release:docker:
+release:docker:build:
   stage: release
   image: docker:latest
   services:
@@ -164,30 +164,41 @@ release:docker:
     - docker buildx create --use --driver docker-container
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
-    - |
-      VERSION=${CI_COMMIT_TAG#v}
-      IMAGE="${CI_REGISTRY_IMAGE}"
+    - scripts/docker-build.sh
+  rules:
+    - if: $CI_COMMIT_TAG
 
-      # Always tag with the full version (e.g., 1.0.0 or 1.0.0-rc.1) and :latest
-      # :latest = most recently built image, may include pre-releases
-      TAGS="--tag ${IMAGE}:${VERSION} --tag ${IMAGE}:latest"
+# Mirror to Docker Hub (fault-isolated, runs after GitLab push succeeds)
+release:docker:dockerhub:
+  stage: release
+  image:
+    name: gcr.io/go-containerregistry/crane:latest
+    entrypoint: [""]
+  needs:
+    - job: release:docker:build
+  before_script:
+    - crane auth login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
+    - crane auth login docker.io -u "$DOCKERHUB_USERNAME" -p "$DOCKERHUB_TOKEN"
+  script:
+    - scripts/docker-mirror.sh "docker.io/ghentstarshadow/capacitarr"
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_TAG
 
-      # Stable releases (no hyphen = no pre-release suffix):
-      # add :stable, :MAJOR, and :MINOR floating tags
-      if echo "$VERSION" | grep -qv '-'; then
-        MAJOR=$(echo "$VERSION" | cut -d. -f1)
-        MINOR=$(echo "$VERSION" | cut -d. -f1-2)
-        TAGS="$TAGS --tag ${IMAGE}:stable --tag ${IMAGE}:${MAJOR} --tag ${IMAGE}:${MINOR}"
-      fi
-
-      docker buildx build \
-        --platform linux/amd64,linux/arm64 \
-        --build-arg APP_VERSION="${CI_COMMIT_TAG}" \
-        --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        --build-arg COMMIT_SHA="${CI_COMMIT_SHORT_SHA}" \
-        $TAGS \
-        --push \
-        .
+# Mirror to GHCR (fault-isolated, runs after GitLab push succeeds)
+release:docker:ghcr:
+  stage: release
+  image:
+    name: gcr.io/go-containerregistry/crane:latest
+    entrypoint: [""]
+  needs:
+    - job: release:docker:build
+  before_script:
+    - crane auth login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD"
+    - crane auth login ghcr.io -u "$GHCR_USERNAME" -p "$GHCR_TOKEN"
+  script:
+    - scripts/docker-mirror.sh "ghcr.io/ghent/capacitarr"
+  allow_failure: true
   rules:
     - if: $CI_COMMIT_TAG
 

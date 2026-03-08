@@ -48,7 +48,7 @@ These variables are handled by the container entrypoint script, not the Go backe
 ```yaml
 services:
   capacitarr:
-    image: registry.gitlab.com/starshadow/software/capacitarr:stable
+    image: ghentstarshadow/capacitarr:stable
     container_name: capacitarr
     ports:
       - "2187:2187"

@@ -141,7 +141,9 @@ The changelog is configured in [`cliff.toml`](../cliff.toml) at the project root
 |-----|-------|-------|---------|
 | `changelog` | release | `orhunp/git-cliff:latest` | Extract release notes for the tagged version |
 | `release:goreleaser` | release | `goreleaser/goreleaser:latest` | Cross-compile binaries, create GitLab release with assets |
-| `release:docker` | release | `docker:latest` | Build and push multi-arch Docker images to GitLab CR |
+| `release:docker:build` | release | `docker:latest` | Build and push multi-arch Docker images to GitLab CR |
+| `release:docker:dockerhub` | release | `gcr.io/go-containerregistry/crane` | Mirror image from GitLab CR to Docker Hub |
+| `release:docker:ghcr` | release | `gcr.io/go-containerregistry/crane` | Mirror image from GitLab CR to GHCR |
 | `pages` | pages | `node:22-alpine` | Rebuild project site with latest changelog |
 
 ## Release Artifacts
@@ -153,7 +155,19 @@ Each release produces:
 | `capacitarr_X.Y.Z_linux_amd64.tar.gz` | Linux x86_64 binary + README + LICENSE + CHANGELOG |
 | `capacitarr_X.Y.Z_linux_arm64.tar.gz` | Linux ARM64 binary + README + LICENSE + CHANGELOG |
 | `checksums.txt` | SHA-256 checksums for all archives |
-| Docker image (multi-arch) | `registry.gitlab.com/starshadow/software/capacitarr:X.Y.Z` |
+| Docker image (multi-arch) | Published to GitLab CR, Docker Hub, and GHCR (see below) |
+
+### Docker Registries
+
+Docker images are published to three registries using a build-then-mirror pipeline:
+
+| Registry | Image Path | Role |
+|----------|-----------|------|
+| GitLab Container Registry | `registry.gitlab.com/starshadow/software/capacitarr` | Source of truth (built + pushed first) |
+| Docker Hub | `ghentstarshadow/capacitarr` | Mirrored via `crane copy` |
+| GHCR | `ghcr.io/ghent/capacitarr` | Mirrored via `crane copy` |
+
+The build job pushes to GitLab Container Registry. Two parallel mirror jobs then use [`crane copy`](https://github.com/google/go-containerregistry/tree/main/cmd/crane) to replicate the multi-arch manifest to Docker Hub and GHCR. Mirror jobs have `allow_failure: true` — if an external registry is down, the pipeline shows a warning but does not fail.
 
 ### Docker Image Tags
 
@@ -166,16 +180,17 @@ Every release (including pre-releases) is tagged as `:latest` along with the ful
 | `:stable` | Stable releases only | Most recent non-pre-release version (recommended) |
 | `:1`, `:1.0` | Stable releases only | Floating within stable release line |
 
-```
-# All releases
-registry.gitlab.com/starshadow/software/capacitarr:latest
-registry.gitlab.com/starshadow/software/capacitarr:1.0.0-rc.2
+All tags are available on all three registries:
 
-# Stable releases only (additionally)
-registry.gitlab.com/starshadow/software/capacitarr:stable
-registry.gitlab.com/starshadow/software/capacitarr:1
-registry.gitlab.com/starshadow/software/capacitarr:1.0
-registry.gitlab.com/starshadow/software/capacitarr:1.0.0
+```
+# Docker Hub (no registry prefix needed)
+docker pull ghentstarshadow/capacitarr:stable
+
+# GHCR
+docker pull ghcr.io/ghent/capacitarr:stable
+
+# GitLab Container Registry
+docker pull registry.gitlab.com/starshadow/software/capacitarr:stable
 ```
 
 ## Prerequisites
@@ -185,4 +200,12 @@ For the release pipeline to work correctly:
 1. **Use Conventional Commits** — all commits on `main` must follow the [Conventional Commits](https://www.conventionalcommits.org/) format. Non-conventional commits are filtered out.
 2. **Tag from `main`** — releases are triggered by `v*` tags. Create tags only from the `main` branch.
 3. **Commit changelog and version before tagging** — the release prep step (see workflow above) must be committed before creating the tag. The CI pipeline reads from the committed files.
-4. **CI/CD variables** — the pipeline uses the GitLab-provided `CI_JOB_TOKEN` and `CI_REGISTRY_*` variables. No additional tokens are needed for GitLab Container Registry.
+4. **CI/CD variables** — the following variables must be configured in GitLab (Settings → CI/CD → Variables):
+
+| Variable | Purpose | Protected | Masked |
+|----------|---------|-----------|--------|
+| `CI_REGISTRY_*` | GitLab Container Registry (provided automatically) | — | — |
+| `DOCKERHUB_USERNAME` | Docker Hub login username | ✅ | ❌ |
+| `DOCKERHUB_TOKEN` | Docker Hub access token (Read & Write) | ✅ | ✅ |
+| `GHCR_USERNAME` | GitHub username | ✅ | ❌ |
+| `GHCR_TOKEN` | GitHub PAT with `write:packages` scope | ✅ | ✅ |
