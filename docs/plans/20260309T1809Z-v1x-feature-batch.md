@@ -559,7 +559,9 @@ After implementation, use the app and evaluate whether the UX feels cluttered or
 
 ---
 
-## Phase 8: Test Audit
+## Phase 8: Test Audit ✅
+
+**Status:** ✅ Complete
 
 ### Context
 
@@ -567,45 +569,60 @@ After all feature work is complete, audit the entire test suite to ensure qualit
 
 ### Steps
 
-#### Step 8.1: Inventory all test files
+#### Step 8.1: Inventory all test files ✅
 
-List all `*_test.go` files and their test functions. Identify:
-- Tests that cover removed code (Slack sender, rules portability)
-- Tests with redundant coverage (testing the same behavior multiple ways)
-- Tests that are flaky or depend on timing
-- Tests that use outdated patterns (not following the current in-memory SQLite pattern)
+Listed all 57 `*_test.go` files. Confirmed:
+- No `slack_test.go` or `rules_portability_test.go` present (correctly removed in Phases 2/3)
+- No redundant test coverage found
+- No flaky tests identified
+- All tests follow the in-memory SQLite pattern
 
-#### Step 8.2: Remove dead tests
+#### Step 8.2: Remove dead tests ✅
 
-Delete test files and test functions that cover code removed in earlier phases:
-- `notifications/slack_test.go` (removed in Phase 2)
-- `routes/rules_portability_test.go` (removed in Phase 3)
-- Any test functions that reference removed types, methods, or constants
+Searched for references to removed code:
+- **Slack references in production code:** None found
+- **Slack references in test code:** Only `TestCreateNotificationChannel_InvalidTypeSlack` — a valid negative test that verifies Slack is rejected as an invalid channel type
+- **Rules portability references:** None found
+- **RuleExportEnvelope/ImportRule/ExportRule references:** None found
 
-#### Step 8.3: Verify test coverage for new code
+No dead tests to remove.
 
-Ensure every new service method, route handler, event type, and sender has corresponding tests:
-- `DeletionProgressEvent` tests (Phase 1)
-- `AppriseSender` tests (Phase 2)
-- `BackupService` tests (Phase 3)
-- Watchlist enrichment tests (Phase 4)
-- Collection autocomplete tests (Phase 5)
+#### Step 8.3: Verify test coverage for new code ✅
 
-#### Step 8.4: Check for test anti-patterns
+All new features have comprehensive test coverage:
+- **DeletionProgressEvent:** `TestDeletionProgressEvent_EventType`, `TestDeletionProgressEvent_EventMessage`
+- **AppriseSender:** `TestAppriseSender_SendDigest_*`, `TestAppriseSender_SendAlert_*`, `TestMapAppriseType`
+- **BackupService:** `TestBackupService_Export_*`, `TestBackupService_Import_*`
+- **Backup routes:** `TestExportSettings_*`, `TestImportSettings_*`
+- **Watchlist enrichment:** `TestEnrichItems_PlexWatchlistEnrichment`, `TestEnrichItems_JellyfinFavoritesEnrichment`, `TestEnrichItems_WatchlistPriorityPlexOverJellyfin`
+- **Collection autocomplete:** `TestIntegrationService_FetchCollectionValues_*`, `TestMatchesRule_Collection`, `TestMatchesRule_InCollection`, `TestMatchesRule_CollectionMatchedValue`
+- **Plex/Jellyfin/Emby fetch:** `TestPlexClient_GetOnDeckItems_*`, `TestJellyfinClient_GetFavoritedItems_*`, `TestEmbyClient_GetFavoritedItems_*`
 
-Review tests for:
-- Hardcoded sleep/timing dependencies (replace with channels or condition variables)
-- Tests that don't clean up resources
-- Tests that depend on execution order
-- Missing error case coverage (only testing happy paths)
+#### Step 8.4: Check for test anti-patterns ✅
 
-#### Step 8.5: Run full test suite with coverage
+- **`time.Sleep` calls:** Found in pre-existing test files only (notification_dispatch, SSE broadcaster, activity persister, cache, rate limiter, poller). All are testing time-based behavior (debouncing, TTL, rate limiting) where sleep is appropriate. None in new Phase 1-7 test files.
+- **Non-canonical media names:** Found and fixed in 4 files:
+  - `plex_test.go`: "Test Movie", "Unknown", "Dune" (×2), "Extended Movie" → "Serenity"
+  - `radarr_test.go`: "TMDB Only" → "Serenity 2", "No File" → "Serenity 3"
+  - `readarr_test.go`: "Dune" → "Serenity", "Empty Book" → "Serenity 2", "Neuromancer" → "Firefly"
+  - `sonarr_test.go`: "Empty Show" → "Firefly 2"
+- **Resource cleanup:** All tests properly use `defer srv.Close()` and in-memory DBs
+- **Execution order dependencies:** None found
+- **Missing error cases:** All new test files include error/edge case tests
 
-Run `make ci` and review the coverage report. Identify any significant gaps in coverage for the new code.
+#### Step 8.5: Run full test suite with coverage ✅
 
-#### Step 8.6: Fix any issues found
+`make ci` passed all stages:
+- **Lint:** 0 issues (golangci-lint + ESLint + Prettier)
+- **Go tests:** All 57 test files pass (0 failures)
+- **Frontend tests:** 73 tests pass (2 test files)
+- **Security:** No vulnerabilities (govulncheck + pnpm audit)
 
-Address all issues identified in steps 8.1-8.5.
+#### Step 8.6: Fix any issues found ✅
+
+Fixed non-canonical media names in 4 test files (52 insertions, 52 deletions). No other issues found.
+
+**Commit:** `test: audit and clean up test suite after v1.x feature batch`
 
 ---
 
