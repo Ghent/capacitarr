@@ -60,6 +60,7 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 		approved, err := reg.Approval.ExecuteApproval(uint(entryID), services.ExecuteApprovalDeps{
 			Integration: reg.Integration,
 			Deletion:    reg.Deletion,
+			Engine:      reg.Engine,
 		})
 		if err != nil {
 			if errors.Is(err, services.ErrApprovalNotPending) {

@@ -301,13 +301,21 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 		}
 	}
 
-	// 6. Queue for background deletion
+	// 6. Attribute this deletion to the most recent engine run stats row so the
+	// dashboard sparkline "deleted" counter reflects approval-mode deletions.
+	var runStatsID uint
+	if deps.Engine != nil {
+		runStatsID = deps.Engine.LatestRunStatsID()
+	}
+
+	// 7. Queue for background deletion
 	if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
-		Client:  client,
-		Item:    item,
-		Reason:  approved.Reason,
-		Score:   0,
-		Factors: factors,
+		Client:     client,
+		Item:       item,
+		Reason:     approved.Reason,
+		Score:      0,
+		Factors:    factors,
+		RunStatsID: runStatsID,
 	}); queueErr != nil {
 		return approved, fmt.Errorf("deletion queue is full: %w", queueErr)
 	}
@@ -321,6 +329,7 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 type ExecuteApprovalDeps struct {
 	Integration *IntegrationService
 	Deletion    *DeletionService
+	Engine      *EngineService
 }
 
 // RecoverOrphans finds approved items that have no corresponding active deletion

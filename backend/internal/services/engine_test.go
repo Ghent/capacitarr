@@ -171,6 +171,27 @@ func TestEngineService_UpdateRunStats(t *testing.T) {
 	}
 }
 
+func TestEngineService_LatestRunStatsID(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewEngineService(database, bus)
+
+	// No rows exist yet — should return 0
+	if id := svc.LatestRunStatsID(); id != 0 {
+		t.Errorf("expected 0 when no rows exist, got %d", id)
+	}
+
+	// Create two run stats — latest should win
+	first, _ := svc.CreateRunStats("dry-run")
+	time.Sleep(10 * time.Millisecond) // ensure distinct timestamps
+	second, _ := svc.CreateRunStats("approval")
+
+	id := svc.LatestRunStatsID()
+	if id != second.ID {
+		t.Errorf("expected latest ID %d, got %d (first was %d)", second.ID, id, first.ID)
+	}
+}
+
 func TestEngineService_GetHistory(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

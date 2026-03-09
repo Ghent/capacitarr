@@ -269,6 +269,17 @@ func (s *EngineService) PruneOldStats(keep int) (int64, error) {
 	return result.RowsAffected, nil
 }
 
+// LatestRunStatsID returns the ID of the most recent EngineRunStats row, or 0
+// if no rows exist. Used by the approval flow to attribute deletions to the
+// engine run that originally flagged the item.
+func (s *EngineService) LatestRunStatsID() uint {
+	var row db.EngineRunStats
+	if err := s.db.Order("run_at desc").Select("id").First(&row).Error; err != nil {
+		return 0
+	}
+	return row.ID
+}
+
 // IncrementDeletedStats atomically increments the deleted counter and freed bytes
 // on an engine run stats row. Used by the DeletionService after a successful deletion.
 func (s *EngineService) IncrementDeletedStats(runStatsID uint, sizeBytes int64) error {
