@@ -61,6 +61,15 @@ header[data-slot="header"] {
 }
 
 /* ═══════════════════════════════════════════
+   BADGE CENTERING
+   ═══════════════════════════════════════════ */
+
+/* Center paragraphs that contain inline shields.io badges */
+.prose p:has(.badge-inline) {
+  text-align: center;
+}
+
+/* ═══════════════════════════════════════════
    ENHANCED LINK HOVER EFFECTS
    ═══════════════════════════════════════════ */
 .prose a {

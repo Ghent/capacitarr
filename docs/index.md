@@ -18,8 +18,8 @@ title: Capacitarr
 [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/fbFkND5qgt)
 [![Reddit](https://img.shields.io/badge/r%2Fcapacitarr-join-FF4500?logo=reddit&logoColor=white)](https://www.reddit.com/r/capacitarr/)
 
-[![UAnimals](https://img.shields.io/badge/Donate-UAnimals_%F0%9F%87%BA%F0%9F%87%A6-FFD500?logoColor=black)](https://uanimals.org/en/)
-[![ASPCA](https://img.shields.io/badge/Donate-ASPCA_%F0%9F%90%BE-FF6B00?logoColor=white)](https://www.aspca.org/ways-to-help)
+[![UAnimals](https://img.shields.io/badge/%E2%9D%A4_Donate-UAnimals_%F0%9F%87%BA%F0%9F%87%A6-FFD500?logoColor=black)](https://uanimals.org/en/)
+[![ASPCA](https://img.shields.io/badge/%E2%9D%A4_Donate-ASPCA_%F0%9F%90%BE-FF6B00?logoColor=white)](https://www.aspca.org/ways-to-help)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?logo=github&logoColor=white)](https://github.com/sponsors/ghent)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/ghent)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/ghentgames)
