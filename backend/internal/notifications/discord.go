@@ -1,4 +1,4 @@
-// Package notifications dispatches alerts via Discord and Slack channels.
+// Package notifications dispatches alerts via Discord and Apprise channels.
 package notifications
 
 import (
@@ -43,7 +43,8 @@ type discordField struct {
 }
 
 // SendDigest delivers a cycle digest notification to a Discord webhook.
-func (s *DiscordSender) SendDigest(webhookURL string, digest CycleDigest) error {
+func (s *DiscordSender) SendDigest(config SenderConfig, digest CycleDigest) error {
+	webhookURL := config.WebhookURL
 	if webhookURL == "" {
 		return fmt.Errorf("discord webhook URL is empty")
 	}
@@ -82,7 +83,8 @@ func (s *DiscordSender) SendDigest(webhookURL string, digest CycleDigest) error 
 }
 
 // SendAlert delivers an immediate alert notification to a Discord webhook.
-func (s *DiscordSender) SendAlert(webhookURL string, alert Alert) error {
+func (s *DiscordSender) SendAlert(config SenderConfig, alert Alert) error {
+	webhookURL := config.WebhookURL
 	if webhookURL == "" {
 		return fmt.Errorf("discord webhook URL is empty")
 	}

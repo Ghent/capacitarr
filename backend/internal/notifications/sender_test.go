@@ -81,7 +81,7 @@ func TestDiscordSender_SendDigest_AutoMode(t *testing.T) {
 		Version:       "v1.4.0",
 	}
 
-	if err := sender.SendDigest(srv.URL, digest); err != nil {
+	if err := sender.SendDigest(SenderConfig{WebhookURL: srv.URL}, digest); err != nil {
 		t.Fatalf("SendDigest returned error: %v", err)
 	}
 
@@ -120,7 +120,7 @@ func TestDiscordSender_SendDigest_DryRunMode(t *testing.T) {
 		Version:       "v1.4.0",
 	}
 
-	if err := sender.SendDigest(srv.URL, digest); err != nil {
+	if err := sender.SendDigest(SenderConfig{WebhookURL: srv.URL}, digest); err != nil {
 		t.Fatalf("SendDigest returned error: %v", err)
 	}
 
@@ -151,7 +151,7 @@ func TestDiscordSender_SendDigest_AllClear(t *testing.T) {
 		Version:       "v1.4.0",
 	}
 
-	if err := sender.SendDigest(srv.URL, digest); err != nil {
+	if err := sender.SendDigest(SenderConfig{WebhookURL: srv.URL}, digest); err != nil {
 		t.Fatalf("SendDigest returned error: %v", err)
 	}
 
@@ -187,7 +187,7 @@ func TestDiscordSender_SendDigest_WithUpdateBanner(t *testing.T) {
 		ReleaseURL:      "https://example.com/releases/v1.5.0",
 	}
 
-	if err := sender.SendDigest(srv.URL, digest); err != nil {
+	if err := sender.SendDigest(SenderConfig{WebhookURL: srv.URL}, digest); err != nil {
 		t.Fatalf("SendDigest returned error: %v", err)
 	}
 
@@ -233,7 +233,7 @@ func TestDiscordSender_SendAlert(t *testing.T) {
 				Version: "v1.4.0",
 			}
 
-			if err := sender.SendAlert(srv.URL, alert); err != nil {
+			if err := sender.SendAlert(SenderConfig{WebhookURL: srv.URL}, alert); err != nil {
 				t.Fatalf("SendAlert returned error: %v", err)
 			}
 
@@ -244,101 +244,6 @@ func TestDiscordSender_SendAlert(t *testing.T) {
 				t.Errorf("expected color %d, got %d", tt.expectedColor, captured.Embeds[0].Color)
 			}
 		})
-	}
-}
-
-// --- Slack Sender Tests ---
-
-func TestSlackSender_SendDigest(t *testing.T) {
-	var captured slackPayload
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(body, &captured)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	sender := NewSlackSender()
-	digest := CycleDigest{
-		ExecutionMode: "auto",
-		Evaluated:     100,
-		Flagged:       5,
-		Deleted:       5,
-		FreedBytes:    1073741824,
-		DurationMs:    1000,
-		Version:       "v1.4.0",
-	}
-
-	if err := sender.SendDigest(srv.URL, digest); err != nil {
-		t.Fatalf("SendDigest returned error: %v", err)
-	}
-
-	if len(captured.Blocks) < 2 {
-		t.Fatalf("expected at least 2 blocks, got %d", len(captured.Blocks))
-	}
-	if captured.Blocks[0].Type != "header" {
-		t.Errorf("expected first block type 'header', got %q", captured.Blocks[0].Type)
-	}
-	if captured.Blocks[1].Type != "section" {
-		t.Errorf("expected second block type 'section', got %q", captured.Blocks[1].Type)
-	}
-}
-
-func TestSlackSender_SendAlert(t *testing.T) {
-	var captured slackPayload
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(body, &captured)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	sender := NewSlackSender()
-	alert := Alert{
-		Type:    AlertError,
-		Title:   "🔴 Engine Error",
-		Message: "The evaluation engine failed. Check the application logs for details.",
-		Version: "v1.4.0",
-	}
-
-	if err := sender.SendAlert(srv.URL, alert); err != nil {
-		t.Fatalf("SendAlert returned error: %v", err)
-	}
-
-	if len(captured.Blocks) < 2 {
-		t.Fatalf("expected at least 2 blocks, got %d", len(captured.Blocks))
-	}
-}
-
-func TestSlackSender_SendAlert_WithFields(t *testing.T) {
-	var captured slackPayload
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(body, &captured)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	sender := NewSlackSender()
-	alert := Alert{
-		Type:    AlertThresholdBreached,
-		Title:   "🔴 Threshold Breached",
-		Message: "Disk usage exceeded threshold.",
-		Fields: map[string]string{
-			"Mount":     "/mnt/media",
-			"Usage":     "87%",
-			"Threshold": "85%",
-		},
-		Version: "v1.4.0",
-	}
-
-	if err := sender.SendAlert(srv.URL, alert); err != nil {
-		t.Fatalf("SendAlert returned error: %v", err)
-	}
-
-	// Should have header + section + fields section = 3 blocks
-	if len(captured.Blocks) < 3 {
-		t.Fatalf("expected at least 3 blocks (with fields), got %d", len(captured.Blocks))
 	}
 }
 

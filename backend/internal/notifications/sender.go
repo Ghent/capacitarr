@@ -2,13 +2,21 @@ package notifications
 
 import "fmt"
 
+// SenderConfig holds the configuration passed to a Sender for each delivery.
+// All senders receive a WebhookURL; channel-specific fields (e.g. AppriseTags)
+// are only used by their respective sender implementations.
+type SenderConfig struct {
+	WebhookURL  string
+	AppriseTags string // Only used by AppriseSender
+}
+
 // Sender is the interface for delivering notifications to external channels.
-// Each channel type (Discord, Slack) implements this interface.
+// Each channel type (Discord, Apprise) implements this interface.
 type Sender interface {
 	// SendDigest delivers a cycle digest notification summarizing an engine run.
-	SendDigest(webhookURL string, digest CycleDigest) error
+	SendDigest(config SenderConfig, digest CycleDigest) error
 	// SendAlert delivers an immediate alert notification.
-	SendAlert(webhookURL string, alert Alert) error
+	SendAlert(config SenderConfig, alert Alert) error
 }
 
 // CycleDigest contains the accumulated data for a single engine cycle

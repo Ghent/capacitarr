@@ -58,7 +58,7 @@ func NewNotificationDispatchService(
 ) *NotificationDispatchService {
 	senders := map[string]notifications.Sender{
 		"discord": notifications.NewDiscordSender(),
-		"slack":   notifications.NewSlackSender(),
+		"apprise": notifications.NewAppriseSender(),
 	}
 
 	return &NotificationDispatchService{
@@ -121,7 +121,10 @@ func (s *NotificationDispatchService) TestChannel(id uint) error {
 		return fmt.Errorf("%w: %s", ErrUnknownChannelType, cfg.Type)
 	}
 
-	return sender.SendAlert(cfg.WebhookURL, alert)
+	return sender.SendAlert(notifications.SenderConfig{
+		WebhookURL:  cfg.WebhookURL,
+		AppriseTags: cfg.AppriseTags,
+	}, alert)
 }
 
 func (s *NotificationDispatchService) run() {
@@ -303,8 +306,9 @@ func (s *NotificationDispatchService) dispatchDigest(digest notifications.CycleD
 
 		c := cfg
 		d := digest
+		sc := notifications.SenderConfig{WebhookURL: c.WebhookURL, AppriseTags: c.AppriseTags}
 		go func() {
-			if sendErr := sender.SendDigest(c.WebhookURL, d); sendErr != nil {
+			if sendErr := sender.SendDigest(sc, d); sendErr != nil {
 				slog.Error("Failed to send digest notification",
 					"component", "notifications",
 					"channel", c.Name,
@@ -360,8 +364,9 @@ func (s *NotificationDispatchService) dispatchAlert(alert notifications.Alert, s
 
 		c := cfg
 		a := alert
+		sc := notifications.SenderConfig{WebhookURL: c.WebhookURL, AppriseTags: c.AppriseTags}
 		go func() {
-			if sendErr := sender.SendAlert(c.WebhookURL, a); sendErr != nil {
+			if sendErr := sender.SendAlert(sc, a); sendErr != nil {
 				slog.Error("Failed to send alert notification",
 					"component", "notifications",
 					"channel", c.Name,

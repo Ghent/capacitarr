@@ -33,7 +33,7 @@ func TestDiscordSender_SendDigest_Format(t *testing.T) {
 		Version:       "v1.0.0",
 	}
 
-	err := sender.SendDigest(server.URL, digest)
+	err := sender.SendDigest(SenderConfig{WebhookURL: server.URL}, digest)
 	if err != nil {
 		t.Fatalf("SendDigest failed: %v", err)
 	}
@@ -70,7 +70,7 @@ func TestDiscordSender_SendAlert_Format(t *testing.T) {
 		Version: "v1.0.0",
 	}
 
-	err := sender.SendAlert(server.URL, alert)
+	err := sender.SendAlert(SenderConfig{WebhookURL: server.URL}, alert)
 	if err != nil {
 		t.Fatalf("SendAlert failed: %v", err)
 	}

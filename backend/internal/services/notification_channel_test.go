@@ -52,7 +52,8 @@ func TestNotificationChannelService_Update(t *testing.T) {
 	svc := NewNotificationChannelService(database, bus)
 
 	original := db.NotificationConfig{
-		Type: "slack", Name: "Original Slack", WebhookURL: "https://hooks.slack.com/old",
+		Type: "apprise", Name: "Original Apprise", WebhookURL: "http://apprise:8000/api/notify/key1/",
+		AppriseTags: "admin",
 	}
 	database.Create(&original)
 
@@ -60,7 +61,8 @@ func TestNotificationChannelService_Update(t *testing.T) {
 	defer bus.Unsubscribe(ch)
 
 	updated := db.NotificationConfig{
-		Type: "slack", Name: "Updated Slack", WebhookURL: "https://hooks.slack.com/new",
+		Type: "apprise", Name: "Updated Apprise", WebhookURL: "http://apprise:8000/api/notify/key2/",
+		AppriseTags: "ops,alerts",
 	}
 
 	result, err := svc.Update(original.ID, updated)
@@ -68,8 +70,8 @@ func TestNotificationChannelService_Update(t *testing.T) {
 		t.Fatalf("Update returned error: %v", err)
 	}
 
-	if result.Name != "Updated Slack" {
-		t.Errorf("expected name 'Updated Slack', got %q", result.Name)
+	if result.Name != "Updated Apprise" {
+		t.Errorf("expected name 'Updated Apprise', got %q", result.Name)
 	}
 
 	// Verify event
@@ -156,7 +158,7 @@ func TestNotificationChannelService_List(t *testing.T) {
 
 	// Insert two channels
 	database.Create(&db.NotificationConfig{Type: "discord", Name: "Firefly Alerts", WebhookURL: "https://discord.com/api/webhooks/1", Enabled: true})
-	database.Create(&db.NotificationConfig{Type: "slack", Name: "Serenity Alerts", WebhookURL: "https://hooks.slack.com/1", Enabled: false})
+	database.Create(&db.NotificationConfig{Type: "apprise", Name: "Serenity Alerts", WebhookURL: "http://apprise:8000/api/notify/key/", Enabled: false})
 
 	configs, err = svc.List()
 	if err != nil {
@@ -208,7 +210,7 @@ func TestNotificationChannelService_ListEnabled(t *testing.T) {
 	svc := NewNotificationChannelService(database, bus)
 
 	database.Create(&db.NotificationConfig{Type: "discord", Name: "Firefly Alerts", Enabled: true})
-	disabled := db.NotificationConfig{Type: "slack", Name: "Serenity Alerts", Enabled: true}
+	disabled := db.NotificationConfig{Type: "apprise", Name: "Serenity Alerts", Enabled: true}
 	database.Create(&disabled)
 	// Explicitly disable — GORM default:true ignores zero-value false on Create
 	database.Model(&disabled).Update("enabled", false)

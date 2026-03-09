@@ -46,5 +46,5 @@ var ValidIntegrationTypes = map[string]bool{
 
 // ValidNotificationChannelTypes defines the allowed notification channel types.
 var ValidNotificationChannelTypes = map[string]bool{
-	"discord": true, "slack": true,
+	"discord": true, "apprise": true,
 }

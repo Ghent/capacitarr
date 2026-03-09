@@ -16,7 +16,7 @@ import (
 // Notification channel type constants.
 const (
 	notifTypeDiscord = "discord"
-	notifTypeSlack   = "slack"
+	notifTypeApprise = "apprise"
 )
 
 // RegisterNotificationRoutes sets up CRUD endpoints for notification channels.
@@ -44,10 +44,10 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 			return apiError(c, http.StatusBadRequest, "type and name are required")
 		}
 		if !db.ValidNotificationChannelTypes[req.Type] {
-			return apiError(c, http.StatusBadRequest, "type must be discord or slack")
+			return apiError(c, http.StatusBadRequest, "type must be discord or apprise")
 		}
-		if (req.Type == notifTypeDiscord || req.Type == notifTypeSlack) && req.WebhookURL == "" {
-			return apiError(c, http.StatusBadRequest, "webhookUrl is required for discord and slack channels")
+		if (req.Type == notifTypeDiscord || req.Type == notifTypeApprise) && req.WebhookURL == "" {
+			return apiError(c, http.StatusBadRequest, "webhookUrl is required for discord and apprise channels")
 		}
 
 		// Validate webhook URL scheme (must be http or https to prevent SSRF via exotic schemes)
@@ -91,7 +91,7 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 
 		// Validate type if changed
 		if req.Type != "" && !db.ValidNotificationChannelTypes[req.Type] {
-			return apiError(c, http.StatusBadRequest, "type must be discord or slack")
+			return apiError(c, http.StatusBadRequest, "type must be discord or apprise")
 		}
 
 		// Validate webhook URL scheme (must be http or https to prevent SSRF via exotic schemes)
@@ -110,6 +110,7 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 			existing.Type = req.Type
 		}
 		existing.WebhookURL = req.WebhookURL
+		existing.AppriseTags = req.AppriseTags
 		existing.Enabled = req.Enabled
 		existing.OnCycleDigest = req.OnCycleDigest
 		existing.OnError = req.OnError

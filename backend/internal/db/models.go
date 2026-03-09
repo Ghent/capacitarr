@@ -181,13 +181,14 @@ type LifetimeStats struct {
 	UpdatedAt           time.Time `json:"updatedAt"`
 }
 
-// NotificationConfig stores a configured notification channel (Discord or Slack).
+// NotificationConfig stores a configured notification channel (Discord or Apprise).
 type NotificationConfig struct {
-	ID         uint   `gorm:"primarykey" json:"id"`
-	Type       string `gorm:"not null" json:"type"` // "discord", "slack"
-	Name       string `gorm:"not null" json:"name"` // User-friendly name
-	WebhookURL string `json:"webhookUrl,omitempty"` // Discord/Slack webhook URL
-	Enabled    bool   `gorm:"default:true" json:"enabled"`
+	ID          uint   `gorm:"primarykey" json:"id"`
+	Type        string `gorm:"not null" json:"type"`                    // "discord", "apprise"
+	Name        string `gorm:"not null" json:"name"`                    // User-friendly name
+	WebhookURL  string `json:"webhookUrl,omitempty"`                    // Discord webhook or Apprise API endpoint URL
+	AppriseTags string `gorm:"default:''" json:"appriseTags,omitempty"` // Comma-separated Apprise tags for routing
+	Enabled     bool   `gorm:"default:true" json:"enabled"`
 	// Event subscriptions — which notification types trigger this channel
 	OnCycleDigest      bool      `gorm:"default:true" json:"onCycleDigest"`
 	OnError            bool      `gorm:"default:true" json:"onError"`

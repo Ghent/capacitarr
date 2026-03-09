@@ -35,14 +35,14 @@ type mockSender struct {
 	alerts  []notifications.Alert
 }
 
-func (m *mockSender) SendDigest(_ string, d notifications.CycleDigest) error {
+func (m *mockSender) SendDigest(_ notifications.SenderConfig, d notifications.CycleDigest) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.digests = append(m.digests, d)
 	return nil
 }
 
-func (m *mockSender) SendAlert(_ string, a notifications.Alert) error {
+func (m *mockSender) SendAlert(_ notifications.SenderConfig, a notifications.Alert) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.alerts = append(m.alerts, a)
@@ -62,7 +62,7 @@ func (m *mockSender) getAlerts() []notifications.Alert {
 }
 
 // newTestDispatch creates a dispatch service with mock senders for
-// external channels (discord/slack). Returns the service and the mock sender.
+// external channels (discord/apprise). Returns the service and the mock sender.
 func newTestDispatch(t *testing.T, channels *mockChannelProvider) (*NotificationDispatchService, *mockSender) {
 	t.Helper()
 	bus := newTestBus(t)
@@ -72,7 +72,7 @@ func newTestDispatch(t *testing.T, channels *mockChannelProvider) (*Notification
 	externalMock := &mockSender{}
 	svc.senders = map[string]notifications.Sender{
 		"discord": externalMock,
-		"slack":   externalMock,
+		"apprise": externalMock,
 	}
 
 	svc.Start()
@@ -412,5 +412,35 @@ func TestNotificationDispatch_NonApprovalDigestNotAffected(t *testing.T) {
 	}
 	if digests[0].ExecutionMode != "auto" {
 		t.Errorf("expected execution mode 'auto', got %q", digests[0].ExecutionMode)
+	}
+}
+
+func TestNotificationDispatch_AppriseChannel(t *testing.T) {
+	channels := &mockChannelProvider{
+		configs: []db.NotificationConfig{
+			{ID: 1, Type: "apprise", Name: "Apprise Server", WebhookURL: "http://apprise:8000/api/notify/mykey/",
+				AppriseTags: "admin", Enabled: true, OnCycleDigest: true},
+		},
+	}
+
+	svc, mock := newTestDispatch(t, channels)
+
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "auto"})
+	time.Sleep(50 * time.Millisecond)
+
+	svc.bus.Publish(events.EngineCompleteEvent{
+		Evaluated:     50,
+		Flagged:       2,
+		DurationMs:    300,
+		ExecutionMode: "auto",
+	})
+	time.Sleep(50 * time.Millisecond)
+
+	svc.bus.Publish(events.DeletionBatchCompleteEvent{Succeeded: 2, Failed: 0})
+	time.Sleep(200 * time.Millisecond)
+
+	digests := mock.getDigests()
+	if len(digests) != 1 {
+		t.Fatalf("expected 1 digest from apprise channel, got %d", len(digests))
 	}
 }

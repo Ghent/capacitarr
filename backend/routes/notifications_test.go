@@ -44,7 +44,8 @@ func TestListNotificationChannels_WithData(t *testing.T) {
 		Type: "discord", Name: "Firefly Alerts", WebhookURL: "https://discord.com/api/webhooks/123/abc", Enabled: true,
 	})
 	database.Create(&db.NotificationConfig{
-		Type: "slack", Name: "Serenity Alerts", WebhookURL: "https://hooks.slack.com/services/T00/B00/xxx", Enabled: true,
+		Type: "apprise", Name: "Serenity Alerts", WebhookURL: "http://apprise:8000/api/notify/key/",
+		AppriseTags: "admin", Enabled: true,
 	})
 
 	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/notifications/channels", nil)
@@ -94,11 +95,11 @@ func TestCreateNotificationChannel_ValidDiscord(t *testing.T) {
 	}
 }
 
-func TestCreateNotificationChannel_ValidSlack(t *testing.T) {
+func TestCreateNotificationChannel_ValidApprise(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	body := `{"type":"slack","name":"Serenity Alerts","webhookUrl":"https://hooks.slack.com/services/T00/B00/xxx","enabled":true}`
+	body := `{"type":"apprise","name":"Serenity Alerts","webhookUrl":"http://apprise:8000/api/notify/mykey/","appriseTags":"admin,ops","enabled":true}`
 	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/notifications/channels", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -111,8 +112,34 @@ func TestCreateNotificationChannel_ValidSlack(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &channel); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
-	if channel.Type != "slack" {
-		t.Errorf("Expected type 'slack', got %q", channel.Type)
+	if channel.Type != "apprise" {
+		t.Errorf("Expected type 'apprise', got %q", channel.Type)
+	}
+	if channel.AppriseTags != "admin,ops" {
+		t.Errorf("Expected appriseTags 'admin,ops', got %q", channel.AppriseTags)
+	}
+}
+
+func TestCreateNotificationChannel_AppriseWithoutTags(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Tags are optional for Apprise
+	body := `{"type":"apprise","name":"Serenity Alerts","webhookUrl":"http://apprise:8000/api/notify/mykey/","enabled":true}`
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/notifications/channels", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var channel db.NotificationConfig
+	if err := json.Unmarshal(rec.Body.Bytes(), &channel); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if channel.Type != "apprise" {
+		t.Errorf("Expected type 'apprise', got %q", channel.Type)
 	}
 }
 
@@ -157,6 +184,21 @@ func TestCreateNotificationChannel_InvalidTypeInApp(t *testing.T) {
 	}
 }
 
+func TestCreateNotificationChannel_InvalidTypeSlack(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Slack is no longer a valid type — use Apprise with Slack plugin instead
+	body := `{"type":"slack","name":"Serenity Alerts","webhookUrl":"https://hooks.slack.com/services/T00/B00/xxx"}`
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/notifications/channels", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for slack type, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestCreateNotificationChannel_InvalidTypeTelegram(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
@@ -182,6 +224,20 @@ func TestCreateNotificationChannel_MissingWebhookURL(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("Expected 400 for missing webhook URL, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestCreateNotificationChannel_MissingWebhookURL_Apprise(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	body := `{"type":"apprise","name":"Firefly Alerts"}`
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/notifications/channels", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 for missing webhook URL on apprise, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -263,6 +319,35 @@ func TestUpdateNotificationChannel_InvalidWebhookURL(t *testing.T) {
 
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("Expected 400 for invalid webhook URL, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdateNotificationChannel_AppriseTags(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Seed an Apprise channel
+	channel := db.NotificationConfig{
+		Type: "apprise", Name: "Firefly Alerts", WebhookURL: "http://apprise:8000/api/notify/mykey/",
+		AppriseTags: "admin", Enabled: true,
+	}
+	database.Create(&channel)
+
+	body := `{"name":"Firefly Alerts","webhookUrl":"http://apprise:8000/api/notify/mykey/","appriseTags":"admin,ops","enabled":true}`
+	req := testutil.AuthenticatedRequest(t, http.MethodPut, fmt.Sprintf("/api/notifications/channels/%d", channel.ID), strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var updated db.NotificationConfig
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if updated.AppriseTags != "admin,ops" {
+		t.Errorf("Expected appriseTags 'admin,ops', got %q", updated.AppriseTags)
 	}
 }
 
