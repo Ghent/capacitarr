@@ -385,7 +385,7 @@ func TestPlexClient_DeleteMediaItem_Noop(t *testing.T) {
 	client := NewPlexClient("http://localhost", "test-token")
 	err := client.DeleteMediaItem(MediaItem{
 		ExternalID: "101",
-		Title:      "Test Movie",
+		Title:      "Serenity",
 		Type:       MediaTypeMovie,
 	})
 	if err != nil {
@@ -453,7 +453,7 @@ func TestPlexClient_UnknownMediaType(t *testing.T) {
 	// Unknown media types should return nil
 	m := plexMetadata{
 		RatingKey: "400",
-		Title:     "Unknown",
+		Title:     "Serenity",
 		Type:      "photo",
 	}
 
@@ -621,15 +621,15 @@ func TestPlexClient_GetBulkWatchData_DuplicateTitle(t *testing.T) {
 			resp.MediaContainer.Metadata = []plexMetadata{
 				{
 					RatingKey: "101",
-					Title:     "Dune",
-					Year:      1984,
+					Title:     "Serenity",
+					Year:      2005,
 					Type:      "movie",
 					ViewCount: 2,
 				},
 				{
 					RatingKey: "102",
-					Title:     "Dune",
-					Year:      2021,
+					Title:     "Serenity",
+					Year:      2024,
 					Type:      "movie",
 					ViewCount: 7,
 				},
@@ -650,12 +650,12 @@ func TestPlexClient_GetBulkWatchData_DuplicateTitle(t *testing.T) {
 	}
 
 	// Should keep the entry with the highest play count
-	dune, ok := watchMap["dune"]
+	serenity, ok := watchMap["serenity"]
 	if !ok {
-		t.Fatal("Expected 'dune' key in watch map")
+		t.Fatal("Expected 'serenity' key in watch map")
 	}
-	if dune.PlayCount != 7 {
-		t.Errorf("Expected highest PlayCount 7, got %d", dune.PlayCount)
+	if serenity.PlayCount != 7 {
+		t.Errorf("Expected highest PlayCount 7, got %d", serenity.PlayCount)
 	}
 }
 
@@ -698,7 +698,7 @@ func TestPlexClient_MultiPartMedia(t *testing.T) {
 	// Test that file sizes from multiple parts are summed
 	m := plexMetadata{
 		RatingKey: "500",
-		Title:     "Extended Movie",
+		Title:     "Serenity",
 		Type:      "movie",
 		Media: []struct {
 			Part []struct {

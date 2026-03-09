@@ -100,12 +100,12 @@ func TestReadarrClient_GetMediaItems(t *testing.T) {
 			resp := []readarrBook{
 				{
 					ID:               1,
-					Title:            "Dune",
+					Title:            "Serenity",
 					AuthorID:         10,
 					SizeOnDisk:       2000000,
 					Added:            "2024-03-01T10:30:00Z",
 					Monitored:        true,
-					Path:             "/media/books/Dune",
+					Path:             "/media/books/Serenity",
 					QualityProfileID: 1,
 					Tags:             []int{1, 2},
 					Genres:           []string{"Science Fiction", "Adventure"},
@@ -119,17 +119,17 @@ func TestReadarrClient_GetMediaItems(t *testing.T) {
 				{
 					// Book with no file on disk — should be skipped
 					ID:         2,
-					Title:      "Empty Book",
+					Title:      "Serenity 2",
 					SizeOnDisk: 0,
 				},
 				{
 					ID:               3,
-					Title:            "Neuromancer",
+					Title:            "Firefly",
 					AuthorID:         20,
 					SizeOnDisk:       1500000,
 					Added:            "2024-04-15T08:00:00Z",
 					Monitored:        false,
-					Path:             "/media/books/Neuromancer",
+					Path:             "/media/books/Firefly",
 					QualityProfileID: 2,
 					Tags:             []int{1},
 					Genres:           []string{"Cyberpunk"},
@@ -156,60 +156,60 @@ func TestReadarrClient_GetMediaItems(t *testing.T) {
 		t.Fatalf("GetMediaItems should succeed: %v", err)
 	}
 
-	// Expect 2 books (Empty Book has SizeOnDisk=0)
+	// Expect 2 books (Serenity 2 has SizeOnDisk=0)
 	if len(items) != 2 {
 		t.Fatalf("Expected 2 items, got %d", len(items))
 	}
 
 	// First book
-	dune := items[0]
-	if dune.Type != MediaTypeBook {
-		t.Errorf("Expected MediaTypeBook, got %v", dune.Type)
+	book1 := items[0]
+	if book1.Type != MediaTypeBook {
+		t.Errorf("Expected MediaTypeBook, got %v", book1.Type)
 	}
-	if dune.Title != "Dune" {
-		t.Errorf("Expected 'Dune', got %q", dune.Title)
+	if book1.Title != "Serenity" {
+		t.Errorf("Expected 'Serenity', got %q", book1.Title)
 	}
-	if dune.ExternalID != "1" {
-		t.Errorf("Expected ExternalID '1', got %q", dune.ExternalID)
+	if book1.ExternalID != "1" {
+		t.Errorf("Expected ExternalID '1', got %q", book1.ExternalID)
 	}
-	if dune.SizeBytes != 2000000 {
-		t.Errorf("Expected SizeBytes 2000000, got %d", dune.SizeBytes)
+	if book1.SizeBytes != 2000000 {
+		t.Errorf("Expected SizeBytes 2000000, got %d", book1.SizeBytes)
 	}
-	if dune.Path != "/media/books/Dune" {
-		t.Errorf("Expected path '/media/books/Dune', got %q", dune.Path)
+	if book1.Path != "/media/books/Serenity" {
+		t.Errorf("Expected path '/media/books/Serenity', got %q", book1.Path)
 	}
-	if !dune.Monitored {
-		t.Error("Expected Dune to be monitored")
+	if !book1.Monitored {
+		t.Error("Expected Serenity to be monitored")
 	}
-	if dune.AddedAt == nil {
-		t.Error("Expected non-nil AddedAt for Dune")
+	if book1.AddedAt == nil {
+		t.Error("Expected non-nil AddedAt for Serenity")
 	}
-	if dune.QualityProfile != "eBook" {
-		t.Errorf("Expected quality profile 'eBook', got %q", dune.QualityProfile)
+	if book1.QualityProfile != "eBook" {
+		t.Errorf("Expected quality profile 'eBook', got %q", book1.QualityProfile)
 	}
-	if dune.Rating != 8.5 {
-		t.Errorf("Expected rating 8.5, got %f", dune.Rating)
+	if book1.Rating != 8.5 {
+		t.Errorf("Expected rating 8.5, got %f", book1.Rating)
 	}
-	if len(dune.Tags) != 2 || dune.Tags[0] != "sci-fi" || dune.Tags[1] != "classic" {
-		t.Errorf("Expected tags [sci-fi, classic], got %v", dune.Tags)
+	if len(book1.Tags) != 2 || book1.Tags[0] != "sci-fi" || book1.Tags[1] != "classic" {
+		t.Errorf("Expected tags [sci-fi, classic], got %v", book1.Tags)
 	}
-	if dune.Genre != "Science Fiction" {
-		t.Errorf("Expected genre 'Science Fiction', got %q", dune.Genre)
+	if book1.Genre != "Science Fiction" {
+		t.Errorf("Expected genre 'Science Fiction', got %q", book1.Genre)
 	}
 
 	// Second book
-	neuro := items[1]
-	if neuro.Title != "Neuromancer" {
-		t.Errorf("Expected 'Neuromancer', got %q", neuro.Title)
+	book2 := items[1]
+	if book2.Title != "Firefly" {
+		t.Errorf("Expected 'Firefly', got %q", book2.Title)
 	}
-	if neuro.Monitored {
-		t.Error("Expected Neuromancer to be unmonitored")
+	if book2.Monitored {
+		t.Error("Expected Firefly to be unmonitored")
 	}
-	if neuro.QualityProfile != "Audiobook" {
-		t.Errorf("Expected quality profile 'Audiobook', got %q", neuro.QualityProfile)
+	if book2.QualityProfile != "Audiobook" {
+		t.Errorf("Expected quality profile 'Audiobook', got %q", book2.QualityProfile)
 	}
-	if len(neuro.Tags) != 1 || neuro.Tags[0] != "sci-fi" {
-		t.Errorf("Expected tags [sci-fi], got %v", neuro.Tags)
+	if len(book2.Tags) != 1 || book2.Tags[0] != "sci-fi" {
+		t.Errorf("Expected tags [sci-fi], got %v", book2.Tags)
 	}
 }
 

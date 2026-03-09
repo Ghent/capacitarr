@@ -140,7 +140,7 @@ func TestRadarrClient_GetMediaItems(t *testing.T) {
 				{
 					// Movie with TMDB rating only (IMDB = 0)
 					ID:         2,
-					Title:      "TMDB Only",
+					Title:      "Serenity 2",
 					HasFile:    true,
 					SizeOnDisk: 5000000000,
 					Ratings: struct {
@@ -159,7 +159,7 @@ func TestRadarrClient_GetMediaItems(t *testing.T) {
 				{
 					// Movie without file — should be skipped
 					ID:      3,
-					Title:   "No File",
+					Title:   "Serenity 3",
 					HasFile: false,
 				},
 			}

@@ -173,7 +173,7 @@ func TestSonarrClient_GetMediaItems(t *testing.T) {
 				{
 					// Show with zero disk usage — should be skipped entirely
 					ID:    2,
-					Title: "Empty Show",
+					Title: "Firefly 2",
 					Statistics: struct {
 						SizeOnDisk   int64 `json:"sizeOnDisk"`
 						SeasonCount  int   `json:"seasonCount"`
