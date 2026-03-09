@@ -15,7 +15,7 @@ type Config struct {
 	BaseURL       string
 	Database      string
 	Debug         bool
-	JWTSecret     string
+	JWTSecret     string `json:"-"`
 	CORSOrigins   []string
 	SecureCookies bool
 	AuthHeader    string // Trusted reverse proxy auth header (e.g. "Remote-User", "X-authentik-username")

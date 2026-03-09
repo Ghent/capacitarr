@@ -138,13 +138,13 @@ async function fetchMetrics() {
         totalCapacity.value = lastRow.totalCapacity;
       }
 
-      const usedData = res.data.map((row: LibraryHistoryRow) => {
+      const usedData: [number, number][] = res.data.map((row: LibraryHistoryRow) => {
         const ts = new Date(row.timestamp).getTime();
         if (isPercent) {
           const pct = row.totalCapacity > 0 ? (row.usedCapacity / row.totalCapacity) * 100 : 0;
-          return [ts, Math.round(pct * 10) / 10];
+          return [ts, Math.round(pct * 10) / 10] as [number, number];
         }
-        return [ts, row.usedCapacity];
+        return [ts, row.usedCapacity] as [number, number];
       });
 
       if (isPercent) {
@@ -153,10 +153,10 @@ async function fetchMetrics() {
         // Raw mode: only show Used series; y-axis max is set to totalCapacity
         series.value = [{ name: 'Used', data: usedData }];
       } else {
-        const totalData = res.data.map((row: LibraryHistoryRow) => [
-          new Date(row.timestamp).getTime(),
-          row.totalCapacity,
-        ]);
+        const totalData: [number, number][] = res.data.map(
+          (row: LibraryHistoryRow) =>
+            [new Date(row.timestamp).getTime(), row.totalCapacity] as [number, number],
+        );
         series.value = [
           { name: 'Used', data: usedData },
           { name: 'Total', data: totalData },

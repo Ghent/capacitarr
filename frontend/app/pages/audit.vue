@@ -365,7 +365,7 @@ function toggleAuditSort(column: AuditSortColumn) {
 
 function selectItem(entry: AuditLogEntry) {
   const scoreMatch = entry.reason?.match(/^Score:\s*([\d.]+)/);
-  const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+  const score = scoreMatch ? parseFloat(scoreMatch[1] ?? '0') : 0;
   selectedItem.value = {
     mediaName: entry.mediaName,
     mediaType: entry.mediaType,
@@ -449,10 +449,11 @@ const groupedLogs = computed<AuditGroupItem[]>(() => {
   for (const log of logs.value) {
     // Try to group season entries under their parent show
     if (log.mediaType === 'season' && log.mediaName.includes(' - Season ')) {
-      const showName = log.mediaName.split(' - Season ')[0];
+      const showName = log.mediaName.split(' - Season ')[0] ?? log.mediaName;
       const groupIdx = showMap.get(showName);
-      if (groupIdx !== undefined && groups[groupIdx]) {
-        groups[groupIdx].seasons.push(log);
+      const existingGroup = groupIdx !== undefined ? groups[groupIdx] : undefined;
+      if (existingGroup) {
+        existingGroup.seasons.push(log);
         continue;
       }
       // Orphan season — create a virtual show group for it

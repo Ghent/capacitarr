@@ -126,7 +126,7 @@
       <div class="space-y-3">
         <div class="flex items-center gap-2">
           <UiLabel>{{ $t('settings.executionMode') }}</UiLabel>
-          <SaveIndicator :status="saveStatus.executionMode" />
+          <SaveIndicator :status="saveStatus.executionMode ?? 'idle'" />
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <button
@@ -161,7 +161,7 @@
         <div class="space-y-1.5">
           <div class="flex items-center gap-2">
             <UiLabel>{{ $t('settings.scoreTiebreaker') }}</UiLabel>
-            <SaveIndicator :status="saveStatus.tiebreaker" />
+            <SaveIndicator :status="saveStatus.tiebreaker ?? 'idle'" />
           </div>
           <p class="text-xs text-muted-foreground mb-1">
             When items have the same score, how should they be ordered?
@@ -184,7 +184,7 @@
         <div class="space-y-1.5">
           <div class="flex items-center gap-2">
             <UiLabel>{{ $t('settings.snoozeDurationHours') }}</UiLabel>
-            <SaveIndicator :status="saveStatus.snoozeDuration" />
+            <SaveIndicator :status="saveStatus.snoozeDuration ?? 'idle'" />
           </div>
           <p class="text-xs text-muted-foreground mb-1">
             {{ $t('settings.snoozeDurationDesc') }}

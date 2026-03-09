@@ -73,6 +73,10 @@ export interface CustomRule {
   effect: string;
   enabled: boolean;
   sortOrder: number;
+  /** @deprecated Legacy field preserved for backward-compatible migration display. */
+  type?: string;
+  /** @deprecated Legacy field preserved for backward-compatible migration display. */
+  intensity?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -223,6 +227,8 @@ export interface EvaluatedItem {
   isProtected: boolean;
   reason: string;
   factors: ScoreFactor[];
+  /** Present on legacy responses that embed score details as a JSON string. */
+  scoreDetails?: string;
 }
 
 export interface PreviewResponse {

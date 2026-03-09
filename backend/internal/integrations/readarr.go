@@ -11,7 +11,7 @@ import (
 // Follows the same API pattern as Sonarr/Radarr/Lidarr.
 type ReadarrClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewReadarrClient creates a new Readarr book management API client.

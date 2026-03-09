@@ -13,7 +13,7 @@ import (
 // data for scoring — recently watched content should be protected.
 type JellyfinClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewJellyfinClient creates a new Jellyfin media server API client.

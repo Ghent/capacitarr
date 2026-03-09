@@ -1056,8 +1056,8 @@ const _activityHandlers = new Map<string, (data: unknown) => void>();
 function handleDeletionProgressSparkline(data: unknown) {
   const event = data as DeletionProgress;
   const history = engineHistoryData.value;
-  if (history.length > 0) {
-    const last = history[history.length - 1];
+  const last = history.length > 0 ? history[history.length - 1] : undefined;
+  if (last) {
     // Mutate + reassign to trigger Vue reactivity on the sparkline computed properties
     engineHistoryData.value = [...history.slice(0, -1), { ...last, deleted: event.succeeded }];
   }

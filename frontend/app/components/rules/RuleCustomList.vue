@@ -335,7 +335,8 @@ function onDrop(event: DragEvent, targetIntegrationId: number, targetIdx: number
   if (!group) return;
 
   const reordered = [...group.rules];
-  const [moved] = reordered.splice(source.idx, 1);
+  const moved = reordered.splice(source.idx, 1)[0];
+  if (!moved) return;
   reordered.splice(targetIdx, 0, moved);
 
   // Emit the full reorder with all rule IDs (non-group rules keep their position)
@@ -344,7 +345,8 @@ function onDrop(event: DragEvent, targetIntegrationId: number, targetIdx: number
   let reorderedIdx = 0;
   for (const rule of props.rules) {
     if (groupIds.has(rule.id)) {
-      fullOrder.push(reordered[reorderedIdx].id);
+      const reorderedRule = reordered[reorderedIdx];
+      if (reorderedRule) fullOrder.push(reorderedRule.id);
       reorderedIdx++;
     } else {
       fullOrder.push(rule.id);

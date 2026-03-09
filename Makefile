@@ -38,6 +38,8 @@ check:
 	cd frontend && pnpm lint
 	@echo "→ Checking frontend format..."
 	cd frontend && pnpm format:check
+	@echo "→ Checking frontend types..."
+	cd frontend && pnpm typecheck
 	@echo "→ Ensuring go:embed directory exists..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
 	@echo "→ Checking backend (golangci-lint via Docker)..."
@@ -60,7 +62,8 @@ lint\:ci:
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
 			pnpm lint && \
-			pnpm format:check"
+			pnpm format:check && \
+			pnpm typecheck"
 	@echo "✓ CI lint stage passed"
 
 ## Run all tests (same Docker images + commands as CI pipeline)
@@ -92,7 +95,7 @@ security\:ci:
 		node:22-alpine sh -c "\
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
-			pnpm audit" || true
+			pnpm audit"
 	@echo "✓ CI security stage passed"
 
 ## Run the full CI pipeline locally (lint + test + security)
@@ -159,7 +162,7 @@ help:
 	@echo ""
 	@echo "CI Pipeline (Docker-based — matches GitLab CI exactly):"
 	@echo "  make ci             - Run full CI pipeline locally (lint + test + security)"
-	@echo "  make lint:ci        - Lint all code (golangci-lint + ESLint + Prettier)"
+	@echo "  make lint:ci        - Lint all code (golangci-lint + ESLint + Prettier + typecheck)"
 	@echo "  make test:ci        - Run all tests (go test + vitest)"
 	@echo "  make security:ci    - Run security scans (govulncheck + pnpm audit)"
 	@echo ""

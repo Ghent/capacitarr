@@ -491,9 +491,10 @@ async function onFieldChange() {
 }
 
 // When a combobox suggestion is selected, sync the search term to show the selected value
-function onComboboxSelect(value: string) {
-  form.value = value;
-  comboboxSearch.value = value;
+function onComboboxSelect(value: string | number | bigint | Record<string, unknown> | null) {
+  const str = value != null ? String(value) : '';
+  form.value = str;
+  comboboxSearch.value = str;
 }
 
 // Sync combobox search term to form.value when user types freely (no selection)

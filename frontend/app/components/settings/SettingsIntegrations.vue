@@ -160,7 +160,7 @@
                 class="w-full"
                 @update:model-value="
                   (v: number[] | undefined) => {
-                    if (v) updateWeight(integration.id, slider.key, v[0]);
+                    if (v && v[0] != null) updateWeight(integration.id, slider.key, v[0]);
                   }
                 "
               />
@@ -359,7 +359,8 @@ function getWeightState(integrationId: number): WeightOverrides {
       ...defaultWeights,
     };
   }
-  return customWeightsState[integrationId];
+  // Non-null: we just ensured the entry exists above
+  return customWeightsState[integrationId]!;
 }
 
 function toggleCustomWeights(integrationId: number, enabled: boolean) {
@@ -368,13 +369,13 @@ function toggleCustomWeights(integrationId: number, enabled: boolean) {
 }
 
 function updateWeight(integrationId: number, key: string, value: number) {
-  const state = getWeightState(integrationId);
-  (state as Record<string, unknown>)[key] = value;
+  (getWeightState(integrationId) as unknown as Record<string, number>)[key] = value;
 }
 
 function getWeightValue(integrationId: number, key: string): number {
-  const state = getWeightState(integrationId);
-  return Number((state as Record<string, unknown>)[key] ?? 5);
+  return Number(
+    (getWeightState(integrationId) as unknown as Record<string, number | undefined>)[key] ?? 5,
+  );
 }
 
 const weightSliders = computed(() => [

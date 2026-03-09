@@ -12,7 +12,7 @@ import (
 // play counts, last played timestamps, watch durations, and per-user history.
 type TautulliClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewTautulliClient creates a new Tautulli API client.

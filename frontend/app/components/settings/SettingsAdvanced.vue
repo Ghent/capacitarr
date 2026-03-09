@@ -23,7 +23,7 @@
       <div class="space-y-1.5">
         <div class="flex items-center gap-2">
           <UiLabel>{{ $t('settings.interval') }}</UiLabel>
-          <SaveIndicator :status="saveStatus.pollInterval" />
+          <SaveIndicator :status="saveStatus.pollInterval ?? 'idle'" />
         </div>
         <UiSelect v-model="pollIntervalStr">
           <UiSelectTrigger class="w-full max-w-xs">
@@ -69,7 +69,7 @@
       <div class="space-y-1.5">
         <div class="flex items-center gap-2">
           <UiLabel>{{ $t('settings.logLevel') }}</UiLabel>
-          <SaveIndicator :status="saveStatus.logLevel" />
+          <SaveIndicator :status="saveStatus.logLevel ?? 'idle'" />
         </div>
         <UiSelect v-model="logLevel">
           <UiSelectTrigger class="w-full max-w-xs">
@@ -113,7 +113,7 @@
       <div class="space-y-1.5">
         <div class="flex items-center gap-2">
           <UiLabel>{{ $t('settings.auditRetention') }}</UiLabel>
-          <SaveIndicator :status="saveStatus.retention" />
+          <SaveIndicator :status="saveStatus.retention ?? 'idle'" />
         </div>
         <UiSelect v-model="retentionStr">
           <UiSelectTrigger class="w-full max-w-xs">
@@ -163,7 +163,7 @@
         <div class="space-y-1.5">
           <div class="flex items-center gap-2">
             <UiLabel>Threshold %</UiLabel>
-            <SaveIndicator :status="saveStatus.defaultThreshold" />
+            <SaveIndicator :status="saveStatus.defaultThreshold ?? 'idle'" />
           </div>
           <UiInput
             v-model.number="defaultThreshold"
@@ -178,7 +178,7 @@
         <div class="space-y-1.5">
           <div class="flex items-center gap-2">
             <UiLabel>Target %</UiLabel>
-            <SaveIndicator :status="saveStatus.defaultTarget" />
+            <SaveIndicator :status="saveStatus.defaultTarget ?? 'idle'" />
           </div>
           <UiInput
             v-model.number="defaultTarget"
@@ -233,7 +233,7 @@
             </p>
           </div>
         </div>
-        <SaveIndicator :status="saveStatus.checkForUpdates" />
+        <SaveIndicator :status="saveStatus.checkForUpdates ?? 'idle'" />
       </div>
     </UiCardContent>
   </UiCard>
@@ -307,7 +307,7 @@
               </p>
             </div>
           </div>
-          <SaveIndicator :status="saveStatus.deletionsEnabled" />
+          <SaveIndicator :status="saveStatus.deletionsEnabled ?? 'idle'" />
         </div>
       </div>
     </UiCardContent>

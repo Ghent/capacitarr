@@ -11,8 +11,8 @@ import (
 type AuthConfig struct {
 	ID         uint   `gorm:"primarykey"`
 	Username   string `gorm:"uniqueIndex;not null"`
-	Password   string `gorm:"not null"` // bcrypt hash
-	APIKey     string `gorm:"index"`    // SHA-256 hash (sha256:<hex>) or legacy plaintext
+	Password   string `gorm:"not null" json:"-"` // bcrypt hash — never serialized to JSON
+	APIKey     string `gorm:"index" json:"-"`    // SHA-256 hash (sha256:<hex>) or legacy plaintext — never serialized to JSON
 	APIKeyHint string // Last 4 characters of the plaintext key for identification
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

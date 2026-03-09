@@ -74,7 +74,7 @@ This runs lint, test, and security checks using the **same Docker images** as th
 Individual stages can be run separately:
 
 ```bash
-make lint:ci       # golangci-lint + ESLint + Prettier format check
+make lint:ci       # golangci-lint + ESLint + Prettier format check + TypeScript typecheck
 make test:ci       # go test + vitest
 make security:ci   # govulncheck + pnpm audit
 ```
@@ -105,7 +105,7 @@ make lint format → make ci → commit → push
 
 Every push and merge request triggers a GitLab CI pipeline with these stages:
 
-1. **Lint** — `golangci-lint` (Go), ESLint + Prettier format check (frontend)
+1. **Lint** — `golangci-lint` (Go), ESLint + Prettier format check + TypeScript typecheck (frontend)
 2. **Test** — `go test` and Vitest for the frontend
 3. **Build** — Docker image build verification
 4. **Security** — `govulncheck` (Go) and `pnpm audit` (frontend)

@@ -13,7 +13,7 @@ import (
 // SonarrClient implements Integration for Sonarr v3 API
 type SonarrClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewSonarrClient creates a new Sonarr TV series management API client.

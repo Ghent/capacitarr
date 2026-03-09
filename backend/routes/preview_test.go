@@ -108,7 +108,7 @@ func TestGetPreview_SkipsNonArrIntegrations(t *testing.T) {
 			Type    string
 			Name    string
 			URL     string
-			APIKey  string
+			APIKey  string `json:"-"`
 			Enabled bool
 		}{
 			Type:    intType,

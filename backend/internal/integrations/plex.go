@@ -10,7 +10,7 @@ import (
 // PlexClient implements Integration for Plex Media Server
 type PlexClient struct {
 	URL   string
-	Token string // X-Plex-Token
+	Token string `json:"-"` // X-Plex-Token
 }
 
 // NewPlexClient creates a new Plex media server API client.

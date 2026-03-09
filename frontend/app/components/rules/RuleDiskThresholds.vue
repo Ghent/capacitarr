@@ -133,7 +133,11 @@
               :max="99"
               :step="1"
               :min-steps-between-thumbs="1"
-              @update:model-value="(v: number[]) => onSliderChange(dg, v)"
+              @update:model-value="
+                (v: number[] | undefined) => {
+                  if (v) onSliderChange(dg, v);
+                }
+              "
             />
             <!-- Zone color overlays on the slider track -->
             <div
@@ -272,8 +276,8 @@ function ensureThresholdEdit(dgId: number, dg: DiskGroup) {
 function onSliderChange(dg: DiskGroup, values: number[]) {
   ensureThresholdEdit(dg.id, dg);
   const edit = thresholdEdits[dg.id]!;
-  edit.target = values[0];
-  edit.threshold = values[1];
+  edit.target = values[0] ?? dg.targetPct;
+  edit.threshold = values[1] ?? dg.thresholdPct;
 }
 
 function thresholdValidation(dgId: number, dg: DiskGroup): string {

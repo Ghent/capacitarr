@@ -21,15 +21,44 @@ linters:
   settings:
     goconst:
       min-occurrences: 5
-    gosec:
-      excludes:
-        - G117
   exclusions:
+    max-issues-per-linter: 0
+    max-same-issues: 0
     rules:
       - path: _test\.go$
         linters:
           - errcheck
           - goconst
+
+      # G117 (gosec): Exported struct field with JSON key matching secret pattern.
+      #
+      # G117 flags struct fields whose JSON key names match patterns like "password",
+      # "apiKey", "token", or "secret". Its purpose is to prevent accidental JSON
+      # serialization of sensitive data (e.g., logging a struct that contains a secret).
+      #
+      # Capacitarr is a web application that inherently handles secrets in its REST
+      # API — login passwords, integration API keys, and connection test credentials
+      # are exchanged as JSON between the frontend and backend. These JSON key names
+      # are part of the API contract and cannot be changed without breaking clients.
+      #
+      # MITIGATION: All internal/storage structs that hold secrets use json:"-" tags
+      # to prevent accidental serialization. G117 is only excluded for the specific
+      # files that define API request/response structs where secret fields are
+      # intentionally part of the JSON contract:
+      #
+      #   - internal/db/models.go — IntegrationConfig.APIKey (masked before API response)
+      #   - routes/auth.go        — LoginRequest.Password (decode-only, never encoded)
+      #   - routes/integrations.go — connection test request APIKey (decode-only)
+      #
+      # G117 remains ACTIVE for all other files. If a new struct in any other file
+      # has a secret-pattern JSON key, G117 will flag it and require either a json:"-"
+      # tag or an explicit addition to this exclusion list after security review.
+      #
+      # Decision audit: 2026-03-09, see SECURITY.md § Gosec G117 for full rationale.
+      - path: (internal/db/models|routes/auth|routes/integrations)\.go$
+        text: "G117"
+        linters:
+          - gosec
 
 formatters:
   enable:
@@ -38,7 +67,3 @@ formatters:
 run:
   timeout: 5m
   tests: true
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0

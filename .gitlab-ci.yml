@@ -48,6 +48,7 @@ lint:frontend:
   script:
     - pnpm lint
     - pnpm format:check
+    - pnpm typecheck
 
 # ── Test ──────────────────────────────────────────────────────────────────────
 
@@ -96,7 +97,6 @@ security:govulncheck:
     - mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
   script:
     - cd backend && govulncheck ./...
-  allow_failure: true
 
 security:pnpm-audit:
   stage: security
@@ -107,7 +107,6 @@ security:pnpm-audit:
     - cd frontend && pnpm install --frozen-lockfile
   script:
     - pnpm audit
-  allow_failure: true
 
 # ── Release (tag-triggered, gated behind lint/test/build) ────────────────────
 

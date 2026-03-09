@@ -12,7 +12,7 @@ import (
 // Lidarr manages music libraries and follows the same API patterns as Sonarr/Radarr.
 type LidarrClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewLidarrClient creates a new Lidarr music management API client.

@@ -68,7 +68,7 @@
             class="w-full"
             @update:model-value="
               (v: number[] | undefined) => {
-                if (v) $emit('update:preference', slider.key, v[0]);
+                if (v && v[0] != null) $emit('update:preference', slider.key, v[0]);
               }
             "
           />

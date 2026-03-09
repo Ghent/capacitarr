@@ -11,7 +11,7 @@ import (
 // RadarrClient implements Integration for Radarr v3 API
 type RadarrClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewRadarrClient creates a new Radarr movie management API client.

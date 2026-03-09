@@ -11,7 +11,7 @@ import (
 // content should be protected from deletion since users specifically asked for it.
 type OverseerrClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewOverseerrClient creates a new Overseerr/Jellyseerr API client.

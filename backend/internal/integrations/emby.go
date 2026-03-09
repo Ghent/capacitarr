@@ -13,7 +13,7 @@ import (
 // using the same X-Emby-Token auth header and similar endpoint patterns.
 type EmbyClient struct {
 	URL    string
-	APIKey string
+	APIKey string `json:"-"`
 }
 
 // NewEmbyClient creates a new Emby media server API client.
