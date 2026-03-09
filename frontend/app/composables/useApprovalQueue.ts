@@ -170,8 +170,9 @@ export function useApprovalQueue() {
           }
         }
 
-        // Sort seasons by name for consistent display
-        seasons.sort((a, b) => a.title.localeCompare(b.title));
+        // Sort seasons by name with numeric awareness so
+        // "Season 2" sorts before "Season 10"
+        seasons.sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
 
         // Determine group state: snoozed wins over pending, approved only if ALL are approved
         let state: ApprovalGroup['state'] = 'pending';

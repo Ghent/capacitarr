@@ -68,5 +68,17 @@ export function groupEvaluatedItems(items: EvaluatedItem[]): PreviewGroup[] {
 
   // Filter out show-level entries with no seasons — they're only useful as grouping parents
   // A show with 0 seasons in the preview has nothing actionable to display
-  return groups.filter((g) => !(g.entry.item?.type === 'show' && g.seasons.length === 0));
+  return groups
+    .filter((g) => !(g.entry.item?.type === 'show' && g.seasons.length === 0))
+    .map((g) => {
+      if (g.seasons.length <= 1) return g;
+      // Sort seasons by title with numeric awareness so
+      // "Season 2" sorts before "Season 10"
+      return {
+        ...g,
+        seasons: [...g.seasons].sort((a, b) =>
+          (a.item?.title ?? '').localeCompare(b.item?.title ?? '', undefined, { numeric: true }),
+        ),
+      };
+    });
 }
