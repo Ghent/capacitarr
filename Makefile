@@ -109,6 +109,30 @@ security\:ci:
 		semgrep scan --config=auto --error /src
 	@echo "✓ CI security stage passed"
 
+## Run OWASP ZAP API scan against a running Capacitarr instance (requires `make build` first)
+## Uses the OpenAPI spec to intelligently test all documented endpoints.
+## Results saved to zap-report.html in the project root.
+security\:zap:
+	@echo "═══ OWASP ZAP DAST Scan ═══"
+	@echo "→ Ensure Capacitarr is running on localhost:2187 (make build)"
+	@echo "→ Running ZAP API scan against http://localhost:2187..."
+	mkdir -p $(CURDIR)/zap-out
+	chmod 777 $(CURDIR)/zap-out
+	docker run --rm --network=host \
+		-v $(CURDIR)/docs/api/openapi.yaml:/zap/openapi.yaml:ro \
+		-v $(CURDIR)/zap-out:/zap/wrk:rw \
+		ghcr.io/zaproxy/zaproxy:stable \
+		zap-api-scan.py \
+			-t http://localhost:2187/api/v1/ \
+			-f openapi \
+			-r zap-report.html \
+			-w zap-report.md \
+			-z "-config rules.cookie.ignorelist=jwt,authenticated"
+	-mv $(CURDIR)/zap-out/zap-report.html $(CURDIR)/zap-report.html 2>/dev/null
+	-mv $(CURDIR)/zap-out/zap-report.md $(CURDIR)/zap-report.md 2>/dev/null
+	-rm -rf $(CURDIR)/zap-out
+	@echo "✓ ZAP scan complete — see zap-report.html and zap-report.md"
+
 ## Scan the built Docker image for OS-level and binary CVEs (requires prior `make build`)
 security\:image:
 	@echo "═══ Container Image Scan ═══"
@@ -186,6 +210,7 @@ help:
 	@echo "  make test:ci        - Run all tests (go test + vitest)"
 	@echo "  make security:ci    - Run security scans (govulncheck + pnpm audit + trivy + gitleaks + semgrep)"
 	@echo "  make security:image - Scan Docker image for CVEs (requires prior make build)"
+	@echo "  make security:zap   - Run OWASP ZAP API scan (requires running instance)"
 	@echo ""
 	@echo "Code Quality (local, auto-fix mode):"
 	@echo "  make lint           - Auto-fix lint issues (ESLint --fix + golangci-lint)"
