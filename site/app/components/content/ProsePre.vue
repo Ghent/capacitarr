@@ -97,6 +97,13 @@ async function renderDiagram() {
         .node rect, .node polygon, .node circle, .node ellipse { rx: 8; ry: 8; }
         .cluster rect { rx: 12; ry: 12; }
         .edgeLabel { font-size: 12px; }
+        .edgeLabel rect {
+          rx: 10;
+          ry: 10;
+          stroke: ${isDark ? darkTheme.lineColor : lightTheme.lineColor};
+          stroke-width: 1px;
+          fill-opacity: 0.95;
+        }
       `,
     })
 
