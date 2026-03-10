@@ -66,9 +66,9 @@ Capacitarr is designed as a **self-hosted, single-instance** application for hom
   - `Cross-Origin-Resource-Policy: same-origin`
   - `X-Permitted-Cross-Domain-Policies: none`
 
-### CI Security Scanning
+### CI Security Scanning (SAST + SCA)
 
-Every push and merge request is scanned by 7 security tools. **All are blocking** — failures prevent merge. Run all scans locally with: `make security:ci`
+Every push and merge request is scanned by 7 static security tools. **All are blocking** — failures prevent merge. Run all scans locally with: `make security:ci`
 
 #### Tool Inventory
 
@@ -77,7 +77,8 @@ Every push and merge request is scanned by 7 security tools. **All are blocking*
 | **gosec** | SAST (Go) | SQL injection, hardcoded credentials, weak crypto, insecure TLS, SSRF | `lint:go` (via golangci-lint) | ✅ Yes |
 | **govulncheck** | SCA (Go) | Known vulnerabilities in Go dependencies (call-graph analysis) | `security:govulncheck` | ✅ Yes |
 | **pnpm audit** | SCA (Node.js) | Known vulnerabilities in npm/pnpm dependencies | `security:pnpm-audit` | ✅ Yes |
-| **Trivy** | SCA (multi-lang) | Filesystem scan for Go module + Node.js dependency CVEs (HIGH/CRITICAL) | `security:trivy` | ✅ Yes |
+| **Trivy (FS)** | SCA (multi-lang) | Filesystem scan for Go module + Node.js dependency CVEs (HIGH/CRITICAL) | `security:trivy` | ✅ Yes |
+| **Trivy (image)** | Container scan | Alpine OS packages + binary CVEs in the Docker image | `security:trivy-image` | ✅ Yes |
 | **Gitleaks** | Secret scanning | Accidentally committed API keys, passwords, tokens in git history | `security:gitleaks` | ✅ Yes |
 | **Semgrep** | SAST (multi-lang) | 338 rules across Go, TypeScript, Vue, YAML, Dockerfile, Bash | `security:semgrep` | ✅ Yes |
 
@@ -132,6 +133,28 @@ Semgrep scans **487 files** (every file tracked by git except the marketing site
 | `frontend/nuxt.config.ts` | ~99.5% | <1% of lines | Complex TypeScript config structure; nearly fully parsed. |
 | `scripts/docker-build.sh` | ~97% | ~3% | Shell script parsing limitation. |
 | `scripts/docker-mirror.sh` | ~94% | ~6% | Shell script parsing limitation. |
+
+### Dynamic Application Security Testing (DAST)
+
+In addition to static analysis, Capacitarr is tested with [OWASP ZAP](https://www.zaproxy.org/) — the industry-standard open-source DAST tool. ZAP makes real HTTP requests with attack payloads against a running instance, testing for the OWASP Top 10 and 50+ additional vulnerability categories.
+
+Run locally: `make build && make security:zap`
+
+**Latest baseline (2026-03-10):** 53 active scan rules tested, **52 PASS, 0 FAIL, 1 WARN**
+
+| Category | Tests | Result |
+|----------|-------|--------|
+| SQL Injection (6 database engines) | 6 | ✅ All PASS |
+| Cross-Site Scripting (Reflected, Persistent, DOM) | 5 | ✅ All PASS |
+| Remote Code/Command Execution | 5 | ✅ All PASS |
+| Server-Side Attacks (XXE, SSTI, SSRF, SOAP) | 6 | ✅ All PASS |
+| Path Traversal & File Disclosure | 5 | ✅ All PASS |
+| Known CVEs (Log4Shell, Spring4Shell) | 4 | ✅ All PASS |
+| Infrastructure (Buffer Overflow, CRLF, Cloud Metadata) | 16 | ✅ All PASS |
+| Authentication & Session | 3 | ✅ All PASS |
+| Unexpected Content-Type (SPA fallback) | 1 | ⚠️ WARN (expected) |
+
+The full test-by-test breakdown with rule IDs is in [`docs/security/zap-baseline-20260310.md`](docs/security/zap-baseline-20260310.md).
 
 ### Gosec G117 — JSON Secret Field Policy
 

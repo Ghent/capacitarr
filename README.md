@@ -4,6 +4,7 @@
 [![Release][release-badge]][release-url]
 [![License][license-badge]][license-url]
 [![Docker Hub][dockerhub-badge]][dockerhub-url]
+[![Security][security-badge]][security-url]
 
 > *Intelligent media library capacity manager for the \*arr ecosystem.*
 
@@ -78,3 +79,5 @@ You can also support the developer via [GitHub Sponsors](https://github.com/spon
 [license-url]: LICENSE
 [dockerhub-badge]: https://img.shields.io/docker/v/ghentstarshadow/capacitarr?label=Docker%20Hub&logo=docker&sort=semver
 [dockerhub-url]: https://hub.docker.com/r/ghentstarshadow/capacitarr
+[security-badge]: https://img.shields.io/badge/security-hardened-brightgreen?logo=owasp&logoColor=white
+[security-url]: SECURITY.md
