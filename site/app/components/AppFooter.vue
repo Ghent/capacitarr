@@ -78,6 +78,11 @@ const { footer } = useAppConfig()
 
         <span class="footer-group-divider">|</span>
 
+        <!-- Ukraine -->
+        <span class="footer-ukraine" title="I stand with Ukraine">🇺🇦</span>
+
+        <span class="footer-group-divider">|</span>
+
         <!-- GitLab -->
         <UButton
           icon="i-simple-icons-gitlab"
@@ -174,5 +179,11 @@ const { footer } = useAppConfig()
 
 :root.dark .footer-group-divider {
   color: var(--color-neutral-700);
+}
+
+.footer-ukraine {
+  font-size: 1rem;
+  line-height: 1;
+  cursor: default;
 }
 </style>

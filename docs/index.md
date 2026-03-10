@@ -54,11 +54,19 @@ Then open `http://localhost:2187` in your browser to complete setup.
 Licensed under [PolyForm Noncommercial 1.0.0](https://gitlab.com/starshadow/software/capacitarr/-/blob/main/LICENSE).
 Built with Go, Nuxt 4, and SQLite.
 
-🇺🇦 I stand with Ukraine. This project is built with the belief that freedom,
-sovereignty, and self-determination matter — for people and for software.
+---
+
+> 🇺🇦 **I stand with Ukraine.** This project is built with the belief that freedom, sovereignty, and self-determination matter — for people and for software.
 
 ---
 
-**Support animal rescue:** [UAnimals](https://uanimals.org/en/) · [ASPCA](https://www.aspca.org/ways-to-help) — or support the developer: [GitHub Sponsors](https://github.com/sponsors/ghent) · [Ko-fi](https://ko-fi.com/ghent) · [Buy Me a Coffee](https://buymeacoffee.com/ghentgames)
+### 🐾 Support Animal Rescue
+
+Capacitarr is free software. The creator strongly prefers that donations go to animal rescue over developer support:
+
+- **[UAnimals](https://uanimals.org/en/)** — rescuing and protecting animals in Ukraine 🇺🇦
+- **[ASPCA](https://www.aspca.org/ways-to-help)** — preventing cruelty to animals
+
+If you still want to support development directly: [GitHub Sponsors](https://github.com/sponsors/ghent) · [Ko-fi](https://ko-fi.com/ghent) · [Buy Me a Coffee](https://buymeacoffee.com/ghentgames)
 
 *Author: Ghent Starshadow*

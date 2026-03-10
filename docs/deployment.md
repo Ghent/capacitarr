@@ -14,7 +14,6 @@
 | `AUTH_HEADER` | (none) | Trusted reverse proxy authentication header name |
 | `PUID` | `1000` | User ID for the container process (Docker only) |
 | `PGID` | `1000` | Group ID for the container process (Docker only) |
-| `NUXT_APP_BASE_URL` | `/` | **Deprecated** — frontend base URL is derived from `BASE_URL` at runtime |
 
 ---
 
@@ -78,7 +77,7 @@ services:
       - SECURE_COOKIES=true
 ```
 
-Only `BASE_URL` is needed — the frontend HTML is automatically rewritten at startup to use the correct asset paths, API base URL, and Vue Router base path. Do **not** set `NUXT_APP_BASE_URL`; it has no effect at runtime.
+Only `BASE_URL` is needed — the frontend HTML is automatically rewritten at startup to use the correct asset paths, API base URL, and Vue Router base path.
 
 #### Traefik (Docker labels)
 

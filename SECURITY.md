@@ -1,5 +1,13 @@
 # Security Policy
 
+## Security Philosophy
+
+Capacitarr is developed using AI-assisted coding ("vibe coding"). We believe this makes rigorous, transparent security practices **more important, not less**. Every line of code — whether human-written or AI-generated — passes through the same gauntlet of static analysis, dependency scanning, container scanning, and dynamic application security testing before it reaches a release.
+
+This document is our commitment to transparency. Every security exception, suppression, and allowlist entry is individually documented with rationale — not hidden in config files. We want you to be able to audit our security posture yourself.
+
+**We actively welcome independent security assessments.** If you run a scan, penetration test, or code review and find something, we want to hear about it. We will prioritize investigating and remediating any findings brought to our attention. See [Reporting a Vulnerability](#reporting-a-vulnerability) below for how to reach us.
+
 ## Supported Versions
 
 Only the latest stable release receives security fixes. Pre-release versions (alpha, beta, RC) are not covered.

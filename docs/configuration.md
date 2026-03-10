@@ -28,12 +28,6 @@ Capacitarr is configured entirely through environment variables. All variables a
 |----------|---------|----------|-------------|
 | `CORS_ORIGINS` | *(none)* | No | Comma-separated list of allowed CORS origins. Example: `http://localhost:3000,https://app.example.com`. When not set: same-origin only (unless `DEBUG=true`, which allows all origins). |
 
-## Frontend
-
-| Variable | Default | Required | Description |
-|----------|---------|----------|-------------|
-| `NUXT_APP_BASE_URL` | `/` | No | **Deprecated — do not set.** The frontend base URL is now derived automatically from `BASE_URL` at runtime. This variable only applies during local development builds outside Docker. |
-
 ## Docker
 
 These variables are handled by the container entrypoint script, not the Go backend.
@@ -92,7 +86,7 @@ environment:
   - SECURE_COOKIES=true
 ```
 
-Only `BASE_URL` is needed — the frontend is automatically rewritten at startup to use the correct paths. Do **not** set `NUXT_APP_BASE_URL`; it is ignored at runtime.
+Only `BASE_URL` is needed — the frontend HTML is automatically rewritten at startup to use the correct asset paths, API base URL, and Vue Router base path.
 
 See the [Deployment Guide](deployment.md) for full reverse proxy configuration examples.
 

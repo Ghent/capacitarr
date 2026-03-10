@@ -251,30 +251,32 @@ observe(ctaRef, ctaVisible)
               Capacitarr is free, open-source software created by <strong>Ghent Starshadow</strong>.
               Licensed under PolyForm Noncommercial 1.0.0 + CLA. Built with Go, Nuxt 4, and SQLite.
             </p>
+            <div class="about-ukraine">
+              <img src="/flag-ua.svg" alt="Ukrainian flag" class="ukraine-flag">
+              <p class="about-ukraine-text"><strong>I stand with Ukraine.</strong> This project is built with the belief that freedom, sovereignty, and self-determination matter — for people and for software.</p>
+            </div>
             <div class="about-support">
               <p class="about-support-heading">
                 <UIcon name="i-lucide-heart" class="size-4 text-rose-500" />
                 Support Animal Rescue
               </p>
               <p class="about-support-text">
-                Capacitarr is free software. If it saves you time, please consider donating to animal rescue instead of supporting me directly.
+                Capacitarr is free software. If it saves you time, <strong>please consider donating to animal rescue instead of supporting the developer directly.</strong>
               </p>
               <div class="about-support-links">
                 <UButton
                   to="https://uanimals.org/en/"
                   target="_blank"
                   icon="i-lucide-heart"
-                  variant="soft"
                   color="primary"
                   size="sm"
                 >
-                  UAnimals
+                  UAnimals 🇺🇦
                 </UButton>
                 <UButton
                   to="https://www.aspca.org/ways-to-help"
                   target="_blank"
                   icon="i-lucide-paw-print"
-                  variant="soft"
                   color="primary"
                   size="sm"
                 >
@@ -287,10 +289,6 @@ observe(ctaRef, ctaVisible)
                 <a href="https://ko-fi.com/ghent" target="_blank" rel="noopener noreferrer">Ko-fi</a> ·
                 <a href="https://buymeacoffee.com/ghentgames" target="_blank" rel="noopener noreferrer">Buy Me a Coffee</a>
               </p>
-            </div>
-            <div class="about-ukraine">
-              <img src="/flag-ua.svg" alt="Ukrainian flag" class="ukraine-flag">
-              <p>I stand with Ukraine. This project is built with the belief that freedom, sovereignty, and self-determination matter — for people and for software.</p>
             </div>
           </div>
         </div>
@@ -844,26 +842,33 @@ observe(ctaRef, ctaVisible)
 .about-ukraine {
   display: flex;
   align-items: flex-start;
-  gap: 0.625rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--color-neutral-200);
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border-radius: 0.5rem;
+  border-left: 3px solid #0057B7;
+  background: linear-gradient(135deg, rgba(0, 87, 183, 0.05), rgba(255, 215, 0, 0.05));
+  margin-bottom: 1rem;
 }
 
 :root.dark .about-ukraine {
-  border-top-color: var(--color-neutral-800);
+  background: linear-gradient(135deg, rgba(0, 87, 183, 0.1), rgba(255, 215, 0, 0.08));
 }
 
 .ukraine-flag {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   margin-top: 0.125rem;
   flex-shrink: 0;
 }
 
-.about-ukraine p {
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--color-neutral-400);
+.about-ukraine-text {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-neutral-600);
+}
+
+:root.dark .about-ukraine-text {
+  color: var(--color-neutral-300);
 }
 
 /* ═══════════════════════════════════════════

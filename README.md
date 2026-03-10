@@ -56,15 +56,26 @@ Full docs at **[capacitarr.app](https://capacitarr.app/)** — or browse locally
 
 [Quick Start](docs/quick-start.md) · [Configuration](docs/configuration.md) · [Scoring](docs/scoring.md) · [Architecture](docs/architecture.md) · [API Reference](docs/api/README.md) · [Deployment](docs/deployment.md)
 
-## 💬 Community
+## 🔐 Security
+
+Developed with AI assistance. Hardened with 7 blocking SAST/SCA tools, DAST scanning, and container hardening — every exception individually documented with rationale. [Full security posture →](SECURITY.md)
+
+## � Community
 
 [Discord](https://discord.gg/fbFkND5qgt) · [Reddit](https://www.reddit.com/r/capacitarr/) · [Contributing](CONTRIBUTING.md)
 
-## 🐾 Support
+## 🇺🇦 Ukraine
 
-Capacitarr is free software. If it saves you time, consider donating to [UAnimals 🇺🇦](https://uanimals.org/en/) or [ASPCA](https://www.aspca.org/ways-to-help).
+I stand with Ukraine. This project is built with the belief that freedom, sovereignty, and self-determination matter — for people and for software.
 
-You can also support the developer via [GitHub Sponsors](https://github.com/sponsors/ghent) · [Ko-fi](https://ko-fi.com/ghent) · [Buy Me a Coffee](https://buymeacoffee.com/ghentgames)
+## 🐾 Support Animal Rescue
+
+Capacitarr is free software. The creator strongly prefers that donations go to animal rescue over developer support:
+
+- **[UAnimals](https://uanimals.org/en/)** — rescuing and protecting animals in Ukraine 🇺🇦
+- **[ASPCA](https://www.aspca.org/ways-to-help)** — preventing cruelty to animals
+
+If you still want to support development directly: [GitHub Sponsors](https://github.com/sponsors/ghent) · [Ko-fi](https://ko-fi.com/ghent) · [Buy Me a Coffee](https://buymeacoffee.com/ghentgames)
 
 ## License
 
