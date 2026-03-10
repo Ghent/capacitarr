@@ -2,12 +2,15 @@
  * useMermaid — singleton composable for rendering Mermaid diagrams.
  *
  * Solves the "mermaid is a global singleton" problem by:
- *   1. Initialising mermaid + ELK layout loader exactly once.
+ *   1. Initialising mermaid exactly once (module-level singleton).
  *   2. Serialising render() calls through a promise queue so only one
- *      mermaid.render() is in-flight at a time — preventing async ELK
- *      layout interleaving that causes diagrams to overlap.
+ *      mermaid.render() is in-flight at a time.
  *   3. Exposing a reinitialise path for colour-mode changes that
  *      doesn't race with in-progress renders.
+ *
+ * Uses dagre (mermaid's default layout engine) instead of ELK. ELK was
+ * removed because its async layout engine produced overlapping SVGs on
+ * pages with multiple diagrams — even with serialised rendering.
  */
 
 // ─── Module-level singletons (shared across all component instances) ─
@@ -60,7 +63,6 @@ function buildConfig(isDark: boolean) {
     theme: 'base' as const,
     themeVariables: theme,
     flowchart: {
-      defaultRenderer: 'elk' as const,
       nodeSpacing: 60,
       rankSpacing: 70,
       padding: 20,
@@ -74,17 +76,12 @@ function buildConfig(isDark: boolean) {
       .node rect, .node polygon, .node circle, .node ellipse { rx: 8; ry: 8; }
       .cluster rect { rx: 12; ry: 12; }
       .edgeLabel { font-size: 12px; }
-      .edgeLabel span {
-        padding: 2px 8px;
-        border-radius: 10px;
-        border: 1px solid ${theme.lineColor};
-      }
     `,
   }
 }
 
 /**
- * Ensures mermaid + ELK are loaded and initialised exactly once.
+ * Ensures mermaid is loaded and initialised exactly once.
  * Subsequent calls return the same promise.
  */
 async function ensureInit(isDark: boolean): Promise<void> {
@@ -92,8 +89,6 @@ async function ensureInit(isDark: boolean): Promise<void> {
 
   initPromise = (async () => {
     const mermaid = (await import('mermaid')).default
-    const elkModule = await import('@mermaid-js/layout-elk')
-    mermaid.registerLayoutLoaders(elkModule.default || elkModule)
     mermaid.initialize(buildConfig(isDark))
     mermaidInstance = mermaid
   })()

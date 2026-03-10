@@ -9,7 +9,6 @@ Capacitarr is a single-container application that bundles a Go backend, a Nuxt 4
 The Docker container runs a Go backend that serves the embedded Nuxt frontend. Communication flows through REST API calls and real-time Server-Sent Events.
 
 ```mermaid
-%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart TD
     FRONTEND["Nuxt 4 Frontend<br/>Vue 3 + Tailwind CSS 4 + shadcn-vue"]
     BACKEND["Go Backend<br/>Echo + GORM + Service Layer"]
@@ -33,7 +32,6 @@ flowchart TD
 The engine orchestrator fetches data from external services, and the scoring engine sends deletion requests back to the *arr apps.
 
 ```mermaid
-%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart LR
     POLLER["Engine Orchestrator"]
     ENGINE["Scoring Engine"]
@@ -80,7 +78,6 @@ flowchart LR
 All business logic lives in the service layer (`backend/internal/services/`). Route handlers are thin — they parse requests, call services, and return responses.
 
 ```mermaid
-%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart TD
     ROUTES["Route Handlers<br/>Parse request, call service, return response"]
     SERVICES["Service Layer<br/>Business logic + validation"]
@@ -180,7 +177,6 @@ When a service performs an action (e.g., approving an item, completing an engine
 The `NotificationDispatchService` uses a **two-gate flush pattern** to ensure cycle digest notifications contain complete data from both the evaluation phase and the deletion phase of an engine run.
 
 ```mermaid
-%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart LR
     ENGINE_COMPLETE["EngineCompleteEvent<br/>Gate 1: evaluation stats"]
     DELETION_BATCH["DeletionBatchCompleteEvent<br/>Gate 2: deletion stats"]
@@ -296,7 +292,6 @@ Transient dashboard feed with 7-day retention:
 The frontend uses a singleton `useEventStream` composable that maintains a single `EventSource` connection shared across all components:
 
 ```mermaid
-%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart LR
     SSE_ENDPOINT["GET /api/v1/events"]
     EVENT_SOURCE["EventSource<br/>(singleton)"]

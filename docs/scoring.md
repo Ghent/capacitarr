@@ -7,7 +7,6 @@ Higher score = more likely to be deleted.
 ## Overview
 
 ```mermaid
-%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart TD
     ITEMS["Media Items<br/>from Sonarr, Radarr, etc."]
     RULES["Protection Rules<br/>always_keep, prefer_keep, etc."]
@@ -246,7 +245,6 @@ When two items have the same score (within a tolerance of 0.0001), a tiebreaker 
 ## End-to-End Flow
 
 ```mermaid
-%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
 flowchart TD
     POLL["Poller fetches media<br/>from all integrations"]
     GROUP["Items grouped<br/>by disk group"]
