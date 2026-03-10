@@ -58,8 +58,10 @@ func sendWebhookRequest(webhookURL string, body []byte) error {
 			continue
 		}
 
-		// Drain and close body to allow connection reuse
-		_, _ = io.Copy(io.Discard, resp.Body)
+		// Drain and close body to allow connection reuse.
+		// LimitReader caps the drain at 1 MiB to prevent a malicious endpoint
+		// from keeping the connection open with an infinite response body.
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
 		_ = resp.Body.Close()
 		cancel()
 

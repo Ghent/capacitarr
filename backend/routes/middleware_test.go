@@ -127,7 +127,7 @@ func TestMiddleware_WrongSigningKey(t *testing.T) {
 		"sub": "testadmin",
 		"exp": time.Now().Add(24 * time.Hour).Unix(),
 	})
-	tokenString, err := token.SignedString([]byte("wrong-secret"))
+	tokenString, err := token.SignedString([]byte("wrong-secret")) // nosemgrep: go.jwt-go.security.jwt.hardcoded-jwt-key — test-only: intentionally wrong key to verify rejection
 	if err != nil {
 		t.Fatalf("Failed to sign token: %v", err)
 	}
@@ -230,7 +230,7 @@ func TestMiddleware_JWTCookie(t *testing.T) {
 	}
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/protected", nil)
-	req.AddCookie(&http.Cookie{Name: "jwt", Value: tokenString})
+	req.AddCookie(&http.Cookie{Name: "jwt", Value: tokenString}) // nosemgrep — test request: HttpOnly/Secure are set by the server when issuing cookies, not when sending them in test requests
 	rec := httptest.NewRecorder()
 
 	e.ServeHTTP(rec, req)

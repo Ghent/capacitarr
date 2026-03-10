@@ -16,8 +16,17 @@ var sharedHTTPClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
 
+// maxResponseBytes is the maximum response body size we'll read from an
+// upstream integration API. This prevents a misconfigured or malicious
+// upstream from causing unbounded memory allocation. 64 MiB is generous
+// enough for any *arr API response (the largest is Sonarr's full series
+// list at ~10-20 MiB for very large libraries).
+const maxResponseBytes = 64 << 20 // 64 MiB
+
 // DoAPIRequest creates a GET request to the given URL, sets the specified header,
 // executes with the shared client, checks for 401/non-200, and reads the body.
+// The response body is limited to maxResponseBytes to prevent denial-of-service
+// via oversized upstream responses.
 func DoAPIRequest(url, headerKey, headerValue string) ([]byte, error) {
 	start := time.Now()
 	sanitizedURL := logger.SanitizeURL(url)
@@ -48,7 +57,9 @@ func DoAPIRequest(url, headerKey, headerValue string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	// Limit response body to prevent unbounded memory allocation from
+	// a misconfigured or malicious upstream service.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}

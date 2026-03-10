@@ -176,7 +176,8 @@ function handleEvent(eventType: string, event: MessageEvent) {
       try {
         handler(data);
       } catch (err) {
-        console.warn(`[useEventStream] handler error for "${eventType}":`, err);
+        // eventType is an internal SSE event name, not user input
+        console.warn(`[useEventStream] handler error for "${eventType}":`, err); // nosemgrep
       }
     }
   }

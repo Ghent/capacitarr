@@ -1,0 +1,15 @@
+# Gitleaks configuration — allowlist known false positives.
+#
+# All findings below are test fixtures or documentation examples,
+# not real secrets. Gitleaks is configured to skip:
+#   - Test files (*_test.go) — contain fake API keys, JWT tokens, etc.
+#   - API documentation (docs/api/) — contains example tokens and keys
+#   - Plan documents (docs/plans/) — may reference example credentials
+
+[allowlist]
+description = "Test fixtures and documentation examples"
+paths = [
+  '''_test\.go$''',
+  '''docs/api/''',
+  '''docs/plans/''',
+]

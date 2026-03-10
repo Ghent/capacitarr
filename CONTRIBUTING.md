@@ -76,7 +76,7 @@ Individual stages can be run separately:
 ```bash
 make lint:ci       # golangci-lint + ESLint + Prettier format check + TypeScript typecheck
 make test:ci       # go test + vitest
-make security:ci   # govulncheck + pnpm audit
+make security:ci   # govulncheck + pnpm audit + trivy + gitleaks + semgrep
 ```
 
 For auto-fixing lint and formatting issues during development:
@@ -108,7 +108,7 @@ Every push and merge request triggers a GitLab CI pipeline with these stages:
 1. **Lint** — `golangci-lint` (Go), ESLint + Prettier format check + TypeScript typecheck (frontend)
 2. **Test** — `go test` and Vitest for the frontend
 3. **Build** — Docker image build verification
-4. **Security** — `govulncheck` (Go) and `pnpm audit` (frontend)
+4. **Security** — `govulncheck` (Go), `pnpm audit` (frontend), Trivy (filesystem vulnerability scan), Gitleaks (secret scanning), Semgrep (SAST)
 
 The `make ci` command runs the same checks using the same Docker images, so if it passes locally it will pass in CI. Ensure all CI checks pass before requesting review.
 

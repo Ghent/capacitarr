@@ -1,0 +1,15 @@
+# Semgrep exclusion list — kept to an absolute minimum.
+#
+# POLICY: Every exclusion must be justified and documented in SECURITY.md § Semgrep.
+# Test files, utilities, and all application code are scanned. Inline nosemgrep
+# annotations with documented rationale are used for false positives instead of
+# blanket directory exclusions.
+#
+# site/ — The marketing/documentation website (Nuxt Content) is a completely
+# separate application from Capacitarr with its own package.json, dependencies,
+# and deployment. It has no authentication, no database access, and no API. It
+# renders static HTML from trusted markdown files. Scanning it alongside the
+# main application produces false positives (e.g., v-html for Mermaid SVG
+# rendering) that would be addressed in a separate security review of the site
+# codebase if needed.
+site/

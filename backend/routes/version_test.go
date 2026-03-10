@@ -19,7 +19,7 @@ func mockGitLabReleases(t *testing.T, reg *services.Registry, responseJSON strin
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(responseJSON))
+		_, _ = w.Write([]byte(responseJSON)) // nosemgrep — test-only mock HTTP server returning canned JSON, not production code
 	}))
 	t.Cleanup(srv.Close)
 

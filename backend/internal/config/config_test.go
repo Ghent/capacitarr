@@ -1,10 +1,28 @@
 package config
 
 import (
+	"io"
+	"log"
+	"log/slog"
 	"testing"
 )
 
+// silenceLogs suppresses slog and standard log output for the duration of
+// the test. config.Load() emits WARN-level messages for missing JWT_SECRET
+// and AUTH_HEADER configuration which are expected during tests but pollute
+// test output. See also testutil.SilenceLogs for the shared version.
+func silenceLogs(t *testing.T) {
+	t.Helper()
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	prevOut := log.Writer()
+	log.SetOutput(io.Discard)
+	t.Cleanup(func() { log.SetOutput(prevOut) })
+}
+
 func TestLoad_Defaults(t *testing.T) {
+	silenceLogs(t)
 	// Clear all env vars that Load() reads by setting them to empty
 	for _, key := range []string{"PORT", "BASE_URL", "DB_PATH", "DEBUG", "JWT_SECRET", "CORS_ORIGINS", "SECURE_COOKIES", "AUTH_HEADER"} {
 		t.Setenv(key, "")
@@ -40,6 +58,7 @@ func TestLoad_Defaults(t *testing.T) {
 }
 
 func TestLoad_CustomPort(t *testing.T) {
+	silenceLogs(t)
 	t.Setenv("PORT", "8080")
 
 	cfg := Load()
@@ -50,6 +69,7 @@ func TestLoad_CustomPort(t *testing.T) {
 }
 
 func TestLoad_BaseURL_Normalization(t *testing.T) {
+	silenceLogs(t)
 	tests := []struct {
 		input    string
 		expected string
@@ -73,6 +93,7 @@ func TestLoad_BaseURL_Normalization(t *testing.T) {
 }
 
 func TestLoad_JWTSecret_Debug(t *testing.T) {
+	silenceLogs(t)
 	t.Setenv("DEBUG", "true")
 	t.Setenv("JWT_SECRET", "")
 
@@ -84,6 +105,7 @@ func TestLoad_JWTSecret_Debug(t *testing.T) {
 }
 
 func TestLoad_JWTSecret_Explicit(t *testing.T) {
+	silenceLogs(t)
 	t.Setenv("JWT_SECRET", "my-custom-secret-key")
 
 	cfg := Load()
@@ -94,6 +116,7 @@ func TestLoad_JWTSecret_Explicit(t *testing.T) {
 }
 
 func TestLoad_CORSOrigins_Parsing(t *testing.T) {
+	silenceLogs(t)
 	t.Setenv("CORS_ORIGINS", "http://localhost:3000, https://app.example.com , http://other.com")
 
 	cfg := Load()
@@ -110,6 +133,7 @@ func TestLoad_CORSOrigins_Parsing(t *testing.T) {
 }
 
 func TestLoad_CORSOrigins_DebugDefault(t *testing.T) {
+	silenceLogs(t)
 	t.Setenv("DEBUG", "true")
 	t.Setenv("CORS_ORIGINS", "")
 
@@ -121,6 +145,7 @@ func TestLoad_CORSOrigins_DebugDefault(t *testing.T) {
 }
 
 func TestLoad_AuthHeader(t *testing.T) {
+	silenceLogs(t)
 	t.Setenv("AUTH_HEADER", "Remote-User")
 
 	cfg := Load()
@@ -131,6 +156,7 @@ func TestLoad_AuthHeader(t *testing.T) {
 }
 
 func TestLoad_SecureCookies(t *testing.T) {
+	silenceLogs(t)
 	t.Setenv("SECURE_COOKIES", "true")
 
 	cfg := Load()

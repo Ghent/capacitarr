@@ -108,6 +108,37 @@ security:pnpm-audit:
   script:
     - pnpm audit
 
+security:trivy:
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  interruptible: true
+  script:
+    # Filesystem scan — checks Go modules + pnpm dependencies for known CVEs
+    - trivy fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln backend/
+    - trivy fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln frontend/
+
+security:gitleaks:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  interruptible: true
+  variables:
+    GIT_DEPTH: 0
+  script:
+    - gitleaks detect --source . --config .gitleaks.toml --verbose
+
+security:semgrep:
+  stage: security
+  image:
+    name: semgrep/semgrep:latest
+    entrypoint: [""]
+  interruptible: true
+  script:
+    - semgrep scan --config=auto --error .
+
 # ── Release (tag-triggered, gated behind lint/test/build) ────────────────────
 
 # Extract release notes from the committed CHANGELOG.md for the tagged version

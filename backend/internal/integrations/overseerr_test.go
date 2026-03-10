@@ -201,10 +201,8 @@ func TestOverseerrClient_GetRequestedMedia_Pagination(t *testing.T) {
 				}`
 			}
 			results += `]`
-			_, _ = w.Write([]byte(`{
-				"pageInfo": {"pages": 2, "page": 1, "results": 150},
-				` + results + `
-			}`))
+			page1 := `{"pageInfo": {"pages": 2, "page": 1, "results": 150}, ` + results + `}`
+			_, _ = w.Write([]byte(page1)) // nosemgrep — test-only mock HTTP server for Overseerr pagination, not production code
 		} else {
 			// Second page: return remaining 50 results
 			results := `"results": [`
@@ -221,10 +219,8 @@ func TestOverseerrClient_GetRequestedMedia_Pagination(t *testing.T) {
 				}`
 			}
 			results += `]`
-			_, _ = w.Write([]byte(`{
-				"pageInfo": {"pages": 2, "page": 2, "results": 150},
-				` + results + `
-			}`))
+			page2 := `{"pageInfo": {"pages": 2, "page": 2, "results": 150}, ` + results + `}`
+			_, _ = w.Write([]byte(page2)) // nosemgrep — test-only mock HTTP server for Overseerr pagination, not production code
 		}
 	}))
 	defer srv.Close()

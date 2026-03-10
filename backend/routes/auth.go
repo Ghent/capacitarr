@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -22,15 +23,35 @@ type LoginRequest struct {
 func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services.Registry) {
 	cfg := reg.Cfg
 
-	// Auth status — public endpoint for first-login UX detection
+	// Auth status — public endpoint for first-login UX detection.
+	// Also detects AUTH_HEADER misconfiguration: if AUTH_HEADER is set but the
+	// configured header is absent from this request, the user is likely accessing
+	// the application directly (not through the expected reverse proxy), which
+	// means AUTH_HEADER would allow authentication bypass from anyone who
+	// adds the header manually. The frontend uses this flag to show a warning.
 	public.GET("/auth/status", func(c echo.Context) error {
 		initialized, err := reg.Auth.IsInitialized()
 		if err != nil {
 			return apiError(c, http.StatusInternalServerError, "Failed to check auth status")
 		}
-		return c.JSON(http.StatusOK, map[string]any{
+
+		response := map[string]any{
 			"initialized": initialized,
-		})
+		}
+
+		// SECURITY: Detect missing reverse proxy when AUTH_HEADER is configured.
+		// If AUTH_HEADER is set but this request doesn't contain the header value,
+		// the user is accessing directly without a proxy — a dangerous misconfiguration.
+		if cfg.AuthHeader != "" {
+			headerValue := strings.TrimSpace(c.Request().Header.Get(cfg.AuthHeader))
+			if headerValue == "" {
+				response["authHeaderWarning"] = "AUTH_HEADER is configured (" + cfg.AuthHeader + ") but no proxy header was detected in this request. " +
+					"If Capacitarr is not behind a reverse proxy that sets this header, any client can bypass authentication by spoofing the header. " +
+					"Either place Capacitarr behind a trusted reverse proxy or remove the AUTH_HEADER environment variable."
+			}
+		}
+
+		return c.JSON(http.StatusOK, response)
 	})
 
 	// Rate-limit login endpoint: 10 attempts per IP per 15-minute window
@@ -66,8 +87,9 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 			return apiError(c, http.StatusUnauthorized, "Invalid credentials")
 		}
 
-		// Set HttpOnly JWT cookie for secure transport
-		c.SetCookie(&http.Cookie{
+		// Set HttpOnly JWT cookie for secure transport.
+		// Secure flag is conditional on SECURE_COOKIES=true (for HTTPS deployments).
+		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep
 			Name:     "jwt",
 			Value:    tokenString,
 			Expires:  time.Now().Add(24 * time.Hour),
@@ -77,8 +99,11 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 			SameSite: http.SameSiteLaxMode,
 		})
 
-		// Set a non-HttpOnly cookie so the SPA can detect auth state
-		c.SetCookie(&http.Cookie{
+		// Set a non-HttpOnly cookie so the SPA can detect auth state.
+		// This cookie contains no secrets (just "true") — the JWT cookie above is the sensitive one.
+		// HttpOnly is intentionally false so JavaScript can read it for auth state detection.
+		// Secure flag is conditional on SECURE_COOKIES=true (for HTTPS deployments).
+		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep
 			Name:     "authenticated",
 			Value:    "true",
 			Expires:  time.Now().Add(24 * time.Hour),

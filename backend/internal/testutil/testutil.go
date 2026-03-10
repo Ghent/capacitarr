@@ -7,6 +7,8 @@ package testutil
 import (
 	"context"
 	"io"
+	"log"
+	"log/slog"
 	"net/http"
 	"testing"
 	"time"
@@ -25,6 +27,30 @@ import (
 	"capacitarr/routes"
 )
 
+// SilenceLogs suppresses all slog and standard log output for the duration
+// of the current test. This prevents config.Load(), db.Init(), and Goose
+// migration log messages from polluting test output with spurious warnings
+// (e.g., "No JWT_SECRET set", "AUTH_HEADER is set", "UNIQUE constraint failed").
+// These messages are expected during tests but confuse users reading test output.
+func SilenceLogs(t *testing.T) {
+	t.Helper()
+
+	// Suppress slog (structured logging used by Capacitarr's application code)
+	prevSlog := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
+	t.Cleanup(func() { slog.SetDefault(prevSlog) })
+
+	// Suppress standard log (used by Goose migrations and GORM)
+	prevOutput := log.Writer()
+	prevFlags := log.Flags()
+	log.SetOutput(io.Discard)
+	log.SetFlags(0)
+	t.Cleanup(func() {
+		log.SetOutput(prevOutput)
+		log.SetFlags(prevFlags)
+	})
+}
+
 // TestJWTSecret is the secret used for signing JWT tokens in tests.
 const TestJWTSecret = "test-jwt-secret-for-unit-tests"
 
@@ -36,6 +62,7 @@ const TestUsername = "testadmin"
 // t.Fatal if anything fails.
 func SetupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	SilenceLogs(t)
 
 	database, err := gorm.Open(gormlite.Open(":memory:"), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
@@ -164,7 +191,7 @@ func GenerateTestJWT(t *testing.T, username string) string {
 		"exp": time.Now().Add(24 * time.Hour).Unix(),
 	})
 
-	tokenString, err := token.SignedString([]byte(TestJWTSecret))
+	tokenString, err := token.SignedString([]byte(TestJWTSecret)) // nosemgrep: go.jwt-go.security.jwt.hardcoded-jwt-key — test-only constant, not a production secret
 	if err != nil {
 		t.Fatalf("Failed to sign JWT: %v", err)
 	}

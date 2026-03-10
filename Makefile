@@ -96,6 +96,17 @@ security\:ci:
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
 			pnpm audit"
+	@echo "→ [security:trivy] Filesystem vulnerability scan (Docker: aquasec/trivy)..."
+	docker run --rm -v $(CURDIR)/backend:/src aquasec/trivy:latest \
+		fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln /src
+	docker run --rm -v $(CURDIR)/frontend:/src aquasec/trivy:latest \
+		fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln /src
+	@echo "→ [security:gitleaks] Secret scanning (Docker: zricethezav/gitleaks)..."
+	docker run --rm -v $(CURDIR):/src zricethezav/gitleaks:latest \
+		detect --source /src --config /src/.gitleaks.toml --verbose
+	@echo "→ [security:semgrep] SAST scan (Docker: semgrep/semgrep)..."
+	docker run --rm -v $(CURDIR):/src semgrep/semgrep:latest \
+		semgrep scan --config=auto --error /src
 	@echo "✓ CI security stage passed"
 
 ## Run the full CI pipeline locally (lint + test + security)
@@ -164,7 +175,7 @@ help:
 	@echo "  make ci             - Run full CI pipeline locally (lint + test + security)"
 	@echo "  make lint:ci        - Lint all code (golangci-lint + ESLint + Prettier + typecheck)"
 	@echo "  make test:ci        - Run all tests (go test + vitest)"
-	@echo "  make security:ci    - Run security scans (govulncheck + pnpm audit)"
+	@echo "  make security:ci    - Run security scans (govulncheck + pnpm audit + trivy + gitleaks + semgrep)"
 	@echo ""
 	@echo "Code Quality (local, auto-fix mode):"
 	@echo "  make lint           - Auto-fix lint issues (ESLint --fix + golangci-lint)"

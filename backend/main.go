@@ -298,9 +298,36 @@ func main() {
 	// Security headers middleware
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			c.Response().Header().Set("X-Content-Type-Options", "nosniff")
-			c.Response().Header().Set("X-Frame-Options", "DENY")
-			c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			h := c.Response().Header()
+			h.Set("X-Content-Type-Options", "nosniff")
+			h.Set("X-Frame-Options", "DENY")
+			h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+			h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+			h.Set("X-Permitted-Cross-Domain-Policies", "none")
+			h.Set("Cross-Origin-Opener-Policy", "same-origin")
+			h.Set("Cross-Origin-Resource-Policy", "same-origin")
+
+			// Content-Security-Policy — restrict resource loading to same-origin.
+			// 'unsafe-inline' for style-src is required by Vue/Nuxt runtime styles.
+			// img-src allows data: URIs (inline SVGs, base64 favicons) and https:
+			// (poster images from TMDB/TVDB). connect-src 'self' covers API calls
+			// and the SSE event stream.
+			h.Set("Content-Security-Policy",
+				"default-src 'self'; "+
+					"script-src 'self'; "+
+					"style-src 'self' 'unsafe-inline'; "+
+					"img-src 'self' data: https:; "+
+					"font-src 'self'; "+
+					"connect-src 'self'; "+
+					"frame-ancestors 'none'; "+
+					"base-uri 'self'; "+
+					"form-action 'self'")
+
+			// HSTS — only when SECURE_COOKIES is true (implies HTTPS)
+			if cfg.SecureCookies {
+				h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+			}
+
 			return next(c)
 		}
 	})
