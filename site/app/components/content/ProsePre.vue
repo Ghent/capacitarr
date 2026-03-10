@@ -2,8 +2,8 @@
 /**
  * ProseCode — overrides @nuxt/ui's default code block component.
  *
- * - For `language === 'mermaid'`: renders diagrams client-side via mermaid.render()
- *   with violet-branded dark/light themes and the ELK layout engine.
+ * - For `language === 'mermaid'`: renders diagrams client-side via the
+ *   useMermaid composable (singleton init + serialised render queue).
  * - For all other languages: delegates to Nuxt UI's built-in ProsePre
  *   component for proper themed styling, copy button, and syntax highlighting.
  */
@@ -23,96 +23,18 @@ const isMermaid = computed(() => props.language === 'mermaid')
 // ─── Mermaid state (client-only) ─────────────────────────────────
 const mermaidSvg = ref('')
 const renderError = ref('')
-let renderCount = 0
-let elkRegistered = false
-
-// ─── Theme palettes ──────────────────────────────────────────────
-const darkTheme = {
-  primaryColor: '#1e1b4b',
-  primaryBorderColor: '#8b5cf6',
-  primaryTextColor: '#e9d5ff',
-  lineColor: '#a78bfa',
-  secondaryColor: '#110f24',
-  tertiaryColor: '#110f24',
-  mainBkg: '#1e1b4b',
-  nodeBorder: '#8b5cf6',
-  clusterBkg: '#110f24',
-  clusterBorder: '#4c1d95',
-  titleColor: '#e9d5ff',
-  edgeLabelBackground: '#110f24',
-  textColor: '#e9d5ff',
-}
-
-const lightTheme = {
-  primaryColor: '#ede9fe',
-  primaryBorderColor: '#8b5cf6',
-  primaryTextColor: '#1e1b4b',
-  lineColor: '#6d28d9',
-  secondaryColor: '#f5f3ff',
-  tertiaryColor: '#f5f3ff',
-  mainBkg: '#ede9fe',
-  nodeBorder: '#8b5cf6',
-  clusterBkg: '#f5f3ff',
-  clusterBorder: '#c4b5fd',
-  titleColor: '#1e1b4b',
-  edgeLabelBackground: '#f5f3ff',
-  textColor: '#1e1b4b',
-}
 
 // ─── Mermaid rendering ───────────────────────────────────────────
 async function renderDiagram() {
   if (!props.code) return
 
   try {
-    const mermaid = (await import('mermaid')).default
-
-    // Register ELK layout engine once
-    if (!elkRegistered) {
-      const elkModule = await import('@mermaid-js/layout-elk')
-      mermaid.registerLayoutLoaders(elkModule.default || elkModule)
-      elkRegistered = true
-    }
-
+    const { render } = useMermaid()
     const colorMode = useColorMode()
     const isDark = colorMode.value === 'dark'
 
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'base',
-      themeVariables: isDark ? darkTheme : lightTheme,
-      flowchart: {
-        defaultRenderer: 'elk',
-        nodeSpacing: 60,
-        rankSpacing: 70,
-        padding: 20,
-        curve: 'basis',
-      },
-      sequence: {
-        actorMargin: 80,
-      },
-      fontFamily: '\'Geist Sans\', \'Geist\', ui-sans-serif, system-ui, sans-serif',
-      themeCSS: `
-        .node rect, .node polygon, .node circle, .node ellipse { rx: 8; ry: 8; }
-        .cluster rect { rx: 12; ry: 12; }
-        .edgeLabel { font-size: 12px; }
-        .edgeLabel span {
-          padding: 2px 8px;
-          border-radius: 10px;
-          border: 1px solid ${isDark ? darkTheme.lineColor : lightTheme.lineColor};
-        }
-      `,
-    })
-
-    // Use a unique ID per render pass to avoid mermaid ID collisions
-    renderCount++
-    const { svg } = await mermaid.render(`mermaid-${renderCount}-${Date.now()}`, props.code)
-
-    // Strip inline width/height attributes so the SVG scales responsively
-    // via its viewBox. Mermaid sets explicit pixel dimensions that prevent
-    // CSS-based responsive sizing.
+    const svg = await render(props.code, isDark)
     mermaidSvg.value = svg
-      .replace(/(<svg[^>]*?)\swidth="[^"]*"/, '$1')
-      .replace(/(<svg[^>]*?)\sheight="[^"]*"/, '$1')
     renderError.value = ''
   }
   catch (err) {
@@ -128,8 +50,11 @@ if (isMermaid.value) {
 
     // Re-render when color mode changes
     const colorMode = useColorMode()
+    const { reinitialize } = useMermaid()
     watch(() => colorMode.value, async () => {
       await nextTick()
+      const isDark = colorMode.value === 'dark'
+      await reinitialize(isDark)
       await renderDiagram()
     })
   })
