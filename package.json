@@ -1,6 +1,6 @@
 {
     "name": "capacitarr",
-    "version": "1.5.2",
+    "version": "1.5.3-rc.1",
     "private": true,
     "license": "PolyForm-Noncommercial-1.0.0",
     "scripts": {
