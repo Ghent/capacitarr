@@ -230,19 +230,38 @@ func (p *Poller) poll() {
 		"protected", protected)
 }
 
+// normalizePath converts backslash path separators to forward slashes for
+// consistent cross-platform path comparison. This is necessary because *arr
+// services running on Windows return backslash paths (e.g. H:\Movies), but
+// Capacitarr runs in Docker (Linux). We use strings.ReplaceAll instead of
+// filepath.ToSlash because the latter only converts the OS-native separator,
+// and on Linux backslash is not treated as a path separator.
+func normalizePath(p string) string {
+	return strings.ReplaceAll(p, `\`, "/")
+}
+
 // findMediaMounts returns only the mount paths that are the most specific match
 // for at least one root folder. For example, if mounts are ["/", "/media"] and
 // root folder is "/media/movies", only "/media" is returned (not "/").
+//
+// Paths are normalized to forward slashes before comparison to handle Windows
+// *arr instances that return backslash paths (e.g. H:\Movies).
 func findMediaMounts(diskMap map[string]integrations.DiskSpace, rootFolders map[string]bool) map[string]bool {
 	mediaMounts := make(map[string]bool)
 
+	// Collect available mount paths for diagnostic logging on failure
+	availableMounts := make([]string, 0, len(diskMap))
+	for mountPath := range diskMap {
+		availableMounts = append(availableMounts, mountPath)
+	}
+
 	for rf := range rootFolders {
-		cleanRF := strings.TrimRight(rf, "/")
+		cleanRF := strings.TrimRight(normalizePath(rf), "/")
 		bestMount := ""
 		bestLen := 0
 
 		for mountPath := range diskMap {
-			cleanMount := strings.TrimRight(mountPath, "/")
+			cleanMount := strings.TrimRight(normalizePath(mountPath), "/")
 			// Special case: root "/" matches everything
 			if cleanMount == "" {
 				if bestLen == 0 {
@@ -263,6 +282,9 @@ func findMediaMounts(diskMap map[string]integrations.DiskSpace, rootFolders map[
 			mediaMounts[bestMount] = true
 			slog.Debug("Matched root folder to mount", "component", "poller",
 				"rootFolder", rf, "mount", bestMount)
+		} else {
+			slog.Warn("No disk mount matched root folder", "component", "poller",
+				"rootFolder", rf, "availableMounts", availableMounts)
 		}
 	}
 
@@ -271,11 +293,22 @@ func findMediaMounts(diskMap map[string]integrations.DiskSpace, rootFolders map[
 	// see different mount namespaces for the same underlying storage
 	if len(mediaMounts) > 1 {
 		for m := range mediaMounts {
-			if strings.TrimRight(m, "/") == "" {
+			if strings.TrimRight(normalizePath(m), "/") == "" {
 				slog.Debug("Dropping root mount '/' since more specific mounts exist", "component", "poller")
 				delete(mediaMounts, m)
 			}
 		}
+	}
+
+	// Log summary for diagnostic purposes
+	if len(mediaMounts) > 0 {
+		slog.Debug("Mount matching complete", "component", "poller",
+			"rootFolders", len(rootFolders), "diskEntries", len(diskMap),
+			"matchedMounts", len(mediaMounts))
+	} else if len(rootFolders) > 0 {
+		slog.Warn("Mount matching complete with no matches", "component", "poller",
+			"rootFolders", len(rootFolders), "diskEntries", len(diskMap),
+			"matchedMounts", 0)
 	}
 
 	return mediaMounts
