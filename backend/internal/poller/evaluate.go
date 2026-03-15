@@ -55,10 +55,12 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		TargetPct:    group.TargetPct,
 	})
 
-	// Filter items on this mount
+	// Filter items on this mount — normalize paths for cross-platform
+	// compatibility (Windows *arr instances return backslash paths).
+	normalizedMount := normalizePath(group.MountPath)
 	var diskItems []integrations.MediaItem
 	for _, item := range allItems {
-		if strings.HasPrefix(item.Path, group.MountPath) {
+		if strings.HasPrefix(normalizePath(item.Path), normalizedMount) {
 			diskItems = append(diskItems, item)
 		}
 	}

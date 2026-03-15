@@ -7,6 +7,7 @@ import (
 	"capacitarr/internal/config"
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
+	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
 
 	_ "github.com/ncruces/go-sqlite3/embed" // load the embedded SQLite WASM binary
@@ -125,4 +126,237 @@ func TestSafePoll_NoPanic(t *testing.T) {
 	// safePoll on a poller with no integrations should complete without panic.
 	// It will attempt to poll but find no enabled integrations, which is safe.
 	p.safePoll()
+}
+
+// ---------- normalizePath() ----------
+
+func TestNormalizePath(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "unix path unchanged", in: "/media/movies", want: "/media/movies"},
+		{name: "unix root unchanged", in: "/", want: "/"},
+		{name: "empty string", in: "", want: ""},
+		{name: "windows backslash", in: `H:\Movies`, want: "H:/Movies"},
+		{name: "windows drive root", in: `H:\`, want: "H:/"},
+		{name: "windows deep path with spaces", in: `H:\User\Google Movie HDD\Deluge Movie HDD`, want: "H:/User/Google Movie HDD/Deluge Movie HDD"},
+		{name: "windows UNC path", in: `\\server\share\movies`, want: "//server/share/movies"},
+		{name: "mixed separators", in: `H:\media/movies\subfolder`, want: "H:/media/movies/subfolder"},
+		{name: "already forward slashes on Windows", in: "H:/Movies", want: "H:/Movies"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizePath(tt.in)
+			if got != tt.want {
+				t.Errorf("normalizePath(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+// ---------- findMediaMounts() ----------
+
+func TestFindMediaMounts_UnixPaths(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		"/media": {Path: "/media", TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		"/media/movies": true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts["/media"] {
+		t.Errorf("expected /media to be a media mount, got %v", mounts)
+	}
+	if len(mounts) != 1 {
+		t.Errorf("expected 1 mount, got %d", len(mounts))
+	}
+}
+
+func TestFindMediaMounts_UnixRootFallback(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		"/": {Path: "/", TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		"/data/movies": true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts["/"] {
+		t.Errorf("expected / to be a media mount when it's the only option, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_MostSpecificWins(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		"/":      {Path: "/", TotalBytes: 5000, FreeBytes: 2500},
+		"/media": {Path: "/media", TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		"/media/movies": true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if mounts["/"] {
+		t.Errorf("did not expect / to be selected (more specific /media exists)")
+	}
+	if !mounts["/media"] {
+		t.Errorf("expected /media to be selected as most specific mount, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_WindowsDriveRoot(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		`G:\`: {Path: `G:\`, TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		`G:\Movies`: true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts[`G:\`] {
+		t.Errorf("expected G:\\ to be a media mount, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_WindowsDeepPathWithSpaces(t *testing.T) {
+	// This is the exact scenario from the user's bug report:
+	// Radarr on Windows with Google Drive, root folder deep in H:\
+	diskMap := map[string]integrations.DiskSpace{
+		`H:\`: {Path: `H:\`, TotalBytes: 2000000000000, FreeBytes: 500000000000},
+	}
+	rootFolders := map[string]bool{
+		`H:\User\Google Movie HDD\Deluge Movie HDD`: true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts[`H:\`] {
+		t.Errorf("expected H:\\ to be a media mount for deep Google Drive path, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_WindowsMostSpecificWins(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		`C:\`:      {Path: `C:\`, TotalBytes: 500, FreeBytes: 100},
+		`C:\Media`: {Path: `C:\Media`, TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		`C:\Media\Movies`: true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if mounts[`C:\`] {
+		t.Errorf("did not expect C:\\ to be selected (more specific C:\\Media exists)")
+	}
+	if !mounts[`C:\Media`] {
+		t.Errorf("expected C:\\Media to be the most specific mount, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_WindowsUNCPath(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		`\\server\share`: {Path: `\\server\share`, TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		`\\server\share\movies`: true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts[`\\server\share`] {
+		t.Errorf("expected UNC path \\\\server\\share to be a media mount, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_NoMatch(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		"/media": {Path: "/media", TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		"/data/movies": true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if len(mounts) != 0 {
+		t.Errorf("expected 0 mounts when no match exists, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_ExactMatchRootFolder(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		"/media/movies": {Path: "/media/movies", TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		"/media/movies": true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts["/media/movies"] {
+		t.Errorf("expected exact mount match, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_WindowsExactMatch(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		`D:\Serenity Collection`: {Path: `D:\Serenity Collection`, TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		`D:\Serenity Collection`: true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts[`D:\Serenity Collection`] {
+		t.Errorf("expected exact Windows path match, got %v", mounts)
+	}
+}
+
+func TestFindMediaMounts_MultipleRootFoldersSameDrive(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		`H:\`: {Path: `H:\`, TotalBytes: 2000, FreeBytes: 1000},
+	}
+	rootFolders := map[string]bool{
+		`H:\Movies`:   true,
+		`H:\TV Shows`: true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if !mounts[`H:\`] {
+		t.Errorf("expected H:\\ to match both root folders, got %v", mounts)
+	}
+	if len(mounts) != 1 {
+		t.Errorf("expected 1 mount (both root folders on same drive), got %d", len(mounts))
+	}
+}
+
+func TestFindMediaMounts_RootPrunedWhenMoreSpecificExists(t *testing.T) {
+	diskMap := map[string]integrations.DiskSpace{
+		"/":      {Path: "/", TotalBytes: 5000, FreeBytes: 2500},
+		"/media": {Path: "/media", TotalBytes: 1000, FreeBytes: 500},
+		"/data":  {Path: "/data", TotalBytes: 1000, FreeBytes: 500},
+	}
+	rootFolders := map[string]bool{
+		"/media/movies": true,
+		"/data/tv":      true,
+	}
+
+	mounts := findMediaMounts(diskMap, rootFolders)
+
+	if mounts["/"] {
+		t.Errorf("did not expect / to survive when more specific mounts matched")
+	}
+	if !mounts["/media"] || !mounts["/data"] {
+		t.Errorf("expected /media and /data, got %v", mounts)
+	}
 }

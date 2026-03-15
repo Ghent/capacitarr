@@ -88,6 +88,7 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 		} else {
 			for i := range items {
 				items[i].IntegrationID = cfg.ID
+				items[i].Path = normalizePath(items[i].Path)
 			}
 			result.allItems = append(result.allItems, items...)
 
@@ -122,9 +123,15 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 				"integration", cfg.Name, "type", cfg.Type, "error", err)
 		}
 		for _, f := range folders {
-			result.rootFolders[f] = true
+			normalized := normalizePath(f)
+			result.rootFolders[normalized] = true
+			if normalized != f {
+				slog.Debug("Path normalized", "component", "poller",
+					"integration", cfg.Name, "type", "rootFolder",
+					"original", f, "normalized", normalized)
+			}
 			slog.Debug("Root folder found", "component", "poller",
-				"integration", cfg.Name, "path", f)
+				"integration", cfg.Name, "path", normalized)
 		}
 
 		// Get disk space
@@ -139,11 +146,21 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 		// Update last sync time, clear error
 		_ = integrationSvc.UpdateSyncStatus(cfg.ID, &now, "")
 
-		// Collect all disk entries
+		// Collect all disk entries — normalize paths for cross-platform compatibility
 		for _, d := range disks {
 			if d.Path == "" {
 				continue
 			}
+			originalPath := d.Path
+			d.Path = normalizePath(d.Path)
+			if d.Path != originalPath {
+				slog.Debug("Path normalized", "component", "poller",
+					"integration", cfg.Name, "type", "diskSpace",
+					"original", originalPath, "normalized", d.Path)
+			}
+			slog.Debug("Disk space entry found", "component", "poller",
+				"integration", cfg.Name, "path", d.Path,
+				"totalBytes", d.TotalBytes, "freeBytes", d.FreeBytes)
 			if existing, ok := result.diskMap[d.Path]; ok {
 				if d.TotalBytes > existing.TotalBytes {
 					result.diskMap[d.Path] = d
