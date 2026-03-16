@@ -62,15 +62,9 @@ release:
   gitlab:
     owner: starshadow/software
     name: capacitarr
-  # Use the committed CHANGELOG.md content for the release description.
-  # The changelog job in CI extracts the latest version's notes.
-  header: |
-    ## What's Changed
-
-    See the full [CHANGELOG](https://capacitarr.app/docs/changelog) for details.
-  # Don't replace existing drafts
+  # Release notes are provided by git-cliff via --release-notes in CI.
+  # Do NOT set header/footer here — they override the --release-notes content.
   mode: replace
-  # Upload extra files to the release
   extra_files: []
 
 # Don't build Docker images via GoReleaser — handled by CI docker buildx
