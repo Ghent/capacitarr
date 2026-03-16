@@ -1,3 +1,4 @@
+s
 <template>
   <div>
     <!-- Pull-to-refresh indicator -->
@@ -64,9 +65,6 @@
         </UiSelect>
       </div>
     </div>
-
-    <!-- Integration error banner (independent, above all content) -->
-    <IntegrationErrorBanner :integrations="allIntegrations" />
 
     <!-- Empty state (when no disk groups and not loading) -->
     <DashboardEmptyState
@@ -382,6 +380,9 @@
 
     <!-- Per-Disk-Group Sections -->
     <div v-if="diskGroups.length > 0" class="space-y-5 mb-6">
+      <!-- Integration errors (shown inline with disk groups) -->
+      <IntegrationErrorBanner :integrations="allIntegrations" />
+
       <DiskGroupSection
         v-for="group in diskGroups"
         :key="group.id"
@@ -879,7 +880,11 @@ const dateRangeLabel = computed(() => {
 });
 
 const totalCapacity = computed(() =>
-  diskGroups.value.reduce((sum, g) => sum + (g.totalBytes || 0), 0),
+  diskGroups.value.reduce((sum, g) => {
+    const override = g.totalBytesOverride;
+    const effective = override && override > 0 ? override : g.totalBytes;
+    return sum + (effective || 0);
+  }, 0),
 );
 
 const totalUsed = computed(() => diskGroups.value.reduce((sum, g) => sum + (g.usedBytes || 0), 0));
