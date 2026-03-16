@@ -5,6 +5,7 @@
   >
     <Navbar v-if="isAuthenticated" />
     <main data-slot="page-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-6">
+      <IntegrationErrorBanner v-if="isAuthenticated" :integrations="appIntegrations" />
       <NuxtPage />
     </main>
   </div>
@@ -15,8 +16,28 @@
 </template>
 
 <script setup lang="ts">
+import type { IntegrationConfig } from '~/types/api';
+
 const authenticated = useAuthCookie();
 const isAuthenticated = computed(() => !!authenticated.value);
+
+// Fetch integrations for the global error banner
+const api = useApi();
+const appIntegrations = ref<IntegrationConfig[]>([]);
+
+async function fetchAppIntegrations() {
+  try {
+    appIntegrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
+  } catch {
+    // Silently fail — banner just won't show
+  }
+}
+
+// Fetch on auth state change and periodically
+watch(isAuthenticated, (authed) => {
+  if (authed) fetchAppIntegrations();
+  else appIntegrations.value = [];
+});
 
 // Initialize color mode and theme on client
 if (import.meta.client) {
@@ -48,6 +69,7 @@ onMounted(() => {
 
   if (isAuthenticated.value) {
     connectSSE();
+    fetchAppIntegrations();
   }
 });
 </script>

@@ -380,9 +380,6 @@ s
 
     <!-- Per-Disk-Group Sections -->
     <div v-if="diskGroups.length > 0" class="space-y-5 mb-6">
-      <!-- Integration errors (shown inline with disk groups) -->
-      <IntegrationErrorBanner :integrations="allIntegrations" />
-
       <DiskGroupSection
         v-for="group in diskGroups"
         :key="group.id"

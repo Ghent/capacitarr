@@ -231,12 +231,11 @@
             <UiCollapsibleContent>
               <div class="flex items-center gap-2 mt-2">
                 <UiInput
-                  type="number"
+                  type="text"
+                  inputmode="decimal"
                   :model-value="editOverrideDisplay(dg)"
                   :placeholder="`Detected: ${formatBytes(dg.totalBytes)}`"
                   class="flex-1 h-8 text-sm"
-                  min="0"
-                  step="any"
                   @update:model-value="(v: string | number) => onOverrideInput(dg, v)"
                 />
                 <UiSelect
