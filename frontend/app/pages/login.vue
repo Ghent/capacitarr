@@ -41,7 +41,7 @@
                 v-model="state.username"
                 type="text"
                 autocomplete="username"
-                :placeholder="isSetupMode ? 'Choose a username' : 'admin'"
+                :placeholder="isSetupMode ? 'Choose a username' : ''"
                 autofocus
               />
             </div>
@@ -55,7 +55,6 @@
                 v-model="state.password"
                 type="password"
                 autocomplete="current-password"
-                placeholder="••••••••"
               />
             </div>
 
