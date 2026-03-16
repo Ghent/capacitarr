@@ -11,11 +11,12 @@ import (
 
 // fetchResult holds the aggregated results from fetching all integration data.
 type fetchResult struct {
-	allItems       []integrations.MediaItem
-	serviceClients map[uint]integrations.Integration
-	rootFolders    map[string]bool
-	diskMap        map[string]integrations.DiskSpace
-	enrichment     integrations.EnrichmentClients
+	allItems          []integrations.MediaItem
+	serviceClients    map[uint]integrations.Integration
+	rootFolders       map[string]bool
+	diskMap           map[string]integrations.DiskSpace
+	mountIntegrations map[string][]uint // mount path → integration IDs that reported it
+	enrichment        integrations.EnrichmentClients
 }
 
 // connectEnrichment tests an enrichment client's connection and updates sync status.
@@ -39,9 +40,10 @@ func connectEnrichment(cfg db.IntegrationConfig, testFn func() error, integratio
 // root folders, disk space info, and enrichment clients.
 func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *services.IntegrationService) fetchResult {
 	result := fetchResult{
-		serviceClients: make(map[uint]integrations.Integration),
-		rootFolders:    make(map[string]bool),
-		diskMap:        make(map[string]integrations.DiskSpace),
+		serviceClients:    make(map[uint]integrations.Integration),
+		rootFolders:       make(map[string]bool),
+		diskMap:           make(map[string]integrations.DiskSpace),
+		mountIntegrations: make(map[string][]uint),
 	}
 
 	for _, cfg := range configs {
@@ -168,6 +170,8 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 			} else {
 				result.diskMap[d.Path] = d
 			}
+			// Track which integration reported this mount path
+			result.mountIntegrations[d.Path] = append(result.mountIntegrations[d.Path], cfg.ID)
 		}
 	}
 

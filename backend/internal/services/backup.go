@@ -124,13 +124,20 @@ type NotificationExport struct {
 
 // BackupService handles settings export and import operations.
 type BackupService struct {
-	db  *gorm.DB
-	bus *events.EventBus
+	db         *gorm.DB
+	bus        *events.EventBus
+	diskGroups *DiskGroupService
 }
 
 // NewBackupService creates a new BackupService.
 func NewBackupService(database *gorm.DB, bus *events.EventBus) *BackupService {
 	return &BackupService{db: database, bus: bus}
+}
+
+// SetDiskGroupService wires the DiskGroupService dependency for disk group
+// export and import. Called by Registry after construction.
+func (s *BackupService) SetDiskGroupService(dg *DiskGroupService) {
+	s.diskGroups = dg
 }
 
 // Export produces a SettingsExportEnvelope containing the requested sections.
@@ -227,10 +234,10 @@ func (s *BackupService) Export(sections ExportSections, appVersion string) (*Set
 		envelope.Integrations = exported
 	}
 
-	if sections.DiskGroups {
-		var groups []db.DiskGroup
-		if err := s.db.Find(&groups).Error; err != nil {
-			return nil, fmt.Errorf("failed to fetch disk groups for export: %w", err)
+	if sections.DiskGroups && s.diskGroups != nil {
+		groups, dgErr := s.diskGroups.List()
+		if dgErr != nil {
+			return nil, fmt.Errorf("failed to fetch disk groups for export: %w", dgErr)
 		}
 		exported := make([]DiskGroupExport, 0, len(groups))
 		for _, dg := range groups {
@@ -482,34 +489,15 @@ func (s *BackupService) importIntegrations(integrations []IntegrationExport) (in
 	return count, nil
 }
 
-// importDiskGroups creates or updates disk groups by mount path.
+// importDiskGroups creates or updates disk groups by mount path via DiskGroupService.
 func (s *BackupService) importDiskGroups(groups []DiskGroupExport) (int, error) {
+	if s.diskGroups == nil {
+		return 0, fmt.Errorf("disk group service not available")
+	}
 	count := 0
 	for _, dge := range groups {
-		var existing db.DiskGroup
-		err := s.db.Where("mount_path = ?", dge.MountPath).First(&existing).Error
-		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-			return count, fmt.Errorf("failed to check disk group %q: %w", dge.MountPath, err)
-		}
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Create new
-			dg := db.DiskGroup{
-				MountPath:          dge.MountPath,
-				ThresholdPct:       dge.ThresholdPct,
-				TargetPct:          dge.TargetPct,
-				TotalBytesOverride: dge.TotalBytesOverride,
-			}
-			if err := s.db.Create(&dg).Error; err != nil {
-				return count, fmt.Errorf("failed to create disk group %q: %w", dge.MountPath, err)
-			}
-		} else {
-			// Update existing thresholds and override
-			existing.ThresholdPct = dge.ThresholdPct
-			existing.TargetPct = dge.TargetPct
-			existing.TotalBytesOverride = dge.TotalBytesOverride
-			if err := s.db.Save(&existing).Error; err != nil {
-				return count, fmt.Errorf("failed to update disk group %q: %w", dge.MountPath, err)
-			}
+		if err := s.diskGroups.ImportUpsert(dge.MountPath, dge.ThresholdPct, dge.TargetPct, dge.TotalBytesOverride); err != nil {
+			return count, err
 		}
 		count++
 	}

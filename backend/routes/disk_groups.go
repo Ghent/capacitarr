@@ -12,7 +12,7 @@ import (
 // RegisterDiskGroupRoutes registers disk group management endpoints on the protected group.
 func RegisterDiskGroupRoutes(g *echo.Group, reg *services.Registry) {
 	g.GET("/disk-groups", func(c echo.Context) error {
-		groups, err := reg.Settings.ListDiskGroups()
+		groups, err := reg.DiskGroup.ListWithIntegrations()
 		if err != nil {
 			return apiError(c, http.StatusInternalServerError, "Failed to fetch disk groups")
 		}
@@ -26,7 +26,7 @@ func RegisterDiskGroupRoutes(g *echo.Group, reg *services.Registry) {
 			return apiError(c, http.StatusBadRequest, "Invalid ID")
 		}
 
-		group, err := reg.Settings.GetDiskGroup(uint(idNum))
+		group, err := reg.DiskGroup.GetByID(uint(idNum))
 		if err != nil {
 			return apiError(c, http.StatusNotFound, "Disk group not found")
 		}
@@ -53,7 +53,7 @@ func RegisterDiskGroupRoutes(g *echo.Group, reg *services.Registry) {
 			return apiError(c, http.StatusBadRequest, "Total bytes override must not be negative")
 		}
 
-		updated, err := reg.Settings.UpdateThresholds(group.ID, req.ThresholdPct, req.TargetPct, req.TotalBytesOverride)
+		updated, err := reg.DiskGroup.UpdateThresholds(group.ID, req.ThresholdPct, req.TargetPct, req.TotalBytesOverride)
 		if err != nil {
 			return apiError(c, http.StatusInternalServerError, "Failed to update disk group")
 		}

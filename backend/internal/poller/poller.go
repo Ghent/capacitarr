@@ -147,7 +147,12 @@ func (p *Poller) poll() {
 		"executionMode", prefs.ExecutionMode)
 
 	if len(configs) == 0 {
-		slog.Debug("No enabled integrations, skipping poll", "component", "poller")
+		slog.Debug("No enabled integrations, cleaning all disk groups", "component", "poller")
+		if removed, rmErr := p.reg.DiskGroup.RemoveAll(); rmErr != nil {
+			slog.Error("Failed to remove disk groups", "component", "poller", "error", rmErr)
+		} else if removed > 0 {
+			slog.Info("Removed all disk groups (no enabled integrations)", "component", "poller", "count", removed)
+		}
 		return
 	}
 
@@ -167,7 +172,7 @@ func (p *Poller) poll() {
 		usedBytes := disk.TotalBytes - disk.FreeBytes
 
 		// Upsert DiskGroup via service
-		group, upsertErr := p.reg.Settings.UpsertDiskGroup(disk)
+		group, upsertErr := p.reg.DiskGroup.Upsert(disk)
 		if upsertErr != nil {
 			slog.Error("Failed to upsert disk group", "component", "poller", "mount", mountPath, "error", upsertErr)
 			continue
@@ -175,6 +180,14 @@ func (p *Poller) poll() {
 		// Ensure local struct has latest values for threshold check
 		group.TotalBytes = disk.TotalBytes
 		group.UsedBytes = usedBytes
+
+		// Sync integration links for this disk group
+		if intIDs, ok := fetched.mountIntegrations[mountPath]; ok {
+			if linkErr := p.reg.DiskGroup.SyncIntegrationLinks(group.ID, intIDs); linkErr != nil {
+				slog.Error("Failed to sync integration links", "component", "poller",
+					"mount", mountPath, "error", linkErr)
+			}
+		}
 
 		// Record LibraryHistory snapshot via service
 		if err := p.reg.Metrics.RecordLibraryHistory(group.ID, disk.TotalBytes, usedBytes); err != nil {
@@ -188,7 +201,7 @@ func (p *Poller) poll() {
 
 	// Clean up orphaned disk groups that are no longer media mounts
 	if len(mediaMounts) > 0 {
-		if deleted, cleanErr := p.reg.Settings.CleanOrphanedDiskGroups(mediaMounts); cleanErr != nil {
+		if deleted, cleanErr := p.reg.DiskGroup.ReconcileActiveMounts(mediaMounts); cleanErr != nil {
 			slog.Error("Failed to clean orphaned disk groups", "component", "poller", "error", cleanErr)
 		} else if deleted > 0 {
 			slog.Info("Removed orphaned disk groups", "component", "poller", "count", deleted)

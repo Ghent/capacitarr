@@ -24,6 +24,7 @@ type Registry struct {
 	Backup               *BackupService
 	Deletion             *DeletionService
 	AuditLog             *AuditLogService
+	DiskGroup            *DiskGroupService
 	Engine               *EngineService
 	Settings             *SettingsService
 	Integration          *IntegrationService
@@ -42,6 +43,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	engineSvc := NewEngineService(database, bus)
 	deletionSvc := NewDeletionService(bus, auditLog)
 	settingsSvc := NewSettingsService(database, bus)
+	diskGroupSvc := NewDiskGroupService(database, bus)
 	metricsSvc := NewMetricsService(database, engineSvc, deletionSvc)
 
 	// Wire cross-service dependencies that cannot be injected at construction
@@ -51,15 +53,17 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 
 	notifChannelSvc := NewNotificationChannelService(database, bus)
 	notifDispatch := NewNotificationDispatchService(bus, notifChannelSvc, nil, "")
+	backupSvc := NewBackupService(database, bus)
 
 	reg := &Registry{
 		DB:                   database,
 		Bus:                  bus,
 		Cfg:                  cfg,
 		Approval:             NewApprovalService(database, bus),
-		Backup:               NewBackupService(database, bus),
+		Backup:               backupSvc,
 		Deletion:             deletionSvc,
 		AuditLog:             auditLog,
+		DiskGroup:            diskGroupSvc,
 		Engine:               engineSvc,
 		Settings:             settingsSvc,
 		Integration:          NewIntegrationService(database, bus),
@@ -71,8 +75,11 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 		Metrics:              metricsSvc,
 	}
 
-	// Wire IntegrationService's cross-service dependency on SettingsService
-	reg.Integration.SetSettingsService(settingsSvc)
+	// Wire IntegrationService's cross-service dependency on DiskGroupService
+	reg.Integration.SetDiskGroupService(diskGroupSvc)
+
+	// Wire BackupService's cross-service dependency on DiskGroupService
+	backupSvc.SetDiskGroupService(diskGroupSvc)
 
 	// Wire MetricsService's cross-service dependency on SettingsService
 	metricsSvc.SetSettingsService(settingsSvc)

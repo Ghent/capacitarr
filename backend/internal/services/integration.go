@@ -34,10 +34,11 @@ const (
 	ruleActionCollection = "collection"
 )
 
-// DiskGroupUpserter provides write access to disk groups.
-// Defined here to avoid import cycles between IntegrationService and SettingsService.
-type DiskGroupUpserter interface {
-	UpsertDiskGroup(disk integrations.DiskSpace) (*db.DiskGroup, error)
+// DiskGroupManager provides disk group operations needed by IntegrationService.
+// Defined here to avoid import cycles between IntegrationService and DiskGroupService.
+type DiskGroupManager interface {
+	Upsert(disk integrations.DiskSpace) (*db.DiskGroup, error)
+	RemoveAll() (int64, error)
 }
 
 // IntegrationService manages integration CRUD, connection testing, and
@@ -46,14 +47,14 @@ type DiskGroupUpserter interface {
 type IntegrationService struct {
 	db             *gorm.DB
 	bus            *events.EventBus
-	settings       DiskGroupUpserter
+	diskGroups     DiskGroupManager
 	ruleValueCache *cache.TTLCache
 }
 
-// SetSettingsService wires the SettingsService dependency for disk group upserts.
+// SetDiskGroupService wires the DiskGroupService dependency for disk group operations.
 // Called by Registry after construction to avoid circular initialization.
-func (s *IntegrationService) SetSettingsService(settings DiskGroupUpserter) {
-	s.settings = settings
+func (s *IntegrationService) SetDiskGroupService(dg DiskGroupManager) {
+	s.diskGroups = dg
 }
 
 // NewIntegrationService creates a new IntegrationService with an embedded rule value cache.
@@ -410,7 +411,9 @@ func (s *IntegrationService) Update(id uint, config db.IntegrationConfig) (*db.I
 	return &config, nil
 }
 
-// Delete removes an integration config.
+// Delete removes an integration config. If no enabled integrations remain
+// after deletion, all disk groups are removed immediately since they can
+// no longer be validated by any integration.
 func (s *IntegrationService) Delete(id uint) error {
 	var config db.IntegrationConfig
 	if err := s.db.First(&config, id).Error; err != nil {
@@ -426,6 +429,23 @@ func (s *IntegrationService) Delete(id uint) error {
 		IntegrationType: config.Type,
 		Name:            config.Name,
 	})
+
+	// If no enabled integrations remain, remove all disk groups immediately
+	remaining, err := s.ListEnabled()
+	if err != nil {
+		slog.Error("Failed to check remaining integrations after delete",
+			"component", "integration_service", "error", err)
+		return nil // Integration was deleted, don't fail the request
+	}
+	if len(remaining) == 0 && s.diskGroups != nil {
+		if removed, rmErr := s.diskGroups.RemoveAll(); rmErr != nil {
+			slog.Error("Failed to remove disk groups after last integration deleted",
+				"component", "integration_service", "error", rmErr)
+		} else if removed > 0 {
+			slog.Info("Removed all disk groups after last integration deleted",
+				"component", "integration_service", "count", removed)
+		}
+	}
 
 	return nil
 }
@@ -565,8 +585,10 @@ func (s *IntegrationService) SyncAll() ([]SyncResult, error) {
 			result.DiskError = diskErr.Error()
 		} else {
 			result.DiskSpace = disks
-			for _, d := range disks {
-				_, _ = s.settings.UpsertDiskGroup(d)
+			if s.diskGroups != nil {
+				for _, d := range disks {
+					_, _ = s.diskGroups.Upsert(d)
+				}
 			}
 		}
 

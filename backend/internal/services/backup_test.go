@@ -12,6 +12,7 @@ func TestBackupService_Export_AllSections(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	// Seed test data
 	intID := seedIntegration(t, database)
@@ -100,6 +101,7 @@ func TestBackupService_Export_OnlyRules(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	database.Create(&db.CustomRule{
 		Field: "tag", Operator: "contains", Value: "anime", Effect: "prefer_keep", Enabled: true,
@@ -133,6 +135,7 @@ func TestBackupService_Export_SensitiveFieldsExcluded(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	// Seed data with sensitive fields
 	database.Create(&db.IntegrationConfig{
@@ -192,6 +195,7 @@ func TestBackupService_Import_AllSections(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	envelope := SettingsExportEnvelope{
 		Version:    1,
@@ -315,6 +319,7 @@ func TestBackupService_Import_OnlyPreferences(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	envelope := SettingsExportEnvelope{
 		Version:    1,
@@ -375,6 +380,7 @@ func TestBackupService_Import_RejectsUnsupportedVersion(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	envelope := SettingsExportEnvelope{
 		Version:    99,
@@ -396,6 +402,7 @@ func TestBackupService_Import_DiskGroupUpsert(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	// Seed an existing disk group
 	database.Create(&db.DiskGroup{
@@ -441,6 +448,7 @@ func TestBackupService_Import_RulesWithIntegrationResolution(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
 	// Seed an integration for auto-match
 	database.Create(&db.IntegrationConfig{

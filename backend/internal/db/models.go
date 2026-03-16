@@ -74,6 +74,13 @@ func (g DiskGroup) EffectiveTotalBytes() int64 {
 	return g.TotalBytes
 }
 
+// DiskGroupIntegration tracks which integrations reported each disk group.
+// The junction table is cleared and repopulated on each poll cycle.
+type DiskGroupIntegration struct {
+	DiskGroupID   uint `gorm:"primaryKey" json:"diskGroupId"`
+	IntegrationID uint `gorm:"primaryKey" json:"integrationId"`
+}
+
 // PreferenceSet stores the global weights for the scoring engine (0-10 scale)
 type PreferenceSet struct {
 	ID                    uint      `gorm:"primarykey" json:"id"`

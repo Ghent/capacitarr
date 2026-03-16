@@ -152,6 +152,65 @@ func TestIntegrationService_Delete_NotFound(t *testing.T) {
 	}
 }
 
+func TestIntegrationService_Delete_RemovesDiskGroupsWhenLastDeleted(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationService(database, bus)
+
+	// Wire up a DiskGroupService
+	dgSvc := NewDiskGroupService(database, bus)
+	svc.SetDiskGroupService(dgSvc)
+
+	// Create an integration and some disk groups
+	config := db.IntegrationConfig{
+		Type: "radarr", Name: "Serenity Radarr", URL: "http://localhost:7878", APIKey: "key1", Enabled: true,
+	}
+	database.Create(&config)
+	database.Create(&db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 500})
+
+	// Delete the only integration — disk groups should be removed
+	if err := svc.Delete(config.ID); err != nil {
+		t.Fatalf("Delete returned error: %v", err)
+	}
+
+	var dgCount int64
+	database.Model(&db.DiskGroup{}).Count(&dgCount)
+	if dgCount != 0 {
+		t.Errorf("expected 0 disk groups after last integration deleted, got %d", dgCount)
+	}
+}
+
+func TestIntegrationService_Delete_KeepsDiskGroupsWhenOthersExist(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationService(database, bus)
+
+	dgSvc := NewDiskGroupService(database, bus)
+	svc.SetDiskGroupService(dgSvc)
+
+	// Create two integrations and a disk group
+	config1 := db.IntegrationConfig{
+		Type: "radarr", Name: "Serenity Radarr", URL: "http://localhost:7878", APIKey: "key1", Enabled: true,
+	}
+	config2 := db.IntegrationConfig{
+		Type: "sonarr", Name: "Firefly Sonarr", URL: "http://localhost:8989", APIKey: "key2", Enabled: true,
+	}
+	database.Create(&config1)
+	database.Create(&config2)
+	database.Create(&db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 500})
+
+	// Delete one — disk groups should remain
+	if err := svc.Delete(config1.ID); err != nil {
+		t.Fatalf("Delete returned error: %v", err)
+	}
+
+	var dgCount int64
+	database.Model(&db.DiskGroup{}).Count(&dgCount)
+	if dgCount != 1 {
+		t.Errorf("expected 1 disk group when other integrations remain, got %d", dgCount)
+	}
+}
+
 func TestIntegrationService_PublishTestSuccess(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

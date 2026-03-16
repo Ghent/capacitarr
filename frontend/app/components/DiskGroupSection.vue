@@ -16,9 +16,19 @@
             <component :is="HardDriveIcon" class="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 class="font-semibold text-sm truncate" :title="group.mountPath">
-              {{ group.mountPath }}
-            </h3>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <h3 class="font-semibold text-sm truncate" :title="group.mountPath">
+                {{ group.mountPath }}
+              </h3>
+              <UiBadge
+                v-for="integ in group.integrations || []"
+                :key="integ.id"
+                variant="outline"
+                class="text-[10px] px-1.5 py-0"
+              >
+                {{ integ.type }}
+              </UiBadge>
+            </div>
             <span class="text-xs text-muted-foreground">
               {{ formatBytes(group.usedBytes) }} / {{ formatBytes(effectiveTotalBytes) }}
               <UiBadge

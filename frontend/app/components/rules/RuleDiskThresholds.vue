@@ -40,8 +40,18 @@
                 <component :is="HardDriveIcon" class="w-4.5 h-4.5 text-white" />
               </div>
               <div>
-                <div class="text-sm font-medium text-foreground truncate" :title="dg.mountPath">
-                  {{ dg.mountPath }}
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-sm font-medium text-foreground truncate" :title="dg.mountPath">
+                    {{ dg.mountPath }}
+                  </span>
+                  <UiBadge
+                    v-for="integ in dg.integrations || []"
+                    :key="integ.id"
+                    variant="outline"
+                    class="text-[10px] px-1.5 py-0"
+                  >
+                    {{ integ.type }}
+                  </UiBadge>
                 </div>
                 <div class="text-xs text-muted-foreground flex items-center gap-1">
                   {{ formatBytes(dg.usedBytes) }} /

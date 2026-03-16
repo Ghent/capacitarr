@@ -26,6 +26,12 @@ export interface IntegrationConfig {
 // Disk Group
 // ---------------------------------------------------------------------------
 
+export interface DiskGroupIntegration {
+  id: number;
+  name: string;
+  type: string;
+}
+
 export interface DiskGroup {
   id: number;
   mountPath: string;
@@ -34,6 +40,7 @@ export interface DiskGroup {
   totalBytesOverride?: number | null;
   thresholdPct: number;
   targetPct: number;
+  integrations?: DiskGroupIntegration[];
   createdAt: string;
   updatedAt: string;
 }
