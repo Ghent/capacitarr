@@ -1,3 +1,13 @@
+## [1.8.0] - 2026-03-16
+
+### 🚀 Features
+
+- *(ci)* Add Discord release notification and settings tab persistence ([ee5b8f7](https://gitlab.com/starshadow/software/capacitarr/-/commit/ee5b8f70768fadd7326cf7deb7d0fe6343b0a8a6))
+
+### 🐛 Bug Fixes
+
+- *(ci)* Remove static release header so git-cliff notes are used ([81fcd7f](https://gitlab.com/starshadow/software/capacitarr/-/commit/81fcd7f9284b88a338e08976f74df10440a27fa8))
+- *(ui)* Set page title to Capacitarr ([603a0c0](https://gitlab.com/starshadow/software/capacitarr/-/commit/603a0c0ac09c810563f9957526cd9dcbed4b262c))
 ## [1.7.0] - 2026-03-16
 
 ### 🚀 Features
