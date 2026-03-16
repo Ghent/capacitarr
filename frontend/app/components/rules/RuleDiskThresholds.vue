@@ -43,91 +43,88 @@
                 <div class="text-sm font-medium text-foreground truncate" :title="dg.mountPath">
                   {{ dg.mountPath }}
                 </div>
-                <span class="text-xs text-muted-foreground">
-                  {{ formatBytes(dg.usedBytes) }} / {{ formatBytes(effectiveTotal(dg)) }}
-                  <UiBadge
-                    v-if="hasActiveOverride(dg)"
-                    variant="outline"
-                    class="ml-1 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-600"
-                    :title="`Detected: ${formatBytes(dg.totalBytes)}, Custom: ${formatBytes(effectiveTotal(dg))}`"
-                  >
-                    📌 Custom
-                  </UiBadge>
-                </span>
+                <div class="text-xs text-muted-foreground flex items-center gap-1">
+                  {{ formatBytes(dg.usedBytes) }} /
+                  <!-- Inline edit for total size -->
+                  <template v-if="overrideEditing[dg.id]">
+                    <UiInput
+                      :ref="(el) => setOverrideInputRef(dg.id, el)"
+                      type="text"
+                      inputmode="decimal"
+                      :model-value="editOverrideDisplay(dg)"
+                      :placeholder="formatBytes(dg.totalBytes)"
+                      class="w-16 h-5 text-xs px-1 inline-flex"
+                      @update:model-value="(v: string | number) => onOverrideInput(dg, v)"
+                      @keydown.enter="applyInlineOverride(dg)"
+                      @keydown.escape="cancelInlineOverride(dg)"
+                    />
+                    <UiSelect
+                      :model-value="editOverrideUnit(dg)"
+                      @update:model-value="(v) => onOverrideUnitChange(dg, String(v))"
+                    >
+                      <UiSelectTrigger class="w-14 h-5 text-xs px-1">
+                        <UiSelectValue />
+                      </UiSelectTrigger>
+                      <UiSelectContent>
+                        <UiSelectItem value="GB">GB</UiSelectItem>
+                        <UiSelectItem value="TB">TB</UiSelectItem>
+                      </UiSelectContent>
+                    </UiSelect>
+                    <button
+                      class="text-emerald-500 hover:text-emerald-400 transition-colors"
+                      title="Apply"
+                      @click="applyInlineOverride(dg)"
+                    >
+                      <component :is="CheckIcon" class="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      class="text-muted-foreground hover:text-foreground transition-colors"
+                      title="Cancel"
+                      @click="cancelInlineOverride(dg)"
+                    >
+                      <component :is="XIcon" class="w-3.5 h-3.5" />
+                    </button>
+                  </template>
+                  <template v-else>
+                    <span
+                      :class="
+                        hasActiveOverride(dg)
+                          ? 'text-amber-600 dark:text-amber-400 underline decoration-dotted underline-offset-2'
+                          : ''
+                      "
+                      :title="
+                        hasActiveOverride(dg)
+                          ? `Custom size (detected: ${formatBytes(dg.totalBytes)})`
+                          : 'Click pencil to set custom size'
+                      "
+                    >
+                      {{ formatBytes(effectiveTotal(dg)) }}
+                    </span>
+                    <button
+                      class="text-muted-foreground/40 hover:text-foreground transition-colors"
+                      title="Edit disk size"
+                      @click="startInlineOverride(dg)"
+                    >
+                      <component :is="PencilIcon" class="w-3 h-3" />
+                    </button>
+                    <button
+                      v-if="hasActiveOverride(dg)"
+                      class="text-muted-foreground/40 hover:text-destructive transition-colors"
+                      title="Clear custom size"
+                      @click="clearAndSaveOverride(dg)"
+                    >
+                      <component :is="XIcon" class="w-3 h-3" />
+                    </button>
+                  </template>
+                </div>
               </div>
             </div>
-            <div class="flex items-center gap-2">
-              <span
-                class="text-2xl font-bold tabular-nums"
-                :class="diskStatusTextClass(diskUsagePct(dg), editTarget(dg), editThreshold(dg))"
-              >
-                {{ Math.round(diskUsagePct(dg)) }}%
-              </span>
-              <!-- Custom disk size popover -->
-              <UiPopover>
-                <UiPopoverTrigger as-child>
-                  <button
-                    class="text-muted-foreground/50 hover:text-foreground transition-colors p-1 rounded-md hover:bg-muted"
-                    title="Custom disk size"
-                    @click="ensureThresholdEdit(dg.id, dg)"
-                  >
-                    <component :is="SettingsIcon" class="w-4 h-4" />
-                  </button>
-                </UiPopoverTrigger>
-                <UiPopoverContent class="w-64" align="end">
-                  <div class="space-y-3">
-                    <div>
-                      <p class="text-sm font-medium">Custom disk size</p>
-                      <p class="text-xs text-muted-foreground">
-                        Override the detected {{ formatBytes(dg.totalBytes) }}
-                      </p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                      <UiInput
-                        type="text"
-                        inputmode="decimal"
-                        :model-value="editOverrideDisplay(dg)"
-                        placeholder="Leave blank for detected"
-                        class="flex-1 h-8 text-sm"
-                        @update:model-value="(v: string | number) => onOverrideInput(dg, v)"
-                      />
-                      <UiSelect
-                        :model-value="editOverrideUnit(dg)"
-                        @update:model-value="(v) => onOverrideUnitChange(dg, String(v))"
-                      >
-                        <UiSelectTrigger class="w-18 h-8 text-sm">
-                          <UiSelectValue />
-                        </UiSelectTrigger>
-                        <UiSelectContent>
-                          <UiSelectItem value="GB">GB</UiSelectItem>
-                          <UiSelectItem value="TB">TB</UiSelectItem>
-                        </UiSelectContent>
-                      </UiSelect>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <UiButton
-                        v-if="hasActiveOverride(dg) || editOverrideDisplay(dg)"
-                        variant="ghost"
-                        size="sm"
-                        class="text-muted-foreground text-xs h-7"
-                        @click="clearAndSaveOverride(dg)"
-                      >
-                        Clear
-                      </UiButton>
-                      <span v-else />
-                      <UiButton
-                        size="sm"
-                        class="h-7 text-xs"
-                        :disabled="!overrideHasChanges(dg)"
-                        @click="saveThresholds(dg)"
-                      >
-                        Apply
-                      </UiButton>
-                    </div>
-                  </div>
-                </UiPopoverContent>
-              </UiPopover>
-            </div>
+            <span
+              class="text-2xl font-bold tabular-nums"
+              :class="diskStatusTextClass(diskUsagePct(dg), editTarget(dg), editThreshold(dg))"
+            >
+              {{ Math.round(diskUsagePct(dg)) }}%
+            </span>
           </div>
 
           <!-- Progress bar with segmented zone background + triangle markers -->
@@ -266,8 +263,6 @@
             </div>
           </div>
 
-          <!-- (Override input is in the popover on the mount path row) -->
-
           <!-- Validation error + Save button row -->
           <div class="flex items-center justify-between">
             <p v-if="thresholdValidation(dg.id, dg)" class="text-xs text-red-500">
@@ -294,7 +289,14 @@
 </template>
 
 <script setup lang="ts">
-import { HardDriveIcon, LoaderCircleIcon, SaveIcon, SettingsIcon } from 'lucide-vue-next';
+import {
+  HardDriveIcon,
+  LoaderCircleIcon,
+  SaveIcon,
+  PencilIcon,
+  XIcon,
+  CheckIcon,
+} from 'lucide-vue-next';
 import {
   formatBytes,
   diskUsageStatus,
@@ -469,6 +471,43 @@ function overrideHasChanges(dg: DiskGroup): boolean {
   if (!edit) return false;
   const savedOverrideBytes = dg.totalBytesOverride ?? null;
   return edit.overrideBytes !== savedOverrideBytes;
+}
+
+// --- Inline override editing ---
+const overrideEditing = reactive<Record<number, boolean>>({});
+const overrideInputRefs = reactive<Record<number, HTMLInputElement | null>>({});
+
+function setOverrideInputRef(dgId: number, el: unknown) {
+  if (el && typeof el === 'object' && '$el' in el) {
+    overrideInputRefs[dgId] = (el as { $el: HTMLInputElement }).$el;
+  }
+}
+
+function startInlineOverride(dg: DiskGroup) {
+  ensureThresholdEdit(dg.id, dg);
+  overrideEditing[dg.id] = true;
+  nextTick(() => {
+    overrideInputRefs[dg.id]?.focus();
+  });
+}
+
+function cancelInlineOverride(dg: DiskGroup) {
+  overrideEditing[dg.id] = false;
+  // Reset to saved value
+  const { value, unit } = bytesToDisplayUnit(dg.totalBytesOverride);
+  const edit = thresholdEdits[dg.id];
+  if (edit) {
+    edit.overrideDisplay = value;
+    edit.overrideUnit = unit;
+    edit.overrideBytes = dg.totalBytesOverride ?? null;
+  }
+}
+
+async function applyInlineOverride(dg: DiskGroup) {
+  overrideEditing[dg.id] = false;
+  if (overrideHasChanges(dg)) {
+    await saveThresholds(dg);
+  }
 }
 
 /** Handle slider value changes — array is [target, threshold]. */
