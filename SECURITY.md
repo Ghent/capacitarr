@@ -172,7 +172,7 @@ In addition to static analysis, Capacitarr is tested with [OWASP ZAP](https://ww
 
 Run locally: `make build && make security:zap`
 
-**Latest baseline (2026-03-10):** 53 active scan rules tested, **52 PASS, 0 FAIL, 1 WARN**
+**Latest baseline (2026-03-16):** 119 rules tested (53 active + 66 passive), **119 PASS, 0 FAIL, 1 WARN**
 
 | Category | Tests | Result |
 |----------|-------|--------|
@@ -184,9 +184,15 @@ Run locally: `make build && make security:zap`
 | Known CVEs (Log4Shell, Spring4Shell) | 4 | ✅ All PASS |
 | Infrastructure (Buffer Overflow, CRLF, Cloud Metadata) | 16 | ✅ All PASS |
 | Authentication & Session | 3 | ✅ All PASS |
+| Security Headers & Configuration | 17 | ✅ All PASS |
+| Information Disclosure | 12 | ✅ All PASS |
+| Transport Security | 5 | ✅ All PASS |
+| Passive Authentication & Session | 5 | ✅ All PASS |
+| Known Vulnerabilities & Miscellaneous | 19 | ✅ All PASS |
+| Cross-Site & Redirect Attacks (Passive) | 8 | ✅ All PASS |
 | Unexpected Content-Type (SPA fallback) | 1 | ⚠️ WARN (expected) |
 
-The full test-by-test breakdown with rule IDs is in [`docs/security/zap-baseline-20260310.md`](docs/security/zap-baseline-20260310.md).
+The full test-by-test breakdown with rule IDs is in [`docs/security/zap-baseline-20260316.md`](docs/security/zap-baseline-20260316.md).
 
 **Testing cadence:** Run DAST scanning (`make security:zap`) before each release, after significant code changes affecting HTTP handlers or authentication, and periodically as part of routine security hygiene. The baseline should be updated in this document after each scan.
 
