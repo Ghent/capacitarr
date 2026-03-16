@@ -46,14 +46,10 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 		prefs, err := reg.Settings.GetPreferences()
 		if err != nil {
 			slog.Error("Failed to load preferences for approval check", "error", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "Failed to load preferences",
-			})
+			return apiError(c, http.StatusInternalServerError, "Failed to load preferences")
 		}
 		if !prefs.DeletionsEnabled {
-			return c.JSON(http.StatusConflict, map[string]string{
-				"error": "Deletions are currently disabled in settings. Enable deletions before approving items.",
-			})
+			return apiError(c, http.StatusConflict, "Deletions are currently disabled in settings. Enable deletions before approving items.")
 		}
 
 		// Execute the full approval workflow via service
@@ -88,9 +84,7 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 		prefs, err := reg.Settings.GetPreferences()
 		if err != nil {
 			slog.Error("Failed to load preferences for snooze duration", "error", err)
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": "Failed to load preferences",
-			})
+			return apiError(c, http.StatusInternalServerError, "Failed to load preferences")
 		}
 
 		rejected, err := reg.Approval.Reject(uint(entryID), prefs.SnoozeDurationHours)

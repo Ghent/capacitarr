@@ -157,7 +157,7 @@ func (s *VersionService) fetchLatestRelease() VersionCheckResult {
 	}
 	req.Header.Set("User-Agent", fmt.Sprintf("Capacitarr/%s", s.appVersion))
 
-	client := &http.Client{}
+	client := &http.Client{Timeout: 15 * time.Second}
 	resp, err := client.Do(req) //nolint:gosec // URL is set at construction time (DefaultGitLabReleasesURL or test URL), not user-tainted
 	if err != nil {
 		slog.Warn("Failed to fetch latest release from GitLab", "component", "version", "error", err)

@@ -55,7 +55,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 	})
 
 	// Rate-limit login endpoint: 10 attempts per IP per 15-minute window
-	loginRL := newLoginRateLimiter(10, 15*time.Minute)
+	loginRL := newIPRateLimiter(10, 15*time.Minute)
 
 	public.POST("/auth/login", func(c echo.Context) error {
 		var req LoginRequest
@@ -89,7 +89,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 
 		// Set HttpOnly JWT cookie for secure transport.
 		// Secure flag is conditional on SECURE_COOKIES=true (for HTTPS deployments).
-		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep
+		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep — Secure flag is conditionally set via cfg.SecureCookies for HTTPS deployments; not all self-hosted environments use HTTPS
 			Name:     "jwt",
 			Value:    tokenString,
 			Expires:  time.Now().Add(24 * time.Hour),
@@ -103,7 +103,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 		// This cookie contains no secrets (just "true") — the JWT cookie above is the sensitive one.
 		// HttpOnly is intentionally false so JavaScript can read it for auth state detection.
 		// Secure flag is conditional on SECURE_COOKIES=true (for HTTPS deployments).
-		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep
+		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep — HttpOnly intentionally false: cookie contains no secrets (just "true"), allows SPA JavaScript auth state detection. Secure flag conditional via cfg.SecureCookies
 			Name:     "authenticated",
 			Value:    "true",
 			Expires:  time.Now().Add(24 * time.Hour),
@@ -114,7 +114,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 		})
 
 		return c.JSON(http.StatusOK, map[string]string{"message": "success", "token": tokenString})
-	}, LoginRateLimit(loginRL))
+	}, IPRateLimit(loginRL))
 
 	// Password change — delegates to AuthService
 	protected.PUT("/auth/password", func(c echo.Context) error {

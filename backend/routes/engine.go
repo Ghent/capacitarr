@@ -62,9 +62,9 @@ func RegisterEngineRoutes(g *echo.Group, reg *services.Registry) {
 
 	// Engine Run Now - trigger an immediate evaluation cycle
 	// Rate-limited: 5 attempts per IP per 5-minute window to prevent engine spamming
-	engineRunRL := newLoginRateLimiter(5, 5*time.Minute)
+	engineRunRL := newIPRateLimiter(5, 5*time.Minute)
 	g.POST("/engine/run", func(c echo.Context) error {
 		status := reg.Engine.TriggerRun()
 		return c.JSON(http.StatusOK, map[string]string{"status": status})
-	}, LoginRateLimit(engineRunRL))
+	}, IPRateLimit(engineRunRL))
 }

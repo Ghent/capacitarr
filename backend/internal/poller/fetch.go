@@ -36,9 +36,42 @@ func connectEnrichment(cfg db.IntegrationConfig, testFn func() error, integratio
 	return true
 }
 
+// enrichmentTestFn returns the TestConnection function for a given enrichment
+// client type, or nil if the type has no matching client.
+func enrichmentTestFn(ec integrations.EnrichmentClients, cfgType string) func() error {
+	switch integrations.IntegrationType(cfgType) {
+	case integrations.IntegrationTypePlex:
+		if ec.Plex != nil {
+			return ec.Plex.TestConnection
+		}
+	case integrations.IntegrationTypeTautulli:
+		if ec.Tautulli != nil {
+			return ec.Tautulli.TestConnection
+		}
+	case integrations.IntegrationTypeOverseerr:
+		if ec.Overseerr != nil {
+			return ec.Overseerr.TestConnection
+		}
+	case integrations.IntegrationTypeJellyfin:
+		if ec.Jellyfin != nil {
+			return ec.Jellyfin.TestConnection
+		}
+	case integrations.IntegrationTypeEmby:
+		if ec.Emby != nil {
+			return ec.Emby.TestConnection
+		}
+	case integrations.IntegrationTypeSonarr,
+		integrations.IntegrationTypeRadarr,
+		integrations.IntegrationTypeLidarr,
+		integrations.IntegrationTypeReadarr:
+		// *arr types are not enrichment clients; no test function.
+	}
+	return nil
+}
+
 // fetchAllIntegrations queries all enabled integrations and collects media items,
 // root folders, disk space info, and enrichment clients.
-func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *services.IntegrationService) fetchResult {
+func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResult {
 	result := fetchResult{
 		serviceClients:    make(map[uint]integrations.Integration),
 		rootFolders:       make(map[string]bool),
@@ -46,33 +79,25 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 		mountIntegrations: make(map[string][]uint),
 	}
 
-	for _, cfg := range configs {
+	// Build enrichment clients and separate *arr configs via the service factory
+	buildResult, err := integrationSvc.BuildEnrichmentClients()
+	if err != nil {
+		slog.Error("Failed to build enrichment clients", "component", "poller", "error", err)
+		return result
+	}
+	result.enrichment = buildResult.Clients
+
+	// Test enrichment client connections and update sync status
+	for _, cfg := range buildResult.EnrichmentConfigs {
+		if testFn := enrichmentTestFn(result.enrichment, cfg.Type); testFn != nil {
+			connectEnrichment(cfg, testFn, integrationSvc)
+		}
+	}
+
+	// Process *arr configs for media items, root folders, and disk space
+	for _, cfg := range buildResult.ArrConfigs {
 		fetchStart := time.Now()
 		now := time.Now()
-
-		// Enrichment-only services — create client, test connection, continue
-		switch cfg.Type {
-		case "tautulli":
-			result.enrichment.Tautulli = integrations.NewTautulliClient(cfg.URL, cfg.APIKey)
-			connectEnrichment(cfg, result.enrichment.Tautulli.TestConnection, integrationSvc)
-			continue
-		case "overseerr":
-			result.enrichment.Overseerr = integrations.NewOverseerrClient(cfg.URL, cfg.APIKey)
-			connectEnrichment(cfg, result.enrichment.Overseerr.TestConnection, integrationSvc)
-			continue
-		case "jellyfin":
-			result.enrichment.Jellyfin = integrations.NewJellyfinClient(cfg.URL, cfg.APIKey)
-			connectEnrichment(cfg, result.enrichment.Jellyfin.TestConnection, integrationSvc)
-			continue
-		case "emby":
-			result.enrichment.Emby = integrations.NewEmbyClient(cfg.URL, cfg.APIKey)
-			connectEnrichment(cfg, result.enrichment.Emby.TestConnection, integrationSvc)
-			continue
-		case "plex":
-			result.enrichment.Plex = integrations.NewPlexClient(cfg.URL, cfg.APIKey)
-			connectEnrichment(cfg, result.enrichment.Plex.TestConnection, integrationSvc)
-			continue
-		}
 
 		client := integrations.NewClient(cfg.Type, cfg.URL, cfg.APIKey)
 		if client == nil {
@@ -97,13 +122,13 @@ func fetchAllIntegrations(configs []db.IntegrationConfig, integrationSvc *servic
 			var totalSize int64
 			// For Sonarr, only count show-level items to avoid double-counting seasons
 			for _, item := range items {
-				if cfg.Type == "sonarr" && item.Type != integrations.MediaTypeShow {
+				if cfg.Type == string(integrations.IntegrationTypeSonarr) && item.Type != integrations.MediaTypeShow {
 					continue
 				}
 				totalSize += item.SizeBytes
 			}
 			mediaCount := len(items)
-			if cfg.Type == "sonarr" {
+			if cfg.Type == string(integrations.IntegrationTypeSonarr) {
 				// Count unique shows only
 				mediaCount = 0
 				for _, item := range items {

@@ -209,3 +209,99 @@ func TestEngineService_GetHistory(t *testing.T) {
 		t.Errorf("expected 2 history points, got %d", len(points))
 	}
 }
+
+func TestEngineService_GetPreview_NoIntegrations(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewEngineService(database, bus)
+
+	// Wire real services as dependencies
+	integrationSvc := NewIntegrationService(database, bus)
+	settingsSvc := NewSettingsService(database, bus)
+	rulesSvc := NewRulesService(database, bus)
+	diskGroupSvc := NewDiskGroupService(database, bus)
+	svc.SetDependencies(integrationSvc, settingsSvc, rulesSvc, diskGroupSvc)
+
+	result, err := svc.GetPreview()
+	if err != nil {
+		t.Fatalf("GetPreview error: %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil result")
+	}
+	if len(result.Items) != 0 {
+		t.Errorf("expected 0 items with no integrations, got %d", len(result.Items))
+	}
+	if result.DiskContext != nil {
+		t.Error("expected nil disk context with no disk groups")
+	}
+}
+
+func TestEngineService_GetPreview_WithDiskGroups(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewEngineService(database, bus)
+
+	// Wire real services as dependencies
+	integrationSvc := NewIntegrationService(database, bus)
+	settingsSvc := NewSettingsService(database, bus)
+	rulesSvc := NewRulesService(database, bus)
+	diskGroupSvc := NewDiskGroupService(database, bus)
+	svc.SetDependencies(integrationSvc, settingsSvc, rulesSvc, diskGroupSvc)
+
+	// Seed a disk group that is over threshold
+	dg := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   1000000000,
+		UsedBytes:    900000000,
+		TargetPct:    80.0,
+		ThresholdPct: 85.0,
+	}
+	if err := database.Create(&dg).Error; err != nil {
+		t.Fatalf("failed to create disk group: %v", err)
+	}
+
+	result, err := svc.GetPreview()
+	if err != nil {
+		t.Fatalf("GetPreview error: %v", err)
+	}
+	if result.DiskContext == nil {
+		t.Fatal("expected non-nil disk context with disk groups")
+	}
+	if result.DiskContext.TotalBytes != 1000000000 {
+		t.Errorf("expected totalBytes 1000000000, got %d", result.DiskContext.TotalBytes)
+	}
+	if result.DiskContext.BytesToFree <= 0 {
+		t.Error("expected positive bytesToFree for over-threshold disk group")
+	}
+}
+
+func TestEngineService_SetDependencies(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewEngineService(database, bus)
+
+	// Before wiring, fields should be nil
+	if svc.integrations != nil {
+		t.Error("expected nil integrations before SetDependencies")
+	}
+
+	integrationSvc := NewIntegrationService(database, bus)
+	settingsSvc := NewSettingsService(database, bus)
+	rulesSvc := NewRulesService(database, bus)
+	diskGroupSvc := NewDiskGroupService(database, bus)
+	svc.SetDependencies(integrationSvc, settingsSvc, rulesSvc, diskGroupSvc)
+
+	if svc.integrations == nil {
+		t.Error("expected non-nil integrations after SetDependencies")
+	}
+	if svc.preferences == nil {
+		t.Error("expected non-nil preferences after SetDependencies")
+	}
+	if svc.rules == nil {
+		t.Error("expected non-nil rules after SetDependencies")
+	}
+	if svc.diskGroups == nil {
+		t.Error("expected non-nil diskGroups after SetDependencies")
+	}
+}

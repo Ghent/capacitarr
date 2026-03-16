@@ -61,7 +61,10 @@ Capacitarr is designed as a **self-hosted, single-instance** application for hom
 
 - **SSRF protection:** All user-provided URLs are validated to use HTTP or HTTPS schemes only
 - **CORS:** Same-origin by default; explicit `CORS_ORIGINS` configuration required for cross-origin access
-- **Rate limiting:** Login endpoint is rate-limited to prevent brute-force attacks
+- **Rate limiting:** Three endpoints are rate-limited per IP address to prevent abuse:
+  - Login: 10 attempts per 15-minute window
+  - Integration connection test: 30 attempts per 5-minute window
+  - Engine manual run: 5 attempts per 5-minute window
 - **Response body limits:** Upstream API responses are capped at 64 MiB via `io.LimitReader` to prevent denial-of-service from oversized responses
 - **Security headers:** All responses include:
   - `Content-Security-Policy` — restricts resource loading to same-origin with per-request cryptographic nonces for inline scripts (script-src uses nonce-based allowlisting; connect-src, font-src, frame-ancestors, base-uri, form-action are same-origin)
@@ -104,7 +107,7 @@ Gitleaks scans the entire git history for accidentally committed secrets. The fo
 
 #### Semgrep Configuration (`.semgrepignore` and `nosemgrep`)
 
-Semgrep scans **487 files** (every file tracked by git except the marketing site). Test files, utility files, and all production code are scanned.
+Semgrep scans **514 files** (every file tracked by git except the marketing site). Test files, utility files, and all production code are scanned.
 
 **`.semgrepignore` exclusion — 1 directory:**
 
@@ -123,15 +126,36 @@ Semgrep scans **487 files** (every file tracked by git except the marketing site
 
 | File | Line | Semgrep Rule | Rationale |
 |------|------|-------------|-----------|
-| `backend/internal/testutil/testutil.go` | 167 | `go.jwt-go.security.jwt.hardcoded-jwt-key` | `TestJWTSecret` is a test-only constant used to sign JWT tokens in unit tests. It is never used in production code. |
-| `backend/routes/auth.go` | 71 | `go.lang.security.audit.net.cookie-missing-secure` | The `Secure` flag is set to `cfg.SecureCookies` which evaluates to `true` when `SECURE_COOKIES=true`. Semgrep cannot evaluate runtime configuration. |
-| `backend/routes/auth.go` | 85 | `cookie-missing-httponly`, `cookie-missing-secure` | The `authenticated` cookie is intentionally non-HttpOnly so the Vue SPA can detect auth state via JavaScript. It contains no secrets (just the string `"true"`). The JWT cookie (which holds the actual token) IS HttpOnly. `Secure` is conditional as above. |
+| `backend/internal/testutil/testutil.go` | 240 | `go.jwt-go.security.jwt.hardcoded-jwt-key` | `TestJWTSecret` is a test-only constant used to sign JWT tokens in unit tests. It is never used in production code. |
+| `backend/routes/auth.go` | 92 | `go.lang.security.audit.net.cookie-missing-secure` | The `Secure` flag is set to `cfg.SecureCookies` which evaluates to `true` when `SECURE_COOKIES=true`. Semgrep cannot evaluate runtime configuration. |
+| `backend/routes/auth.go` | 106 | `cookie-missing-httponly`, `cookie-missing-secure` | The `authenticated` cookie is intentionally non-HttpOnly so the Vue SPA can detect auth state via JavaScript. It contains no secrets (just the string `"true"`). The JWT cookie (which holds the actual token) IS HttpOnly. `Secure` is conditional as above. |
 | `backend/routes/middleware_test.go` | 130 | `go.jwt-go.security.jwt.hardcoded-jwt-key` | Test intentionally signs a JWT with the wrong secret (`"wrong-secret"`) to verify the middleware rejects tokens signed with incorrect keys. |
 | `backend/routes/middleware_test.go` | 233 | `cookie-missing-httponly`, `cookie-missing-secure` | Test request attaches a JWT cookie to simulate browser behavior. HttpOnly/Secure are server-side attributes set when the cookie is issued by the login handler, not when the browser sends the cookie back. |
-| `backend/internal/integrations/overseerr_test.go` | 204, 224 | `no-direct-write-to-responsewriter` | Mock HTTP server in test code returns canned JSON responses for Overseerr pagination testing. Not production code — `httptest.NewServer` handlers are test-only. |
+| `backend/internal/integrations/overseerr_test.go` | 205, 223 | `no-direct-write-to-responsewriter` | Mock HTTP server in test code returns canned JSON responses for Overseerr pagination testing. Not production code — `httptest.NewServer` handlers are test-only. |
 | `backend/internal/services/version_test.go` | 26 | `no-direct-write-to-responsewriter` | Mock HTTP server returns canned GitLab release API responses for version check tests. Not production code. |
 | `backend/routes/version_test.go` | 22 | `no-direct-write-to-responsewriter` | Mock HTTP server returns canned version API responses. Not production code. |
-| `frontend/app/composables/useEventStream.ts` | 179 | `unsafe-formatstring` | Template literal in `console.warn` uses `eventType` which is an internal SSE event type name from the server's event bus, not user-supplied input. |
+| `frontend/app/composables/useEventStream.ts` | 180 | `unsafe-formatstring` | Template literal in `console.warn` uses `eventType` which is an internal SSE event type name from the server's event bus, not user-supplied input. |
+
+**Inline `nolint` annotations — every suppressed golangci-lint finding with rationale:**
+
+| File | Line | Linter Rule | Rationale |
+|------|------|-------------|-----------|
+| `backend/internal/config/config.go` | 85 | gosec G706 | Logging trusted env var header name (`AUTH_HEADER`), not user input |
+| `backend/internal/config/config.go` | 92 | gosec G706 | Security warning logs trusted env var header name, not user input |
+| `backend/internal/events/sse_broadcaster.go` | 99 | errcheck | `json.Marshal` of a `string` value cannot fail |
+| `backend/internal/integrations/arr_helpers.go` | 224 | gosec G107 | URL is from admin-configured integration settings, not user-tainted |
+| `backend/internal/integrations/httpclient.go` | 42 | gosec G107 | URL is from admin-configured integration settings, not user-tainted |
+| `backend/internal/integrations/httpclient.go` | 50 | gosec G706 | Sanitized URL, HTTP status code, and duration are safe to log |
+| `backend/internal/integrations/plex.go` | 185 | exhaustive | Plex API only returns `movie`, `show`, `season`, and `episode` media types |
+| `backend/internal/integrations/sonarr.go` | 193 | exhaustive | Sonarr integration only handles `show` and `season` types |
+| `backend/internal/integrations/sonarr.go` | 241 | gosec G107 | URL is from admin-configured integration settings, not user-tainted |
+| `backend/internal/notifications/httpclient.go` | 52 | gosec G107 | URL is from admin-configured webhook notification settings |
+| `backend/internal/services/auth.go` | 213 | gosec G706 | Username is from a trusted reverse proxy header, not user-supplied |
+| `backend/internal/services/deletion.go` | 160 | errcheck | `rate.Limiter.Wait` with `context.Background()` never returns non-nil error |
+| `backend/internal/services/version.go` | 161 | gosec G107 | URL is set at construction time (`DefaultGitLabReleasesURL`), not user-tainted |
+| `backend/internal/services/version.go` | 173 | gosec G706 | Status code is a server-side integer, not user-tainted input |
+| `backend/routes/auth.go` | 92 | gosec | `Secure` flag conditionally set via `cfg.SecureCookies` — not all self-hosted environments use HTTPS. Also suppresses Semgrep (see nosemgrep table above) |
+| `backend/routes/auth.go` | 106 | gosec | `HttpOnly` intentionally `false`: cookie contains no secrets (just `"true"`), allows SPA auth state detection. `Secure` conditional as above. Also suppresses Semgrep (see nosemgrep table above) |
 
 **Semgrep partial-parse warnings** (files that are scanned but where Semgrep's parser can't fully parse certain syntax):
 
@@ -164,6 +188,8 @@ Run locally: `make build && make security:zap`
 
 The full test-by-test breakdown with rule IDs is in [`docs/security/zap-baseline-20260310.md`](docs/security/zap-baseline-20260310.md).
 
+**Testing cadence:** Run DAST scanning (`make security:zap`) before each release, after significant code changes affecting HTTP handlers or authentication, and periodically as part of routine security hygiene. The baseline should be updated in this document after each scan.
+
 ### Dependency Override Policy (`pnpm.overrides`)
 
 When transitive npm dependencies have known vulnerabilities but the upstream parent package (e.g., Nuxt, ESLint) has not yet released an update with a patched version, we use `pnpm.overrides` in `frontend/package.json` to force the patched version. This ensures:
@@ -172,10 +198,14 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 - Shipped Docker images contain patched dependency versions, not just silenced findings
 - The security posture is not weakened by `allow_failure` or audit `--ignore` flags
 
-**Current overrides** (as of 2026-03-15):
+**Current overrides** (as of 2026-03-16):
 
 | Package | Override | Advisory | Severity | Upstream Dep |
 |---------|----------|----------|----------|--------------|
+| `minimatch` | `>=5.1.8` / `>=9.0.7` / `>=10.2.3` (per-major) | [GHSA-7r86-cg39-jmmj](https://github.com/advisories/GHSA-7r86-cg39-jmmj), [GHSA-23c5-xmqv-rm74](https://github.com/advisories/GHSA-23c5-xmqv-rm74) | High | `nuxt > nitropack > @vercel/nft > glob`, `@nuxt/eslint` |
+| `rollup` | `>=4.59.0` | [GHSA-mw96-cpmx-2vgc](https://github.com/advisories/GHSA-mw96-cpmx-2vgc) | High | `nuxt > vite` |
+| `serialize-javascript` | `>=7.0.3` | [GHSA-5c6j-r48x-rmvq](https://github.com/advisories/GHSA-5c6j-r48x-rmvq) | High | `nuxt > nitropack > @rollup/plugin-terser` |
+| `svgo` | `>=4.0.1` | [GHSA-xpqw-6gx7-v673](https://github.com/advisories/GHSA-xpqw-6gx7-v673) | High | `nuxt > @nuxt/vite-builder > cssnano > postcss-svgo` |
 | `simple-git` | `>=3.32.3` | [GHSA-r275-fr43-pm7q](https://github.com/advisories/GHSA-r275-fr43-pm7q) | Critical | `nuxt > @nuxt/devtools` |
 | `tar` | `>=7.5.11` | [GHSA-9ppj-qmqm-q256](https://github.com/advisories/GHSA-9ppj-qmqm-q256) | High | `nuxt > nitropack > @vercel/nft > @mapbox/node-pre-gyp` |
 | `flatted` | `>=3.4.0` | [GHSA-25h7-pfq9-p65f](https://github.com/advisories/GHSA-25h7-pfq9-p65f) | High | `eslint > file-entry-cache > flat-cache` |

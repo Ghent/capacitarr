@@ -104,9 +104,11 @@ All services accept `*gorm.DB` and `*events.EventBus` in their constructor and a
 |----------|---------|-----------------|
 | **Core** | ApprovalService | Approve, reject, unsnooze queue items |
 | | DeletionService | Execute deletions, dry run, handle failures |
+| | DiskGroupService | Disk group CRUD, threshold management |
 | | EngineService | Trigger runs, get stats |
 | | SettingsService | Update preferences and thresholds |
 | **Data** | AuditLogService | Create, upsert, dedup audit entries |
+| | BackupService | Database backup, restore, and export/import |
 | | DataService | Data reset operations |
 | | MetricsService | History, rollup, lifetime stats |
 | | RulesService | Custom rule CRUD and validation |
@@ -127,8 +129,10 @@ type Registry struct {
     Cfg *config.Config
 
     Approval             *ApprovalService
+    Backup               *BackupService
     Deletion             *DeletionService
     AuditLog             *AuditLogService
+    DiskGroup            *DiskGroupService
     Engine               *EngineService
     Settings             *SettingsService
     Integration          *IntegrationService
@@ -139,7 +143,6 @@ type Registry struct {
     Rules                *RulesService
     Metrics              *MetricsService
     Version              *VersionService
-    Backup               *BackupService
 }
 ```
 
@@ -158,12 +161,14 @@ type Event interface {
 
 type EventBus struct {
     mu          sync.RWMutex
-    subscribers []chan Event
+    subscribers map[chan Event]struct{}
+    closed      bool
 }
 
 func (b *EventBus) Publish(event Event)
-func (b *EventBus) Subscribe() <-chan Event
-func (b *EventBus) Unsubscribe(ch <-chan Event)
+func (b *EventBus) Subscribe() chan Event
+func (b *EventBus) Unsubscribe(ch chan Event)
+func (b *EventBus) Close()
 ```
 
 When a service performs an action (e.g., approving an item, completing an engine run), it publishes a typed event to the bus. Three subscribers react to every event:
@@ -194,7 +199,7 @@ flowchart LR
 
 See [notifications.md](notifications.md) for the full user-facing guide.
 
-### Event Types (40 total)
+### Event Types (42 total)
 
 | Category | Events |
 |----------|--------|
@@ -202,12 +207,12 @@ See [notifications.md](notifications.md) for the full user-facing guide.
 | **Settings** | `engine_mode_changed`, `settings_changed`, `threshold_changed`, `threshold_breached`, `settings_exported`, `settings_imported` |
 | **Auth** | `login`, `password_changed`, `username_changed`, `api_key_generated` |
 | **Integration** | `integration_added`, `integration_updated`, `integration_removed`, `integration_test`, `integration_test_failed` |
-| **Approval** | `approval_approved`, `approval_rejected`, `approval_unsnoozed`, `approval_bulk_unsnoozed`, `approval_orphans_recovered` |
+| **Approval** | `approval_approved`, `approval_rejected`, `approval_unsnoozed`, `approval_bulk_unsnoozed`, `approval_orphans_recovered`, `approval_queue_cleared` |
 | **Deletion** | `deletion_success`, `deletion_failed`, `deletion_dry_run`, `deletion_batch_complete`, `deletion_progress` |
 | **Rules** | `rule_created`, `rule_updated`, `rule_deleted` |
 | **Notifications** | `notification_channel_added`, `notification_channel_updated`, `notification_channel_removed`, `notification_sent`, `notification_delivery_failed` |
 | **Data** | `data_reset` |
-| **System** | `server_started`, `update_available` |
+| **System** | `server_started`, `update_available`, `version_check` |
 
 ### SSE (Server-Sent Events)
 
@@ -219,11 +224,11 @@ Content-Type: text/event-stream
 Cache-Control: no-cache
 Connection: keep-alive
 
-id: 1741199820-001
+id: 1
 event: engine_start
 data: {"message":"Engine run started in approval mode","executionMode":"approval"}
 
-id: 1741199825-002
+id: 2
 event: engine_complete
 data: {"message":"Engine run completed: evaluated 97, flagged 12","evaluated":97,"flagged":12}
 ```
@@ -280,7 +285,7 @@ Transient dashboard feed with 7-day retention:
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | INTEGER | Primary key |
-| `event_type` | TEXT | One of 39 event types |
+| `event_type` | TEXT | One of 42 event types |
 | `message` | TEXT | Human-readable message |
 | `metadata` | TEXT | Optional JSON payload |
 | `created_at` | DATETIME | Row creation |
@@ -331,14 +336,16 @@ capacitarr/
 │   ├── main.go                     # Application entrypoint, wiring
 │   ├── internal/
 │   │   ├── config/                 # Environment variable loading
-│   │   ├── db/                     # SQLite models, single baseline migration
+│   │   ├── cache/                  # Generic TTL cache
+│   │   ├── db/                     # SQLite models, schema migrations
 │   │   ├── engine/                 # Scoring + rule evaluation
 │   │   ├── events/                 # Event bus, typed events, SSE broadcaster, activity persister
 │   │   ├── integrations/           # *arr, Plex, Jellyfin, Emby, Overseerr, Tautulli clients
 │   │   ├── jobs/                   # Cron scheduling (retention cleanup, time-series rollups)
 │   │   ├── notifications/          # Discord, Apprise notification senders + HTTP client
-│   │   ├── poller/                 # Engine orchestrator + deletion worker
+│   │   ├── poller/                 # Engine orchestrator (scheduled disk monitoring)
 │   │   ├── services/               # Service layer (business logic)
+│   │   ├── testutil/               # Shared test helpers (in-memory DB, fixtures)
 │   │   └── logger/                 # Structured logging
 │   └── routes/                     # REST API handlers + middleware
 ├── frontend/                       # Nuxt 4 frontend

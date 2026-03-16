@@ -157,7 +157,7 @@ func (p *Poller) poll() {
 	}
 
 	// Fetch media items, disk space, and enrichment clients from all integrations
-	fetched := fetchAllIntegrations(configs, p.reg.Integration)
+	fetched := fetchAllIntegrations(p.reg.Integration)
 
 	// Enrich items with watch history and request data
 	integrations.EnrichItems(fetched.allItems, fetched.enrichment)

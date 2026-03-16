@@ -84,6 +84,9 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	// Wire MetricsService's cross-service dependency on SettingsService
 	metricsSvc.SetSettingsService(settingsSvc)
 
+	// Wire EngineService's cross-service dependencies for GetPreview()
+	engineSvc.SetDependencies(reg.Integration, settingsSvc, reg.Rules, diskGroupSvc)
+
 	return reg
 }
 

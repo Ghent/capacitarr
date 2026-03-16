@@ -39,7 +39,7 @@ func RequireAuth(reg *services.Registry) echo.MiddlewareFunc {
 				}
 
 				switch parts[0] {
-				case "Bearer": //nolint:gocritic // auth method branches test different conditions
+				case "Bearer":
 					tokenStr = parts[1]
 				case "ApiKey":
 					auth, err := reg.Auth.ValidateAPIKey(parts[1])

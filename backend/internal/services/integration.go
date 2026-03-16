@@ -165,15 +165,15 @@ func (s *IntegrationService) TestConnection(intType, url, apiKey string, integra
 
 	// Enrichment-only services have separate client constructors
 	switch intType {
-	case "tautulli":
+	case string(integrations.IntegrationTypeTautulli):
 		return s.testClient(intType, url, integrations.NewTautulliClient(url, apiKey).TestConnection)
-	case "overseerr":
+	case string(integrations.IntegrationTypeOverseerr):
 		return s.testClient(intType, url, integrations.NewOverseerrClient(url, apiKey).TestConnection)
-	case "jellyfin":
+	case string(integrations.IntegrationTypeJellyfin):
 		return s.testClient(intType, url, integrations.NewJellyfinClient(url, apiKey).TestConnection)
-	case "emby":
+	case string(integrations.IntegrationTypeEmby):
 		return s.testClient(intType, url, integrations.NewEmbyClient(url, apiKey).TestConnection)
-	case "plex":
+	case string(integrations.IntegrationTypePlex):
 		return s.testClient(intType, url, integrations.NewPlexClient(url, apiKey).TestConnection)
 	}
 
@@ -498,6 +498,56 @@ func (s *IntegrationService) ListEnabled() ([]db.IntegrationConfig, error) {
 		return nil, fmt.Errorf("failed to list enabled integrations: %w", err)
 	}
 	return configs, nil
+}
+
+// EnrichmentBuildResult holds the result of BuildEnrichmentClients:
+// the constructed enrichment clients, the enrichment-type configs (for
+// connection testing in the poller), and the remaining *arr configs for
+// media item processing.
+type EnrichmentBuildResult struct {
+	Clients           integrations.EnrichmentClients
+	EnrichmentConfigs []db.IntegrationConfig
+	ArrConfigs        []db.IntegrationConfig
+}
+
+// BuildEnrichmentClients creates enrichment clients from all enabled integrations.
+// Returns a result containing the populated EnrichmentClients struct, the
+// enrichment-type configs (useful for connection testing), and the remaining
+// *arr configs that are not enrichment-only services.
+func (s *IntegrationService) BuildEnrichmentClients() (*EnrichmentBuildResult, error) {
+	configs, err := s.ListEnabled()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list enabled integrations: %w", err)
+	}
+
+	result := &EnrichmentBuildResult{}
+
+	for _, cfg := range configs {
+		switch integrations.IntegrationType(cfg.Type) {
+		case integrations.IntegrationTypePlex:
+			result.Clients.Plex = integrations.NewPlexClient(cfg.URL, cfg.APIKey)
+			result.EnrichmentConfigs = append(result.EnrichmentConfigs, cfg)
+		case integrations.IntegrationTypeTautulli:
+			result.Clients.Tautulli = integrations.NewTautulliClient(cfg.URL, cfg.APIKey)
+			result.EnrichmentConfigs = append(result.EnrichmentConfigs, cfg)
+		case integrations.IntegrationTypeOverseerr:
+			result.Clients.Overseerr = integrations.NewOverseerrClient(cfg.URL, cfg.APIKey)
+			result.EnrichmentConfigs = append(result.EnrichmentConfigs, cfg)
+		case integrations.IntegrationTypeJellyfin:
+			result.Clients.Jellyfin = integrations.NewJellyfinClient(cfg.URL, cfg.APIKey)
+			result.EnrichmentConfigs = append(result.EnrichmentConfigs, cfg)
+		case integrations.IntegrationTypeEmby:
+			result.Clients.Emby = integrations.NewEmbyClient(cfg.URL, cfg.APIKey)
+			result.EnrichmentConfigs = append(result.EnrichmentConfigs, cfg)
+		case integrations.IntegrationTypeSonarr,
+			integrations.IntegrationTypeRadarr,
+			integrations.IntegrationTypeLidarr,
+			integrations.IntegrationTypeReadarr:
+			result.ArrConfigs = append(result.ArrConfigs, cfg)
+		}
+	}
+
+	return result, nil
 }
 
 // UpdateSyncStatus updates the last_sync and last_error fields on an integration config.

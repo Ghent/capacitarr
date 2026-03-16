@@ -17,7 +17,7 @@ func TestFetchAllIntegrations_EmptyConfigs(t *testing.T) {
 	cfg := testutil.TestConfig()
 	reg := services.NewRegistry(database, bus, cfg)
 
-	result := fetchAllIntegrations(nil, reg.Integration)
+	result := fetchAllIntegrations(reg.Integration)
 
 	if len(result.allItems) != 0 {
 		t.Errorf("expected 0 items, got %d", len(result.allItems))
@@ -41,13 +41,16 @@ func TestFetchAllIntegrations_UnknownType(t *testing.T) {
 	cfg := testutil.TestConfig()
 	reg := services.NewRegistry(database, bus, cfg)
 
-	configs := []db.IntegrationConfig{
-		{ID: 1, Type: "unknown_type", Name: "Firefly Tracker", URL: "http://localhost:9999", APIKey: "test-key"},
-	}
+	// Create an unknown-type integration in the DB so BuildEnrichmentClients
+	// returns it as an *arr config (default branch).
+	database.Create(&db.IntegrationConfig{
+		Type: "unknown_type", Name: "Firefly Tracker", URL: "http://localhost:9999", APIKey: "test-key", Enabled: true,
+	})
 
-	result := fetchAllIntegrations(configs, reg.Integration)
+	result := fetchAllIntegrations(reg.Integration)
 
-	// Unknown type should not be added to any map
+	// Unknown type falls through to *arr processing but NewClient returns nil,
+	// so it should not be added to any map.
 	if len(result.serviceClients) != 0 {
 		t.Errorf("expected 0 service clients for unknown type, got %d", len(result.serviceClients))
 	}

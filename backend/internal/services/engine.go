@@ -13,11 +13,37 @@ import (
 	"capacitarr/internal/integrations"
 )
 
+// IntegrationLister provides read access to enabled integrations and
+// enrichment client construction.
+// Defined here to avoid import cycles between EngineService and IntegrationService.
+type IntegrationLister interface {
+	ListEnabled() ([]db.IntegrationConfig, error)
+	BuildEnrichmentClients() (*EnrichmentBuildResult, error)
+}
+
+// RulesProvider provides read access to custom rules.
+// Defined here to avoid import cycles between EngineService and RulesService.
+type RulesProvider interface {
+	List() ([]db.CustomRule, error)
+}
+
+// DiskGroupLister provides read access to disk groups.
+// Defined here to avoid import cycles between EngineService and DiskGroupService.
+type DiskGroupLister interface {
+	List() ([]db.DiskGroup, error)
+}
+
 // EngineService manages engine run triggers and stats.
 type EngineService struct {
 	db       *gorm.DB
 	bus      *events.EventBus
 	RunNowCh chan struct{} // Signals the poller to run immediately
+
+	// Cross-service dependencies (set via SetDependencies)
+	integrations IntegrationLister
+	preferences  SettingsReader
+	rules        RulesProvider
+	diskGroups   DiskGroupLister
 
 	// Observable state
 	lastEvaluated atomic.Int64
@@ -39,6 +65,15 @@ func NewEngineService(database *gorm.DB, bus *events.EventBus) *EngineService {
 		bus:      bus,
 		RunNowCh: make(chan struct{}, 1),
 	}
+}
+
+// SetDependencies wires cross-service dependencies that cannot be injected
+// at construction time due to circular initialization in the registry.
+func (s *EngineService) SetDependencies(integ IntegrationLister, settings SettingsReader, rules RulesProvider, diskGroups DiskGroupLister) {
+	s.integrations = integ
+	s.preferences = settings
+	s.rules = rules
+	s.diskGroups = diskGroups
 }
 
 // TriggerRun sends a signal to run the engine immediately.
@@ -94,33 +129,13 @@ type DiskContext struct {
 // with watch/request data, scores them against current rules and preferences,
 // and returns the full evaluated result for the preview UI.
 func (s *EngineService) GetPreview() (*PreviewResult, error) {
-	var configs []db.IntegrationConfig
-	if err := s.db.Where("enabled = ?", true).Find(&configs).Error; err != nil {
+	buildResult, err := s.integrations.BuildEnrichmentClients()
+	if err != nil {
 		return nil, err
 	}
 
 	var allItems []integrations.MediaItem
-	var ec integrations.EnrichmentClients
-	for _, cfg := range configs {
-		switch integrations.IntegrationType(cfg.Type) { //nolint:exhaustive // *arr types handled by NewClient below
-		case integrations.IntegrationTypePlex:
-			ec.Plex = integrations.NewPlexClient(cfg.URL, cfg.APIKey)
-			continue
-		case integrations.IntegrationTypeTautulli:
-			ec.Tautulli = integrations.NewTautulliClient(cfg.URL, cfg.APIKey)
-			continue
-		case integrations.IntegrationTypeOverseerr:
-			ec.Overseerr = integrations.NewOverseerrClient(cfg.URL, cfg.APIKey)
-			continue
-		case integrations.IntegrationTypeJellyfin:
-			ec.Jellyfin = integrations.NewJellyfinClient(cfg.URL, cfg.APIKey)
-			continue
-		case integrations.IntegrationTypeEmby:
-			ec.Emby = integrations.NewEmbyClient(cfg.URL, cfg.APIKey)
-			continue
-		default:
-			// *arr integration types (sonarr, radarr, lidarr, readarr) — handled below
-		}
+	for _, cfg := range buildResult.ArrConfigs {
 		client := integrations.NewClient(cfg.Type, cfg.URL, cfg.APIKey)
 		if client == nil {
 			continue
@@ -136,20 +151,26 @@ func (s *EngineService) GetPreview() (*PreviewResult, error) {
 	}
 
 	// Apply enrichment (Plex, Tautulli, Jellyfin, Emby, Overseerr)
-	integrations.EnrichItems(allItems, ec)
+	integrations.EnrichItems(allItems, buildResult.Clients)
 
-	var prefs db.PreferenceSet
-	s.db.FirstOrCreate(&prefs, db.PreferenceSet{ID: 1})
+	prefs, err := s.preferences.GetPreferences()
+	if err != nil {
+		return nil, err
+	}
 
-	var rules []db.CustomRule
-	s.db.Order("sort_order ASC, id ASC").Find(&rules)
+	rules, err := s.rules.List()
+	if err != nil {
+		return nil, err
+	}
 
 	evaluated := engine.EvaluateMedia(allItems, prefs, rules)
 	engine.SortEvaluated(evaluated, prefs.TiebreakerMethod)
 
 	// Build disk context
-	var diskGroups []db.DiskGroup
-	s.db.Find(&diskGroups)
+	diskGroups, err := s.diskGroups.List()
+	if err != nil {
+		return nil, err
+	}
 
 	var diskCtx *DiskContext
 	if len(diskGroups) > 0 {

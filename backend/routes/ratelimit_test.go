@@ -6,7 +6,7 @@ import (
 )
 
 func TestRateLimiterAllowsUnderLimit(t *testing.T) {
-	rl := &loginRateLimiter{
+	rl := &ipRateLimiter{
 		attempts: make(map[string][]time.Time),
 		window:   1 * time.Minute,
 		limit:    5,
@@ -20,7 +20,7 @@ func TestRateLimiterAllowsUnderLimit(t *testing.T) {
 }
 
 func TestRateLimiterBlocksOverLimit(t *testing.T) {
-	rl := &loginRateLimiter{
+	rl := &ipRateLimiter{
 		attempts: make(map[string][]time.Time),
 		window:   1 * time.Minute,
 		limit:    3,
@@ -40,7 +40,7 @@ func TestRateLimiterBlocksOverLimit(t *testing.T) {
 }
 
 func TestRateLimiterPerIPIsolation(t *testing.T) {
-	rl := &loginRateLimiter{
+	rl := &ipRateLimiter{
 		attempts: make(map[string][]time.Time),
 		window:   1 * time.Minute,
 		limit:    2,
@@ -61,7 +61,7 @@ func TestRateLimiterPerIPIsolation(t *testing.T) {
 }
 
 func TestRateLimiterWindowExpiry(t *testing.T) {
-	rl := &loginRateLimiter{
+	rl := &ipRateLimiter{
 		attempts: make(map[string][]time.Time),
 		window:   50 * time.Millisecond,
 		limit:    2,
@@ -85,7 +85,7 @@ func TestRateLimiterWindowExpiry(t *testing.T) {
 }
 
 func TestRateLimiterPrunesExpiredTimestamps(t *testing.T) {
-	rl := &loginRateLimiter{
+	rl := &ipRateLimiter{
 		attempts: make(map[string][]time.Time),
 		window:   50 * time.Millisecond,
 		limit:    3,
@@ -107,7 +107,7 @@ func TestRateLimiterPrunesExpiredTimestamps(t *testing.T) {
 }
 
 func TestRateLimiterExactlyAtLimit(t *testing.T) {
-	rl := &loginRateLimiter{
+	rl := &ipRateLimiter{
 		attempts: make(map[string][]time.Time),
 		window:   1 * time.Minute,
 		limit:    1,

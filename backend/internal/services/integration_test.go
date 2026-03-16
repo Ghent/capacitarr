@@ -476,3 +476,139 @@ func TestIntegrationService_SyncAll_TestsEnrichmentTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestIntegrationService_BuildEnrichmentClients_NoConfigs(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationService(database, bus)
+
+	result, err := svc.BuildEnrichmentClients()
+	if err != nil {
+		t.Fatalf("BuildEnrichmentClients returned error: %v", err)
+	}
+	if result.Clients.Plex != nil {
+		t.Error("expected nil Plex client with no configs")
+	}
+	if result.Clients.Tautulli != nil {
+		t.Error("expected nil Tautulli client with no configs")
+	}
+	if result.Clients.Overseerr != nil {
+		t.Error("expected nil Overseerr client with no configs")
+	}
+	if result.Clients.Jellyfin != nil {
+		t.Error("expected nil Jellyfin client with no configs")
+	}
+	if result.Clients.Emby != nil {
+		t.Error("expected nil Emby client with no configs")
+	}
+	if len(result.ArrConfigs) != 0 {
+		t.Errorf("expected 0 arr configs, got %d", len(result.ArrConfigs))
+	}
+	if len(result.EnrichmentConfigs) != 0 {
+		t.Errorf("expected 0 enrichment configs, got %d", len(result.EnrichmentConfigs))
+	}
+}
+
+func TestIntegrationService_BuildEnrichmentClients_MixedConfigs(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationService(database, bus)
+
+	// Create a mix of enrichment and *arr integrations
+	database.Create(&db.IntegrationConfig{Type: "sonarr", Name: "Firefly Sonarr", URL: "http://localhost:8989", APIKey: "key1", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "plex", Name: "Firefly Plex", URL: "http://localhost:32400", APIKey: "key2", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "tautulli", Name: "Firefly Tautulli", URL: "http://localhost:8181", APIKey: "key3", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "radarr", Name: "Serenity Radarr", URL: "http://localhost:7878", APIKey: "key4", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "overseerr", Name: "Firefly Overseerr", URL: "http://localhost:5055", APIKey: "key5", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "jellyfin", Name: "Firefly Jellyfin", URL: "http://localhost:8096", APIKey: "key6", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "emby", Name: "Firefly Emby", URL: "http://localhost:8920", APIKey: "key7", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "lidarr", Name: "Firefly Lidarr", URL: "http://localhost:8686", APIKey: "key8", Enabled: true})
+
+	result, err := svc.BuildEnrichmentClients()
+	if err != nil {
+		t.Fatalf("BuildEnrichmentClients returned error: %v", err)
+	}
+
+	// Enrichment clients should be set
+	if result.Clients.Plex == nil {
+		t.Error("expected non-nil Plex client")
+	}
+	if result.Clients.Tautulli == nil {
+		t.Error("expected non-nil Tautulli client")
+	}
+	if result.Clients.Overseerr == nil {
+		t.Error("expected non-nil Overseerr client")
+	}
+	if result.Clients.Jellyfin == nil {
+		t.Error("expected non-nil Jellyfin client")
+	}
+	if result.Clients.Emby == nil {
+		t.Error("expected non-nil Emby client")
+	}
+
+	// *arr configs: sonarr, radarr, lidarr = 3 (disabled sonarr excluded)
+	if len(result.ArrConfigs) != 3 {
+		t.Errorf("expected 3 arr configs, got %d", len(result.ArrConfigs))
+	}
+
+	// Enrichment configs: plex, tautulli, overseerr, jellyfin, emby = 5
+	if len(result.EnrichmentConfigs) != 5 {
+		t.Errorf("expected 5 enrichment configs, got %d", len(result.EnrichmentConfigs))
+	}
+}
+
+func TestIntegrationService_BuildEnrichmentClients_OnlyArr(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationService(database, bus)
+
+	// Create only *arr integrations — no enrichment clients should be built
+	database.Create(&db.IntegrationConfig{Type: "sonarr", Name: "Firefly Sonarr", URL: "http://localhost:8989", APIKey: "key1", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "radarr", Name: "Serenity Radarr", URL: "http://localhost:7878", APIKey: "key2", Enabled: true})
+
+	result, err := svc.BuildEnrichmentClients()
+	if err != nil {
+		t.Fatalf("BuildEnrichmentClients returned error: %v", err)
+	}
+
+	if result.Clients.Plex != nil || result.Clients.Tautulli != nil || result.Clients.Overseerr != nil ||
+		result.Clients.Jellyfin != nil || result.Clients.Emby != nil {
+		t.Error("expected no enrichment clients with only *arr configs")
+	}
+
+	if len(result.ArrConfigs) != 2 {
+		t.Errorf("expected 2 arr configs, got %d", len(result.ArrConfigs))
+	}
+	if len(result.EnrichmentConfigs) != 0 {
+		t.Errorf("expected 0 enrichment configs, got %d", len(result.EnrichmentConfigs))
+	}
+}
+
+func TestIntegrationService_BuildEnrichmentClients_OnlyEnrichment(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationService(database, bus)
+
+	// Create only enrichment integrations — no *arr configs should be returned
+	database.Create(&db.IntegrationConfig{Type: "plex", Name: "Firefly Plex", URL: "http://localhost:32400", APIKey: "key1", Enabled: true})
+	database.Create(&db.IntegrationConfig{Type: "tautulli", Name: "Firefly Tautulli", URL: "http://localhost:8181", APIKey: "key2", Enabled: true})
+
+	result, err := svc.BuildEnrichmentClients()
+	if err != nil {
+		t.Fatalf("BuildEnrichmentClients returned error: %v", err)
+	}
+
+	if result.Clients.Plex == nil {
+		t.Error("expected non-nil Plex client")
+	}
+	if result.Clients.Tautulli == nil {
+		t.Error("expected non-nil Tautulli client")
+	}
+
+	if len(result.ArrConfigs) != 0 {
+		t.Errorf("expected 0 arr configs, got %d", len(result.ArrConfigs))
+	}
+	if len(result.EnrichmentConfigs) != 2 {
+		t.Errorf("expected 2 enrichment configs, got %d", len(result.EnrichmentConfigs))
+	}
+}

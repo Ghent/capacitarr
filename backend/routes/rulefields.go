@@ -8,6 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
 )
 
@@ -25,11 +26,11 @@ func detectEnrichment(reg *services.Registry) enrichmentPresence {
 	var p enrichmentPresence
 	for _, cfg := range configs {
 		switch cfg.Type {
-		case intTypeTautulli:
+		case string(integrations.IntegrationTypeTautulli):
 			p.hasTautulli = true
-		case intTypeOverseerr:
+		case string(integrations.IntegrationTypeOverseerr):
 			p.hasOverseerr = true
-		case intTypePlex, intTypeJellyfin, intTypeEmby:
+		case string(integrations.IntegrationTypePlex), string(integrations.IntegrationTypeJellyfin), string(integrations.IntegrationTypeEmby):
 			p.hasMedia = true
 		}
 	}
@@ -94,7 +95,7 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 		}
 
 		// When service_type is specified, add type-specific fields
-		if serviceType == intTypeSonarr || serviceType == "" {
+		if serviceType == string(integrations.IntegrationTypeSonarr) || serviceType == "" {
 			// Sonarr-specific fields (TV)
 			sonarrFields := []map[string]any{
 				{"field": "seriesstatus", "label": "Show Status", "type": "string", "operators": []string{"==", "!="}},
@@ -102,14 +103,14 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 				{"field": "episodecount", "label": "Episode Count", "type": "number", "operators": []string{"==", "!=", ">", ">=", "<", "<="}},
 			}
 
-			if serviceType == intTypeSonarr {
+			if serviceType == string(integrations.IntegrationTypeSonarr) {
 				fields = append(fields, sonarrFields...)
 			} else {
 				// No service_type filter: conditionally add based on enabled integrations
 				configs, _ := reg.Integration.ListEnabled()
 				hasTV := false
 				for _, cfg := range configs {
-					if cfg.Type == intTypeSonarr {
+					if cfg.Type == string(integrations.IntegrationTypeSonarr) {
 						hasTV = true
 						break
 					}
@@ -125,7 +126,12 @@ func RegisterRuleFieldRoutes(protected *echo.Group, reg *services.Registry) {
 		// For filtered requests, only add enrichment for *arr service types.
 		addEnrichment := serviceType == ""
 		if !addEnrichment {
-			arrTypes := map[string]bool{intTypeSonarr: true, intTypeRadarr: true, intTypeLidarr: true, intTypeReadarr: true}
+			arrTypes := map[string]bool{
+				string(integrations.IntegrationTypeSonarr):  true,
+				string(integrations.IntegrationTypeRadarr):  true,
+				string(integrations.IntegrationTypeLidarr):  true,
+				string(integrations.IntegrationTypeReadarr): true,
+			}
 			addEnrichment = arrTypes[serviceType]
 		}
 		if addEnrichment {

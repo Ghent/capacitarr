@@ -18,6 +18,12 @@ const (
 	IntegrationTypeOverseerr IntegrationType = "overseerr"
 	// IntegrationTypeLidarr identifies a Lidarr (music) integration.
 	IntegrationTypeLidarr IntegrationType = "lidarr"
+	// IntegrationTypeReadarr identifies a Readarr (books) integration.
+	IntegrationTypeReadarr IntegrationType = "readarr"
+	// IntegrationTypeJellyfin identifies a Jellyfin media server integration.
+	IntegrationTypeJellyfin IntegrationType = "jellyfin"
+	// IntegrationTypeEmby identifies an Emby media server integration.
+	IntegrationTypeEmby IntegrationType = "emby"
 )
 
 // Integration defines the common interface all service integrations implement
@@ -101,15 +107,6 @@ const (
 	MediaTypeArtist MediaType = "artist"
 	// MediaTypeBook represents a book or audiobook.
 	MediaTypeBook MediaType = "book"
-)
-
-const (
-	// IntegrationTypeReadarr identifies a Readarr (books/audiobooks) integration.
-	IntegrationTypeReadarr IntegrationType = "readarr"
-	// IntegrationTypeJellyfin identifies a Jellyfin media server integration.
-	IntegrationTypeJellyfin IntegrationType = "jellyfin"
-	// IntegrationTypeEmby identifies an Emby media server integration.
-	IntegrationTypeEmby IntegrationType = "emby"
 )
 
 // NewClient constructs an Integration client for the given integration type.
