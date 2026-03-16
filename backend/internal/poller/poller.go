@@ -199,13 +199,14 @@ func (p *Poller) poll() {
 		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.serviceClients, runStatsID)
 	}
 
-	// Clean up orphaned disk groups that are no longer media mounts
-	if len(mediaMounts) > 0 {
-		if deleted, cleanErr := p.reg.DiskGroup.ReconcileActiveMounts(mediaMounts); cleanErr != nil {
-			slog.Error("Failed to clean orphaned disk groups", "component", "poller", "error", cleanErr)
-		} else if deleted > 0 {
-			slog.Info("Removed orphaned disk groups", "component", "poller", "count", deleted)
-		}
+	// Clean up orphaned disk groups that are no longer media mounts.
+	// This also handles the case where all integrations failed to return
+	// disk space — mediaMounts is empty, so all disk groups are removed.
+	// When integrations recover, the next successful poll recreates them.
+	if deleted, cleanErr := p.reg.DiskGroup.ReconcileActiveMounts(mediaMounts); cleanErr != nil {
+		slog.Error("Failed to clean orphaned disk groups", "component", "poller", "error", cleanErr)
+	} else if deleted > 0 {
+		slog.Info("Removed orphaned disk groups", "component", "poller", "count", deleted)
 	}
 
 	// Signal the deletion service with the batch size so it can publish
