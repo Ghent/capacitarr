@@ -16,7 +16,7 @@
     </div>
 
     <!-- Tabs -->
-    <UiTabs :default-value="initialTab" class="w-full">
+    <UiTabs v-model="activeTab" class="w-full">
       <UiTabsList class="mb-6">
         <UiTabsTrigger value="general">
           {{ $t('settings.general') }}
@@ -76,10 +76,28 @@ import SettingsBackupRestore from '~/components/settings/SettingsBackupRestore.v
 import SettingsSecurity from '~/components/settings/SettingsSecurity.vue';
 import SettingsAdvanced from '~/components/settings/SettingsAdvanced.vue';
 
-const route = useRoute();
+const VALID_TABS = [
+  'general',
+  'integrations',
+  'notifications',
+  'backup',
+  'security',
+  'advanced',
+] as const;
+type SettingsTab = (typeof VALID_TABS)[number];
 
-// Open the backup tab automatically when navigated from another page with ?tab=backup
-const initialTab = computed(() => {
-  return route.query.tab === 'backup' ? 'backup' : 'general';
+const route = useRoute();
+const router = useRouter();
+
+// Read the initial tab from the URL query param, validated against known values.
+// Falls back to 'general' for missing or invalid values.
+const queryTab = route.query.tab as string | undefined;
+const activeTab = ref<SettingsTab>(
+  VALID_TABS.includes(queryTab as SettingsTab) ? (queryTab as SettingsTab) : 'general',
+);
+
+// Sync tab changes back to the URL so reloads and deep-links work.
+watch(activeTab, (tab) => {
+  router.replace({ query: { ...route.query, tab } });
 });
 </script>
