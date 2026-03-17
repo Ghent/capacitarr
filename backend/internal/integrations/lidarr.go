@@ -95,8 +95,9 @@ func (l *LidarrClient) GetMediaItems() ([]MediaItem, error) {
 			continue // Skip artists without files on disk
 		}
 
-		// Lidarr ratings are 0-10 scale, normalize to 0-1
-		rating := a.Ratings.Value / 10.0
+		// Lidarr ratings.value is already on a 0–10 scale (MusicBrainz).
+		// Pass through directly — the scoring engine normalizes 0–10 at score time.
+		rating := a.Ratings.Value
 
 		tagNames := arrResolveTagNames(a.Tags, tagMap)
 

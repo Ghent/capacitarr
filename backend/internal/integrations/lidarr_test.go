@@ -190,10 +190,10 @@ func TestLidarrClient_GetMediaItems(t *testing.T) {
 	if pinkFloyd.Title != "Pink Floyd" {
 		t.Errorf("Expected 'Pink Floyd', got %q", pinkFloyd.Title)
 	}
-	// Rating is 9.2/10 normalized to 0.92
-	expectedRating := 9.2 / 10.0
+	// Rating is passed through as-is (already 0–10 from MusicBrainz)
+	expectedRating := 9.2
 	if math.Abs(pinkFloyd.Rating-expectedRating) > 0.001 {
-		t.Errorf("Expected normalized rating %v, got %v", expectedRating, pinkFloyd.Rating)
+		t.Errorf("Expected rating %v, got %v", expectedRating, pinkFloyd.Rating)
 	}
 	if pinkFloyd.QualityProfile != "Lossless" {
 		t.Errorf("Expected quality 'Lossless', got %q", pinkFloyd.QualityProfile)

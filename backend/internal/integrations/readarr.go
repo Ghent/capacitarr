@@ -118,6 +118,10 @@ func (r *ReadarrClient) GetMediaItems() ([]MediaItem, error) {
 			genre = b.Genres[0]
 		}
 
+		// Readarr ratings.value is GoodReads scale (0–5).
+		// Normalize to 0–10 so the scoring engine handles it consistently.
+		rating := b.Ratings.Value * 2.0
+
 		items = append(items, MediaItem{
 			ExternalID:     fmt.Sprintf("%d", b.ID),
 			Title:          b.Title,
@@ -128,7 +132,7 @@ func (r *ReadarrClient) GetMediaItems() ([]MediaItem, error) {
 			Monitored:      b.Monitored,
 			Path:           b.Path,
 			PosterURL:      arrExtractPosterURL(b.Images),
-			Rating:         b.Ratings.Value,
+			Rating:         rating,
 			Genre:          genre,
 			Tags:           tagNames,
 			QualityProfile: profileMap[b.QualityProfileID],

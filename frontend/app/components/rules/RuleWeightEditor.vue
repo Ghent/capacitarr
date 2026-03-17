@@ -55,7 +55,19 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
         <div v-for="slider in sliders" :key="slider.key" class="space-y-1.5">
           <div class="flex justify-between text-sm">
-            <span class="font-medium text-foreground">{{ slider.label }}</span>
+            <span class="inline-flex items-center gap-1.5 font-medium text-foreground">
+              {{ slider.label }}
+              <UiTooltipProvider v-if="slider.tooltip">
+                <UiTooltip>
+                  <UiTooltipTrigger as-child>
+                    <InfoIcon class="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                  </UiTooltipTrigger>
+                  <UiTooltipContent side="top" class="max-w-xs text-xs">
+                    {{ slider.tooltip }}
+                  </UiTooltipContent>
+                </UiTooltip>
+              </UiTooltipProvider>
+            </span>
             <span class="text-muted-foreground font-mono tabular-nums"
               >{{ preferences[slider.key as keyof WeightKeys] }} / 10</span
             >
@@ -82,6 +94,10 @@
 </template>
 
 <script setup lang="ts">
+import { InfoIcon } from 'lucide-vue-next';
+
+const { t } = useI18n();
+
 export interface WeightKeys {
   watchHistoryWeight: number;
   lastWatchedWeight: number;
@@ -121,6 +137,7 @@ const sliders = [
     key: 'ratingWeight',
     label: 'Rating',
     description: 'Low-rated content scores higher for deletion.',
+    tooltip: t('rules.ratingTooltip'),
   },
   {
     key: 'timeInLibraryWeight',

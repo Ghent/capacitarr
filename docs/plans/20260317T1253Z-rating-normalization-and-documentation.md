@@ -1,7 +1,7 @@
 # Rating Normalization and Documentation
 
 **Created:** 2026-03-17T12:53Z
-**Status:** 📋 Planned
+**Status:** ✅ Complete
 **Scope:** Backend (rating normalization) + Frontend (tooltip/help documentation)
 **Discovered during:** Issue #2 field mapping audit
 
@@ -41,18 +41,19 @@ rating := a.Ratings.Value
 
 **Why:** The scoring engine already handles 0–10 normalization at `score.go:127`. Pre-normalizing in the builder causes double-normalization.
 
-### Step 2: Verify Readarr rating scale
+### Step 2: Normalize Readarr rating scale
 
 **File:** `backend/internal/integrations/readarr.go`
 
-Investigate the actual scale of Readarr's `ratings.value`. GoodReads uses a 0–5 scale. If Readarr returns 0–5, multiply by 2 to normalize to 0–10:
+Readarr's `ratings.value` comes from GoodReads, which uses a 0–5 scale. Multiplied by 2 to normalize to 0–10:
 
 ```go
-// If Readarr returns 0-5 scale:
+// Readarr ratings.value is GoodReads scale (0–5).
+// Normalize to 0–10 so the scoring engine handles it consistently.
 rating := b.Ratings.Value * 2.0
 ```
 
-**Action:** Test with a real Readarr instance to confirm the actual scale returned by the API before making changes.
+**Note:** Confirmed via Readarr source code analysis — `Ratings.Value` maps directly from GoodReads `AverageRating` (0–5 scale). Test mock data updated to use realistic 0–5 values (e.g., 4.25 → 8.5 after normalization).
 
 ### Step 3: Add rating source tooltip to rules UI
 
@@ -91,12 +92,13 @@ Verify all changes pass lint, tests, and security scans.
 
 | File | Change |
 |------|--------|
-| `backend/internal/integrations/lidarr.go` | Remove rating `/10.0` normalization |
-| `backend/internal/integrations/lidarr_test.go` | Update expected rating values |
-| `backend/internal/integrations/readarr.go` | Possibly normalize 0-5 to 0-10 |
-| `backend/internal/integrations/readarr_test.go` | Update expected rating values if changed |
-| `frontend/app/components/rules/` | Add rating source tooltip |
-| `frontend/app/pages/` or help area | Add data sources documentation |
+| `backend/internal/integrations/lidarr.go` | Removed rating `/10.0` normalization — pass through 0–10 directly |
+| `backend/internal/integrations/lidarr_test.go` | Updated expected rating from 0.92 to 9.2 |
+| `backend/internal/integrations/readarr.go` | Added `* 2.0` normalization for GoodReads 0–5 → 0–10 |
+| `backend/internal/integrations/readarr_test.go` | Updated mock data to realistic 0–5 values (4.25, 3.95) |
+| `frontend/app/components/rules/RuleWeightEditor.vue` | Added info tooltip with rating sources on Rating slider |
+| `frontend/app/pages/help.vue` | Added "Data Sources" collapsible section |
+| `frontend/app/locales/en.json` | Added i18n keys for rating tooltip and data sources |
 
 ## Out of Scope
 

@@ -115,7 +115,7 @@ func TestReadarrClient_GetMediaItems(t *testing.T) {
 					}{AuthorName: "Frank Herbert"},
 					Ratings: struct {
 						Value float64 `json:"value"`
-					}{Value: 8.5},
+					}{Value: 4.25}, // GoodReads 0–5 scale
 				},
 				{
 					// Book with no file on disk — should be skipped
@@ -140,7 +140,7 @@ func TestReadarrClient_GetMediaItems(t *testing.T) {
 					}{AuthorName: "William Gibson"},
 					Ratings: struct {
 						Value float64 `json:"value"`
-					}{Value: 7.9},
+					}{Value: 3.95}, // GoodReads 0–5 scale
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -189,8 +189,9 @@ func TestReadarrClient_GetMediaItems(t *testing.T) {
 	if book1.QualityProfile != "eBook" {
 		t.Errorf("Expected quality profile 'eBook', got %q", book1.QualityProfile)
 	}
+	// Rating is GoodReads 4.25 × 2.0 = 8.5 (normalized to 0–10)
 	if book1.Rating != 8.5 {
-		t.Errorf("Expected rating 8.5, got %f", book1.Rating)
+		t.Errorf("Expected normalized rating 8.5 (4.25 × 2), got %f", book1.Rating)
 	}
 	if len(book1.Tags) != 2 || book1.Tags[0] != "sci-fi" || book1.Tags[1] != "classic" {
 		t.Errorf("Expected tags [sci-fi, classic], got %v", book1.Tags)

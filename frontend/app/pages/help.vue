@@ -85,7 +85,7 @@
         </div>
       </details>
 
-      <!-- Reading a Score Detail -->
+      <!-- Data Sources -->
       <details
         v-motion
         :initial="{ opacity: 0, y: 12 }"
@@ -93,6 +93,72 @@
           opacity: 1,
           y: 0,
           transition: { type: 'spring', stiffness: 260, damping: 24, delay: 200 },
+        }"
+        data-slot="card"
+        class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
+      >
+        <summary
+          class="flex items-center gap-3 px-5 py-4 cursor-pointer select-none hover:bg-accent transition-colors"
+        >
+          <ChevronRightIcon
+            class="w-4 h-4 text-muted-foreground transition-transform group-open:rotate-90"
+          />
+          <h3 class="font-semibold text-primary">
+            {{ $t('help.dataSources') }}
+          </h3>
+        </summary>
+        <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-4">
+          <p>
+            {{ $t('help.dataSources.intro') }}
+          </p>
+
+          <div>
+            <p class="font-medium text-foreground mb-1">
+              {{ $t('help.dataSources.ratingsTitle') }}
+            </p>
+            <p class="mb-2">
+              {{ $t('help.dataSources.ratingsDesc') }}
+            </p>
+            <ul class="space-y-2 pl-1">
+              <li
+                v-for="source in ratingSources"
+                :key="source.nameKey"
+                class="flex items-start gap-2"
+              >
+                <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                <span
+                  ><strong class="text-foreground">{{ $t(source.nameKey) }}</strong> —
+                  {{ $t(source.descKey) }}</span
+                >
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <p class="font-medium text-foreground mb-1">
+              {{ $t('help.dataSources.enrichmentTitle') }}
+            </p>
+            <p class="mb-2">
+              {{ $t('help.dataSources.enrichmentDesc') }}
+            </p>
+            <ul class="space-y-2 pl-1">
+              <li v-for="item in enrichmentSources" :key="item.key" class="flex items-start gap-2">
+                <span class="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                <span>{{ $t(item.key) }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </details>
+
+      <!-- Reading a Score Detail -->
+      <details
+        v-motion
+        :initial="{ opacity: 0, y: 12 }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 260 },
         }"
         data-slot="card"
         class="group rounded-xl border border-border bg-card shadow-sm overflow-hidden"
@@ -707,6 +773,20 @@ const scoringFactors = [
   { nameKey: 'help.factor.rating', descKey: 'help.factor.ratingDesc' },
   { nameKey: 'help.factor.timeInLibrary', descKey: 'help.factor.timeInLibraryDesc' },
   { nameKey: 'help.factor.seriesStatus', descKey: 'help.factor.seriesStatusDesc' },
+];
+
+const ratingSources = [
+  { nameKey: 'help.dataSources.ratingSonarr', descKey: 'help.dataSources.ratingSonarrDesc' },
+  { nameKey: 'help.dataSources.ratingRadarr', descKey: 'help.dataSources.ratingRadarrDesc' },
+  { nameKey: 'help.dataSources.ratingLidarr', descKey: 'help.dataSources.ratingLidarrDesc' },
+  { nameKey: 'help.dataSources.ratingReadarr', descKey: 'help.dataSources.ratingReadarrDesc' },
+  { nameKey: 'help.dataSources.ratingPlex', descKey: 'help.dataSources.ratingPlexDesc' },
+];
+
+const enrichmentSources = [
+  { key: 'help.dataSources.enrichmentWatch' },
+  { key: 'help.dataSources.enrichmentRequests' },
+  { key: 'help.dataSources.enrichmentCollections' },
 ];
 
 const rawScoreExamples = [

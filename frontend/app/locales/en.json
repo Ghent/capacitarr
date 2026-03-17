@@ -524,5 +524,27 @@
   "dashboard.errorBanner.title": "{count} integration(s) have errors",
   "dashboard.errorBanner.description": "Some integrations failed to connect. Disk data from these sources may be missing.",
   "dashboard.errorBanner.action": "View in Settings",
-  "rules.diskThresholdsEmpty": "Threshold settings will appear here once disk groups are detected from your *arr services."
+  "rules.diskThresholdsEmpty": "Threshold settings will appear here once disk groups are detected from your *arr services.",
+
+  "rules.ratingTooltip": "Rating sources by integration: Sonarr uses TheTVDB community rating, Radarr uses IMDb (TMDb fallback), Lidarr uses MusicBrainz, and Readarr uses GoodReads. All ratings are normalized to a 0–10 scale.",
+
+  "help.dataSources": "Data Sources",
+  "help.dataSources.intro": "Capacitarr pulls metadata from each connected *arr integration. The data used for scoring comes from the following sources:",
+  "help.dataSources.ratingsTitle": "Ratings",
+  "help.dataSources.ratingsDesc": "Each integration gets its rating from a different upstream source. All ratings are normalized to a consistent 0–10 scale before scoring.",
+  "help.dataSources.ratingSonarr": "Sonarr",
+  "help.dataSources.ratingSonarrDesc": "TheTVDB community rating (0–10)",
+  "help.dataSources.ratingRadarr": "Radarr",
+  "help.dataSources.ratingRadarrDesc": "IMDb rating, with TMDb fallback (0–10)",
+  "help.dataSources.ratingLidarr": "Lidarr",
+  "help.dataSources.ratingLidarrDesc": "MusicBrainz rating (0–10)",
+  "help.dataSources.ratingReadarr": "Readarr",
+  "help.dataSources.ratingReadarrDesc": "GoodReads rating (normalized from 0–5 to 0–10)",
+  "help.dataSources.ratingPlex": "Plex",
+  "help.dataSources.ratingPlexDesc": "Audience rating with critic fallback (0–10, only when Plex is the item producer)",
+  "help.dataSources.enrichmentTitle": "Enrichment Data",
+  "help.dataSources.enrichmentDesc": "Beyond the base metadata from *arr services, additional data is layered on from enrichment integrations:",
+  "help.dataSources.enrichmentWatch": "Watch history and play counts come from Plex, Jellyfin, Emby, or Tautulli.",
+  "help.dataSources.enrichmentRequests": "Request data (who requested an item) comes from Overseerr/Jellyseerr.",
+  "help.dataSources.enrichmentCollections": "Collection membership is resolved from your media server."
 }
