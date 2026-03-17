@@ -139,7 +139,7 @@
                       @click="toggleRuleFilter(rule.id)"
                     >
                       <UiCheckbox
-                        :checked="selectedRuleIds.includes(rule.id)"
+                        :model-value="selectedRuleIds.includes(rule.id)"
                         class="pointer-events-none"
                       />
                       <span class="text-xs truncate flex-1">
