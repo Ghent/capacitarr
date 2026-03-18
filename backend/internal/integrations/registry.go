@@ -1,0 +1,213 @@
+package integrations
+
+import (
+	"fmt"
+	"log/slog"
+	"sync"
+)
+
+// IntegrationRegistry stores registered integration clients keyed by integration ID.
+// Consumers ask for clients by capability (e.g. "all WatchDataProviders") instead of
+// checking named fields. Adding a new integration type requires zero changes to consumers.
+type IntegrationRegistry struct {
+	mu sync.RWMutex
+
+	connectors         map[uint]Connectable
+	mediaSources       map[uint]MediaSource
+	diskReporters      map[uint]DiskReporter
+	deleters           map[uint]MediaDeleter
+	watchProviders     map[uint]WatchDataProvider
+	requestProviders   map[uint]RequestProvider
+	watchlistProviders map[uint]WatchlistProvider
+	ruleValueFetchers  map[uint]RuleValueFetcher
+}
+
+// NewIntegrationRegistry creates an empty registry.
+func NewIntegrationRegistry() *IntegrationRegistry {
+	return &IntegrationRegistry{
+		connectors:         make(map[uint]Connectable),
+		mediaSources:       make(map[uint]MediaSource),
+		diskReporters:      make(map[uint]DiskReporter),
+		deleters:           make(map[uint]MediaDeleter),
+		watchProviders:     make(map[uint]WatchDataProvider),
+		requestProviders:   make(map[uint]RequestProvider),
+		watchlistProviders: make(map[uint]WatchlistProvider),
+		ruleValueFetchers:  make(map[uint]RuleValueFetcher),
+	}
+}
+
+// Register adds an integration client to the registry, automatically detecting
+// which capability interfaces it implements. The integrationID is the DB primary key.
+func (r *IntegrationRegistry) Register(integrationID uint, client interface{}) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	registered := 0
+
+	if c, ok := client.(Connectable); ok {
+		r.connectors[integrationID] = c
+		registered++
+	}
+	if c, ok := client.(MediaSource); ok {
+		r.mediaSources[integrationID] = c
+		registered++
+	}
+	if c, ok := client.(DiskReporter); ok {
+		r.diskReporters[integrationID] = c
+		registered++
+	}
+	if c, ok := client.(MediaDeleter); ok {
+		r.deleters[integrationID] = c
+		registered++
+	}
+	if c, ok := client.(WatchDataProvider); ok {
+		r.watchProviders[integrationID] = c
+		registered++
+	}
+	if c, ok := client.(RequestProvider); ok {
+		r.requestProviders[integrationID] = c
+		registered++
+	}
+	if c, ok := client.(WatchlistProvider); ok {
+		r.watchlistProviders[integrationID] = c
+		registered++
+	}
+	if c, ok := client.(RuleValueFetcher); ok {
+		r.ruleValueFetchers[integrationID] = c
+		registered++
+	}
+
+	slog.Debug("Registered integration", "component", "registry",
+		"integrationID", integrationID, "capabilities", registered)
+}
+
+// Unregister removes all capability registrations for the given integration ID.
+func (r *IntegrationRegistry) Unregister(integrationID uint) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.connectors, integrationID)
+	delete(r.mediaSources, integrationID)
+	delete(r.diskReporters, integrationID)
+	delete(r.deleters, integrationID)
+	delete(r.watchProviders, integrationID)
+	delete(r.requestProviders, integrationID)
+	delete(r.watchlistProviders, integrationID)
+	delete(r.ruleValueFetchers, integrationID)
+}
+
+// Clear removes all registrations.
+func (r *IntegrationRegistry) Clear() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.connectors = make(map[uint]Connectable)
+	r.mediaSources = make(map[uint]MediaSource)
+	r.diskReporters = make(map[uint]DiskReporter)
+	r.deleters = make(map[uint]MediaDeleter)
+	r.watchProviders = make(map[uint]WatchDataProvider)
+	r.requestProviders = make(map[uint]RequestProvider)
+	r.watchlistProviders = make(map[uint]WatchlistProvider)
+	r.ruleValueFetchers = make(map[uint]RuleValueFetcher)
+}
+
+// ─── Accessor methods ───────────────────────────────────────────────────────
+
+// Connector returns the Connectable for the given integration, or an error if not registered.
+func (r *IntegrationRegistry) Connector(id uint) (Connectable, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.connectors[id]; ok {
+		return c, nil
+	}
+	return nil, fmt.Errorf("integration %d not registered as Connectable", id)
+}
+
+// MediaSources returns all registered MediaSource implementations with their IDs.
+func (r *IntegrationRegistry) MediaSources() map[uint]MediaSource {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]MediaSource, len(r.mediaSources))
+	for k, v := range r.mediaSources {
+		out[k] = v
+	}
+	return out
+}
+
+// DiskReporters returns all registered DiskReporter implementations with their IDs.
+func (r *IntegrationRegistry) DiskReporters() map[uint]DiskReporter {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]DiskReporter, len(r.diskReporters))
+	for k, v := range r.diskReporters {
+		out[k] = v
+	}
+	return out
+}
+
+// Deleter returns the MediaDeleter for the given integration, or an error if not registered.
+func (r *IntegrationRegistry) Deleter(id uint) (MediaDeleter, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.deleters[id]; ok {
+		return c, nil
+	}
+	return nil, fmt.Errorf("integration %d not registered as MediaDeleter", id)
+}
+
+// WatchProviders returns all registered WatchDataProvider implementations with their IDs.
+func (r *IntegrationRegistry) WatchProviders() map[uint]WatchDataProvider {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]WatchDataProvider, len(r.watchProviders))
+	for k, v := range r.watchProviders {
+		out[k] = v
+	}
+	return out
+}
+
+// RequestProviders returns all registered RequestProvider implementations with their IDs.
+func (r *IntegrationRegistry) RequestProviders() map[uint]RequestProvider {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]RequestProvider, len(r.requestProviders))
+	for k, v := range r.requestProviders {
+		out[k] = v
+	}
+	return out
+}
+
+// WatchlistProviders returns all registered WatchlistProvider implementations with their IDs.
+func (r *IntegrationRegistry) WatchlistProviders() map[uint]WatchlistProvider {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]WatchlistProvider, len(r.watchlistProviders))
+	for k, v := range r.watchlistProviders {
+		out[k] = v
+	}
+	return out
+}
+
+// RuleValueFetcherFor returns the RuleValueFetcher for the given integration, or an error.
+func (r *IntegrationRegistry) RuleValueFetcherFor(id uint) (RuleValueFetcher, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.ruleValueFetchers[id]; ok {
+		return c, nil
+	}
+	return nil, fmt.Errorf("integration %d not registered as RuleValueFetcher", id)
+}
+
+// HasWatchProviders returns true if at least one WatchDataProvider is registered.
+func (r *IntegrationRegistry) HasWatchProviders() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.watchProviders) > 0
+}
+
+// HasRequestProviders returns true if at least one RequestProvider is registered.
+func (r *IntegrationRegistry) HasRequestProviders() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return len(r.requestProviders) > 0
+}
