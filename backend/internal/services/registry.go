@@ -36,6 +36,7 @@ type Registry struct {
 	Rules                *RulesService
 	Metrics              *MetricsService
 	Version              *VersionService
+	Library              *LibraryService
 }
 
 // NewRegistry creates a fully wired Registry with all services.
@@ -76,6 +77,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 		Data:                 NewDataService(database, bus),
 		Rules:                NewRulesService(database, bus),
 		Metrics:              metricsSvc,
+		Library:              NewLibraryService(database, bus),
 	}
 
 	// Wire IntegrationService's cross-service dependency on DiskGroupService
