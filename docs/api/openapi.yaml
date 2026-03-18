@@ -971,6 +971,104 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
+  /settings/import/preview:
+    post:
+      operationId: previewImportSettings
+      tags: [Settings]
+      summary: Preview settings import without applying changes
+      description: |
+        Analyzes the export file against the current database and reports
+        how each rule would be resolved, without committing any changes.
+        Returns conflict details and resolution options for rules that
+        reference integrations by name (which may differ between instances).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsImportRequest"
+      responses:
+        "200":
+          description: Import preview with resolution details
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Preview result with rule conflict analysis
+        "400":
+          description: Validation failed (invalid version, malformed payload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /settings/import/commit:
+    post:
+      operationId: commitImportSettings
+      tags: [Settings]
+      summary: Commit settings import with user-provided overrides
+      description: |
+        Executes the import using user-provided overrides for rule
+        integration assignments from the preview step. This is the
+        final step of the two-phase import flow: preview → commit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payload, sections]
+              properties:
+                payload:
+                  $ref: "#/components/schemas/SettingsExportEnvelope"
+                sections:
+                  type: object
+                  description: Which sections to import (all default to false)
+                  properties:
+                    preferences:
+                      type: boolean
+                    rules:
+                      type: boolean
+                    integrations:
+                      type: boolean
+                    diskGroups:
+                      type: boolean
+                    notifications:
+                      type: boolean
+                overrides:
+                  type: array
+                  description: Rule integration overrides from the preview step
+                  items:
+                    type: object
+                    properties:
+                      ruleIndex:
+                        type: integer
+                        description: Index of the rule in the export payload
+                      integrationId:
+                        type: integer
+                        description: Target integration ID to assign the rule to
+      responses:
+        "200":
+          description: Import committed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsImportResponse"
+        "400":
+          description: Validation failed (invalid version, malformed payload)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
   # ===========================================================================
   # Preview
   # ===========================================================================
@@ -1283,6 +1381,89 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+
+  /force-delete:
+    post:
+      operationId: forceDelete
+      tags: [Approval Queue]
+      summary: Force-delete media items regardless of threshold
+      description: |
+        Queues one or more media items for immediate deletion, bypassing the
+        normal disk threshold check. Items are processed during the next engine
+        cycle. Requires deletions to be enabled and execution mode to not be
+        dry-run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                required: [mediaName, mediaType, integrationId, externalId]
+                properties:
+                  mediaName:
+                    type: string
+                    description: Display name of the media item
+                    example: "Firefly"
+                  mediaType:
+                    type: string
+                    description: Media type (movie, show, season, etc.)
+                    example: "show"
+                  integrationId:
+                    type: integer
+                    description: ID of the integration that owns this item
+                    example: 1
+                  externalId:
+                    type: string
+                    description: External ID in the integration
+                    example: "42"
+                  sizeBytes:
+                    type: integer
+                    description: Item size in bytes
+                    example: 5069636198
+                  reason:
+                    type: string
+                    description: Reason for force deletion
+                    example: "Manual cleanup"
+                  scoreDetails:
+                    type: string
+                    description: JSON-encoded score breakdown
+                  posterUrl:
+                    type: string
+                    description: URL to the item's poster image
+      responses:
+        "200":
+          description: Items queued for force-delete
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: integer
+                    description: Number of items successfully queued
+                    example: 3
+                  total:
+                    type: integer
+                    description: Total items in the request
+                    example: 3
+        "400":
+          description: Invalid request body or no items provided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Deletions disabled or in dry-run mode
           content:
             application/json:
               schema:

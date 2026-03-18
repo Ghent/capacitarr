@@ -202,5 +202,4 @@ When running behind a reverse proxy, ensure the proxy does not buffer responses 
 | Activity events | 7 days | Fixed (not configurable) |
 | Audit log entries | Configurable | `auditLogRetentionDays` preference |
 | Engine run stats | Last 1000 rows | Fixed |
-| In-app notifications | Same as audit log | Follows `auditLogRetentionDays` |
 | Metrics time-series | Rolling rollups | Hourly/daily/weekly resolution |

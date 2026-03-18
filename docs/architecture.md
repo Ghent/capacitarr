@@ -112,6 +112,7 @@ All services accept `*gorm.DB` and `*events.EventBus` in their constructor and a
 | | DataService | Data reset operations |
 | | MetricsService | History, rollup, lifetime stats |
 | | RulesService | Custom rule CRUD and validation |
+| | PreviewService | Scored media preview cache, SSE-driven invalidation |
 | **External** | IntegrationService | CRUD, test connections, sync data |
 | | AuthService | Login, change password, generate API keys |
 | | NotificationChannelService | CRUD for notification channels |
@@ -143,6 +144,7 @@ type Registry struct {
     Rules                *RulesService
     Metrics              *MetricsService
     Version              *VersionService
+    Preview              *PreviewService
 }
 ```
 
@@ -199,7 +201,7 @@ flowchart LR
 
 See [notifications.md](notifications.md) for the full user-facing guide.
 
-### Event Types (42 total)
+### Event Types (44 total)
 
 | Category | Events |
 |----------|--------|
@@ -211,6 +213,7 @@ See [notifications.md](notifications.md) for the full user-facing guide.
 | **Deletion** | `deletion_success`, `deletion_failed`, `deletion_dry_run`, `deletion_batch_complete`, `deletion_progress` |
 | **Rules** | `rule_created`, `rule_updated`, `rule_deleted` |
 | **Notifications** | `notification_channel_added`, `notification_channel_updated`, `notification_channel_removed`, `notification_sent`, `notification_delivery_failed` |
+| **Preview** | `preview_updated`, `preview_invalidated` |
 | **Data** | `data_reset` |
 | **System** | `server_started`, `update_available`, `version_check` |
 
@@ -323,6 +326,7 @@ flowchart LR
 |------|-------|---------|
 | Dashboard | `/` | Disk groups, approval queue, activity feed, engine controls, sparklines |
 | Audit Log | `/audit` | History-only view (deleted, dry-run, dry-delete) |
+| Library | `/library` | Full media library browser, search/filter, force-delete with selection mode |
 | Rules | `/rules` | Cascading rule builder + disk threshold configuration |
 | Settings | `/settings` | Preferences, integrations, notifications, authentication |
 | Help | `/help` | Scoring guide, FAQ, about section |
