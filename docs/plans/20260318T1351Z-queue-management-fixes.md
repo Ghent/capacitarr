@@ -1,6 +1,6 @@
 # Queue Management, Force-Delete, Stale Data, and Queue Status Fixes
 
-**Status:** 🔲 In Progress  
+**Status:** ✅ Complete  
 **Created:** 2026-03-18T13:51Z  
 **Scope:** Backend services, poller, routes, frontend composables and components
 
@@ -242,108 +242,87 @@ All linting, tests, and security checks passed. Full CI pipeline passed locally.
 
 ---
 
-## Phase 4: Queue Status Indicators
+## Phase 4: Queue Status Indicators ✅ Complete
 
 Add visual indicators in the Library table and Deletion Priority views showing queue state for each item.
 
-### Step 4.1: Add `QueueStatus` field to `engine.EvaluatedItem`
+### Step 4.1: Add `QueueStatus` field to `engine.EvaluatedItem` ✅
 
 **File:** `backend/internal/engine/score.go`
 
-Add new fields to the `EvaluatedItem` struct:
-```go
-QueueStatus     string `json:"queueStatus,omitempty"`     // "", "pending", "approved", "force_delete", "deleting"
-ApprovalQueueID *uint  `json:"approvalQueueId,omitempty"` // for linking to approval actions
-```
+Added `QueueStatus string` and `ApprovalQueueID *uint` fields with `omitempty` JSON tags to `EvaluatedItem`.
 
-### Step 4.2: Add `EnrichWithQueueStatus()` to `PreviewService`
+### Step 4.2: Add `EnrichWithQueueStatus()` to `PreviewService` ✅
 
 **File:** `backend/internal/services/preview.go`
 
-Add a method that:
-- Queries the approval queue for all items with `status IN ('pending', 'approved')`
-- Builds a lookup map: `map[mediaName+mediaType] → {status, forceDelete, id}`
-- Checks `DeletionService.CurrentlyDeleting()` for the active deletion
-- For each `EvaluatedItem`, sets `QueueStatus` and `ApprovalQueueID` from the lookup
+Added `EnrichWithQueueStatus(items []engine.EvaluatedItem)` method that:
+- Queries the approval queue for items with `status IN ('pending', 'approved')` via the `ApprovalQueueReader` interface
+- Builds a lookup map: `map[mediaName|mediaType] → {status, forceDelete, id}`
+- Checks `DeletionStateReader.CurrentlyDeleting()` for the active deletion
+- Annotates each item: deleting takes highest priority, then force_delete, then approved/pending
+- Gracefully handles nil dependencies (no-op when unset)
 
-### Step 4.3: Add `ApprovalQueueReader` interface to `PreviewService`
-
-**File:** `backend/internal/services/preview.go`
-
-Define a new interface for the approval queue dependency:
-```go
-type ApprovalQueueReader interface {
-    ListQueue(status string, limit int) ([]db.ApprovalQueueItem, error)
-}
-```
-
-Add it as a dependency via `SetDependencies()`.
-
-### Step 4.4: Add `DeletionStateReader` interface to `PreviewService`
+### Step 4.3: Add `ApprovalQueueReader` interface to `PreviewService` ✅
 
 **File:** `backend/internal/services/preview.go`
 
-Define a new interface for the deletion service dependency:
-```go
-type DeletionStateReader interface {
-    CurrentlyDeleting() string
-}
-```
+Defined `ApprovalQueueReader` interface with `ListQueue(status string, limit int)`.
 
-Add it as a dependency via `SetDependencies()`.
-
-### Step 4.5: Call `EnrichWithQueueStatus()` in `buildPreview()` and `SetPreviewCache()`
+### Step 4.4: Add `DeletionStateReader` interface to `PreviewService` ✅
 
 **File:** `backend/internal/services/preview.go`
 
-After building the preview result, call `EnrichWithQueueStatus()` to annotate items with queue state before returning/caching.
+Defined `DeletionStateReader` interface with `CurrentlyDeleting() string`.
 
-### Step 4.6: Wire dependencies in `services.Registry`
+### Step 4.5: Call `EnrichWithQueueStatus()` in `buildPreview()` ✅
+
+**File:** `backend/internal/services/preview.go`
+
+Called `s.EnrichWithQueueStatus(evaluated)` in `buildPreview()` after `SortEvaluated`, before returning the result. Both `SetPreviewCache` and `buildPreviewFromScratch` flow through `buildPreview`, so all code paths are covered.
+
+### Step 4.6: Wire dependencies in `services.Registry` ✅
 
 **File:** `backend/internal/services/registry.go`
 
-Update `SetDependencies()` to pass `ApprovalService` and `DeletionService` to `PreviewService`.
+Added `previewSvc.SetQueueDependencies(reg.Approval, deletionSvc)` in `NewRegistry()`. Used a separate `SetQueueDependencies` method to keep the existing `SetDependencies` signature stable.
 
-### Step 4.7: Update `EvaluatedItem` TypeScript type
+### Step 4.7: Update `EvaluatedItem` TypeScript type ✅
 
 **File:** `frontend/app/types/api.ts`
 
-Add to `EvaluatedItem`:
-```typescript
-queueStatus?: 'pending' | 'approved' | 'force_delete' | 'deleting';
-approvalQueueId?: number;
-```
+Added `queueStatus?: 'pending' | 'approved' | 'force_delete' | 'deleting'` and `approvalQueueId?: number` to `EvaluatedItem`.
 
-### Step 4.8: Add queue status badges to `LibraryTable`
+### Step 4.8: Add queue status badges to `LibraryTable` and `MediaPosterCard` ✅
 
-**File:** `frontend/app/components/LibraryTable.vue`
+**Files:** `frontend/app/components/LibraryTable.vue`, `frontend/app/components/MediaPosterCard.vue`
 
-For each item row, render a badge based on `item.queueStatus`:
-- `pending` → amber badge "Pending Approval"
-- `approved` → green badge "Approved"
-- `force_delete` → red badge "Force Delete"
-- `deleting` → animated badge "Deleting..."
+- Table view: Badges rendered inline with the title using `UiBadge` with `outline` variant and color-specific classes (amber for pending, emerald for approved, destructive for force-delete, animated destructive for deleting)
+- Grid view: Added `queueStatus` prop to `MediaPosterCard`, rendered as a positioned badge with status-specific color, icon, and optional animation
+- Added i18n keys for all four states in `frontend/app/locales/en.json`
+- Icons: `ClockIcon` (pending), `CheckIcon` (approved), `ZapIcon` (force-delete), `LoaderCircleIcon` with spin animation (deleting)
 
-### Step 4.9: Add real-time "deleting" status via SSE
+### Step 4.9: Add real-time "deleting" status via SSE ✅
 
 **File:** `frontend/app/composables/usePreview.ts`
 
-Subscribe to `deletion_progress` SSE events. When `currentItem` matches an item in the preview list, set its `queueStatus` to `"deleting"` locally.
+Added `handleDeletionProgress` handler that subscribes to `deletion_progress` SSE events. When `currentItem` matches an item in the preview list, sets its `queueStatus` to `"deleting"` locally. Clears the stale "deleting" status from previously-deleting items.
 
-### Step 4.10: Add service tests
+### Step 4.10: Add service tests ✅
 
 **File:** `backend/internal/services/preview_test.go`
 
-Add test cases for `EnrichWithQueueStatus()`:
-- Item in pending approval queue → `queueStatus: "pending"`
-- Item in approved state → `queueStatus: "approved"`
-- Force-delete item → `queueStatus: "force_delete"`
-- Currently deleting item → `queueStatus: "deleting"`
-- Item not in any queue → `queueStatus: ""`
+Added 6 test cases with mock implementations (`mockApprovalQueueReader`, `mockDeletionStateReader`):
+- `TestPreviewService_EnrichWithQueueStatus_Pending` — item in pending queue
+- `TestPreviewService_EnrichWithQueueStatus_Approved` — item in approved state
+- `TestPreviewService_EnrichWithQueueStatus_ForceDelete` — force-delete item
+- `TestPreviewService_EnrichWithQueueStatus_Deleting` — currently deleting item
+- `TestPreviewService_EnrichWithQueueStatus_NotInQueue` — item not in any queue
+- `TestPreviewService_EnrichWithQueueStatus_NilDependencies` — no dependencies set (no-op)
 
-### Step 4.11: Run `make ci`
+### Step 4.11: Run `make ci` ✅
 
-Verify all linting, tests, and security checks pass.
+All linting, tests, and security checks passed. Full CI pipeline passed locally.
 
 ---
 
@@ -366,7 +345,9 @@ Verify all linting, tests, and security checks pass.
 
 ### Frontend files modified:
 - `frontend/app/types/api.ts` — Add `queueStatus`, `approvalQueueId` to `EvaluatedItem`
-- `frontend/app/composables/usePreview.ts` — Add SSE handlers for deletion events
+- `frontend/app/composables/usePreview.ts` — Add SSE handlers for deletion events, deletion_progress handler
 - `frontend/app/composables/useApprovalQueue.ts` — Add `dismissGroup()`, `clearQueue()`, SSE handler
 - `frontend/app/components/ApprovalQueueCard.vue` — Add dismiss/clear buttons
-- `frontend/app/components/LibraryTable.vue` — Add queue status badges
+- `frontend/app/components/LibraryTable.vue` — Add queue status badges (table + grid view)
+- `frontend/app/components/MediaPosterCard.vue` — Add `queueStatus` prop and badge overlay
+- `frontend/app/locales/en.json` — Add i18n keys for queue status labels

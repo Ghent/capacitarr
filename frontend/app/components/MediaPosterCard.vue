@@ -1,5 +1,17 @@
 <script setup lang="ts">
-import { Film, Tv, Music, BookOpen, CheckSquare, Square, ShieldCheck } from 'lucide-vue-next';
+import {
+  Film,
+  Tv,
+  Music,
+  BookOpen,
+  CheckSquare,
+  Square,
+  ShieldCheck,
+  ClockIcon,
+  CheckIcon,
+  ZapIcon,
+  LoaderCircleIcon,
+} from 'lucide-vue-next';
 
 const props = defineProps<{
   title: string;
@@ -13,6 +25,7 @@ const props = defineProps<{
   selectable?: boolean;
   selected?: boolean;
   seasonCount?: number;
+  queueStatus?: 'pending' | 'approved' | 'force_delete' | 'deleting';
 }>();
 
 defineEmits<{
@@ -181,6 +194,23 @@ const showFallback = computed(() => !props.posterUrl || imageError.value || !ima
       class="absolute bottom-1.5 right-1.5 rounded-full bg-black/50 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white/80"
     >
       ×{{ seasonCount }}
+    </div>
+
+    <!-- Queue status badge (bottom-left) -->
+    <div
+      v-if="queueStatus"
+      class="absolute bottom-1.5 left-1.5 z-10 flex items-center gap-0.5 rounded-full backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium"
+      :class="{
+        'bg-amber-500/80 text-white': queueStatus === 'pending',
+        'bg-emerald-500/80 text-white': queueStatus === 'approved',
+        'bg-red-500/80 text-white': queueStatus === 'force_delete',
+        'bg-red-500/80 text-white animate-pulse': queueStatus === 'deleting',
+      }"
+    >
+      <ClockIcon v-if="queueStatus === 'pending'" class="w-3 h-3" />
+      <CheckIcon v-else-if="queueStatus === 'approved'" class="w-3 h-3" />
+      <ZapIcon v-else-if="queueStatus === 'force_delete'" class="w-3 h-3" />
+      <LoaderCircleIcon v-else-if="queueStatus === 'deleting'" class="w-3 h-3 animate-spin" />
     </div>
   </div>
 </template>

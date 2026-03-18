@@ -25,11 +25,13 @@ type ScoreFactor struct {
 
 // EvaluatedItem contains the media item, its deletion score, and explanation
 type EvaluatedItem struct {
-	Item        integrations.MediaItem `json:"item"`
-	Score       float64                `json:"score"`
-	IsProtected bool                   `json:"isProtected"`
-	Reason      string                 `json:"reason"`
-	Factors     []ScoreFactor          `json:"factors"`
+	Item            integrations.MediaItem `json:"item"`
+	Score           float64                `json:"score"`
+	IsProtected     bool                   `json:"isProtected"`
+	Reason          string                 `json:"reason"`
+	Factors         []ScoreFactor          `json:"factors"`
+	QueueStatus     string                 `json:"queueStatus,omitempty"`     // "", "pending", "approved", "force_delete", "deleting"
+	ApprovalQueueID *uint                  `json:"approvalQueueId,omitempty"` // for linking to approval actions
 }
 
 // EvaluateMedia calculates deletion scores for a list of items based on preferences and protections.

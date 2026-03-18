@@ -1,4 +1,4 @@
-import type { EvaluatedItem, DiskContext, PreviewResponse } from '~/types/api';
+import type { EvaluatedItem, DiskContext, DeletionProgress, PreviewResponse } from '~/types/api';
 
 /**
  * usePreview — SSE-reactive preview data composable.
@@ -79,6 +79,25 @@ export function usePreview() {
   }
 
   /**
+   * When a deletion_progress event arrives, mark the currently-deleting item
+   * so the UI shows a real-time "Deleting..." badge. Clear the status for any
+   * item that was previously marked as deleting but is no longer the current item.
+   */
+  function handleDeletionProgress(data: unknown) {
+    const event = data as DeletionProgress;
+    const currentItem = event.currentItem;
+
+    for (const entry of items.value) {
+      if (entry.item.title === currentItem) {
+        entry.queueStatus = 'deleting';
+      } else if (entry.queueStatus === 'deleting') {
+        // Clear stale deleting status — item was processed
+        entry.queueStatus = undefined;
+      }
+    }
+  }
+
+  /**
    * After all deletions in a cycle are processed, reconcile with the server to
    * ensure the local list matches the authoritative backend state.
    */
@@ -95,6 +114,7 @@ export function usePreview() {
     on('preview_invalidated', handlePreviewInvalidated);
     on('deletion_success', handleDeletionSuccess);
     on('deletion_dry_run', handleDeletionDryRun);
+    on('deletion_progress', handleDeletionProgress);
     on('deletion_batch_complete', handleDeletionBatchComplete);
   });
 
@@ -103,6 +123,7 @@ export function usePreview() {
     off('preview_invalidated', handlePreviewInvalidated);
     off('deletion_success', handleDeletionSuccess);
     off('deletion_dry_run', handleDeletionDryRun);
+    off('deletion_progress', handleDeletionProgress);
     off('deletion_batch_complete', handleDeletionBatchComplete);
   });
 

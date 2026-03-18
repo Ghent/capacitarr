@@ -6,9 +6,28 @@ import (
 	"time"
 
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 )
+
+// mockApprovalQueueReader implements ApprovalQueueReader for testing.
+type mockApprovalQueueReader struct {
+	items map[string][]db.ApprovalQueueItem // status → items
+}
+
+func (m *mockApprovalQueueReader) ListQueue(status string, _ int) ([]db.ApprovalQueueItem, error) {
+	return m.items[status], nil
+}
+
+// mockDeletionStateReader implements DeletionStateReader for testing.
+type mockDeletionStateReader struct {
+	current string
+}
+
+func (m *mockDeletionStateReader) CurrentlyDeleting() string {
+	return m.current
+}
 
 func TestPreviewService_GetPreview_NoIntegrations(t *testing.T) {
 	database := setupTestDB(t)
@@ -311,5 +330,168 @@ func TestPreviewService_CacheInvalidationOnEvents(t *testing.T) {
 	svc.previewMu.RUnlock()
 	if hasCacheAfter {
 		t.Error("expected cache to be cleared after SettingsChangedEvent")
+	}
+}
+
+func TestPreviewService_EnrichWithQueueStatus_Pending(t *testing.T) {
+	bus := newTestBus(t)
+	svc := NewPreviewService(bus)
+
+	approvalMock := &mockApprovalQueueReader{
+		items: map[string][]db.ApprovalQueueItem{
+			db.StatusPending: {
+				{ID: 1, MediaName: "Firefly", MediaType: "show", Status: db.StatusPending},
+			},
+			db.StatusApproved: {},
+		},
+	}
+	deletionMock := &mockDeletionStateReader{current: ""}
+	svc.SetQueueDependencies(approvalMock, deletionMock)
+
+	items := []engine.EvaluatedItem{
+		{Item: integrations.MediaItem{Title: "Firefly", Type: integrations.MediaTypeShow}},
+		{Item: integrations.MediaItem{Title: "Serenity", Type: integrations.MediaTypeMovie}},
+	}
+
+	svc.EnrichWithQueueStatus(items)
+
+	if items[0].QueueStatus != "pending" {
+		t.Errorf("expected 'pending' for Firefly, got %q", items[0].QueueStatus)
+	}
+	if items[0].ApprovalQueueID == nil || *items[0].ApprovalQueueID != 1 {
+		t.Errorf("expected ApprovalQueueID=1 for Firefly, got %v", items[0].ApprovalQueueID)
+	}
+	if items[1].QueueStatus != "" {
+		t.Errorf("expected empty queueStatus for Serenity, got %q", items[1].QueueStatus)
+	}
+	if items[1].ApprovalQueueID != nil {
+		t.Errorf("expected nil ApprovalQueueID for Serenity, got %v", items[1].ApprovalQueueID)
+	}
+}
+
+func TestPreviewService_EnrichWithQueueStatus_Approved(t *testing.T) {
+	bus := newTestBus(t)
+	svc := NewPreviewService(bus)
+
+	approvalMock := &mockApprovalQueueReader{
+		items: map[string][]db.ApprovalQueueItem{
+			db.StatusPending: {},
+			db.StatusApproved: {
+				{ID: 2, MediaName: "Serenity", MediaType: "movie", Status: db.StatusApproved},
+			},
+		},
+	}
+	deletionMock := &mockDeletionStateReader{current: ""}
+	svc.SetQueueDependencies(approvalMock, deletionMock)
+
+	items := []engine.EvaluatedItem{
+		{Item: integrations.MediaItem{Title: "Serenity", Type: integrations.MediaTypeMovie}},
+	}
+
+	svc.EnrichWithQueueStatus(items)
+
+	if items[0].QueueStatus != "approved" {
+		t.Errorf("expected 'approved' for Serenity, got %q", items[0].QueueStatus)
+	}
+	if items[0].ApprovalQueueID == nil || *items[0].ApprovalQueueID != 2 {
+		t.Errorf("expected ApprovalQueueID=2 for Serenity, got %v", items[0].ApprovalQueueID)
+	}
+}
+
+func TestPreviewService_EnrichWithQueueStatus_ForceDelete(t *testing.T) {
+	bus := newTestBus(t)
+	svc := NewPreviewService(bus)
+
+	approvalMock := &mockApprovalQueueReader{
+		items: map[string][]db.ApprovalQueueItem{
+			db.StatusPending: {},
+			db.StatusApproved: {
+				{ID: 3, MediaName: "Firefly", MediaType: "show", Status: db.StatusApproved, ForceDelete: true},
+			},
+		},
+	}
+	deletionMock := &mockDeletionStateReader{current: ""}
+	svc.SetQueueDependencies(approvalMock, deletionMock)
+
+	items := []engine.EvaluatedItem{
+		{Item: integrations.MediaItem{Title: "Firefly", Type: integrations.MediaTypeShow}},
+	}
+
+	svc.EnrichWithQueueStatus(items)
+
+	if items[0].QueueStatus != "force_delete" {
+		t.Errorf("expected 'force_delete' for Firefly, got %q", items[0].QueueStatus)
+	}
+}
+
+func TestPreviewService_EnrichWithQueueStatus_Deleting(t *testing.T) {
+	bus := newTestBus(t)
+	svc := NewPreviewService(bus)
+
+	approvalMock := &mockApprovalQueueReader{
+		items: map[string][]db.ApprovalQueueItem{
+			db.StatusPending: {},
+			db.StatusApproved: {
+				{ID: 4, MediaName: "Serenity", MediaType: "movie", Status: db.StatusApproved},
+			},
+		},
+	}
+	deletionMock := &mockDeletionStateReader{current: "Serenity"}
+	svc.SetQueueDependencies(approvalMock, deletionMock)
+
+	items := []engine.EvaluatedItem{
+		{Item: integrations.MediaItem{Title: "Serenity", Type: integrations.MediaTypeMovie}},
+	}
+
+	svc.EnrichWithQueueStatus(items)
+
+	if items[0].QueueStatus != "deleting" {
+		t.Errorf("expected 'deleting' for Serenity, got %q", items[0].QueueStatus)
+	}
+	if items[0].ApprovalQueueID == nil || *items[0].ApprovalQueueID != 4 {
+		t.Errorf("expected ApprovalQueueID=4 for Serenity, got %v", items[0].ApprovalQueueID)
+	}
+}
+
+func TestPreviewService_EnrichWithQueueStatus_NotInQueue(t *testing.T) {
+	bus := newTestBus(t)
+	svc := NewPreviewService(bus)
+
+	approvalMock := &mockApprovalQueueReader{
+		items: map[string][]db.ApprovalQueueItem{
+			db.StatusPending:  {},
+			db.StatusApproved: {},
+		},
+	}
+	deletionMock := &mockDeletionStateReader{current: ""}
+	svc.SetQueueDependencies(approvalMock, deletionMock)
+
+	items := []engine.EvaluatedItem{
+		{Item: integrations.MediaItem{Title: "Firefly", Type: integrations.MediaTypeShow}},
+	}
+
+	svc.EnrichWithQueueStatus(items)
+
+	if items[0].QueueStatus != "" {
+		t.Errorf("expected empty queueStatus for Firefly, got %q", items[0].QueueStatus)
+	}
+	if items[0].ApprovalQueueID != nil {
+		t.Errorf("expected nil ApprovalQueueID for Firefly, got %v", items[0].ApprovalQueueID)
+	}
+}
+
+func TestPreviewService_EnrichWithQueueStatus_NilDependencies(t *testing.T) {
+	bus := newTestBus(t)
+	svc := NewPreviewService(bus)
+
+	// Do not set queue dependencies — should be a no-op
+	items := []engine.EvaluatedItem{
+		{Item: integrations.MediaItem{Title: "Firefly", Type: integrations.MediaTypeShow}},
+	}
+
+	svc.EnrichWithQueueStatus(items)
+
+	if items[0].QueueStatus != "" {
+		t.Errorf("expected empty queueStatus with nil dependencies, got %q", items[0].QueueStatus)
 	}
 }

@@ -12,6 +12,9 @@ import {
   AlertTriangleIcon,
   Trash2Icon,
   XIcon,
+  ClockIcon,
+  CheckIcon,
+  ZapIcon,
 } from 'lucide-vue-next';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import type { EvaluatedItem, IntegrationConfig } from '~/types/api';
@@ -500,6 +503,7 @@ const tableColumns = computed(() => [
                   "
                   :size-bytes="getEntry(vRow.index * gridCols + (col - 1)).item.sizeBytes"
                   :is-protected="getEntry(vRow.index * gridCols + (col - 1)).isProtected"
+                  :queue-status="getEntry(vRow.index * gridCols + (col - 1)).queueStatus"
                   :selectable="selectionMode"
                   :selected="selectedIds.has(itemKey(getEntry(vRow.index * gridCols + (col - 1))))"
                   @click="
@@ -594,7 +598,41 @@ const tableColumns = computed(() => [
                     />
                   </UiTableCell>
                   <UiTableCell class="font-medium">
-                    <span class="truncate">{{ getEntry(vRow.index).item.title }}</span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="truncate">{{ getEntry(vRow.index).item.title }}</span>
+                      <UiBadge
+                        v-if="getEntry(vRow.index).queueStatus === 'pending'"
+                        variant="outline"
+                        class="text-[10px] border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0"
+                      >
+                        <ClockIcon class="w-3 h-3" />
+                        {{ t('library.queuePending') }}
+                      </UiBadge>
+                      <UiBadge
+                        v-else-if="getEntry(vRow.index).queueStatus === 'approved'"
+                        variant="outline"
+                        class="text-[10px] border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0"
+                      >
+                        <CheckIcon class="w-3 h-3" />
+                        {{ t('library.queueApproved') }}
+                      </UiBadge>
+                      <UiBadge
+                        v-else-if="getEntry(vRow.index).queueStatus === 'force_delete'"
+                        variant="destructive"
+                        class="text-[10px] shrink-0"
+                      >
+                        <ZapIcon class="w-3 h-3" />
+                        {{ t('library.queueForceDelete') }}
+                      </UiBadge>
+                      <UiBadge
+                        v-else-if="getEntry(vRow.index).queueStatus === 'deleting'"
+                        variant="destructive"
+                        class="text-[10px] shrink-0 animate-pulse"
+                      >
+                        <LoaderCircleIcon class="w-3 h-3 animate-spin" />
+                        {{ t('library.queueDeleting') }}
+                      </UiBadge>
+                    </div>
                   </UiTableCell>
                   <UiTableCell>
                     <UiBadge variant="secondary" class="text-[10px] capitalize">

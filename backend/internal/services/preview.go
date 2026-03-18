@@ -33,6 +33,18 @@ type DiskGroupLister interface {
 	List() ([]db.DiskGroup, error)
 }
 
+// ApprovalQueueReader provides read access to approval queue items.
+// Defined here to avoid import cycles between PreviewService and ApprovalService.
+type ApprovalQueueReader interface {
+	ListQueue(status string, limit int) ([]db.ApprovalQueueItem, error)
+}
+
+// DeletionStateReader provides read access to the current deletion state.
+// Defined here to avoid import cycles between PreviewService and DeletionService.
+type DeletionStateReader interface {
+	CurrentlyDeleting() string
+}
+
 // PreviewResult holds the full result of a score preview computation.
 type PreviewResult struct {
 	Items       []engine.EvaluatedItem `json:"items"`
@@ -61,6 +73,10 @@ type PreviewService struct {
 	rules        RulesProvider
 	diskGroups   DiskGroupLister
 
+	// Queue status enrichment dependencies (set via SetQueueDependencies)
+	approvalQueue ApprovalQueueReader
+	deletionState DeletionStateReader
+
 	// Preview cache
 	previewMu    sync.RWMutex
 	previewCache *PreviewResult
@@ -86,6 +102,13 @@ func (s *PreviewService) SetDependencies(integ IntegrationLister, settings Setti
 	s.preferences = settings
 	s.rules = rules
 	s.diskGroups = diskGroups
+}
+
+// SetQueueDependencies wires the approval queue and deletion state readers
+// used by EnrichWithQueueStatus to annotate preview items with queue state.
+func (s *PreviewService) SetQueueDependencies(approval ApprovalQueueReader, deletion DeletionStateReader) {
+	s.approvalQueue = approval
+	s.deletionState = deletion
 }
 
 // GetPreview returns the cached preview result if available, or computes
@@ -205,6 +228,7 @@ func (s *PreviewService) runInvalidationListener() {
 func (s *PreviewService) buildPreview(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.CustomRule) *PreviewResult {
 	evaluated := engine.EvaluateMedia(items, prefs, rules)
 	engine.SortEvaluated(evaluated, prefs.TiebreakerMethod)
+	s.EnrichWithQueueStatus(evaluated)
 
 	diskCtx := s.buildDiskContext()
 
@@ -252,6 +276,81 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 	}
 
 	return s.buildPreview(allItems, prefs, rules), nil
+}
+
+// EnrichWithQueueStatus annotates each EvaluatedItem with its current queue
+// state (pending, approved, force_delete, deleting). This is a best-effort
+// enrichment — if the approval queue or deletion state is unavailable, items
+// are left unannotated.
+func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
+	if s.approvalQueue == nil && s.deletionState == nil {
+		return
+	}
+
+	// Build lookup map from approval queue: "mediaName|mediaType" → queueInfo
+	type queueInfo struct {
+		status      string
+		forceDelete bool
+		id          uint
+	}
+	lookup := make(map[string]queueInfo)
+
+	if s.approvalQueue != nil {
+		// Fetch pending items
+		pending, err := s.approvalQueue.ListQueue(db.StatusPending, 10000)
+		if err != nil {
+			slog.Warn("Failed to fetch pending approval queue for enrichment", "component", "preview", "error", err)
+		} else {
+			for _, entry := range pending {
+				key := entry.MediaName + "|" + entry.MediaType
+				lookup[key] = queueInfo{status: db.StatusPending, forceDelete: entry.ForceDelete, id: entry.ID}
+			}
+		}
+
+		// Fetch approved items
+		approved, err := s.approvalQueue.ListQueue(db.StatusApproved, 10000)
+		if err != nil {
+			slog.Warn("Failed to fetch approved approval queue for enrichment", "component", "preview", "error", err)
+		} else {
+			for _, entry := range approved {
+				key := entry.MediaName + "|" + entry.MediaType
+				lookup[key] = queueInfo{status: db.StatusApproved, forceDelete: entry.ForceDelete, id: entry.ID}
+			}
+		}
+	}
+
+	// Check currently deleting item
+	var currentlyDeleting string
+	if s.deletionState != nil {
+		currentlyDeleting = s.deletionState.CurrentlyDeleting()
+	}
+
+	// Annotate items
+	for i := range items {
+		title := items[i].Item.Title
+		mediaType := string(items[i].Item.Type)
+		key := title + "|" + mediaType
+
+		// Check if currently being deleted (highest priority)
+		if currentlyDeleting != "" && currentlyDeleting == title {
+			items[i].QueueStatus = "deleting"
+			if info, ok := lookup[key]; ok {
+				items[i].ApprovalQueueID = &info.id
+			}
+			continue
+		}
+
+		// Check approval queue
+		if info, ok := lookup[key]; ok {
+			id := info.id
+			items[i].ApprovalQueueID = &id
+			if info.forceDelete {
+				items[i].QueueStatus = "force_delete"
+			} else {
+				items[i].QueueStatus = info.status
+			}
+		}
+	}
 }
 
 // buildDiskContext assembles the DiskContext from disk groups.
