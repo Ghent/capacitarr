@@ -18,42 +18,7 @@ type AuthConfig struct {
 	UpdatedAt  time.Time
 }
 
-// LibraryHistory stores historical capacity logs
-type LibraryHistory struct {
-	ID            uint      `gorm:"primarykey" json:"id"`
-	Timestamp     time.Time `gorm:"index;not null" json:"timestamp"`
-	TotalCapacity int64     `gorm:"not null" json:"totalCapacity"`
-	UsedCapacity  int64     `gorm:"not null" json:"usedCapacity"`
-	Resolution    string    `gorm:"index;not null" json:"resolution"`   // "raw", "hourly", "daily", "weekly"
-	DiskGroupID   *uint     `gorm:"index" json:"diskGroupId,omitempty"` // FK to DiskGroup (ON DELETE CASCADE)
-	CreatedAt     time.Time `json:"createdAt"`
-}
-
-// IntegrationConfig stores a configured service connection.
-//
-// SECURITY NOTE: Integration API keys (e.g. Sonarr, Radarr, Plex tokens) are
-// stored in plaintext in SQLite. This is an accepted trade-off for a
-// self-hosted home-lab tool: full encryption-at-rest would require a master
-// key, which adds significant complexity and key-management burden with
-// minimal practical benefit when the SQLite file is already on a user-owned
-// machine. If the database file is compromised, the attacker already has
-// access to the host. Ensure the DB file permissions are restrictive (0600).
-type IntegrationConfig struct {
-	ID             uint       `gorm:"primarykey" json:"id"`
-	Type           string     `gorm:"not null;index" json:"type"` // plex, sonarr, radarr
-	Name           string     `gorm:"not null" json:"name"`       // User-friendly name
-	URL            string     `gorm:"not null" json:"url"`
-	APIKey         string     `gorm:"not null" json:"apiKey"` // API key or Plex token
-	Enabled        bool       `gorm:"default:true" json:"enabled"`
-	MediaSizeBytes int64      `json:"mediaSizeBytes"` // Total media file size
-	MediaCount     int        `json:"mediaCount"`     // Number of media items
-	LastSync       *time.Time `json:"lastSync,omitempty"`
-	LastError      string     `json:"lastError,omitempty"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
-}
-
-// DiskGroup represents a physical disk/mount point shared by multiple services
+// DiskGroup represents a physical disk/mount point shared by multiple services.
 type DiskGroup struct {
 	ID                 uint      `gorm:"primarykey" json:"id"`
 	MountPath          string    `gorm:"uniqueIndex;not null" json:"mountPath"`
@@ -74,6 +39,45 @@ func (g DiskGroup) EffectiveTotalBytes() int64 {
 	return g.TotalBytes
 }
 
+// Library groups integrations into a logical library with optional threshold overrides.
+// Threshold hierarchy: integration override → library override → disk group default.
+type Library struct {
+	ID           uint      `gorm:"primarykey" json:"id"`
+	Name         string    `gorm:"not null" json:"name"`
+	DiskGroupID  *uint     `gorm:"index" json:"diskGroupId,omitempty"` // FK to DiskGroup (ON DELETE SET NULL)
+	ThresholdPct *float64  `json:"thresholdPct,omitempty"`             // Override disk group threshold; nil = inherit
+	TargetPct    *float64  `json:"targetPct,omitempty"`                // Override disk group target; nil = inherit
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+// IntegrationConfig stores a configured service connection.
+//
+// SECURITY NOTE: Integration API keys (e.g. Sonarr, Radarr, Plex tokens) are
+// stored in plaintext in SQLite. This is an accepted trade-off for a
+// self-hosted home-lab tool: full encryption-at-rest would require a master
+// key, which adds significant complexity and key-management burden with
+// minimal practical benefit when the SQLite file is already on a user-owned
+// machine. If the database file is compromised, the attacker already has
+// access to the host. Ensure the DB file permissions are restrictive (0600).
+type IntegrationConfig struct {
+	ID             uint       `gorm:"primarykey" json:"id"`
+	Type           string     `gorm:"not null;index" json:"type"` // plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby
+	Name           string     `gorm:"not null" json:"name"`       // User-friendly name
+	URL            string     `gorm:"not null" json:"url"`
+	APIKey         string     `gorm:"not null" json:"apiKey"` // API key or Plex token
+	Enabled        bool       `gorm:"default:true" json:"enabled"`
+	LibraryID      *uint      `gorm:"index" json:"libraryId,omitempty"` // FK to Library (ON DELETE SET NULL)
+	ThresholdPct   *float64   `json:"thresholdPct,omitempty"`           // Per-integration threshold override; nil = inherit
+	TargetPct      *float64   `json:"targetPct,omitempty"`              // Per-integration target override; nil = inherit
+	MediaSizeBytes int64      `json:"mediaSizeBytes"`                   // Total media file size
+	MediaCount     int        `json:"mediaCount"`                       // Number of media items
+	LastSync       *time.Time `json:"lastSync,omitempty"`
+	LastError      string     `json:"lastError,omitempty"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	UpdatedAt      time.Time  `json:"updatedAt"`
+}
+
 // DiskGroupIntegration tracks which integrations reported each disk group.
 // The junction table is cleared and repopulated on each poll cycle.
 type DiskGroupIntegration struct {
@@ -81,31 +85,48 @@ type DiskGroupIntegration struct {
 	IntegrationID uint `gorm:"primaryKey" json:"integrationId"`
 }
 
+// LibraryHistory stores historical capacity logs.
+type LibraryHistory struct {
+	ID            uint      `gorm:"primarykey" json:"id"`
+	Timestamp     time.Time `gorm:"index;not null" json:"timestamp"`
+	TotalCapacity int64     `gorm:"not null" json:"totalCapacity"`
+	UsedCapacity  int64     `gorm:"not null" json:"usedCapacity"`
+	Resolution    string    `gorm:"index;not null" json:"resolution"`   // "raw", "hourly", "daily", "weekly"
+	DiskGroupID   *uint     `gorm:"index" json:"diskGroupId,omitempty"` // FK to DiskGroup (ON DELETE CASCADE)
+	LibraryID     *uint     `gorm:"index" json:"libraryId,omitempty"`   // FK to Library (ON DELETE CASCADE)
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
 // PreferenceSet stores the global weights for the scoring engine (0-10 scale)
+// and analytics threshold settings.
 type PreferenceSet struct {
-	ID                    uint      `gorm:"primarykey" json:"id"`
-	LogLevel              string    `gorm:"default:'info';not null" json:"logLevel"`          // "debug", "info", "warn", "error"
-	AuditLogRetentionDays int       `gorm:"default:30;not null" json:"auditLogRetentionDays"` // 0 = forever, else days
-	PollIntervalSeconds   int       `gorm:"default:300;not null" json:"pollIntervalSeconds"`  // minimum 60, default 300 (5 min)
-	WatchHistoryWeight    int       `gorm:"default:10" json:"watchHistoryWeight"`             // High default
-	LastWatchedWeight     int       `gorm:"default:8" json:"lastWatchedWeight"`
-	FileSizeWeight        int       `gorm:"default:6" json:"fileSizeWeight"`
-	RatingWeight          int       `gorm:"default:5" json:"ratingWeight"`
-	TimeInLibraryWeight   int       `gorm:"default:4" json:"timeInLibraryWeight"`
-	SeriesStatusWeight    int       `gorm:"default:3" json:"seriesStatusWeight"`
-	ExecutionMode         string    `gorm:"default:'dry-run';not null" json:"executionMode"`      // "dry-run", "approval", "auto"
-	TiebreakerMethod      string    `gorm:"default:'size_desc';not null" json:"tiebreakerMethod"` // "size_desc", "size_asc", "name_asc", "oldest_first", "newest_first"
-	DeletionsEnabled      bool      `gorm:"default:true;not null" json:"deletionsEnabled"`        // Safety guard: actual deletions only when true
-	SnoozeDurationHours   int       `gorm:"default:24;not null" json:"snoozeDurationHours"`       // Hours to snooze rejected items before re-evaluation
-	CheckForUpdates       bool      `gorm:"default:true;not null" json:"checkForUpdates"`         // Enable outbound update checks
-	UpdatedAt             time.Time `json:"updatedAt"`
+	ID                      uint      `gorm:"primarykey" json:"id"`
+	LogLevel                string    `gorm:"default:'info';not null" json:"logLevel"`          // "debug", "info", "warn", "error"
+	AuditLogRetentionDays   int       `gorm:"default:30;not null" json:"auditLogRetentionDays"` // 0 = forever, else days
+	PollIntervalSeconds     int       `gorm:"default:300;not null" json:"pollIntervalSeconds"`  // minimum 60, default 300 (5 min)
+	WatchHistoryWeight      int       `gorm:"default:10" json:"watchHistoryWeight"`             // High default
+	LastWatchedWeight       int       `gorm:"default:8" json:"lastWatchedWeight"`
+	FileSizeWeight          int       `gorm:"default:6" json:"fileSizeWeight"`
+	RatingWeight            int       `gorm:"default:5" json:"ratingWeight"`
+	TimeInLibraryWeight     int       `gorm:"default:4" json:"timeInLibraryWeight"`
+	SeriesStatusWeight      int       `gorm:"default:3" json:"seriesStatusWeight"`
+	RequestPopularityWeight int       `gorm:"default:2" json:"requestPopularityWeight"`             // NEW in 2.0: RequestPopularityFactor
+	QualityBloatWeight      int       `gorm:"default:2" json:"qualityBloatWeight"`                  // NEW in 2.0: QualityBloatFactor
+	ExecutionMode           string    `gorm:"default:'dry-run';not null" json:"executionMode"`      // "dry-run", "approval", "auto"
+	TiebreakerMethod        string    `gorm:"default:'size_desc';not null" json:"tiebreakerMethod"` // "size_desc", "size_asc", "name_asc", "oldest_first", "newest_first"
+	DeletionsEnabled        bool      `gorm:"default:true;not null" json:"deletionsEnabled"`        // Safety guard: actual deletions only when true
+	SnoozeDurationHours     int       `gorm:"default:24;not null" json:"snoozeDurationHours"`       // Hours to snooze rejected items before re-evaluation
+	CheckForUpdates         bool      `gorm:"default:true;not null" json:"checkForUpdates"`         // Enable outbound update checks
+	DeadContentMinDays      int       `gorm:"default:90;not null" json:"deadContentMinDays"`        // NEW in 2.0: Minimum days in library for "dead content" report
+	StaleContentDays        int       `gorm:"default:180;not null" json:"staleContentDays"`         // NEW in 2.0: Days since last watch for "stale content" report
+	UpdatedAt               time.Time `json:"updatedAt"`
 }
 
 // CustomRule stores custom rules that influence media scoring via keep/remove effects.
-// The deprecated Type and Intensity fields have been removed in the schema refactor.
 type CustomRule struct {
 	ID            uint      `gorm:"primarykey" json:"id"`
-	IntegrationID *uint     `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; nil = legacy global rule
+	IntegrationID *uint     `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; nil = global rule
+	LibraryID     *uint     `gorm:"index" json:"libraryId"`     // FK to Library; nil = global rule (NEW in 2.0: per-library scoping)
 	Field         string    `gorm:"not null" json:"field"`      // e.g. "quality", "tag", "rating"
 	Operator      string    `gorm:"not null" json:"operator"`   // e.g. "==", "contains", ">"
 	Value         string    `gorm:"not null" json:"value"`      // e.g. "4K", "anime", "7.5"
@@ -164,7 +185,7 @@ type AuditLogEntry struct {
 	MediaType     string    `gorm:"not null" json:"mediaType"`
 	Reason        string    `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)"
 	ScoreDetails  string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
-	Action        string    `gorm:"not null" json:"action"`        // "deleted", "dry_run", "dry_delete"
+	Action        string    `gorm:"not null" json:"action"`        // "deleted", "dry_run", "dry_delete", "cancelled"
 	SizeBytes     int64     `gorm:"not null;default:0" json:"sizeBytes"`
 	IntegrationID *uint     `json:"integrationId,omitempty" gorm:"column:integration_id"` // FK to IntegrationConfig (nullable — preserved on integration delete)
 	CreatedAt     time.Time `json:"createdAt"`

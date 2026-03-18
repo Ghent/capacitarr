@@ -38,9 +38,10 @@ var ValidLogLevels = map[string]bool{
 }
 
 // ValidIntegrationTypes defines the allowed integration type values.
+// NOTE: "overseerr" replaced by "seerr" in 2.0. See docs/plans/20260318T2119Z-capacitarr-2.0-plan.md.
 var ValidIntegrationTypes = map[string]bool{
 	"plex": true, "sonarr": true, "radarr": true, "lidarr": true,
-	"readarr": true, "tautulli": true, "overseerr": true,
+	"readarr": true, "tautulli": true, "seerr": true,
 	"jellyfin": true, "emby": true,
 }
 

@@ -1,20 +1,21 @@
 -- +goose Up
--- Baseline migration for the service-layer-event-bus refactor.
--- This is a clean-slate schema — no migration path from previous versions.
--- Existing databases are incompatible; users start fresh on upgrade.
+-- Capacitarr 2.0 baseline migration.
+-- Clean-slate schema — no migration path from 1.x incremental migrations.
+-- For 1.x users, a separate migration tool imports configuration data.
+-- See: docs/plans/20260318T2119Z-capacitarr-2.0-plan.md
 
 -- ============================================================================
 -- Auth
 -- ============================================================================
 
 CREATE TABLE auth_configs (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    username   TEXT NOT NULL,
-    password   TEXT NOT NULL,
-    api_key    TEXT,
-    api_key_hint TEXT NOT NULL DEFAULT '',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    username     TEXT    NOT NULL,
+    password     TEXT    NOT NULL,                        -- bcrypt hash
+    api_key      TEXT,                                    -- SHA-256 hash (sha256:<hex>) or legacy plaintext
+    api_key_hint TEXT    NOT NULL DEFAULT '',              -- Last 4 chars of plaintext key
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE UNIQUE INDEX idx_auth_configs_username ON auth_configs(username);
 CREATE INDEX idx_auth_configs_api_key ON auth_configs(api_key);
@@ -24,16 +25,35 @@ CREATE INDEX idx_auth_configs_api_key ON auth_configs(api_key);
 -- ============================================================================
 
 CREATE TABLE disk_groups (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    mount_path           TEXT    NOT NULL,
+    total_bytes          INTEGER NOT NULL,
+    used_bytes           INTEGER NOT NULL,
+    total_bytes_override INTEGER DEFAULT NULL,             -- User-defined total; NULL = use detected
+    threshold_pct        REAL    NOT NULL DEFAULT 85,       -- Clean up at this %
+    target_pct           REAL    NOT NULL DEFAULT 75,       -- Free down to this %
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX idx_disk_groups_mount_path ON disk_groups(mount_path);
+
+-- ============================================================================
+-- Libraries (NEW in 2.0)
+-- Groups integrations into a logical library with optional threshold overrides.
+-- A library belongs to a disk group. Integrations belong to a library.
+-- Threshold hierarchy: integration override → library override → disk group default.
+-- ============================================================================
+
+CREATE TABLE libraries (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    mount_path    TEXT    NOT NULL,
-    total_bytes   INTEGER NOT NULL,
-    used_bytes    INTEGER NOT NULL,
-    threshold_pct REAL    NOT NULL DEFAULT 85,
-    target_pct    REAL    NOT NULL DEFAULT 75,
+    name          TEXT    NOT NULL,
+    disk_group_id INTEGER REFERENCES disk_groups(id) ON DELETE SET NULL,
+    threshold_pct REAL    DEFAULT NULL,                    -- Override disk group threshold; NULL = inherit
+    target_pct    REAL    DEFAULT NULL,                    -- Override disk group target; NULL = inherit
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE UNIQUE INDEX idx_disk_groups_mount_path ON disk_groups(mount_path);
+CREATE INDEX idx_libraries_disk_group_id ON libraries(disk_group_id);
 
 -- ============================================================================
 -- Integration Configs
@@ -41,11 +61,14 @@ CREATE UNIQUE INDEX idx_disk_groups_mount_path ON disk_groups(mount_path);
 
 CREATE TABLE integration_configs (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    type             TEXT    NOT NULL,
-    name             TEXT    NOT NULL,
+    type             TEXT    NOT NULL,                     -- plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby
+    name             TEXT    NOT NULL,                     -- User-friendly name
     url              TEXT    NOT NULL,
-    api_key          TEXT    NOT NULL,
+    api_key          TEXT    NOT NULL,                     -- API key or Plex token (plaintext — see security note in models.go)
     enabled          INTEGER NOT NULL DEFAULT 1,
+    library_id       INTEGER REFERENCES libraries(id) ON DELETE SET NULL,  -- Optional library grouping
+    threshold_pct    REAL    DEFAULT NULL,                 -- Per-integration threshold override; NULL = inherit
+    target_pct       REAL    DEFAULT NULL,                 -- Per-integration target override; NULL = inherit
     media_size_bytes INTEGER NOT NULL DEFAULT 0,
     media_count      INTEGER NOT NULL DEFAULT 0,
     last_sync        DATETIME,
@@ -54,6 +77,17 @@ CREATE TABLE integration_configs (
     updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_integration_configs_type ON integration_configs(type);
+CREATE INDEX idx_integration_configs_library_id ON integration_configs(library_id);
+
+-- ============================================================================
+-- Disk Group ↔ Integration junction (repopulated each poll cycle)
+-- ============================================================================
+
+CREATE TABLE disk_group_integrations (
+    disk_group_id  INTEGER NOT NULL REFERENCES disk_groups(id) ON DELETE CASCADE,
+    integration_id INTEGER NOT NULL REFERENCES integration_configs(id) ON DELETE CASCADE,
+    PRIMARY KEY (disk_group_id, integration_id)
+);
 
 -- ============================================================================
 -- Library History (time-series capacity data)
@@ -64,35 +98,44 @@ CREATE TABLE library_histories (
     timestamp      DATETIME NOT NULL,
     total_capacity INTEGER  NOT NULL,
     used_capacity  INTEGER  NOT NULL,
-    resolution     TEXT     NOT NULL,
+    resolution     TEXT     NOT NULL,                      -- "raw", "hourly", "daily", "weekly"
     disk_group_id  INTEGER  REFERENCES disk_groups(id) ON DELETE CASCADE,
+    library_id     INTEGER  REFERENCES libraries(id) ON DELETE CASCADE,  -- Optional library-level history
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_library_histories_timestamp ON library_histories(timestamp);
 CREATE INDEX idx_library_histories_resolution ON library_histories(resolution);
 CREATE INDEX idx_library_histories_disk_group_id ON library_histories(disk_group_id);
+CREATE INDEX idx_library_histories_library_id ON library_histories(library_id);
 
 -- ============================================================================
--- Preferences
+-- Preferences (singleton row — scoring factor weights + global settings)
 -- ============================================================================
 
 CREATE TABLE preference_sets (
-    id                       INTEGER PRIMARY KEY AUTOINCREMENT,
-    log_level                TEXT    NOT NULL DEFAULT 'info',
-    audit_log_retention_days INTEGER NOT NULL DEFAULT 30,
-    poll_interval_seconds    INTEGER NOT NULL DEFAULT 300,
-    watch_history_weight     INTEGER NOT NULL DEFAULT 10,
-    last_watched_weight      INTEGER NOT NULL DEFAULT 8,
-    file_size_weight         INTEGER NOT NULL DEFAULT 6,
-    rating_weight            INTEGER NOT NULL DEFAULT 5,
-    time_in_library_weight   INTEGER NOT NULL DEFAULT 4,
-    series_status_weight     INTEGER NOT NULL DEFAULT 3,
-    execution_mode           TEXT    NOT NULL DEFAULT 'dry-run',
-    tiebreaker_method        TEXT    NOT NULL DEFAULT 'size_desc',
-    deletions_enabled        INTEGER NOT NULL DEFAULT 1,
-    snooze_duration_hours    INTEGER NOT NULL DEFAULT 24,
-    check_for_updates        INTEGER NOT NULL DEFAULT 1,
-    updated_at               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_level                  TEXT    NOT NULL DEFAULT 'info',
+    audit_log_retention_days   INTEGER NOT NULL DEFAULT 30,
+    poll_interval_seconds      INTEGER NOT NULL DEFAULT 300,
+    -- Scoring factor weights (0-10 scale). Each maps to a ScoringFactor implementation.
+    watch_history_weight       INTEGER NOT NULL DEFAULT 10,
+    last_watched_weight        INTEGER NOT NULL DEFAULT 8,
+    file_size_weight           INTEGER NOT NULL DEFAULT 6,
+    rating_weight              INTEGER NOT NULL DEFAULT 5,
+    time_in_library_weight     INTEGER NOT NULL DEFAULT 4,
+    series_status_weight       INTEGER NOT NULL DEFAULT 3,
+    request_popularity_weight  INTEGER NOT NULL DEFAULT 2,   -- NEW in 2.0: RequestPopularityFactor
+    quality_bloat_weight       INTEGER NOT NULL DEFAULT 2,   -- NEW in 2.0: QualityBloatFactor
+    -- Engine settings
+    execution_mode             TEXT    NOT NULL DEFAULT 'dry-run',
+    tiebreaker_method          TEXT    NOT NULL DEFAULT 'size_desc',
+    deletions_enabled          INTEGER NOT NULL DEFAULT 1,
+    snooze_duration_hours      INTEGER NOT NULL DEFAULT 24,
+    check_for_updates          INTEGER NOT NULL DEFAULT 1,
+    -- Analytics thresholds (NEW in 2.0)
+    dead_content_min_days      INTEGER NOT NULL DEFAULT 90,   -- Minimum days in library for "dead content" report
+    stale_content_days         INTEGER NOT NULL DEFAULT 180,  -- Days since last watch for "stale content" report
+    updated_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================================
@@ -102,6 +145,7 @@ CREATE TABLE preference_sets (
 CREATE TABLE custom_rules (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     integration_id INTEGER REFERENCES integration_configs(id) ON DELETE CASCADE,
+    library_id     INTEGER REFERENCES libraries(id) ON DELETE CASCADE,  -- NEW in 2.0: per-library rule scoping
     field          TEXT    NOT NULL,
     operator       TEXT    NOT NULL,
     value          TEXT    NOT NULL,
@@ -115,6 +159,7 @@ CREATE TABLE custom_rules (
     updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_custom_rules_integration_id ON custom_rules(integration_id);
+CREATE INDEX idx_custom_rules_library_id ON custom_rules(library_id);
 
 -- ============================================================================
 -- Approval Queue (state machine: pending → approved/rejected → deleted)
@@ -125,11 +170,13 @@ CREATE TABLE approval_queue (
     media_name     TEXT    NOT NULL,
     media_type     TEXT    NOT NULL CHECK(media_type IN ('movie','show','season','episode','artist','album','book')),
     reason         TEXT    NOT NULL,
-    score_details  TEXT,
+    score_details  TEXT,                                   -- JSON-encoded []ScoreFactor
     size_bytes     INTEGER NOT NULL DEFAULT 0,
+    poster_url     TEXT    NOT NULL DEFAULT '',             -- Poster image URL from *arr
     integration_id INTEGER NOT NULL REFERENCES integration_configs(id) ON DELETE CASCADE,
     external_id    TEXT    NOT NULL DEFAULT '',
     status         TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+    force_delete   INTEGER NOT NULL DEFAULT 0,             -- Bypass disk threshold — delete on next engine run
     snoozed_until  DATETIME,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -148,8 +195,8 @@ CREATE TABLE audit_log (
     media_name     TEXT    NOT NULL,
     media_type     TEXT    NOT NULL,
     reason         TEXT    NOT NULL,
-    score_details  TEXT,
-    action         TEXT    NOT NULL CHECK(action IN ('deleted','dry_run','dry_delete')),
+    score_details  TEXT,                                   -- JSON-encoded []ScoreFactor
+    action         TEXT    NOT NULL CHECK(action IN ('deleted','dry_run','dry_delete','cancelled')),
     size_bytes     INTEGER NOT NULL DEFAULT 0,
     integration_id INTEGER REFERENCES integration_configs(id) ON DELETE SET NULL,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -196,33 +243,22 @@ INSERT INTO lifetime_stats (id) VALUES (1);
 
 CREATE TABLE notification_configs (
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-    type                 TEXT    NOT NULL,
+    type                 TEXT    NOT NULL,                  -- "discord", "apprise"
     name                 TEXT    NOT NULL,
-    webhook_url          TEXT,
+    webhook_url          TEXT,                              -- Discord webhook or Apprise API endpoint URL
+    apprise_tags         TEXT    NOT NULL DEFAULT '',       -- Comma-separated Apprise tags for routing
     enabled              INTEGER NOT NULL DEFAULT 1,
+    -- Event subscriptions
+    on_cycle_digest      INTEGER NOT NULL DEFAULT 1,
+    on_error             INTEGER NOT NULL DEFAULT 1,
+    on_mode_changed      INTEGER NOT NULL DEFAULT 1,
+    on_server_started    INTEGER NOT NULL DEFAULT 1,
     on_threshold_breach  INTEGER NOT NULL DEFAULT 1,
-    on_deletion_executed INTEGER NOT NULL DEFAULT 1,
-    on_engine_error      INTEGER NOT NULL DEFAULT 1,
-    on_engine_complete   INTEGER NOT NULL DEFAULT 0,
+    on_update_available  INTEGER NOT NULL DEFAULT 1,
+    on_approval_activity INTEGER NOT NULL DEFAULT 1,
     created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-
--- ============================================================================
--- In-App Notifications
--- ============================================================================
-
-CREATE TABLE in_app_notifications (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    title      TEXT    NOT NULL,
-    message    TEXT    NOT NULL,
-    severity   TEXT    NOT NULL DEFAULT 'info',
-    read       INTEGER NOT NULL DEFAULT 0,
-    event_type TEXT    NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_in_app_notifications_read ON in_app_notifications(read);
-CREATE INDEX idx_in_app_notifications_created_at ON in_app_notifications(created_at);
 
 -- ============================================================================
 -- Activity Events (dashboard feed — 7-day retention, auto-pruned)
@@ -232,7 +268,7 @@ CREATE TABLE activity_events (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     event_type TEXT     NOT NULL DEFAULT '',
     message    TEXT     NOT NULL DEFAULT '',
-    metadata   TEXT     DEFAULT '',
+    metadata   TEXT     DEFAULT '',                         -- Optional JSON for extra data
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_activity_events_event_type ON activity_events(event_type);
@@ -241,7 +277,6 @@ CREATE INDEX idx_activity_events_created_at ON activity_events(created_at);
 
 -- +goose Down
 DROP TABLE IF EXISTS activity_events;
-DROP TABLE IF EXISTS in_app_notifications;
 DROP TABLE IF EXISTS notification_configs;
 DROP TABLE IF EXISTS lifetime_stats;
 DROP TABLE IF EXISTS engine_run_stats;
@@ -250,6 +285,8 @@ DROP TABLE IF EXISTS approval_queue;
 DROP TABLE IF EXISTS custom_rules;
 DROP TABLE IF EXISTS preference_sets;
 DROP TABLE IF EXISTS library_histories;
+DROP TABLE IF EXISTS disk_group_integrations;
 DROP TABLE IF EXISTS integration_configs;
+DROP TABLE IF EXISTS libraries;
 DROP TABLE IF EXISTS disk_groups;
 DROP TABLE IF EXISTS auth_configs;
