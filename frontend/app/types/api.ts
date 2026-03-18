@@ -93,8 +93,8 @@ export interface CustomRule {
 // Audit Log
 // ---------------------------------------------------------------------------
 
-/** Action values match backend db.Action* constants (deleted, dry_run, dry_delete). */
-export type AuditAction = 'deleted' | 'dry_run' | 'dry_delete';
+/** Action values match backend db.Action* constants (deleted, dry_run, dry_delete, cancelled). */
+export type AuditAction = 'deleted' | 'dry_run' | 'dry_delete' | 'cancelled';
 
 export interface AuditLogEntry {
   id: number;
@@ -474,4 +474,24 @@ export interface NotificationChannel {
   onApprovalActivity: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Deletion Queue (API endpoint: /api/deletion-queue)
+// ---------------------------------------------------------------------------
+
+export interface DeletionQueueItem {
+  mediaName: string;
+  mediaType: string;
+  sizeBytes: number;
+  integrationId: number;
+  reason: string;
+}
+
+export interface DeletionCompletedItem {
+  mediaName: string;
+  mediaType: string;
+  sizeBytes: number;
+  status: 'success' | 'failed' | 'cancelled';
+  timestamp: string;
 }

@@ -208,6 +208,16 @@
   "approval.inProgress": "In Progress",
   "approval.awaitingEngine": "Awaiting engine",
 
+  "deletion.title": "Deletion Queue",
+  "deletion.subtitle": "Items queued for deletion and recent results",
+  "deletion.queued": "Queued",
+  "deletion.completed": "Completed",
+  "deletion.cancelItem": "Cancel Deletion",
+  "deletion.cancelled": "Cancelled",
+  "deletion.noItems": "No items in the deletion queue",
+  "deletion.currentlyDeleting": "Currently Deleting",
+  "deletion.batchProgress": "Batch Progress",
+
   "nav.changeLanguage": "Change language",
 
   "settings.title": "Settings",

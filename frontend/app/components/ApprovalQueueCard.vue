@@ -2,7 +2,6 @@
 import {
   CheckIcon,
   AlarmClockIcon,
-  LoaderCircleIcon,
   ClipboardListIcon,
   Undo2Icon,
   ChevronRightIcon,
@@ -17,7 +16,6 @@ const { viewMode } = useDisplayPrefs();
 const {
   pendingItems,
   snoozedItems,
-  approvedItems,
   loading,
   approveGroup,
   rejectGroup,
@@ -29,9 +27,7 @@ const {
   clearQueue,
 } = useApprovalQueue();
 
-const totalCount = computed(
-  () => pendingItems.value.length + snoozedItems.value.length + approvedItems.value.length,
-);
+const totalCount = computed(() => pendingItems.value.length + snoozedItems.value.length);
 
 // --- Section jump navigation ---
 const scrollAreaRef = ref<InstanceType<
@@ -39,18 +35,13 @@ const scrollAreaRef = ref<InstanceType<
 > | null>(null);
 const pendingSectionRef = ref<HTMLElement | null>(null);
 const snoozedSectionRef = ref<HTMLElement | null>(null);
-const progressSectionRef = ref<HTMLElement | null>(null);
 
 /** Which section is currently most visible in the scroll viewport */
-const activeSection = ref<'pending' | 'snoozed' | 'progress'>('pending');
+const activeSection = ref<'pending' | 'snoozed'>('pending');
 
 /** Whether the jump bar should be shown (2+ visible sections) */
 const showJumpBar = computed(() => {
-  return (
-    [pendingItems.value.length, snoozedItems.value.length, approvedItems.value.length].filter(
-      (n) => n > 0,
-    ).length > 1
-  );
+  return [pendingItems.value.length, snoozedItems.value.length].filter((n) => n > 0).length > 1;
 });
 
 /** Scroll to a section within the scroll area viewport */
@@ -77,7 +68,7 @@ function setupSectionObserver() {
       for (const entry of entries) {
         if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
           const section = (entry.target as HTMLElement).dataset.section;
-          if (section === 'pending' || section === 'snoozed' || section === 'progress') {
+          if (section === 'pending' || section === 'snoozed') {
             activeSection.value = section;
           }
         }
@@ -92,7 +83,6 @@ function setupSectionObserver() {
   // Observe each section that exists
   if (pendingSectionRef.value) sectionObserver.observe(pendingSectionRef.value);
   if (snoozedSectionRef.value) sectionObserver.observe(snoozedSectionRef.value);
-  if (progressSectionRef.value) sectionObserver.observe(progressSectionRef.value);
 }
 
 function cleanupSectionObserver() {
@@ -103,7 +93,7 @@ function cleanupSectionObserver() {
 }
 
 // Re-setup observer when sections change visibility
-watch([pendingItems, snoozedItems, approvedItems], () => {
+watch([pendingItems, snoozedItems], () => {
   nextTick(() => setupSectionObserver());
 });
 
@@ -364,18 +354,6 @@ onUnmounted(() => {
             @click="showJumpBar && scrollToSection(snoozedSectionRef)"
           >
             {{ t('approval.snoozedCount', { count: snoozedItems.length }) }}
-          </UiBadge>
-          <UiBadge
-            v-if="approvedItems.length > 0"
-            variant="outline"
-            :class="[
-              'text-xs transition-colors',
-              showJumpBar ? 'cursor-pointer hover:bg-muted' : '',
-              activeSection === 'progress' && showJumpBar ? 'ring-1 ring-foreground/20' : '',
-            ]"
-            @click="showJumpBar && scrollToSection(progressSectionRef)"
-          >
-            {{ t('approval.deletingCount', { count: approvedItems.length }) }}
           </UiBadge>
           <UiButton
             v-if="pendingItems.length > 0 || snoozedItems.length > 0"
@@ -906,62 +884,6 @@ onUnmounted(() => {
                     <XIcon class="h-4 w-4" />
                   </UiButton>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Section 3: In Progress (Approved/Deleting) -->
-          <div v-if="approvedItems.length > 0" ref="progressSectionRef" data-section="progress">
-            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              {{ t('approval.inProgress') }}
-            </h4>
-            <!-- Grid view for approved items -->
-            <div
-              v-if="viewMode === 'grid'"
-              class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 opacity-60"
-            >
-              <MediaPosterCard
-                v-for="group in approvedItems"
-                :key="group.key"
-                :title="group.showTitle"
-                :poster-url="group.posterUrl"
-                :media-type="group.type"
-                :score="group.score"
-                :size-bytes="group.totalSizeBytes"
-                @click="showDetail(group)"
-              />
-            </div>
-            <!-- List view for approved items -->
-            <div v-else class="space-y-1.5">
-              <div
-                v-for="group in approvedItems"
-                :key="group.key"
-                class="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 opacity-60 cursor-pointer hover:bg-muted/50 transition-colors"
-                @click="showDetail(group)"
-              >
-                <!-- Spinner -->
-                <LoaderCircleIcon class="w-4 h-4 animate-spin text-muted-foreground shrink-0" />
-
-                <!-- Title + type badge + size -->
-                <div class="flex-1 min-w-0">
-                  <span class="inline-flex items-center gap-1.5">
-                    <span class="text-sm font-medium truncate">{{ group.showTitle }}</span>
-                    <UiBadge
-                      variant="secondary"
-                      class="capitalize text-[10px] px-1.5 py-0 shrink-0"
-                    >
-                      {{ group.type }}
-                    </UiBadge>
-                  </span>
-                  <span class="text-xs text-muted-foreground block">{{
-                    groupSubtitle(group)
-                  }}</span>
-                </div>
-
-                <!-- Status -->
-                <span class="text-xs text-muted-foreground shrink-0">
-                  {{ t('approval.deleting') }}
-                </span>
               </div>
             </div>
           </div>

@@ -330,53 +330,8 @@ rs
       </UiCardContent>
     </UiCard>
 
-    <!-- Deletion Progress Indicator (visible when a deletion batch is active) -->
-    <div
-      v-if="engineIsDeletionActive && engineDeletionProgress"
-      v-motion
-      :initial="{ opacity: 0, y: -8 }"
-      :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 26 } }"
-      class="mb-6 -mt-3"
-    >
-      <UiCard>
-        <UiCardContent class="pt-4 pb-4">
-          <div class="flex items-center gap-2 mb-2">
-            <Trash2Icon class="w-4 h-4 text-destructive shrink-0" />
-            <span class="text-sm font-medium text-destructive">
-              {{ t('dashboard.deletionProgress') }}
-            </span>
-            <span class="ml-auto text-xs tabular-nums text-muted-foreground">
-              {{
-                t('dashboard.deletionProgressCount', {
-                  processed: engineDeletionProgress.processed,
-                  total: engineDeletionProgress.batchTotal,
-                })
-              }}
-              <template v-if="engineDeletionProgress.failed > 0">
-                ·
-                <span class="text-destructive">
-                  {{
-                    t('dashboard.deletionProgressFailed', {
-                      failed: engineDeletionProgress.failed,
-                    })
-                  }}
-                </span>
-              </template>
-            </span>
-          </div>
-          <UiProgress :model-value="deletionProgressPct" class="h-1.5 mb-2" />
-          <div
-            v-if="engineDeletionProgress.currentItem"
-            class="text-xs text-muted-foreground truncate"
-            :title="engineDeletionProgress.currentItem"
-          >
-            {{
-              t('dashboard.deletionProgressDetail', { current: engineDeletionProgress.currentItem })
-            }}
-          </div>
-        </UiCardContent>
-      </UiCard>
-    </div>
+    <!-- Deletion Queue (visible when items are queued/in-progress/completed) -->
+    <DeletionQueueCard />
 
     <!-- Approval Queue (only in approval mode) -->
     <ApprovalQueueCard v-if="approvalQueueVisible" />
@@ -649,8 +604,6 @@ const {
   lastRunFlagged: engineLastRunFlagged,
   isRunning: engineIsRunning,
   pollIntervalSeconds: enginePollInterval,
-  deletionProgress: engineDeletionProgress,
-  isDeletionActive: engineIsDeletionActive,
   runNowLoading: engineRunNowLoading,
   runCompletionCounter: engineRunCompletionCounter,
   modeLabel: engineModeLabel,
@@ -894,14 +847,6 @@ const formattedGrowthRate = computed(() => {
   const bytes = dashboardStats.value.growthBytesPerWeek;
   const prefix = bytes >= 0 ? '+' : '';
   return `${prefix}${formatBytes(Math.abs(bytes))} / week`;
-});
-
-// --- Deletion progress percentage ---
-const deletionProgressPct = computed(() => {
-  if (!engineDeletionProgress.value || engineDeletionProgress.value.batchTotal === 0) return 0;
-  return Math.round(
-    (engineDeletionProgress.value.processed / engineDeletionProgress.value.batchTotal) * 100,
-  );
 });
 
 // --- Status banner ---

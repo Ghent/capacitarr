@@ -1,6 +1,6 @@
 # Card Split, Deletion Queue Cancel, and Poster Banner Indicators
 
-**Status:** 🟡 In Progress (Phase 1 Complete)  
+**Status:** 🟡 In Progress (Phase 2 Complete)  
 **Created:** 2026-03-18T15:54Z  
 **Branch:** `feature/queue-management-fixes` (continuation)  
 **Depends on:** `20260318T1351Z-queue-management-fixes.md` (✅ Complete)
@@ -122,9 +122,20 @@ Test cases:
 
 ---
 
-## Phase 2: Card Split — Approval Queue + Deletion Queue
+## Phase 2: Card Split — Approval Queue + Deletion Queue ✅
+
+**Status:** ✅ Complete  
+**Completed:** 2026-03-18T16:33Z
 
 Split the single ApprovalQueueCard into two separate cards.
+
+**Deviations from plan:**
+- The `DeletionProgress` type uses `processed` (not `batchProcessed`) to match the backend `DeletionProgressEvent` struct — the `progressPercent` computed in DeletionQueueCard uses `processed` accordingly.
+- The backend `DeletionFailedEvent` does not include `sizeBytes`, so the `deletion_failed` SSE handler sets `sizeBytes: 0` for failed items. The template conditionally hides the size display when `sizeBytes` is 0.
+- Removed `LoaderCircleIcon` import from ApprovalQueueCard since it was only used in the removed Section 3.
+- Removed `engineDeletionProgress` and `engineIsDeletionActive` from the `useEngineControl()` destructuring in `index.vue` since they were only used in the removed standalone deletion progress card. The `DeletionProgress` type import is retained for the sparkline handler.
+- The API endpoint uses `/api/deletion-queue` (not `/api/v1/deletion-queue`) matching the Phase 1 route registration.
+- The `currentSizeBytes` field referenced in the task spec does not exist on the `DeletionProgress` type — the "currently deleting" section shows only the item name (no size), matching the backend data.
 
 ### Step 2.1: Create DeletionQueueCard component
 
