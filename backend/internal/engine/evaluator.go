@@ -1,0 +1,86 @@
+package engine
+
+import (
+	"capacitarr/internal/db"
+	"capacitarr/internal/integrations"
+)
+
+// Evaluator performs reusable scoring and filtering of media items.
+// Decoupled from the poller so it can be called from:
+//   - The poller (orchestration)
+//   - Library page (preview evaluations)
+//   - Analytics APIs (composition analysis)
+//   - Dry-run / audit reporting
+type Evaluator struct {
+	factors []ScoringFactor
+}
+
+// NewEvaluator creates an Evaluator with the default scoring factors.
+func NewEvaluator() *Evaluator {
+	return &Evaluator{factors: DefaultFactors()}
+}
+
+// NewEvaluatorWithFactors creates an Evaluator with custom scoring factors.
+func NewEvaluatorWithFactors(factors []ScoringFactor) *Evaluator {
+	return &Evaluator{factors: factors}
+}
+
+// EvaluationResult holds the output of an evaluation run.
+type EvaluationResult struct {
+	// Items is the full list of evaluated items, sorted by score descending.
+	Items []EvaluatedItem
+	// Protected is items matched by always_keep rules.
+	Protected []EvaluatedItem
+	// Candidates is non-protected items sorted by deletion priority.
+	Candidates []EvaluatedItem
+	// TotalCount is the number of items evaluated.
+	TotalCount int
+}
+
+// Evaluate scores all items against the given preferences and rules,
+// and returns a categorized result. This is the pure evaluation logic —
+// no side effects, no DB writes, no queue operations.
+func (e *Evaluator) Evaluate(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.CustomRule, tiebreakerMethod string) *EvaluationResult {
+	evaluated := EvaluateMedia(items, prefs, rules)
+	SortEvaluated(evaluated, tiebreakerMethod)
+
+	result := &EvaluationResult{
+		Items:      evaluated,
+		TotalCount: len(evaluated),
+	}
+
+	for _, item := range evaluated {
+		if item.IsProtected {
+			result.Protected = append(result.Protected, item)
+		} else {
+			result.Candidates = append(result.Candidates, item)
+		}
+	}
+
+	return result
+}
+
+// CandidatesForDeletion returns items that should be considered for deletion
+// to free the specified number of bytes. Items are returned in deletion
+// priority order (highest score first).
+func (r *EvaluationResult) CandidatesForDeletion(bytesToFree int64) []EvaluatedItem {
+	if bytesToFree <= 0 {
+		return nil
+	}
+
+	var candidates []EvaluatedItem
+	var totalSize int64
+	for _, item := range r.Candidates {
+		candidates = append(candidates, item)
+		totalSize += item.Item.SizeBytes
+		if totalSize >= bytesToFree {
+			break
+		}
+	}
+	return candidates
+}
+
+// Factors returns the scoring factors used by this evaluator.
+func (e *Evaluator) Factors() []ScoringFactor {
+	return e.factors
+}
