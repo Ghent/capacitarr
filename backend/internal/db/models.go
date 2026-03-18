@@ -122,6 +122,31 @@ type PreferenceSet struct {
 	UpdatedAt               time.Time `json:"updatedAt"`
 }
 
+// GetFactorWeight returns the configured weight for a scoring factor by key.
+// Keys map to the ScoringFactor.Key() values defined in engine/factors.go.
+func (p PreferenceSet) GetFactorWeight(key string) int {
+	switch key {
+	case "watch_history":
+		return p.WatchHistoryWeight
+	case "last_watched":
+		return p.LastWatchedWeight
+	case "file_size":
+		return p.FileSizeWeight
+	case "rating":
+		return p.RatingWeight
+	case "time_in_library":
+		return p.TimeInLibraryWeight
+	case "series_status":
+		return p.SeriesStatusWeight
+	case "request_popularity":
+		return p.RequestPopularityWeight
+	case "quality_bloat":
+		return p.QualityBloatWeight
+	default:
+		return 0
+	}
+}
+
 // CustomRule stores custom rules that influence media scoring via keep/remove effects.
 type CustomRule struct {
 	ID            uint      `gorm:"primarykey" json:"id"`
