@@ -5,7 +5,7 @@
 
 ## Summary
 
-Complete redesign of the Insights page to focus exclusively on capacity management. Replace boring/irrelevant charts with visually striking, capacity-focused visualizations using ECharts' advanced chart types. Fix backend data issues (show/season duplication, bloat comparison across types, unfiltered protected content). Redesign all 6 theme color palettes for chart aesthetics.
+Complete redesign of the Insights page to focus exclusively on capacity management. Replace boring/irrelevant charts with visually striking, capacity-focused visualizations using ECharts' advanced chart types. Fix backend data issues (show/season duplication, bloat comparison across types, unfiltered protected content). Redesign all 6 theme color palettes for chart aesthetics. Replace the dashboard's redundant capacity line chart with an animated horizontal thermometer bar per disk group (native ECharts — no extra dependencies) with gradient fill, glow tip, zone backgrounds, threshold markers, forecast tooltip, and pulsing glow when critical. Remove the dashboard summary stat cards.
 
 ## Context
 
@@ -267,6 +267,13 @@ Data source: new `/api/v1/analytics/forecast` endpoint
 
 Replace the plain stat cards with cards containing small ECharts ring gauges.
 
+Each card includes a short, human-readable description below the title so users instantly understand the metric:
+
+- **Dead Content** — description: *"Never watched by anyone"*
+- **Stale Content** — description: *"Not watched in over X months"* (where X is the configured staleness threshold, e.g., `12`)
+
+The description is rendered as muted text (`text-muted-foreground text-sm`) between the card title and the ring gauge.
+
 ECharts config:
 - Type: `gauge` with `startAngle: 90`, `endAngle: -270` (full circle)
 - Single data item showing percentage of library that's dead/stale
@@ -367,6 +374,7 @@ Apply `emphasisConfig()` to all series:
 │ 40.2 / 41 TB             │ Full in: 47 days          │
 ├──────────────────────────┼──────────────────────────┤
 │ Dead Content             │ Stale Content              │
+│ Never watched by anyone  │ Not watched in over 12 mo  │
 │ (ring gauge, 15.5%)      │ (ring gauge, 69%)          │
 │ 9.1 TB reclaimable       │ 28.5 TB reclaimable        │
 │ 554 items                │ 1169 items                 │
@@ -386,9 +394,100 @@ Apply `emphasisConfig()` to all series:
 
 ---
 
-## Phase 7: ECharts Plugin Update
+## Phase 7: Dashboard Cleanup — Horizontal Thermometer Bars and Summary Card Removal
 
-### Step 7.1: Update tree-shaken imports
+Replace the per-disk-group `CapacityChart` time-series line chart with a horizontal animated thermometer bar per group. Remove the redundant summary stat cards (Total Storage, Used Capacity, Integrations, Space Reclaimed, Protected Items, Library Growth Rate) — this data now lives on the Insights page or is already visible in the disk group sections. The dashboard becomes focused on **engine activity** and **per-group capacity at a glance**.
+
+No extra dependencies required — the thermometer uses native ECharts `BarChart` with `markLine`, `visualMap`, and `graphic` components.
+
+### Step 7.1: Replace `CapacityChart` with horizontal thermometer bar in `DiskGroupSection`
+
+**File:** `frontend/app/components/DiskGroupSection.vue`
+
+Remove the `CapacityChart` component (the "Chart Area" section in the current template) and replace it with a horizontal thermometer bar. Keep the existing progress bar with zone markers above it — it serves a different purpose (quick zone indicator).
+
+The thermometer replaces the "Capacity · Last 30 days" time-series chart area:
+
+**ECharts config — bar series:**
+- Type: `bar` (horizontal via `xAxis` as value axis, `yAxis` as category)
+- Single data value: current usage percentage (e.g., `98.1`)
+- `barBorderRadius: [0, 6, 6, 0]` — rounded right end (pill shape on the fill tip)
+- Chart height: `h-20` (80px) — compact compared to the old `h-64` line chart
+- `barWidth: 24` — thick enough to be visually prominent
+
+**Gradient fill with glow tip:**
+- `itemStyle.color`: `linearGradient` from a lighter shade (left) to a saturated shade (right), color determined by current zone:
+  - Green gradient when usage < `targetPct`
+  - Amber gradient when usage ≥ `targetPct` and < `thresholdPct`
+  - Red gradient when usage ≥ `thresholdPct`
+- `itemStyle.shadowBlur: 12`, `shadowColor` matching the zone color — creates a glow effect on the fill tip
+- `itemStyle.shadowOffsetX: 4` — glow extends rightward from the tip
+
+**Zone-colored background segments:**
+- A second stacked bar series at 100% with three segments (green/amber/red) at 8% opacity, showing the zones behind the fill bar
+- Segments: `[0, targetPct]` green, `[targetPct, thresholdPct]` amber, `[thresholdPct, 100]` red
+- `barGap: '-100%'` to overlay the background behind the fill bar
+
+**Threshold markers via `markLine`:**
+- Vertical dashed lines at `targetPct` and `thresholdPct` positions
+- `markLine.data`: `[{ xAxis: targetPct }, { xAxis: thresholdPct }]`
+- `markLine.lineStyle`: `{ type: 'dashed', width: 1 }`
+- `markLine.label.formatter`: `'🎯 Target {c}%'` and `'⚠️ Threshold {c}%'`
+- `markLine.label.fontSize: 10`, `color: 'inherit'`
+
+**Pulsing glow when critical:**
+- When usage ≥ `thresholdPct` (red zone), apply a CSS `animation: pulse 2s ease-in-out infinite` on the chart container
+- The pulse subtly scales the glow shadow (`shadowBlur` oscillates between 12 and 20) — a visual alarm that says "attention needed" without being obnoxious
+- Implemented via a dynamic `:class` binding on the `VChart` wrapper: `{ 'thermometer-critical': usagePercent >= thresholdPct }`
+- CSS keyframes: `@keyframes thermometer-pulse { 0%, 100% { filter: drop-shadow(0 0 6px var(--destructive)); } 50% { filter: drop-shadow(0 0 14px var(--destructive)); } }`
+
+**Animations:**
+- Entrance: `animationDuration: 1500`, `animationEasing: 'elasticOut'` — bar fills past target slightly, then bounces back to actual value
+- Data updates: `animationDurationUpdate: 800`, `animationEasingUpdate: 'cubicOut'` — smooth transition when dashboard auto-refreshes
+
+**Frosted glass tooltip on hover:**
+- Uses the shared `tooltipConfig()` from `useEChartsDefaults`
+- Content: current usage (`40.2 TB / 41 TB · 98.1%`), growth rate (`+2.1 GB/day`), forecast (`Full in ~47 days`)
+- Forecast data pulled from the same `/api/v1/analytics/forecast` endpoint used by Insights
+
+### Step 7.2: Add "View capacity details →" link
+
+Below the thermometer bar in `DiskGroupSection`, add a muted link that navigates to the Insights page:
+
+```vue
+<NuxtLink to="/insights" class="text-xs text-muted-foreground hover:text-foreground transition-colors">
+  View capacity details →
+</NuxtLink>
+```
+
+### Step 7.3: Remove summary stat cards from dashboard
+
+**File:** `frontend/app/pages/index.vue`
+
+Remove both summary card grids:
+- **Row 1:** Total Storage, Used Capacity, Integrations
+- **Row 2:** Space Reclaimed, Protected Items, Library Growth Rate
+
+These are now redundant:
+- Total/Used storage → visible per-group in `DiskGroupSection` + detailed on Insights
+- Integrations count → visible on the Settings/Integrations page
+- Space Reclaimed / Protected Items / Growth Rate → moving to Insights
+
+Remove associated computed properties, formatters, and data fetches that were only used by these cards.
+
+### Step 7.4: Remove old `CapacityChart` component and related code
+
+- Delete `frontend/app/components/CapacityChart.vue` (if it becomes unused — verify no other page imports it)
+- Remove the `CapacityChart` import from `DiskGroupSection.vue`
+- Remove the `chartMode` and `dateRange` props from `DiskGroupSection` if they were only used for the capacity chart
+- Remove the chart mode and date range selectors from the dashboard header if they only controlled the capacity chart
+- Clean up any unused fetch functions or composables
+
+---
+
+## Phase 8: ECharts Plugin Update
+
+### Step 8.1: Update tree-shaken imports
 
 **File:** `frontend/app/plugins/echarts.client.ts`
 
@@ -411,13 +510,59 @@ import {
 Remove: `PieChart`, `TreemapChart` (no longer used)
 Add: `GaugeChart`, `SunburstChart`, `MarkLineComponent`, `MarkAreaComponent`
 
-Note: `PieChart` may still be used by the dashboard or other pages — verify before removing.
+Note: `PieChart` may still be used by other pages — verify before removing. `BarChart` is already registered (used by the dashboard thermometer and other charts).
 
 ---
 
-## Phase 8: Tests
+## Phase 9: Dead Code Cleanup
 
-### Step 8.1: Backend tests
+Remove all dead, dangling, and orphaned code left over from the old Insights page and earlier refactors. No backwards compatibility is required — anything unused after the redesign phases above should be deleted outright.
+
+### Step 9.1: Remove unused backend endpoints and service methods
+
+Audit the following for references from the new Insights page and other pages (dashboard, library, etc.). Delete any that are no longer called from any route or service:
+
+- `GetPopularity()` in `watch_analytics.go` — popularity/ranked-list data was removed in Phase 3
+- `GetRequestFulfillment()` (if it exists) — request fulfillment section was removed in Phase 3
+- Any route registrations in `routes/analytics.go` for removed endpoints (e.g., `/api/v1/analytics/popularity`, `/api/v1/analytics/request-fulfillment`)
+- Unused response structs: `PopularityResponse`, `RankedItem`, `RequestFulfillmentResponse`, etc.
+
+### Step 9.2: Remove unused frontend composables, types, and utilities
+
+- Delete or trim dead exports from `useEChartsDefaults.ts` (e.g., old `generatePalette()` if replaced, old helper functions)
+- Remove unused TypeScript types that were referenced only by removed charts: `PopularityEntry`, `RankedItem`, `PopularityData`, `RequestFulfillmentData`, etc.
+- Remove dead computed properties, watchers, and fetch functions that were deleted from `insights.vue` template but may linger in `<script setup>`
+- Remove any abandoned composable files that existed solely for old Insights charts
+
+### Step 9.3: Remove unused frontend components and assets
+
+- Delete any single-use chart wrapper components that were only used by the old Insights page
+- Remove unused icon imports across Insights-related files
+- Remove orphaned CSS/SCSS or Tailwind `@apply` blocks that targeted removed elements
+
+### Step 9.4: Remove unused ECharts chart types from the plugin
+
+- Confirm `PieChart` and `TreemapChart` are not imported by any remaining page or component (dashboard, library, etc.)
+- If confirmed unused, remove their imports and `use()` registrations from `frontend/app/plugins/echarts.client.ts`
+- Remove any ECharts component imports that are no longer referenced (e.g., `DataZoomComponent` if no chart uses it)
+
+### Step 9.5: Remove unused backend test helpers and fixtures
+
+- Delete test helpers, factory functions, or fixture data that existed only to support removed endpoints or service methods
+- Remove test files that are now empty after their test cases were deleted
+
+### Step 9.6: Verify no import errors or dangling references
+
+Run:
+1. `make ci` — full lint + test + security pipeline must pass
+2. `grep -rn` for any identifier names from removed code to catch stale references in comments, docs, or string literals
+3. Fix any remaining references
+
+---
+
+## Phase 10: Tests
+
+### Step 10.1: Backend tests
 
 - `analytics_test.go`: test `GetSizeAnomalies()` groups by `(qualityProfile, type)`
 - `watch_analytics_test.go`: test dead/stale content excludes `always_keep` items
@@ -426,22 +571,32 @@ Note: `PieChart` may still be used by the dashboard or other pages — verify be
 - `analytics_test.go`: test `GetStorageSunburst()` hierarchical structure
 - `analytics_test.go`: test new `/api/v1/analytics/forecast` and `/api/v1/analytics/storage-breakdown` routes
 
-### Step 8.2: Run `make ci`
+### Step 10.2: Run `make ci`
 
 Full CI pipeline must pass before declaring complete.
 
 ---
 
-## Phase 9: Verify in Browser
+## Phase 11: Verify in Browser
 
-### Step 9.1: Visual verification
+### Step 11.1: Visual verification
 
-- Launch browser, navigate to Insights page
+- Launch browser, navigate to Dashboard
+- Verify summary stat cards are removed (no Total Storage, Used Capacity, etc.)
+- Verify each disk group shows the horizontal thermometer bar with gradient fill and glow tip
+- Verify zone-colored background segments (green/amber/red) are visible behind the fill bar
+- Verify threshold `markLine` markers appear at target and threshold positions
+- Verify elastic entrance animation on page load (bar fills with slight overshoot)
+- Verify pulsing glow effect on disk groups in the red zone (≥ threshold)
+- Verify frosted glass tooltip on hover shows usage + growth rate + forecast
+- Verify smooth animation on data update (auto-refresh)
+- Verify "View capacity details →" link navigates to Insights
+- Navigate to Insights page
 - Verify zero console errors
 - Verify all charts render with correct colors per theme
 - Switch themes and verify palette changes
 - Verify gauge animations on page load
 - Verify sunburst drill-down interaction
 - Verify forecast projection line
-- Verify dead/stale ring gauges show correct proportions
+- Verify dead/stale ring gauges show correct proportions and description blurbs
 - Verify size anomalies table shows type column and correct medians
