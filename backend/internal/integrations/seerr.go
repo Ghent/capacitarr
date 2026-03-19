@@ -126,3 +126,7 @@ func (o *SeerrClient) GetRequestedMedia() ([]MediaRequest, error) {
 
 	return allRequests, nil
 }
+
+// Verify SeerrClient satisfies capability interfaces at compile time.
+var _ Connectable = (*SeerrClient)(nil)
+var _ RequestProvider = (*SeerrClient)(nil)

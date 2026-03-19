@@ -194,3 +194,19 @@ func (j *JellyfinClient) GetAdminUserID() (string, error) {
 
 	return "", fmt.Errorf("no Jellyfin users found")
 }
+
+// ─── Capability interface implementations ───────────────────────────────────
+
+// GetWatchlistItems implements WatchlistProvider by resolving the admin user
+// and returning favorited items.
+func (j *JellyfinClient) GetWatchlistItems() (map[string]bool, error) {
+	userID, err := j.GetAdminUserID()
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin watchlist: %w", err)
+	}
+	return j.GetFavoritedItems(userID)
+}
+
+// Verify JellyfinClient satisfies capability interfaces at compile time.
+var _ Connectable = (*JellyfinClient)(nil)
+var _ WatchlistProvider = (*JellyfinClient)(nil)

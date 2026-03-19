@@ -189,3 +189,19 @@ func (e *EmbyClient) GetAdminUserID() (string, error) {
 
 	return "", fmt.Errorf("no Emby users found")
 }
+
+// ─── Capability interface implementations ───────────────────────────────────
+
+// GetWatchlistItems implements WatchlistProvider by resolving the admin user
+// and returning favorited items.
+func (e *EmbyClient) GetWatchlistItems() (map[string]bool, error) {
+	userID, err := e.GetAdminUserID()
+	if err != nil {
+		return nil, fmt.Errorf("emby watchlist: %w", err)
+	}
+	return e.GetFavoritedItems(userID)
+}
+
+// Verify EmbyClient satisfies capability interfaces at compile time.
+var _ Connectable = (*EmbyClient)(nil)
+var _ WatchlistProvider = (*EmbyClient)(nil)

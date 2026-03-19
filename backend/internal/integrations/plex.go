@@ -311,8 +311,14 @@ func (p *PlexClient) GetOnDeckItems() (map[string]bool, error) {
 	return result, nil
 }
 
-// Ensure PlexClient implements Integration
+// GetWatchlistItems implements WatchlistProvider by returning Plex on-deck items.
+func (p *PlexClient) GetWatchlistItems() (map[string]bool, error) {
+	return p.GetOnDeckItems()
+}
+
+// Ensure PlexClient implements Integration + WatchlistProvider
 var _ Integration = (*PlexClient)(nil)
+var _ WatchlistProvider = (*PlexClient)(nil)
 
 // DeleteMediaItem is a no-op for Plex; actual deletion is performed via *arr services.
 func (p *PlexClient) DeleteMediaItem(_ MediaItem) error {
