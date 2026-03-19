@@ -2,6 +2,8 @@
   "common.save": "Gem",
   "common.cancel": "Annuller",
   "common.delete": "Slet",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Rediger",
   "common.test": "Test",
   "common.loading": "Indlæser…",

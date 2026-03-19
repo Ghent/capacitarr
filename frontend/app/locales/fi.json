@@ -2,6 +2,8 @@
   "common.save": "Tallenna",
   "common.cancel": "Peruuta",
   "common.delete": "Poista",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Muokkaa",
   "common.test": "Testaa",
   "common.loading": "Ladataan…",

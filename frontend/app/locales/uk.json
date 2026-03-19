@@ -2,6 +2,8 @@
   "common.save": "Зберегти",
   "common.cancel": "Скасувати",
   "common.delete": "Видалити",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Редагувати",
   "common.test": "Тест",
   "common.loading": "Завантаження…",

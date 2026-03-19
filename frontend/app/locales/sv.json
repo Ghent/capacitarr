@@ -2,6 +2,8 @@
   "common.save": "Spara",
   "common.cancel": "Avbryt",
   "common.delete": "Ta bort",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Redigera",
   "common.test": "Testa",
   "common.loading": "Laddar…",

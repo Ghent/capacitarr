@@ -2,6 +2,8 @@
   "common.save": "Mentés",
   "common.cancel": "Mégse",
   "common.delete": "Törlés",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Szerkesztés",
   "common.test": "Teszt",
   "common.loading": "Betöltés…",

@@ -2,6 +2,8 @@
   "common.save": "Salvează",
   "common.cancel": "Anulează",
   "common.delete": "Șterge",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Editează",
   "common.test": "Testează",
   "common.loading": "Se încarcă…",

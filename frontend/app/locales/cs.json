@@ -2,6 +2,8 @@
   "common.save": "Uložit",
   "common.cancel": "Zrušit",
   "common.delete": "Smazat",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Upravit",
   "common.test": "Testovat",
   "common.loading": "Načítání…",

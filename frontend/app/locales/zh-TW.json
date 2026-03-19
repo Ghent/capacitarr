@@ -2,6 +2,8 @@
   "common.save": "儲存",
   "common.cancel": "取消",
   "common.delete": "刪除",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "編輯",
   "common.test": "測試",
   "common.loading": "載入中…",

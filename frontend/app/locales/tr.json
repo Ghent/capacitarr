@@ -2,6 +2,8 @@
   "common.save": "Kaydet",
   "common.cancel": "İptal",
   "common.delete": "Sil",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Düzenle",
   "common.test": "Test Et",
   "common.loading": "Yükleniyor…",

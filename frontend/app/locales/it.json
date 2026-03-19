@@ -2,6 +2,8 @@
   "common.save": "Salva",
   "common.cancel": "Annulla",
   "common.delete": "Elimina",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Modifica",
   "common.test": "Testa",
   "common.loading": "Caricamento…",

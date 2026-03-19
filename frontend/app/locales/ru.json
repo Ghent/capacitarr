@@ -2,6 +2,8 @@
   "common.save": "Сохранить",
   "common.cancel": "Отмена",
   "common.delete": "Удалить",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Редактировать",
   "common.test": "Тест",
   "common.loading": "Загрузка…",

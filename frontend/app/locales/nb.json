@@ -2,6 +2,8 @@
   "common.save": "Lagre",
   "common.cancel": "Avbryt",
   "common.delete": "Slett",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Rediger",
   "common.test": "Test",
   "common.loading": "Laster…",

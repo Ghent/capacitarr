@@ -2,6 +2,8 @@
   "common.save": "Enregistrer",
   "common.cancel": "Annuler",
   "common.delete": "Supprimer",
+  "common.create": "Create",
+  "common.noResults": "No results",
   "common.edit": "Modifier",
   "common.test": "Tester",
   "common.loading": "Chargement…",
