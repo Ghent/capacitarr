@@ -20,6 +20,10 @@ function hexToHSL(hex: string): HSL {
   let b = 0;
 
   const stripped = hex.replace('#', '');
+  // Validate hex input — return neutral gray if not a valid hex color
+  if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(stripped)) {
+    return { h: 0, s: 0, l: 50 };
+  }
   if (stripped.length === 3) {
     r = parseInt(stripped[0]! + stripped[0]!, 16);
     g = parseInt(stripped[1]! + stripped[1]!, 16);
@@ -96,12 +100,27 @@ function hslToHex(h: number, s: number, l: number): string {
  * Convert a hex color + alpha (0–1) to an rgba() string.
  * ECharts does not reliably support 8-digit hex (#RRGGBBAA),
  * so we must use rgba() for any color with transparency.
+ *
+ * Defensively validates the input: if the string is not a valid
+ * hex color (e.g. if an oklch/color() string leaked through),
+ * returns a transparent black fallback to avoid Canvas NaN errors.
  */
 function hexToRgba(hex: string, alpha: number): string {
   const stripped = hex.replace('#', '');
-  const r = parseInt(stripped.substring(0, 2), 16);
-  const g = parseInt(stripped.substring(2, 4), 16);
-  const b = parseInt(stripped.substring(4, 6), 16);
+  // Validate that we have a 3- or 6-digit hex string
+  if (!/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(stripped)) {
+    return `rgba(0,0,0,${alpha})`;
+  }
+  let r: number, g: number, b: number;
+  if (stripped.length === 3) {
+    r = parseInt(stripped[0]! + stripped[0]!, 16);
+    g = parseInt(stripped[1]! + stripped[1]!, 16);
+    b = parseInt(stripped[2]! + stripped[2]!, 16);
+  } else {
+    r = parseInt(stripped.substring(0, 2), 16);
+    g = parseInt(stripped.substring(2, 4), 16);
+    b = parseInt(stripped.substring(4, 6), 16);
+  }
   return `rgba(${r},${g},${b},${alpha})`;
 }
 

@@ -61,25 +61,6 @@
             </div>
           </DashboardCard>
 
-          <!-- Year Distribution (area chart) -->
-          <DashboardCard :title="$t('insights.yearDistribution')" :icon="CalendarIcon">
-            <div class="h-64">
-              <ClientOnly>
-                <v-chart
-                  v-if="compositionData"
-                  :option="yearAreaOption"
-                  autoresize
-                  class="h-full w-full"
-                />
-                <template #fallback>
-                  <div class="h-full flex items-center justify-center">
-                    <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                </template>
-              </ClientOnly>
-            </div>
-          </DashboardCard>
-
           <!-- Integration Contribution (treemap) -->
           <DashboardCard :title="$t('insights.integrationContribution')" :icon="LayersIcon">
             <div class="h-64">
@@ -108,7 +89,7 @@
             <div class="h-64">
               <ClientOnly>
                 <v-chart
-                  v-if="metricsData && metricsData.length > 0"
+                  v-if="metricsData && metricsData.length >= 3"
                   :option="growthLineOption"
                   autoresize
                   class="h-full w-full"
@@ -273,35 +254,6 @@
             </template>
           </DashboardCard>
 
-          <!-- Popularity Heatmap -->
-          <DashboardCard
-            :title="$t('insights.popularityHeatmap')"
-            :icon="FlameIcon"
-            class="md:col-span-2"
-          >
-            <div class="h-80">
-              <ClientOnly>
-                <v-chart
-                  v-if="popularityData && popularityData.heatmap.length > 0"
-                  :option="popularityHeatmapOption"
-                  autoresize
-                  class="h-full w-full"
-                />
-                <div
-                  v-else
-                  class="h-full flex items-center justify-center text-muted-foreground text-sm"
-                >
-                  {{ $t('insights.noPopularityData') }}
-                </div>
-                <template #fallback>
-                  <div class="h-full flex items-center justify-center">
-                    <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                </template>
-              </ClientOnly>
-            </div>
-          </DashboardCard>
-
           <!-- Top 20 / Bottom 20 ranked lists -->
           <DashboardCard v-if="popularityData" :title="$t('insights.topItems')" :icon="TrophyIcon">
             <div
@@ -441,11 +393,9 @@ import {
   EyeIcon,
   EyeOffIcon,
   PieChartIcon,
-  CalendarIcon,
   AlertTriangleIcon,
   SkullIcon,
   ClockIcon,
-  FlameIcon,
   CheckCircleIcon,
   LoaderCircleIcon,
   LayersIcon,
@@ -561,7 +511,6 @@ const {
   tooltipConfig,
   emphasisConfig,
   generatePalette,
-  colorAlpha,
 } = useEChartsDefaults();
 const { on, off } = useEventStream();
 
@@ -748,37 +697,6 @@ const genreBarOption = computed(() => {
   };
 });
 
-const yearAreaOption = computed(() => {
-  const data = compositionData.value?.yearDistribution ?? [];
-  const sorted = [...data].sort((a, b) => a.name.localeCompare(b.name));
-  return {
-    backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, ...tooltipConfig() },
-    grid: { top: 10, right: 10, bottom: 30, left: 50 },
-    xAxis: {
-      type: 'category',
-      data: sorted.map((d) => d.name),
-      axisLabel: { color: textColor.value, fontSize: 11 },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { color: textColor.value, fontSize: 11 },
-    },
-    series: [
-      {
-        type: 'line',
-        smooth: true,
-        symbol: 'none',
-        lineStyle: glowLineStyle(chart1Color.value),
-        areaStyle: gradientArea(chart1Color.value),
-        data: sorted.map((d) => d.count),
-        itemStyle: { color: chart1Color.value },
-        emphasis: emphasisConfig(),
-      },
-    ],
-  };
-});
-
 const integrationTreemapOption = computed(() => {
   const data = compositionData.value?.typeDistribution ?? [];
   const colors = [chart1Color.value, chart2Color.value, chart3Color.value, chart4Color.value];
@@ -921,96 +839,6 @@ const qualityStackedBarOption = computed(() => {
         data: sizes,
         itemStyle: { color: chart3Color.value, borderRadius: [4, 4, 0, 0] },
         emphasis: emphasisConfig(),
-      },
-    ],
-  };
-});
-
-const popularityHeatmapOption = computed(() => {
-  const entries = popularityData.value?.heatmap ?? [];
-  if (entries.length === 0) return {};
-
-  // Collect unique genres and years
-  const genreSet = new Set<string>();
-  const yearSet = new Set<string>();
-  for (const e of entries) {
-    genreSet.add(e.genre);
-    yearSet.add(e.year);
-  }
-  const genres = [...genreSet].sort();
-  const years = [...yearSet].sort();
-
-  // Build data array: [xIndex, yIndex, value]
-  const data: [number, number, number][] = [];
-  let maxVal = 0;
-  for (const e of entries) {
-    const xi = years.indexOf(e.year);
-    const yi = genres.indexOf(e.genre);
-    if (xi >= 0 && yi >= 0) {
-      data.push([xi, yi, e.playCount]);
-      if (e.playCount > maxVal) maxVal = e.playCount;
-    }
-  }
-
-  return {
-    backgroundColor: 'transparent',
-    tooltip: {
-      position: 'top',
-      ...tooltipConfig(),
-      formatter: (params: { value: [number, number, number] }) => {
-        const [xi, yi, val] = params.value;
-        return `${genres[yi]} × ${years[xi]}: ${val} plays`;
-      },
-    },
-    grid: { top: 10, right: 30, bottom: 50, left: 100 },
-    xAxis: {
-      type: 'category',
-      data: years,
-      splitArea: { show: true },
-      axisLabel: { color: textColor.value, fontSize: 11 },
-    },
-    yAxis: {
-      type: 'category',
-      data: genres,
-      splitArea: { show: true },
-      axisLabel: { color: textColor.value, fontSize: 11 },
-    },
-    visualMap: {
-      min: 0,
-      max: maxVal || 1,
-      calculable: true,
-      orient: 'horizontal',
-      left: 'center',
-      bottom: 0,
-      textStyle: { color: textColor.value },
-      inRange: {
-        color: isDark.value
-          ? [
-              'transparent',
-              colorAlpha(chart1Color.value, 0.2),
-              colorAlpha(chart1Color.value, 0.6),
-              chart1Color.value,
-            ]
-          : [
-              '#fafafa',
-              colorAlpha(chart1Color.value, 0.2),
-              colorAlpha(chart1Color.value, 0.6),
-              chart1Color.value,
-            ],
-      },
-    },
-    series: [
-      {
-        type: 'heatmap',
-        data: data,
-        label: { show: false },
-        itemStyle: {
-          borderWidth: 1,
-          borderColor: isDark.value ? '#27272a' : '#f4f4f5',
-        },
-        emphasis: {
-          itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0, 0, 0, 0.5)' },
-        },
       },
     ],
   };

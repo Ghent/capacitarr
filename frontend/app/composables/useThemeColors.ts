@@ -1,83 +1,110 @@
 /**
- * Resolves CSS custom property oklch values to hex colors for use in
- * libraries that don't support oklch.
+ * Provides chart-safe hex colors for ECharts and other canvas-based libraries.
  *
- * Creates a hidden element, applies the CSS variable as background-color,
- * then reads the computed rgb value from the browser.
+ * Uses a static hex lookup table per theme — no DOM manipulation, no
+ * getComputedStyle, no oklch-to-hex conversion. The hex values are
+ * pre-computed from the oklch values in main.css and are guaranteed to
+ * be valid #rrggbb strings that ECharts can consume directly.
+ *
+ * Reactively updates when the theme changes via useTheme().
  */
+import type { ThemeId } from './useTheme';
+
+interface ChartColors {
+  chart1: string;
+  chart2: string;
+  chart3: string;
+  chart4: string;
+  primary: string;
+  destructive: string;
+  success: string;
+}
+
+/**
+ * Pre-computed hex equivalents of the oklch chart colors from main.css.
+ * Generated via oklch→sRGB→hex conversion. If you change the oklch values
+ * in main.css, regenerate these with the conversion script in the commit
+ * that introduced this table.
+ */
+const THEME_COLORS: Record<ThemeId, ChartColors> = {
+  violet: {
+    chart1: '#8e51ff',
+    chart2: '#6054ec',
+    chart3: '#a96de6',
+    chart4: '#c77dd8',
+    primary: '#8e51ff',
+    destructive: '#e7000b',
+    success: '#00bc7d',
+  },
+  ocean: {
+    chart1: '#0080ce',
+    chart2: '#0077a2',
+    chart3: '#0086d8',
+    chart4: '#00a7b1',
+    primary: '#0080ce',
+    destructive: '#e7000b',
+    success: '#00bc7d',
+  },
+  emerald: {
+    chart1: '#00a056',
+    chart2: '#098926',
+    chart3: '#00ab8a',
+    chart4: '#83ae53',
+    primary: '#00a056',
+    destructive: '#e7000b',
+    success: '#00bc7d',
+  },
+  sunset: {
+    chart1: '#f07900',
+    chart2: '#dd6836',
+    chart3: '#e79b3d',
+    chart4: '#dd4115',
+    primary: '#f07900',
+    destructive: '#e7000b',
+    success: '#00bc7d',
+  },
+  rose: {
+    chart1: '#d72f92',
+    chart2: '#b4319b',
+    chart3: '#e45580',
+    chart4: '#f16f7e',
+    primary: '#d72f92',
+    destructive: '#e7000b',
+    success: '#00bc7d',
+  },
+  slate: {
+    chart1: '#4c5666',
+    chart2: '#3e4955',
+    chart3: '#6c7181',
+    chart4: '#77828c',
+    primary: '#4c5666',
+    destructive: '#e7000b',
+    success: '#00bc7d',
+  },
+};
+
 export function useThemeColors() {
-  const primaryColor = ref('#8b5cf6');
-  const destructiveColor = ref('#ef4444');
-  const successColor = ref('#10b981');
-  const chart1Color = ref('#8b5cf6');
-  const chart2Color = ref('#ef4444');
-  const chart3Color = ref('#f59e0b');
-  const chart4Color = ref('#10b981');
+  const { theme } = useTheme();
 
-  function resolveColor(cssVar: string, fallback: string): string {
-    if (typeof document === 'undefined') return fallback;
-    const el = document.createElement('div');
-    el.style.display = 'none';
-    el.style.color = `var(${cssVar})`;
-    document.body.appendChild(el);
-    const computed = getComputedStyle(el).color;
-    document.body.removeChild(el);
-    // computed returns "rgb(r, g, b)" or "oklch(...)" depending on browser
-    if (computed && computed !== '' && computed !== 'rgba(0, 0, 0, 0)') {
-      return rgbToHex(computed);
-    }
-    return fallback;
-  }
+  const colors = computed<ChartColors>(() => THEME_COLORS[theme.value] ?? THEME_COLORS.violet);
 
-  function rgbToHex(rgb: string): string {
-    // Handle "rgb(r, g, b)" or "rgba(r, g, b, a)"
-    const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-    if (!match) return rgb; // Return as-is if not parseable
-    const r = parseInt(match[1]!);
-    const g = parseInt(match[2]!);
-    const b = parseInt(match[3]!);
-    return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
-  }
-
-  function refresh() {
-    primaryColor.value = resolveColor('--color-primary', '#8b5cf6');
-    destructiveColor.value = resolveColor('--color-destructive', '#ef4444');
-    successColor.value = resolveColor('--color-success', '#10b981');
-    chart1Color.value = resolveColor('--color-chart-1', '#8b5cf6');
-    chart2Color.value = resolveColor('--color-chart-2', '#ef4444');
-    chart3Color.value = resolveColor('--color-chart-3', '#f59e0b');
-    chart4Color.value = resolveColor('--color-chart-4', '#10b981');
-  }
-
-  // Resolve on mount
-  onMounted(() => {
-    refresh();
-  });
-
-  // Re-resolve when theme changes (watch for data-theme attribute changes)
-  if (typeof window !== 'undefined') {
-    const observer = new MutationObserver(() => {
-      nextTick(() => refresh());
-    });
-    onMounted(() => {
-      observer.observe(document.documentElement, {
-        attributes: true,
-        attributeFilter: ['data-theme', 'class'],
-      });
-    });
-    onBeforeUnmount(() => {
-      observer.disconnect();
-    });
-  }
+  const primaryColor = computed(() => colors.value.primary);
+  const destructiveColor = computed(() => colors.value.destructive);
+  const successColor = computed(() => colors.value.success);
+  const chart1Color = computed(() => colors.value.chart1);
+  const chart2Color = computed(() => colors.value.chart2);
+  const chart3Color = computed(() => colors.value.chart3);
+  const chart4Color = computed(() => colors.value.chart4);
 
   return {
-    primaryColor: readonly(primaryColor),
-    destructiveColor: readonly(destructiveColor),
-    successColor: readonly(successColor),
-    chart1Color: readonly(chart1Color),
-    chart2Color: readonly(chart2Color),
-    chart3Color: readonly(chart3Color),
-    chart4Color: readonly(chart4Color),
-    refresh,
+    primaryColor,
+    destructiveColor,
+    successColor,
+    chart1Color,
+    chart2Color,
+    chart3Color,
+    chart4Color,
+    /** @deprecated No-op — colors are now static per theme. Kept for API compatibility. */
+    refresh: () => {},
   };
 }
