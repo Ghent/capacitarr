@@ -10,7 +10,7 @@ import (
 	"capacitarr/internal/testutil"
 )
 
-func TestMigrationStatus_NoDatabase(t *testing.T) {
+func TestMigrationStatus_NoBackup(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
@@ -32,11 +32,11 @@ func TestMigrationStatus_NoDatabase(t *testing.T) {
 	}
 
 	if resp.Available {
-		t.Error("Expected available=false when no 1.x database exists")
+		t.Error("Expected available=false when no .v1.bak backup exists")
 	}
 }
 
-func TestMigrationExecute_NoDatabase(t *testing.T) {
+func TestMigrationExecute_NoBackup(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
@@ -45,7 +45,7 @@ func TestMigrationExecute_NoDatabase(t *testing.T) {
 	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusConflict {
-		t.Fatalf("Expected 409 (no 1.x database), got %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("Expected 409 (no .v1.bak backup), got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -59,5 +59,31 @@ func TestMigrationExecute_Unauthenticated(t *testing.T) {
 
 	if rec.Code == http.StatusOK {
 		t.Error("Expected non-200 for unauthenticated migration execute request")
+	}
+}
+
+func TestMigrationDismiss_NoBackup(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/migration/dismiss", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("Expected 409 (no .v1.bak backup), got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestMigrationDismiss_Unauthenticated(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/migration/dismiss", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code == http.StatusOK {
+		t.Error("Expected non-200 for unauthenticated migration dismiss request")
 	}
 }

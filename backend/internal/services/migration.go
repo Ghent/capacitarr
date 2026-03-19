@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	"gorm.io/gorm"
@@ -26,18 +27,21 @@ func NewMigrationService(db *gorm.DB, bus *events.EventBus, configDir string) *M
 	return &MigrationService{db: db, bus: bus, configDir: configDir}
 }
 
-// MigrationStatus holds the detection result for a 1.x database.
+// MigrationStatus holds the detection result for a 1.x database backup.
 type MigrationStatus struct {
 	Available bool   `json:"available"`
 	SourceDB  string `json:"sourceDb,omitempty"`
 }
 
-// Status checks whether a 1.x database file exists in the config directory.
+// Status checks whether a 1.x database backup (.v1.bak) exists in the config
+// directory. The backup is created during startup when a legacy schema is
+// detected — its presence means the user has not yet completed the migration
+// workflow (import settings or dismiss).
 func (s *MigrationService) Status() MigrationStatus {
-	available := migration.Detect1xDatabase(s.configDir)
+	available := migration.Detect1xBackup(s.configDir)
 	status := MigrationStatus{Available: available}
 	if available {
-		status.SourceDB = filepath.Join(s.configDir, "capacitarr.db")
+		status.SourceDB = filepath.Join(s.configDir, "capacitarr.db.v1.bak")
 	}
 	return status
 }
@@ -53,9 +57,13 @@ type MigrationResult struct {
 	Error                 string `json:"error,omitempty"`
 }
 
-// Execute runs the 1.x → 2.0 migration and backs up the source database.
+// Execute runs the 1.x → 2.0 migration from the .v1.bak backup file.
+// Auth has already been auto-imported at startup, so this imports the
+// remaining configuration: integrations, rules, preferences, and notifications.
+// After successful import, the .v1.bak file is removed so the migration
+// page does not reappear.
 func (s *MigrationService) Execute() MigrationResult {
-	sourcePath := filepath.Join(s.configDir, "capacitarr.db")
+	sourcePath := migration.BackupPath(s.configDir)
 
 	result, err := migration.MigrateFrom(sourcePath, s.db)
 	if err != nil {
@@ -65,17 +73,10 @@ func (s *MigrationService) Execute() MigrationResult {
 		}
 	}
 
-	// Rename the source database to .v1.bak so the migration page doesn't re-appear
-	if backupErr := migration.BackupSourceDatabase(s.configDir); backupErr != nil {
-		return MigrationResult{
-			Success:               true,
-			IntegrationsImported:  result.IntegrationsImported,
-			RulesImported:         result.RulesImported,
-			PreferencesImported:   result.PreferencesImported,
-			NotificationsImported: result.NotificationsImported,
-			AuthImported:          result.AuthImported,
-			Error:                 fmt.Sprintf("Migration succeeded but failed to backup source: %v", backupErr),
-		}
+	// Remove the backup file so the migration page doesn't re-appear
+	if removeErr := migration.RemoveBackup(s.configDir); removeErr != nil {
+		slog.Warn("Migration succeeded but failed to remove .v1.bak",
+			"component", "migration", "error", removeErr)
 	}
 
 	// Publish a settings-imported event for the activity log
@@ -100,4 +101,11 @@ func (s *MigrationService) Execute() MigrationResult {
 		NotificationsImported: result.NotificationsImported,
 		AuthImported:          result.AuthImported,
 	}
+}
+
+// Dismiss removes the 1.x backup file without importing any settings.
+// Used by the "Start Fresh" flow when the user declines to import their
+// 1.x configuration into the 2.0 database.
+func (s *MigrationService) Dismiss() error {
+	return migration.RemoveBackup(s.configDir)
 }

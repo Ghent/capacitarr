@@ -73,7 +73,6 @@ rs
     <DashboardEmptyState
       v-if="diskGroups.length === 0 && !loading"
       :integrations="allIntegrations"
-      :poll-interval-seconds="engineStats?.pollIntervalSeconds ?? 300"
     />
 
     <!-- Engine Activity (prominent, first card) -->

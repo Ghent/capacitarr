@@ -116,20 +116,6 @@ const isLoading = ref(true);
 
 onMounted(async () => {
   try {
-    // Check if a 1.x database exists — redirect to migration page if so
-    try {
-      const migrationStatus = await ofetch<{ available: boolean }>(
-        `${config.public.apiBaseUrl}/api/v1/migration/status`,
-      );
-      if (migrationStatus.available) {
-        const router = useRouter();
-        router.replace('/migrate');
-        return;
-      }
-    } catch {
-      // Migration check failed — continue to normal login flow
-    }
-
     const data = await ofetch(`${config.public.apiBaseUrl}/api/v1/auth/status`);
     isSetupMode.value = !data.initialized;
   } catch {
@@ -166,6 +152,21 @@ async function onSubmit() {
       // The server sets both an HttpOnly 'jwt' cookie and a non-HttpOnly
       // 'authenticated' cookie via Set-Cookie headers. No need to set
       // cookies manually from JS.
+
+      // Check if a 1.x database backup exists — redirect to migration page
+      // instead of dashboard so the user can import their settings.
+      try {
+        const migrationStatus = await ofetch<{ available: boolean }>(
+          `${config.public.apiBaseUrl}/api/v1/migration/status`,
+        );
+        if (migrationStatus.available) {
+          window.location.href = (config.app.baseURL || '/') + 'migrate';
+          return;
+        }
+      } catch {
+        // Migration check failed — continue to dashboard
+      }
+
       // Full page reload to ensure all components pick up the auth state.
       // Use config.app.baseURL to respect subdirectory deployments (BASE_URL).
       window.location.href = config.app.baseURL || '/';

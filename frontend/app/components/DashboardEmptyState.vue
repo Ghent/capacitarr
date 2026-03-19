@@ -30,7 +30,7 @@
         {{ $t('dashboard.emptyWait.title') }}
       </h3>
       <p class="text-sm text-muted-foreground/70 mb-4 max-w-md mx-auto">
-        {{ $t('dashboard.emptyWait.description', { minutes: pollMinutes }) }}
+        {{ $t('dashboard.emptyWait.description') }}
       </p>
       <UiButton variant="outline" :disabled="runNowLoading" @click="triggerRunNow">
         <LoaderCircleIcon v-if="runNowLoading" class="w-4 h-4 animate-spin" />
@@ -45,12 +45,9 @@
 import { LoaderCircleIcon, PlusCircleIcon, PlayIcon, SettingsIcon } from 'lucide-vue-next';
 import type { IntegrationConfig } from '~/types/api';
 
-const props = defineProps<{
+defineProps<{
   integrations: IntegrationConfig[];
-  pollIntervalSeconds: number;
 }>();
 
 const { runNowLoading, triggerRunNow } = useEngineControl();
-
-const pollMinutes = computed(() => Math.max(1, Math.ceil(props.pollIntervalSeconds / 60)));
 </script>

@@ -78,6 +78,31 @@ watch(isAuthenticated, (authed) => {
   }
 });
 
+// Check if a 1.x migration is pending and redirect to the migration page.
+// This handles the case where the user is already authenticated (cookie from
+// a previous session) when the container restarts with a legacy database.
+async function checkPendingMigration() {
+  if (!isAuthenticated.value) return;
+
+  const route = useRoute();
+  if (route.path === '/migrate' || route.path === '/login') return;
+
+  try {
+    const config = useRuntimeConfig();
+    const { ofetch: rawFetch } = await import('ofetch');
+    const status = await rawFetch<{ available: boolean }>(
+      `${config.public.apiBaseUrl}/api/v1/migration/status`,
+      { credentials: 'include' },
+    );
+    if (status.available) {
+      const router = useRouter();
+      router.replace('/migrate');
+    }
+  } catch {
+    // Migration check failed — continue normally
+  }
+}
+
 // Remove splash screen on mount, start SSE if already authenticated
 onMounted(() => {
   const splash = document.getElementById('capacitarr-splash');
@@ -89,6 +114,7 @@ onMounted(() => {
   if (isAuthenticated.value) {
     connectSSE();
     fetchAppIntegrations();
+    checkPendingMigration();
   }
 });
 </script>

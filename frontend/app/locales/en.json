@@ -574,7 +574,7 @@
   "dashboard.emptySetup.description": "Connect Sonarr, Radarr, or another *arr service to begin monitoring disk usage.",
   "dashboard.emptySetup.action": "Go to Settings",
   "dashboard.emptyWait.title": "Waiting for first poll…",
-  "dashboard.emptyWait.description": "Disk groups appear automatically when your *arr services are polled. This usually takes up to {minutes} minutes.",
+  "dashboard.emptyWait.description": "Disk groups appear automatically when your *arr services are polled. Larger libraries may take a while.",
   "dashboard.emptyWait.runNow": "Run Now",
   "dashboard.errorBanner.title": "{count} integration(s) have errors",
   "dashboard.errorBanner.description": "Some integrations failed to connect. Disk data from these sources may be missing.",
@@ -675,7 +675,7 @@
   "migration.importButton": "Import from 1.x",
   "migration.importing": "Importing…",
   "migration.startFresh": "Start Fresh",
-  "migration.cliNote": "You can also migrate via CLI: capacitarr migrate --from /path/to/v1.db",
+
   "migration.completeTitle": "Migration Complete",
   "migration.completeSubtitle": "Your 1.x configuration has been imported successfully.",
   "migration.resultIntegrations": "Integrations",
@@ -683,7 +683,7 @@
   "migration.resultPreferences": "Preferences",
   "migration.resultNotifications": "Notifications",
   "migration.resultAuth": "Authentication",
-  "migration.continueToLogin": "Continue to Login",
+  "migration.continueToDashboard": "Continue to Dashboard",
   "migration.notAvailableTitle": "No Migration Available",
   "migration.notAvailableDesc": "No 1.x database was found. Redirecting to login."
 }

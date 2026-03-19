@@ -45,8 +45,10 @@ func MigrateFrom(sourcePath string, destDB *gorm.DB) (*Result, error) {
 		return nil, fmt.Errorf("source database not found: %s", sourcePath)
 	}
 
-	// Open source read-only
-	sourceDB, err := gorm.Open(gormlite.Open(sourcePath+"?mode=ro"), &gorm.Config{
+	// Open source database. Note: gormlite does not support URI parameters like
+	// ?mode=ro — using them creates a rogue file with the literal "?mode=ro" in
+	// the filename. We open in default mode and only perform read operations.
+	sourceDB, err := gorm.Open(gormlite.Open(sourcePath), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
 	})
 	if err != nil {
@@ -273,11 +275,19 @@ func importNotifications(src, dest *gorm.DB) (int, error) {
 	return count, nil
 }
 
-// Detect1xDatabase returns true if a 1.x database file exists at the given path.
-func Detect1xDatabase(configDir string) bool {
-	path := configDir + "/capacitarr.db"
+// Detect1xBackup returns true if a 1.x backup file (.v1.bak) exists in the
+// config directory. This is checked after the startup pre-init phase has
+// already renamed the 1.x database — the presence of .v1.bak means the
+// user has not yet completed the migration workflow (import or dismiss).
+func Detect1xBackup(configDir string) bool {
+	path := configDir + "/capacitarr.db.v1.bak"
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+// BackupPath returns the full path to the 1.x backup file in the config directory.
+func BackupPath(configDir string) string {
+	return configDir + "/capacitarr.db.v1.bak"
 }
 
 // BackupSourceDatabase renames the source 1.x database to .v1.bak.
@@ -285,4 +295,43 @@ func BackupSourceDatabase(configDir string) error {
 	src := configDir + "/capacitarr.db"
 	dst := configDir + "/capacitarr.db.v1.bak"
 	return os.Rename(src, dst)
+}
+
+// RemoveBackup deletes the .v1.bak file. Used by "Start Fresh" when the user
+// declines to import 1.x settings.
+func RemoveBackup(configDir string) error {
+	path := configDir + "/capacitarr.db.v1.bak"
+	return os.Remove(path)
+}
+
+// ImportAuthOnly imports only the auth_configs from a 1.x database backup into
+// the 2.0 database. This is called during startup after a legacy database is
+// detected and renamed, so the user can log in with their existing credentials
+// before deciding whether to import the rest of their settings.
+func ImportAuthOnly(sourcePath string, destDB *gorm.DB) error {
+	slog.Info("Auto-importing auth config from 1.x backup",
+		"component", "migration", "source", sourcePath)
+
+	// Verify source exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return fmt.Errorf("source database backup not found: %s", sourcePath)
+	}
+
+	// Open source database. Note: gormlite does not support URI parameters like
+	// ?mode=ro — using them creates a rogue file with the literal "?mode=ro" in
+	// the filename. We open in default mode and only perform read operations.
+	sourceDB, err := gorm.Open(gormlite.Open(sourcePath), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to open source database backup: %w", err)
+	}
+	sourceSQLDB, _ := sourceDB.DB()
+	defer func() {
+		if closeErr := sourceSQLDB.Close(); closeErr != nil {
+			slog.Warn("Failed to close source database backup", "error", closeErr)
+		}
+	}()
+
+	return importAuth(sourceDB, destDB)
 }

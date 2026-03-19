@@ -79,10 +79,6 @@
               {{ $t('migration.startFresh') }}
             </UiButton>
           </div>
-
-          <p class="text-xs text-muted-foreground text-center">
-            {{ $t('migration.cliNote') }}
-          </p>
         </UiCardContent>
       </UiCard>
 
@@ -126,8 +122,8 @@
             </div>
           </div>
 
-          <UiButton class="w-full mt-4" @click="goToLogin">
-            {{ $t('migration.continueToLogin') }}
+          <UiButton class="w-full mt-4" @click="goToDashboard">
+            {{ $t('migration.continueToDashboard') }}
           </UiButton>
         </UiCardContent>
       </UiCard>
@@ -142,8 +138,8 @@
           <UiCardDescription>{{ $t('migration.notAvailableDesc') }}</UiCardDescription>
         </UiCardHeader>
         <UiCardContent>
-          <UiButton class="w-full" @click="goToLogin">
-            {{ $t('migration.continueToLogin') }}
+          <UiButton class="w-full" @click="goToDashboard">
+            {{ $t('migration.continueToDashboard') }}
           </UiButton>
         </UiCardContent>
       </UiCard>
@@ -187,14 +183,14 @@ onMounted(async () => {
     );
     migrationAvailable.value = data.available;
 
-    // If no 1.x DB exists, redirect to login
+    // If no 1.x backup exists, redirect to dashboard (user is already authenticated)
     if (!data.available) {
-      router.replace('/login');
+      router.replace('/');
       return;
     }
   } catch {
-    // If the check fails, redirect to login
-    router.replace('/login');
+    // If the check fails, redirect to dashboard
+    router.replace('/');
     return;
   } finally {
     isLoading.value = false;
@@ -228,12 +224,26 @@ async function executeMigration() {
   }
 }
 
-function startFresh() {
-  // Skip migration and go straight to login/setup
-  router.replace('/login');
+async function startFresh() {
+  errorMsg.value = '';
+  executing.value = true;
+
+  try {
+    await ofetch(`${config.public.apiBaseUrl}/api/v1/migration/dismiss`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    // Redirect to dashboard — auth is already set up (auto-imported at startup)
+    window.location.href = config.app.baseURL || '/';
+  } catch (e) {
+    const err = e as { data?: { error?: string } };
+    errorMsg.value = err.data?.error || 'Failed to dismiss migration — check server logs.';
+  } finally {
+    executing.value = false;
+  }
 }
 
-function goToLogin() {
+function goToDashboard() {
   window.location.href = config.app.baseURL || '/';
 }
 </script>

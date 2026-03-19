@@ -172,12 +172,6 @@ var (
 )
 
 func main() {
-	// ─── CLI subcommand: migrate ────────────────────────────────────────────
-	if len(os.Args) >= 2 && os.Args[1] == "migrate" {
-		runMigrateCLI()
-		return
-	}
-
 	cfg := config.Load()
 	logger.Init(cfg.Debug)
 
@@ -199,10 +193,47 @@ func main() {
 		slog.Info("Reverse proxy auth header enabled", "component", "main", "header", cfg.AuthHeader)
 	}
 
+	// ─── Pre-init: detect and handle 1.x legacy database ───────────────────
+	// The 2.0 baseline migration (Goose version 1) collides with the 1.x version
+	// numbering — Goose would skip it on a 1.x database, leaving the schema
+	// unchanged while the app expects 2.0 tables. Detect this BEFORE db.Init()
+	// runs Goose, rename the 1.x file to .v1.bak, and let db.Init() create a
+	// fresh 2.0 database. Auth is auto-imported from .v1.bak so the user can
+	// log in and complete the rest of the migration via the web UI.
+	legacyHandled := false
+	if migration.DetectLegacySchema(cfg.Database) {
+		slog.Info("1.x database detected — renaming to .v1.bak before initializing 2.0 schema",
+			"component", "main", "dbPath", cfg.Database)
+
+		configDir := filepath.Dir(cfg.Database)
+		if err := migration.BackupSourceDatabase(configDir); err != nil {
+			slog.Error("Failed to rename 1.x database to .v1.bak",
+				"component", "main", "error", err)
+			os.Exit(1)
+		}
+		legacyHandled = true
+		slog.Info("1.x database renamed to .v1.bak",
+			"component", "main", "backup", migration.BackupPath(configDir))
+	}
+
 	database, err := db.Init(cfg)
 	if err != nil {
 		slog.Error("Failed to initialize database", "component", "main", "operation", "init_database", "error", err)
 		os.Exit(1)
+	}
+
+	// Auto-import auth from .v1.bak so the user can log in with their
+	// existing credentials before deciding to import the rest of their settings.
+	if legacyHandled {
+		configDir := filepath.Dir(cfg.Database)
+		bakPath := migration.BackupPath(configDir)
+		if err := migration.ImportAuthOnly(bakPath, database); err != nil {
+			slog.Warn("Failed to auto-import auth from 1.x backup — user will need to create new credentials",
+				"component", "main", "error", err)
+		} else {
+			slog.Info("Auth config auto-imported from 1.x backup",
+				"component", "main")
+		}
 	}
 
 	// ─── Event Bus + Subscribers ───────────────────────────────────────────
@@ -440,60 +471,4 @@ func main() {
 	}
 
 	slog.Info("Capacitarr shut down gracefully", "component", "main")
-}
-
-// runMigrateCLI handles the `capacitarr migrate --from <path>` CLI subcommand.
-// It imports configuration data from a 1.x database into the current 2.0 database,
-// then renames the source file to .v1.bak.
-func runMigrateCLI() {
-	// Parse --from flag
-	var sourcePath string
-	for i, arg := range os.Args {
-		if arg == "--from" && i+1 < len(os.Args) {
-			sourcePath = os.Args[i+1]
-			break
-		}
-	}
-	if sourcePath == "" {
-		fmt.Fprintln(os.Stderr, "Usage: capacitarr migrate --from /path/to/v1/capacitarr.db")
-		os.Exit(1)
-	}
-
-	// Sanitize the user-provided path to prevent path traversal and log injection
-	sourcePath = filepath.Clean(sourcePath)
-
-	cfg := config.Load()
-	logger.Init(cfg.Debug)
-
-	slog.Info("Starting CLI migration", "component", "migration", "source", sourcePath) //nolint:gosec // G706: sourcePath is from local CLI args, not network input
-
-	// Initialize 2.0 database
-	database, err := db.Init(cfg)
-	if err != nil {
-		slog.Error("Failed to initialize 2.0 database", "component", "migration", "error", err)
-		os.Exit(1)
-	}
-
-	// Run migration
-	result, err := migration.MigrateFrom(sourcePath, database)
-	if err != nil {
-		slog.Error("Migration failed", "component", "migration", "error", err)
-		os.Exit(1)
-	}
-
-	// Backup source database
-	sourceDir := filepath.Dir(sourcePath)
-	if backupErr := migration.BackupSourceDatabase(sourceDir); backupErr != nil {
-		slog.Warn("Migration succeeded but failed to rename source database",
-			"component", "migration", "error", backupErr)
-	} else {
-		slog.Info("Source database renamed to .v1.bak", "component", "migration")
-	}
-
-	fmt.Printf("Migration complete!\n")
-	fmt.Printf("  Integrations: %d imported\n", result.IntegrationsImported)
-	fmt.Printf("  Rules:        %d imported\n", result.RulesImported)
-	fmt.Printf("  Preferences:  %v\n", result.PreferencesImported)
-	fmt.Printf("  Notifications: %d imported\n", result.NotificationsImported)
-	fmt.Printf("  Auth:         %v\n", result.AuthImported)
 }
