@@ -50,9 +50,9 @@ func (e *EmbyClient) TestConnection() error {
 
 // GetBulkWatchData fetches all movies and series from Emby's library with their
 // watch data (PlayCount, LastPlayedDate) in a single paginated API call.
-// Returns a map from normalized (lowercase) title to MediaServerWatchData.
-func (e *EmbyClient) GetBulkWatchData(userID string) (map[string]*MediaServerWatchData, error) {
-	result := make(map[string]*MediaServerWatchData)
+// Returns a map from normalized (lowercase) title to WatchData.
+func (e *EmbyClient) GetBulkWatchData(userID string) (map[string]*WatchData, error) {
+	result := make(map[string]*WatchData)
 	startIndex := 0
 	pageSize := 500
 
@@ -86,9 +86,8 @@ func (e *EmbyClient) GetBulkWatchData(userID string) (map[string]*MediaServerWat
 			if key == "" {
 				continue
 			}
-			data := &MediaServerWatchData{
+			data := &WatchData{
 				PlayCount: item.UserData.PlayCount,
-				Played:    item.UserData.Played,
 			}
 			if item.UserData.LastPlayedDate != "" {
 				if t, err := time.Parse(time.RFC3339, item.UserData.LastPlayedDate); err == nil {

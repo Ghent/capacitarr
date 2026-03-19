@@ -85,7 +85,7 @@ func EnrichItems(items []MediaItem, ec EnrichmentClients) {
 			slog.Warn("Failed to fetch Seerr requests", "component", "enrichment", "operation", "fetch_seerr", "error", err)
 		} else {
 			// Build lookup by TMDb ID
-			requestMap := make(map[int]SeerrMediaRequest)
+			requestMap := make(map[int]MediaRequest)
 			for _, req := range requests {
 				requestMap[req.TMDbID] = req
 			}

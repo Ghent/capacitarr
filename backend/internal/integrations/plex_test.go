@@ -525,7 +525,7 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 	if movie1.PlayCount != 5 {
 		t.Errorf("Expected PlayCount 5, got %d", movie1.PlayCount)
 	}
-	if !movie1.Played {
+	if movie1.PlayCount == 0 {
 		t.Error("Expected Played=true for Serenity")
 	}
 	if movie1.LastPlayed == nil {
@@ -540,7 +540,7 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 	if movie2.PlayCount != 0 {
 		t.Errorf("Expected PlayCount 0, got %d", movie2.PlayCount)
 	}
-	if movie2.Played {
+	if movie2.PlayCount > 0 {
 		t.Error("Expected Played=false for Serenity 2")
 	}
 	if movie2.LastPlayed != nil {

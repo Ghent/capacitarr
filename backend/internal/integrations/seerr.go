@@ -22,14 +22,6 @@ func NewSeerrClient(url, apiKey string) *SeerrClient {
 	}
 }
 
-// SeerrMediaRequest contains a media request from Seerr.
-type SeerrMediaRequest struct {
-	MediaType   string `json:"mediaType"` // "movie" or "tv"
-	TMDbID      int    `json:"tmdbId"`
-	Status      int    `json:"status"` // 1=pending, 2=approved, 3=declined, 4=available
-	RequestedBy string `json:"requestedBy"`
-}
-
 // doRequest executes an Seerr API call using the X-Api-Key header.
 func (o *SeerrClient) doRequest(endpoint string) ([]byte, error) {
 	fullURL := fmt.Sprintf("%s/api/v1%s", o.URL, endpoint)
@@ -89,8 +81,8 @@ type seerrRequest struct {
 // GetRequestedMedia fetches all media requests from Seerr to identify
 // user-requested content. This data can be used to protect requested items
 // from automatic deletion.
-func (o *SeerrClient) GetRequestedMedia() ([]SeerrMediaRequest, error) {
-	var allRequests []SeerrMediaRequest
+func (o *SeerrClient) GetRequestedMedia() ([]MediaRequest, error) {
+	var allRequests []MediaRequest
 	skip := 0
 	take := 100
 
@@ -117,7 +109,7 @@ func (o *SeerrClient) GetRequestedMedia() ([]SeerrMediaRequest, error) {
 				mediaType = req.MediaType
 			}
 
-			allRequests = append(allRequests, SeerrMediaRequest{
+			allRequests = append(allRequests, MediaRequest{
 				MediaType:   mediaType,
 				TMDbID:      req.Media.TmdbID,
 				Status:      req.Status,

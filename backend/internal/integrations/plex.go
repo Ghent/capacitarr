@@ -253,22 +253,21 @@ type PlexLibrarySection struct {
 // GetBulkWatchData fetches all movies and shows from Plex libraries and returns
 // a map from normalized (lowercase) title to watch data. This allows enriching
 // *arr items with Plex watch history by title matching.
-func (p *PlexClient) GetBulkWatchData() (map[string]*MediaServerWatchData, error) {
+func (p *PlexClient) GetBulkWatchData() (map[string]*WatchData, error) {
 	items, err := p.GetMediaItems()
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Plex items: %w", err)
 	}
 
-	result := make(map[string]*MediaServerWatchData)
+	result := make(map[string]*WatchData)
 	for _, item := range items {
 		key := strings.ToLower(strings.TrimSpace(item.Title))
 		if key == "" {
 			continue
 		}
-		data := &MediaServerWatchData{
+		data := &WatchData{
 			PlayCount:  item.PlayCount,
 			LastPlayed: item.LastPlayed,
-			Played:     item.PlayCount > 0,
 		}
 		// Keep the entry with the highest play count if duplicates
 		if existing, ok := result[key]; ok {

@@ -140,7 +140,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 	if movie.PlayCount != 5 {
 		t.Errorf("Expected PlayCount 5 for Serenity, got %d", movie.PlayCount)
 	}
-	if !movie.Played {
+	if movie.PlayCount == 0 {
 		t.Error("Expected Serenity to be marked as Played")
 	}
 	if movie.LastPlayed == nil {

@@ -62,19 +62,11 @@ type jellyfinItem struct {
 	} `json:"UserData"`
 }
 
-// MediaServerWatchData contains aggregated watch data from a media server (Jellyfin or Emby).
-// Used for bulk enrichment — keyed by normalized title in the lookup map.
-type MediaServerWatchData struct {
-	PlayCount  int
-	LastPlayed *time.Time
-	Played     bool
-}
-
 // GetBulkWatchData fetches all movies and series from Jellyfin's library with their
 // watch data (PlayCount, LastPlayedDate) in a single paginated API call.
 // Returns a map from normalized (lowercase) title to watch data.
-func (j *JellyfinClient) GetBulkWatchData(userID string) (map[string]*MediaServerWatchData, error) {
-	result := make(map[string]*MediaServerWatchData)
+func (j *JellyfinClient) GetBulkWatchData(userID string) (map[string]*WatchData, error) {
+	result := make(map[string]*WatchData)
 	startIndex := 0
 	pageSize := 500
 
@@ -101,9 +93,8 @@ func (j *JellyfinClient) GetBulkWatchData(userID string) (map[string]*MediaServe
 			if key == "" {
 				continue
 			}
-			data := &MediaServerWatchData{
+			data := &WatchData{
 				PlayCount: item.UserData.PlayCount,
-				Played:    item.UserData.Played,
 			}
 			if item.UserData.LastPlayedDate != "" {
 				if t, err := time.Parse(time.RFC3339, item.UserData.LastPlayedDate); err == nil {
