@@ -229,25 +229,42 @@ rs
                 {{ $t('dashboard.viewAll') }}
               </NuxtLink>
             </div>
-            <UiScrollArea v-if="recentActivity.length > 0" class="h-[86px] pr-3">
+            <div
+              v-if="recentActivity.length > 0"
+              ref="activityScrollRef"
+              class="h-[86px] overflow-auto pr-3"
+            >
               <div
-                v-for="entry in recentActivity"
-                :key="entry.id"
-                class="flex items-center gap-1.5 py-0.5 text-[11px] leading-tight"
+                :style="{ height: `${activityVirtualizer.getTotalSize()}px`, position: 'relative' }"
               >
-                <component
-                  :is="eventIcon(entry.eventType)"
-                  class="w-3 h-3 shrink-0"
-                  :class="eventIconClass(entry.eventType)"
-                />
-                <span class="truncate line-clamp-1 flex-1 min-w-0 text-foreground">
-                  {{ entry.message }}
-                </span>
-                <span class="text-muted-foreground/70 shrink-0 whitespace-nowrap ml-auto">
-                  <DateDisplay :date="entry.createdAt" />
-                </span>
+                <div
+                  v-for="virtualRow in activityVirtualItems"
+                  :key="virtualRow.index"
+                  :style="{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }"
+                >
+                  <div class="flex items-center gap-1.5 py-0.5 text-[11px] leading-tight">
+                    <component
+                      :is="eventIcon(virtualRow.entry.eventType)"
+                      class="w-3 h-3 shrink-0"
+                      :class="eventIconClass(virtualRow.entry.eventType)"
+                    />
+                    <span class="truncate line-clamp-1 flex-1 min-w-0 text-foreground">
+                      {{ virtualRow.entry.message }}
+                    </span>
+                    <span class="text-muted-foreground/70 shrink-0 whitespace-nowrap ml-auto">
+                      <DateDisplay :date="virtualRow.entry.createdAt" />
+                    </span>
+                  </div>
+                </div>
               </div>
-            </UiScrollArea>
+            </div>
             <div
               v-else
               class="flex items-center justify-center text-[11px] text-muted-foreground/60 h-[86px]"
@@ -579,6 +596,7 @@ import {
   BellOffIcon,
   ArrowUpCircleIcon,
 } from 'lucide-vue-next';
+import { useVirtualizer } from '@tanstack/vue-virtual';
 import { formatBytes } from '~/utils/format';
 import type {
   ActivityEvent,
@@ -675,6 +693,23 @@ watch(showMiniSparklines, (val) => {
 });
 const dashboardStats = ref<DashboardStats | null>(null);
 const recentActivity = ref<ActivityEvent[]>([]);
+
+// Activity feed virtual scroller
+const activityScrollRef = ref<HTMLElement | null>(null);
+const activityVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: recentActivity.value.length,
+    getScrollElement: () => activityScrollRef.value,
+    estimateSize: () => 20,
+    overscan: 5,
+  })),
+);
+const activityVirtualItems = computed(() =>
+  activityVirtualizer.value.getVirtualItems().map((row) => ({
+    ...row,
+    entry: recentActivity.value[row.index]!,
+  })),
+);
 const loading = ref(true);
 const lastUpdated = ref<Date | null>(null);
 const isAutoRefreshing = ref(false);
