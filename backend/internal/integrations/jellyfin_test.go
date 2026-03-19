@@ -196,7 +196,7 @@ func TestJellyfinClient_GetBulkWatchData(t *testing.T) {
 	defer srv.Close()
 
 	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin-1")
+	data, err := client.GetBulkWatchDataForUser("admin-1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestJellyfinClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testin
 	defer srv.Close()
 
 	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin-1")
+	data, err := client.GetBulkWatchDataForUser("admin-1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestJellyfinClient_GetBulkWatchData_Empty(t *testing.T) {
 	defer srv.Close()
 
 	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin-1")
+	data, err := client.GetBulkWatchDataForUser("admin-1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed with empty: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestJellyfinClient_GetBulkWatchData_MalformedJSON(t *testing.T) {
 	defer srv.Close()
 
 	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
-	_, err := client.GetBulkWatchData("admin-1")
+	_, err := client.GetBulkWatchDataForUser("admin-1")
 	if err == nil {
 		t.Fatal("Expected error for malformed JSON response")
 	}
@@ -331,7 +331,7 @@ func TestJellyfinClient_GetBulkWatchData_SkipsEmptyNames(t *testing.T) {
 	defer srv.Close()
 
 	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin-1")
+	data, err := client.GetBulkWatchDataForUser("admin-1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}

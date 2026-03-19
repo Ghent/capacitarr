@@ -198,6 +198,42 @@ func (r *IntegrationRegistry) RuleValueFetcherFor(id uint) (RuleValueFetcher, er
 	return nil, fmt.Errorf("integration %d not registered as RuleValueFetcher", id)
 }
 
+// Connectors returns all registered Connectable implementations with their IDs.
+func (r *IntegrationRegistry) Connectors() map[uint]Connectable {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]Connectable, len(r.connectors))
+	for k, v := range r.connectors {
+		out[k] = v
+	}
+	return out
+}
+
+// Deleters returns all registered MediaDeleter implementations with their IDs.
+func (r *IntegrationRegistry) Deleters() map[uint]MediaDeleter {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]MediaDeleter, len(r.deleters))
+	for k, v := range r.deleters {
+		out[k] = v
+	}
+	return out
+}
+
+// TautulliClient checks if the Connectable at the given ID is a *TautulliClient
+// and returns it. Used by the enricher builder since Tautulli doesn't implement
+// WatchDataProvider (it uses per-item queries, not bulk).
+func (r *IntegrationRegistry) TautulliClient(id uint) (*TautulliClient, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.connectors[id]; ok {
+		if tc, ok := c.(*TautulliClient); ok {
+			return tc, true
+		}
+	}
+	return nil, false
+}
+
 // HasWatchProviders returns true if at least one WatchDataProvider is registered.
 func (r *IntegrationRegistry) HasWatchProviders() bool {
 	r.mu.RLock()

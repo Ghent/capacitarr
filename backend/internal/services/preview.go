@@ -13,12 +13,11 @@ import (
 	"capacitarr/internal/integrations"
 )
 
-// IntegrationLister provides read access to enabled integrations and
-// enrichment client construction.
+// IntegrationLister provides read access to enabled integrations and registry construction.
 // Defined here to avoid import cycles between PreviewService and IntegrationService.
 type IntegrationLister interface {
 	ListEnabled() ([]db.IntegrationConfig, error)
-	BuildEnrichmentClients() (*EnrichmentBuildResult, error)
+	BuildIntegrationRegistry() (*integrations.IntegrationRegistry, error)
 }
 
 // RulesProvider provides read access to custom rules.
@@ -256,29 +255,28 @@ func (s *PreviewService) buildPreview(items []integrations.MediaItem, prefs db.P
 // buildPreviewFromScratch fetches everything from integrations, enriches,
 // evaluates, and scores. Used on cold start (no cache, no poller data).
 func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
-	buildResult, err := s.integrations.BuildEnrichmentClients()
+	registry, err := s.integrations.BuildIntegrationRegistry()
 	if err != nil {
 		return nil, err
 	}
 
+	// Fetch media items from all MediaSources via the registry
 	var allItems []integrations.MediaItem
-	for _, cfg := range buildResult.ArrConfigs {
-		client := integrations.NewClient(cfg.Type, cfg.URL, cfg.APIKey)
-		if client == nil {
-			continue
-		}
-		items, fetchErr := client.GetMediaItems()
+	for id, source := range registry.MediaSources() {
+		items, fetchErr := source.GetMediaItems()
 		if fetchErr != nil {
 			continue
 		}
 		for i := range items {
-			items[i].IntegrationID = cfg.ID
+			items[i].IntegrationID = id
 		}
 		allItems = append(allItems, items...)
 	}
 
-	// Apply enrichment (Plex, Tautulli, Jellyfin, Emby, Seerr)
-	integrations.EnrichItems(allItems, buildResult.Clients)
+	// Build and run the enrichment pipeline
+	pipeline := integrations.BuildEnrichmentPipeline(registry)
+	integrations.RegisterTautulliEnrichers(pipeline, registry)
+	pipeline.Run(allItems)
 
 	prefs, err := s.preferences.GetPreferences()
 	if err != nil {

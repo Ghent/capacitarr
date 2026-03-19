@@ -317,7 +317,10 @@ func (p *PlexClient) GetWatchlistItems() (map[string]bool, error) {
 }
 
 // Ensure PlexClient implements Integration + WatchlistProvider
-var _ Integration = (*PlexClient)(nil)
+// Verify PlexClient satisfies capability interfaces at compile time.
+var _ Connectable = (*PlexClient)(nil)
+var _ MediaSource = (*PlexClient)(nil)
+var _ WatchDataProvider = (*PlexClient)(nil)
 var _ WatchlistProvider = (*PlexClient)(nil)
 
 // DeleteMediaItem is a no-op for Plex; actual deletion is performed via *arr services.

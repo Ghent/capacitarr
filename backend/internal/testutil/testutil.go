@@ -18,6 +18,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	_ "github.com/ncruces/go-sqlite3/embed" // load the embedded SQLite WASM binary
+
+	"capacitarr/internal/integrations"
 	"github.com/ncruces/go-sqlite3/gormlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -157,6 +159,10 @@ func SetupTestServerWithRegistry(t *testing.T, database *gorm.DB) (*echo.Echo, *
 	e.HidePort = true
 
 	cfg := TestConfig()
+
+	// Ensure integration factories are registered for any tests that involve
+	// client creation (approval, deletion, etc.)
+	integrations.RegisterAllFactories()
 
 	// Apply the same security headers middleware as main.go.
 	// This ensures security regression tests verify production behavior.

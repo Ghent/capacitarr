@@ -62,9 +62,7 @@ const chartOption = computed(() => {
   const isRaw = props.mode === 'raw';
 
   const colors =
-    isPercent || isRaw
-      ? [primaryColor.value]
-      : [primaryColor.value, successColor.value];
+    isPercent || isRaw ? [primaryColor.value] : [primaryColor.value, successColor.value];
 
   return {
     backgroundColor: 'transparent',
@@ -75,8 +73,7 @@ const chartOption = computed(() => {
       backgroundColor: dark ? 'rgba(30,30,30,0.9)' : 'rgba(255,255,255,0.96)',
       borderColor: dark ? '#333' : '#e3e3e3',
       textStyle: { color: dark ? '#fff' : '#333' },
-      valueFormatter: (value: number) =>
-        isPercent ? `${value.toFixed(1)}%` : formatBytes(value),
+      valueFormatter: (value: number) => (isPercent ? `${value.toFixed(1)}%` : formatBytes(value)),
     },
     legend: {
       show: !isPercent && !isRaw,

@@ -25,7 +25,12 @@
           <DashboardCard title="Quality Distribution" :icon="PieChartIcon">
             <div class="h-64 flex items-center justify-center text-muted-foreground text-sm">
               <ClientOnly>
-                <v-chart v-if="compositionData" :option="qualityDonutOption" autoresize class="h-full w-full" />
+                <v-chart
+                  v-if="compositionData"
+                  :option="qualityDonutOption"
+                  autoresize
+                  class="h-full w-full"
+                />
                 <template #fallback>
                   <LoaderCircleIcon class="w-5 h-5 animate-spin" />
                 </template>
@@ -36,7 +41,12 @@
           <DashboardCard title="Genre Distribution" :icon="BarChart3Icon">
             <div class="h-64 flex items-center justify-center text-muted-foreground text-sm">
               <ClientOnly>
-                <v-chart v-if="compositionData" :option="genreBarOption" autoresize class="h-full w-full" />
+                <v-chart
+                  v-if="compositionData"
+                  :option="genreBarOption"
+                  autoresize
+                  class="h-full w-full"
+                />
                 <template #fallback>
                   <LoaderCircleIcon class="w-5 h-5 animate-spin" />
                 </template>
@@ -47,7 +57,12 @@
           <DashboardCard title="Year Distribution" :icon="CalendarIcon" class="md:col-span-2">
             <div class="h-64 flex items-center justify-center text-muted-foreground text-sm">
               <ClientOnly>
-                <v-chart v-if="compositionData" :option="yearAreaOption" autoresize class="h-full w-full" />
+                <v-chart
+                  v-if="compositionData"
+                  :option="yearAreaOption"
+                  autoresize
+                  class="h-full w-full"
+                />
                 <template #fallback>
                   <LoaderCircleIcon class="w-5 h-5 animate-spin" />
                 </template>
@@ -67,7 +82,9 @@
           </DashboardCard>
 
           <DashboardCard title="Size Anomalies" :icon="AlertTriangleIcon">
-            <div class="min-h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+            <div
+              class="min-h-[200px] flex items-center justify-center text-muted-foreground text-sm"
+            >
               Bloat detection table (coming soon)
             </div>
           </DashboardCard>
@@ -156,7 +173,7 @@ const compositionData = ref<CompositionResponse | null>(null);
 
 onMounted(async () => {
   try {
-    compositionData.value = await api('/api/v1/analytics/composition') as CompositionResponse;
+    compositionData.value = (await api('/api/v1/analytics/composition')) as CompositionResponse;
   } catch {
     // Charts show placeholder — no error toast needed
   }
@@ -170,13 +187,15 @@ const qualityDonutOption = computed(() => {
   return {
     backgroundColor: 'transparent',
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    series: [{
-      type: 'pie',
-      radius: ['40%', '70%'],
-      avoidLabelOverlap: true,
-      label: { color: dark ? '#a1a1aa' : '#71717a', fontSize: 11 },
-      data: data.map(d => ({ name: d.name, value: d.count })),
-    }],
+    series: [
+      {
+        type: 'pie',
+        radius: ['40%', '70%'],
+        avoidLabelOverlap: true,
+        label: { color: dark ? '#a1a1aa' : '#71717a', fontSize: 11 },
+        data: data.map((d) => ({ name: d.name, value: d.count })),
+      },
+    ],
   };
 });
 
@@ -191,14 +210,16 @@ const genreBarOption = computed(() => {
     xAxis: { type: 'value', axisLabel: { color: textColor, fontSize: 11 } },
     yAxis: {
       type: 'category',
-      data: data.map(d => d.name).reverse(),
+      data: data.map((d) => d.name).reverse(),
       axisLabel: { color: textColor, fontSize: 11 },
     },
-    series: [{
-      type: 'bar',
-      data: data.map(d => d.count).reverse(),
-      itemStyle: { color: primaryColor.value },
-    }],
+    series: [
+      {
+        type: 'bar',
+        data: data.map((d) => d.count).reverse(),
+        itemStyle: { color: primaryColor.value },
+      },
+    ],
   };
 });
 
@@ -213,21 +234,23 @@ const yearAreaOption = computed(() => {
     grid: { top: 10, right: 10, bottom: 30, left: 50 },
     xAxis: {
       type: 'category',
-      data: sorted.map(d => d.name),
+      data: sorted.map((d) => d.name),
       axisLabel: { color: textColor, fontSize: 11 },
     },
     yAxis: {
       type: 'value',
       axisLabel: { color: textColor, fontSize: 11 },
     },
-    series: [{
-      type: 'line',
-      smooth: true,
-      symbol: 'none',
-      areaStyle: { opacity: 0.3 },
-      data: sorted.map(d => d.count),
-      itemStyle: { color: primaryColor.value },
-    }],
+    series: [
+      {
+        type: 'line',
+        smooth: true,
+        symbol: 'none',
+        areaStyle: { opacity: 0.3 },
+        data: sorted.map((d) => d.count),
+        itemStyle: { color: primaryColor.value },
+      },
+    ],
   };
 });
 </script>

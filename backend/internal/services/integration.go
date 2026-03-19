@@ -177,13 +177,18 @@ func (s *IntegrationService) TestConnection(intType, url, apiKey string, integra
 		return s.testClient(intType, url, integrations.NewPlexClient(url, apiKey).TestConnection)
 	}
 
-	// Standard *arr integrations
-	client := integrations.NewClient(intType, url, apiKey)
-	if client == nil {
+	// Standard *arr and other integrations via factory
+	rawClient := integrations.CreateClient(intType, url, apiKey)
+	if rawClient == nil {
 		return TestConnectionResult{Success: false, Error: "Unknown integration type"}
 	}
 
-	result := s.testClient(intType, url, client.TestConnection)
+	conn, ok := rawClient.(integrations.Connectable)
+	if !ok {
+		return TestConnectionResult{Success: false, Error: "Integration type does not support connection testing"}
+	}
+
+	result := s.testClient(intType, url, conn.TestConnection)
 
 	// Invalidate rule value cache on successful test of *arr integrations
 	if result.Success && integrationID != nil {
@@ -616,11 +621,15 @@ type SyncResult struct {
 
 // SyncAll fetches data from all enabled integrations: tests connections,
 // retrieves disk space (upserting DiskGroups), and counts media items.
+// Uses the factory+capability pattern to discover what each integration supports.
 func (s *IntegrationService) SyncAll() ([]SyncResult, error) {
 	configs, err := s.ListEnabled()
 	if err != nil {
 		return nil, err
 	}
+
+	// Ensure factories are registered
+	integrations.RegisterAllFactories()
 
 	results := make([]SyncResult, 0, len(configs))
 	for _, cfg := range configs {
@@ -630,48 +639,52 @@ func (s *IntegrationService) SyncAll() ([]SyncResult, error) {
 			Type: cfg.Type,
 		}
 
-		// Enrichment-only services — test connection only (no disk/media)
-		client := integrations.NewClient(cfg.Type, cfg.URL, cfg.APIKey)
-		if client == nil {
-			// Use testClient helper to test enrichment services
-			testResult := s.TestConnection(cfg.Type, cfg.URL, cfg.APIKey, nil)
-			if testResult.Success {
-				result.Status = "ok"
-			} else {
-				result.Status = "error"
-				result.Error = testResult.Error
-			}
+		rawClient := integrations.CreateClient(cfg.Type, cfg.URL, cfg.APIKey)
+		if rawClient == nil {
+			result.Status = "error"
+			result.Error = "Unknown integration type"
 			results = append(results, result)
 			continue
 		}
 
-		// Test connection for *arr integrations
-		if connErr := client.TestConnection(); connErr != nil {
+		// Test connection via Connectable interface
+		conn, ok := rawClient.(integrations.Connectable)
+		if !ok {
+			result.Status = "error"
+			result.Error = "Integration does not support connection testing"
+			results = append(results, result)
+			continue
+		}
+		if connErr := conn.TestConnection(); connErr != nil {
 			result.Status = "error"
 			result.Error = connErr.Error()
 			results = append(results, result)
 			continue
 		}
 
-		// Get disk space
-		disks, diskErr := client.GetDiskSpace()
-		if diskErr != nil {
-			result.DiskError = diskErr.Error()
-		} else {
-			result.DiskSpace = disks
-			if s.diskGroups != nil {
-				for _, d := range disks {
-					_, _ = s.diskGroups.Upsert(d)
+		// Get disk space if integration is a DiskReporter
+		if reporter, ok := rawClient.(integrations.DiskReporter); ok {
+			disks, diskErr := reporter.GetDiskSpace()
+			if diskErr != nil {
+				result.DiskError = diskErr.Error()
+			} else {
+				result.DiskSpace = disks
+				if s.diskGroups != nil {
+					for _, d := range disks {
+						_, _ = s.diskGroups.Upsert(d)
+					}
 				}
 			}
 		}
 
-		// Get media items count
-		items, mediaErr := client.GetMediaItems()
-		if mediaErr != nil {
-			result.MediaError = mediaErr.Error()
-		} else {
-			result.MediaCount = len(items)
+		// Get media items count if integration is a MediaSource
+		if source, ok := rawClient.(integrations.MediaSource); ok {
+			items, mediaErr := source.GetMediaItems()
+			if mediaErr != nil {
+				result.MediaError = mediaErr.Error()
+			} else {
+				result.MediaCount = len(items)
+			}
 		}
 
 		result.Status = "ok"

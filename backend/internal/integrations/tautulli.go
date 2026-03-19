@@ -200,3 +200,9 @@ func (t *TautulliClient) GetShowWatchHistory(ratingKey string) (*TautulliWatchDa
 
 	return data, nil
 }
+
+// Verify TautulliClient satisfies capability interfaces at compile time.
+// Note: Tautulli uses per-item watch history queries rather than a bulk fetch,
+// so it does not implement WatchDataProvider. The TautulliEnricher handles
+// the per-item enrichment pattern directly.
+var _ Connectable = (*TautulliClient)(nil)

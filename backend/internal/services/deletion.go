@@ -19,7 +19,7 @@ import (
 
 // DeleteJob describes a media item to be deleted.
 type DeleteJob struct {
-	Client      integrations.Integration
+	Client      integrations.MediaDeleter
 	Item        integrations.MediaItem
 	Reason      string
 	Score       float64

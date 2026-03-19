@@ -5,6 +5,7 @@ import (
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
+	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
 	"capacitarr/internal/testutil"
 )
@@ -17,13 +18,16 @@ func TestFetchAllIntegrations_EmptyConfigs(t *testing.T) {
 	cfg := testutil.TestConfig()
 	reg := services.NewRegistry(database, bus, cfg)
 
+	// Ensure factories are registered before fetch
+	integrations.RegisterAllFactories()
+
 	result := fetchAllIntegrations(reg.Integration)
 
 	if len(result.allItems) != 0 {
 		t.Errorf("expected 0 items, got %d", len(result.allItems))
 	}
-	if len(result.serviceClients) != 0 {
-		t.Errorf("expected 0 service clients, got %d", len(result.serviceClients))
+	if result.registry == nil {
+		t.Error("expected non-nil registry")
 	}
 	if len(result.rootFolders) != 0 {
 		t.Errorf("expected 0 root folders, got %d", len(result.rootFolders))
@@ -41,22 +45,24 @@ func TestFetchAllIntegrations_UnknownType(t *testing.T) {
 	cfg := testutil.TestConfig()
 	reg := services.NewRegistry(database, bus, cfg)
 
-	// Create an unknown-type integration in the DB so BuildEnrichmentClients
-	// returns it as an *arr config (default branch).
+	// Ensure factories are registered before fetch
+	integrations.RegisterAllFactories()
+
+	// Create an unknown-type integration in the DB so the registry
+	// gets no factory match — the integration should be silently skipped.
 	database.Create(&db.IntegrationConfig{
 		Type: "unknown_type", Name: "Firefly Tracker", URL: "http://localhost:9999", APIKey: "test-key", Enabled: true,
 	})
 
 	result := fetchAllIntegrations(reg.Integration)
 
-	// Unknown type falls through to *arr processing but NewClient returns nil,
-	// so it should not be added to any map.
-	if len(result.serviceClients) != 0 {
-		t.Errorf("expected 0 service clients for unknown type, got %d", len(result.serviceClients))
+	// Unknown type has no factory, so it won't appear in any registry map.
+	if len(result.allItems) != 0 {
+		t.Errorf("expected 0 items for unknown type, got %d", len(result.allItems))
 	}
 }
 
-func TestConnectEnrichment_FailureUpdatesStatus(t *testing.T) {
+func TestFetchAllIntegrations_RegistryAndPipeline(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	bus := events.NewEventBus()
 	t.Cleanup(func() { bus.Close() })
@@ -64,27 +70,19 @@ func TestConnectEnrichment_FailureUpdatesStatus(t *testing.T) {
 	cfg := testutil.TestConfig()
 	reg := services.NewRegistry(database, bus, cfg)
 
-	// Create an integration that points to a non-existent server
-	integration := db.IntegrationConfig{
-		Type:    "tautulli",
-		Name:    "Firefly Analytics",
-		URL:     "http://localhost:1",
-		APIKey:  "fake-key",
-		Enabled: true,
+	// Ensure factories are registered before fetch
+	integrations.RegisterAllFactories()
+
+	result := fetchAllIntegrations(reg.Integration)
+
+	if result.registry == nil {
+		t.Fatal("expected non-nil IntegrationRegistry")
 	}
-	database.Create(&integration)
-
-	testCfg := db.IntegrationConfig{
-		ID:   integration.ID,
-		Type: "tautulli",
-		Name: "Firefly Analytics",
+	if result.pipeline == nil {
+		t.Fatal("expected non-nil EnrichmentPipeline")
 	}
-
-	ok := connectEnrichment(testCfg, func() error {
-		return nil // Simulate success
-	}, reg.Integration)
-
-	if !ok {
-		t.Error("expected connectEnrichment to return true on success")
+	// With no integrations, pipeline should still have the cross-reference enricher
+	if result.pipeline.Count() < 1 {
+		t.Errorf("expected at least 1 enricher (cross-reference), got %d", result.pipeline.Count())
 	}
 }

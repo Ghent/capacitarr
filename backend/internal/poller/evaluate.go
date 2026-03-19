@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
 	"sync/atomic"
 
@@ -19,7 +18,7 @@ import (
 // evaluateAndCleanDisk scores all media items on a disk group and, when the
 // threshold is breached, queues the highest-scoring candidates for deletion.
 // Returns the number of items queued to the DeletionService worker (auto mode only).
-func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem, serviceClients map[uint]integrations.Integration, runStatsID uint, prefs db.PreferenceSet, rules []db.CustomRule) int {
+func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, runStatsID uint, prefs db.PreferenceSet, rules []db.CustomRule) int {
 	effectiveTotal := group.EffectiveTotalBytes()
 	if effectiveTotal == 0 {
 		return 0
@@ -38,7 +37,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		}
 
 		// Process any force-delete items even when below threshold
-		forceQueued := p.processForceDeletes(serviceClients, runStatsID)
+		forceQueued := p.processForceDeletes(registry, runStatsID)
 		return forceQueued
 	}
 
@@ -65,49 +64,40 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 	slog.Debug("Items on disk mount", "component", "poller",
 		"mount", group.MountPath, "itemCount", len(diskItems))
 
-	// Evaluate
-	evaluated := engine.EvaluateMedia(diskItems, prefs, rules)
-	atomic.AddInt64(&p.lastRunEvaluated, int64(len(evaluated)))
+	// Use the extracted Evaluator for scoring + categorization
+	evaluator := engine.NewEvaluator()
+	evalResult := evaluator.Evaluate(diskItems, prefs, rules, prefs.TiebreakerMethod)
+	atomic.AddInt64(&p.lastRunEvaluated, int64(evalResult.TotalCount))
+	atomic.AddInt64(&p.lastRunProtected, int64(len(evalResult.Protected)))
 
-	// Count protected items for dashboard stats
-	protectedCount := 0
-	for _, ev := range evaluated {
-		if ev.IsProtected {
-			atomic.AddInt64(&p.lastRunProtected, 1)
-			protectedCount++
-		}
-	}
-
-	// Sort by score descending
-	sort.Slice(evaluated, func(i, j int) bool {
-		return evaluated[i].Score > evaluated[j].Score // highest score first
-	})
+	slog.Debug("Evaluation summary", "component", "poller",
+		"mount", group.MountPath,
+		"evaluated", evalResult.TotalCount,
+		"protected", len(evalResult.Protected),
+		"candidates", len(evalResult.Candidates))
 
 	targetBytesToFree := int64((currentPct - group.TargetPct) / 100.0 * float64(effectiveTotal))
 	if targetBytesToFree <= 0 {
 		return 0
 	}
 
-	slog.Debug("Evaluation summary", "component", "poller",
-		"mount", group.MountPath,
-		"evaluated", len(evaluated),
-		"protected", protectedCount,
-		"targetBytesToFree", targetBytesToFree)
+	// Get deletion candidates from the evaluator result
+	candidates := evalResult.CandidatesForDeletion(targetBytesToFree)
 
-	var bytesFreed int64
-	var deletionsQueued int
-
-	// Pre-build set of shows that have season-level entries in the evaluation results.
+	// Pre-build set of shows that have season-level entries in the candidates.
 	// When season entries exist, prefer them over show-level entries so each season
 	// can be individually approved/snoozed/deleted in the approval queue.
 	showsWithSeasons := make(map[string]bool)
-	for _, ev := range evaluated {
+	for _, ev := range candidates {
 		if ev.Item.Type == integrations.MediaTypeSeason && ev.Item.ShowTitle != "" {
 			showsWithSeasons[ev.Item.ShowTitle] = true
 		}
 	}
 
-	for _, ev := range evaluated {
+	var bytesFreed int64
+	var deletionsQueued int
+
+	for _, ev := range candidates {
 		if bytesFreed >= targetBytesToFree {
 			break
 		}
@@ -128,27 +118,28 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			"size", ev.Item.SizeBytes, "reason", ev.Reason)
 
 		if prefs.ExecutionMode == "auto" {
-			client, ok := serviceClients[ev.Item.IntegrationID]
-			if ok && client != nil {
-				// Queue for background deletion via DeletionService
-				if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
-					Client:     client,
-					Item:       ev.Item,
-					Reason:     ev.Reason,
-					Score:      ev.Score,
-					Factors:    ev.Factors,
-					RunStatsID: runStatsID,
-				}); err != nil {
-					slog.Warn("Deletion queue full, skipping item", "component", "poller", "item", ev.Item.Title)
-					continue
-				}
-				bytesFreed += ev.Item.SizeBytes
-				deletionsQueued++
-				continue // Skip the synchronous DB insert below, worker handles it
+			deleter, err := registry.Deleter(ev.Item.IntegrationID)
+			if err != nil {
+				slog.Error("Integration not registered as MediaDeleter", "component", "poller",
+					"integrationId", ev.Item.IntegrationID, "error", err)
+				continue
 			}
-			slog.Error("Integration client not found for deletion", "component", "poller",
-				"operation", "resolve_client", "integrationId", ev.Item.IntegrationID)
-			continue
+
+			// Queue for background deletion via DeletionService
+			if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
+				Client:     deleter,
+				Item:       ev.Item,
+				Reason:     ev.Reason,
+				Score:      ev.Score,
+				Factors:    ev.Factors,
+				RunStatsID: runStatsID,
+			}); err != nil {
+				slog.Warn("Deletion queue full, skipping item", "component", "poller", "item", ev.Item.Title)
+				continue
+			}
+			bytesFreed += ev.Item.SizeBytes
+			deletionsQueued++
+			continue // Skip the synchronous DB insert below, worker handles it
 		} else if prefs.ExecutionMode == "approval" {
 			// Skip items that are currently snoozed (rejected with an active snooze window)
 			if p.reg.Approval.IsSnoozed(ev.Item.Title, string(ev.Item.Type)) {
@@ -218,7 +209,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 // processForceDeletes queries the approval queue for force-delete items and
 // queues them for deletion via the DeletionService, regardless of disk threshold.
 // Returns the number of items queued.
-func (p *Poller) processForceDeletes(serviceClients map[uint]integrations.Integration, runStatsID uint) int {
+func (p *Poller) processForceDeletes(registry *integrations.IntegrationRegistry, runStatsID uint) int {
 	items, err := p.reg.Approval.ListForceDeletes()
 	if err != nil {
 		slog.Error("Failed to list force-delete items", "component", "poller", "error", err)
@@ -241,10 +232,10 @@ func (p *Poller) processForceDeletes(serviceClients map[uint]integrations.Integr
 
 	var queued int
 	for _, item := range items {
-		client, ok := serviceClients[item.IntegrationID]
-		if !ok || client == nil {
-			slog.Error("Integration client not found for force-delete", "component", "poller",
-				"integrationId", item.IntegrationID, "media", item.MediaName)
+		deleter, err := registry.Deleter(item.IntegrationID)
+		if err != nil {
+			slog.Error("Integration not registered as MediaDeleter for force-delete", "component", "poller",
+				"integrationId", item.IntegrationID, "media", item.MediaName, "error", err)
 			continue
 		}
 
@@ -265,7 +256,7 @@ func (p *Poller) processForceDeletes(serviceClients map[uint]integrations.Integr
 		}
 
 		if queueErr := p.reg.Deletion.QueueDeletion(services.DeleteJob{
-			Client:      client,
+			Client:      deleter,
 			Item:        mediaItem,
 			Reason:      item.Reason,
 			Score:       0,

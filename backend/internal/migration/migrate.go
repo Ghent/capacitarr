@@ -11,7 +11,7 @@ import (
 	"os"
 	"time"
 
-	_ "github.com/ncruces/go-sqlite3/embed"
+	_ "github.com/ncruces/go-sqlite3/embed" // embed: SQLite WASM binary required for gormlite
 	"github.com/ncruces/go-sqlite3/gormlite"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
@@ -52,9 +52,9 @@ func MigrateFrom(sourcePath string, destDB *gorm.DB) (*Result, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open source database: %w", err)
 	}
-	sourceSqlDB, _ := sourceDB.DB()
+	sourceSQLDB, _ := sourceDB.DB()
 	defer func() {
-		if err := sourceSqlDB.Close(); err != nil {
+		if err := sourceSQLDB.Close(); err != nil {
 			slog.Warn("Failed to close source database", "error", err)
 		}
 	}()

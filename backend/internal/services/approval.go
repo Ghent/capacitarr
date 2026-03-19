@@ -306,10 +306,14 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 		return approved, fmt.Errorf("integration not found for approval %d: %w", entryID, err)
 	}
 
-	// 3. Build the client
-	client := integrations.NewClient(integration.Type, integration.URL, integration.APIKey)
-	if client == nil {
+	// 3. Build the client via factory and extract MediaDeleter capability
+	rawClient := integrations.CreateClient(integration.Type, integration.URL, integration.APIKey)
+	if rawClient == nil {
 		return approved, fmt.Errorf("unsupported integration type %q for approval %d", integration.Type, entryID)
+	}
+	client, ok := rawClient.(integrations.MediaDeleter)
+	if !ok {
+		return approved, fmt.Errorf("integration type %q does not support deletion for approval %d", integration.Type, entryID)
 	}
 
 	// 4. Reconstruct the MediaItem from stored approval data

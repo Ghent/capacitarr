@@ -62,10 +62,10 @@ type jellyfinItem struct {
 	} `json:"UserData"`
 }
 
-// GetBulkWatchData fetches all movies and series from Jellyfin's library with their
+// GetBulkWatchDataForUser fetches all movies and series from Jellyfin's library with their
 // watch data (PlayCount, LastPlayedDate) in a single paginated API call.
 // Returns a map from normalized (lowercase) title to watch data.
-func (j *JellyfinClient) GetBulkWatchData(userID string) (map[string]*WatchData, error) {
+func (j *JellyfinClient) GetBulkWatchDataForUser(userID string) (map[string]*WatchData, error) {
 	result := make(map[string]*WatchData)
 	startIndex := 0
 	pageSize := 500
@@ -197,6 +197,16 @@ func (j *JellyfinClient) GetAdminUserID() (string, error) {
 
 // ─── Capability interface implementations ───────────────────────────────────
 
+// GetBulkWatchData implements WatchDataProvider by resolving the admin user
+// internally and delegating to the userID-based method.
+func (j *JellyfinClient) GetBulkWatchData() (map[string]*WatchData, error) {
+	userID, err := j.GetAdminUserID()
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin watch data: %w", err)
+	}
+	return j.GetBulkWatchDataForUser(userID)
+}
+
 // GetWatchlistItems implements WatchlistProvider by resolving the admin user
 // and returning favorited items.
 func (j *JellyfinClient) GetWatchlistItems() (map[string]bool, error) {
@@ -209,4 +219,5 @@ func (j *JellyfinClient) GetWatchlistItems() (map[string]bool, error) {
 
 // Verify JellyfinClient satisfies capability interfaces at compile time.
 var _ Connectable = (*JellyfinClient)(nil)
+var _ WatchDataProvider = (*JellyfinClient)(nil)
 var _ WatchlistProvider = (*JellyfinClient)(nil)

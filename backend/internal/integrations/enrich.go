@@ -112,7 +112,7 @@ func EnrichItems(items []MediaItem, ec EnrichmentClients) {
 		if err != nil {
 			slog.Warn("Failed to get Jellyfin admin user", "component", "enrichment", "operation", "jellyfin_admin_user", "error", err)
 		} else {
-			watchMap, err := ec.Jellyfin.GetBulkWatchData(userID)
+			watchMap, err := ec.Jellyfin.GetBulkWatchDataForUser(userID)
 			if err != nil {
 				slog.Warn("Failed to fetch Jellyfin watch data", "component", "enrichment", "operation", "fetch_jellyfin_watch", "error", err)
 			} else {
@@ -140,7 +140,7 @@ func EnrichItems(items []MediaItem, ec EnrichmentClients) {
 		if err != nil {
 			slog.Warn("Failed to get Emby admin user", "component", "enrichment", "operation", "emby_admin_user", "error", err)
 		} else {
-			watchMap, err := ec.Emby.GetBulkWatchData(userID)
+			watchMap, err := ec.Emby.GetBulkWatchDataForUser(userID)
 			if err != nil {
 				slog.Warn("Failed to fetch Emby watch data", "component", "enrichment", "operation", "fetch_emby_watch", "error", err)
 			} else {

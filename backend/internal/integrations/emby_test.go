@@ -124,7 +124,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestEmbyClient_GetBulkWatchData_Pagination(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestEmbyClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testing.T)
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestEmbyClient_GetBulkWatchData_EmptyItems(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestEmbyClient_GetBulkWatchData_SkipsEmptyNames(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchData("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1")
 	if err != nil {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}

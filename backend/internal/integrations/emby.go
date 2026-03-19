@@ -48,10 +48,10 @@ func (e *EmbyClient) TestConnection() error {
 	return nil
 }
 
-// GetBulkWatchData fetches all movies and series from Emby's library with their
+// GetBulkWatchDataForUser fetches all movies and series from Emby's library with their
 // watch data (PlayCount, LastPlayedDate) in a single paginated API call.
 // Returns a map from normalized (lowercase) title to WatchData.
-func (e *EmbyClient) GetBulkWatchData(userID string) (map[string]*WatchData, error) {
+func (e *EmbyClient) GetBulkWatchDataForUser(userID string) (map[string]*WatchData, error) {
 	result := make(map[string]*WatchData)
 	startIndex := 0
 	pageSize := 500
@@ -192,6 +192,16 @@ func (e *EmbyClient) GetAdminUserID() (string, error) {
 
 // ─── Capability interface implementations ───────────────────────────────────
 
+// GetBulkWatchData implements WatchDataProvider by resolving the admin user
+// internally and delegating to the userID-based method.
+func (e *EmbyClient) GetBulkWatchData() (map[string]*WatchData, error) {
+	userID, err := e.GetAdminUserID()
+	if err != nil {
+		return nil, fmt.Errorf("emby watch data: %w", err)
+	}
+	return e.GetBulkWatchDataForUser(userID)
+}
+
 // GetWatchlistItems implements WatchlistProvider by resolving the admin user
 // and returning favorited items.
 func (e *EmbyClient) GetWatchlistItems() (map[string]bool, error) {
@@ -204,4 +214,5 @@ func (e *EmbyClient) GetWatchlistItems() (map[string]bool, error) {
 
 // Verify EmbyClient satisfies capability interfaces at compile time.
 var _ Connectable = (*EmbyClient)(nil)
+var _ WatchDataProvider = (*EmbyClient)(nil)
 var _ WatchlistProvider = (*EmbyClient)(nil)

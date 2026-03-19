@@ -162,11 +162,13 @@ func (p *Poller) poll() {
 		return
 	}
 
-	// Fetch media items, disk space, and enrichment clients from all integrations
+	// Fetch media items, disk space, and build registry+pipeline from all integrations
 	fetched := fetchAllIntegrations(p.reg.Integration)
 
-	// Enrich items with watch history and request data
-	integrations.EnrichItems(fetched.allItems, fetched.enrichment)
+	// Enrich items using the pluggable enrichment pipeline
+	if fetched.pipeline != nil {
+		fetched.pipeline.Run(fetched.allItems)
+	}
 
 	// Find the most specific mount for each root folder
 	mediaMounts := findMediaMounts(fetched.diskMap, fetched.rootFolders)
@@ -202,7 +204,7 @@ func (p *Poller) poll() {
 		}
 
 		// Evaluate and trigger cleanup if threshold breached
-		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.serviceClients, runStatsID, prefs, rules)
+		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.registry, runStatsID, prefs, rules)
 	}
 
 	// Clean up orphaned disk groups that are no longer media mounts.
