@@ -34,6 +34,9 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 	// Auth routes (login is public, password/username/apikey are protected)
 	RegisterAuthRoutes(g, protected, reg)
 
+	// Migration routes (status is public for pre-auth detection, execute is protected)
+	RegisterMigrationRoutes(g, protected, reg)
+
 	// SSE event stream — authenticated, long-lived connection
 	if sseBroadcaster != nil {
 		protected.GET("/events", sseBroadcaster.HandleSSE)

@@ -233,6 +233,7 @@ func SetupTestServerWithRegistry(t *testing.T, database *gorm.DB) (*echo.Echo, *
 	routes.RegisterAnalyticsRoutes(protected, reg)
 	routes.RegisterLibraryRoutes(protected, reg)
 	routes.RegisterPreviewRoutes(protected, reg)
+	routes.RegisterMigrationRoutes(api, protected, reg)
 
 	return e, reg
 }

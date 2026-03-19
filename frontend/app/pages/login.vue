@@ -116,6 +116,20 @@ const isLoading = ref(true);
 
 onMounted(async () => {
   try {
+    // Check if a 1.x database exists — redirect to migration page if so
+    try {
+      const migrationStatus = await ofetch<{ available: boolean }>(
+        `${config.public.apiBaseUrl}/api/v1/migration/status`,
+      );
+      if (migrationStatus.available) {
+        const router = useRouter();
+        router.replace('/migrate');
+        return;
+      }
+    } catch {
+      // Migration check failed — continue to normal login flow
+    }
+
     const data = await ofetch(`${config.public.apiBaseUrl}/api/v1/auth/status`);
     isSetupMode.value = !data.initialized;
   } catch {

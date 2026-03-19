@@ -1,6 +1,8 @@
 package services
 
 import (
+	"path/filepath"
+
 	"gorm.io/gorm"
 
 	"capacitarr/internal/config"
@@ -39,6 +41,7 @@ type Registry struct {
 	Library              *LibraryService
 	Analytics            *AnalyticsService
 	WatchAnalytics       *WatchAnalyticsService
+	Migration            *MigrationService
 }
 
 // NewRegistry creates a fully wired Registry with all services.
@@ -82,6 +85,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 		Library:              NewLibraryService(database, bus),
 		Analytics:            NewAnalyticsService(previewSvc),
 		WatchAnalytics:       NewWatchAnalyticsService(previewSvc),
+		Migration:            NewMigrationService(database, bus, filepath.Dir(cfg.Database)),
 	}
 
 	// Wire IntegrationService's cross-service dependency on DiskGroupService
