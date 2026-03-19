@@ -4,9 +4,14 @@
     class="min-h-screen bg-background text-foreground transition-colors duration-300"
   >
     <Navbar v-if="isAuthenticated" />
-    <main data-slot="page-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-6">
+    <main
+      data-slot="page-content"
+      class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5"
+      :class="isAuthenticated ? 'pb-20' : 'pb-6'"
+    >
       <NuxtPage />
     </main>
+    <BottomToolbar v-if="isAuthenticated" />
   </div>
   <ClientOnly>
     <ConnectionBanner />

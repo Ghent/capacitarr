@@ -8,7 +8,7 @@
     >
       <div class="flex items-center gap-2">
         <slot name="icon">
-          <component v-if="icon" :is="icon" class="w-4 h-4 text-muted-foreground" />
+          <component :is="icon" v-if="icon" class="w-4 h-4 text-muted-foreground" />
         </slot>
         <h3 class="text-sm font-semibold text-foreground">
           <slot name="header">{{ title }}</slot>

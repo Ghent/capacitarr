@@ -600,5 +600,26 @@
   "library.loadingHint": "Large libraries may take a few moments to load",
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
-  "preview.lastUpdated": "Last updated {time}"
+  "preview.lastUpdated": "Last updated {time}",
+
+  "nav.rules": "Rules",
+
+  "library.tabBrowse": "Browse",
+  "library.tabHistory": "History",
+  "library.quickFilters": "Quick Filters",
+  "library.filterDead": "Dead",
+  "library.filterStale": "Stale",
+  "library.filterBloated": "Bloated",
+  "library.filterRequested": "Requested",
+  "library.filterProtected": "Protected",
+  "library.filterActive": "Filtered: {name}",
+
+  "audit.movedToLibrary": "The audit log has moved to Library → History",
+  "audit.goToLibraryHistory": "Go to Library → History",
+
+  "settings.overrideThresholds": "Override Thresholds",
+  "settings.thresholdPct": "Cleanup Threshold",
+  "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",
+  "settings.targetPct": "Cleanup Target",
+  "settings.targetPctDesc": "Stop cleanup when disk usage drops to this %"
 }

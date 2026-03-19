@@ -148,6 +148,21 @@
                   >
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
+                  <!-- Impact badge placeholder (wired in Phase 6) -->
+                  <NuxtLink
+                    v-if="rule.enabled !== false"
+                    :to="`/library?ruleId=${rule.id}`"
+                    class="no-underline"
+                    @click.stop
+                  >
+                    <UiBadge
+                      variant="secondary"
+                      class="text-xs tabular-nums cursor-pointer hover:bg-accent transition-colors gap-1"
+                    >
+                      <component :is="BarChart3Icon" class="w-3 h-3" />
+                      <span>—</span>
+                    </UiBadge>
+                  </NuxtLink>
                   <!-- Effect badge -->
                   <UiBadge
                     variant="outline"
@@ -198,6 +213,7 @@ import {
   GripVerticalIcon,
   ChevronRightIcon,
   ArchiveIcon,
+  BarChart3Icon,
 } from 'lucide-vue-next';
 import {
   fieldLabel,

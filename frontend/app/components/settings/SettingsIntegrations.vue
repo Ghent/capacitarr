@@ -172,6 +172,84 @@
         </Transition>
       </div>
 
+      <!-- Per-Integration Threshold Overrides -->
+      <div class="border-t border-border px-6 py-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <UiSwitch
+              :model-value="getThresholdState(integration.id).enabled"
+              @update:model-value="(val: boolean) => toggleThresholdOverride(integration.id, val)"
+            />
+            <UiLabel class="text-sm font-medium cursor-pointer">
+              {{ $t('settings.overrideThresholds') }}
+            </UiLabel>
+          </div>
+        </div>
+
+        <!-- Collapsible Threshold Sliders -->
+        <Transition
+          enter-active-class="transition-all duration-300 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 max-h-0"
+          enter-to-class="opacity-100 max-h-[300px]"
+          leave-from-class="opacity-100 max-h-[300px]"
+          leave-to-class="opacity-0 max-h-0"
+        >
+          <div
+            v-if="getThresholdState(integration.id).enabled"
+            class="mt-4 space-y-3 overflow-hidden"
+          >
+            <div class="space-y-1">
+              <div class="flex justify-between text-sm">
+                <span class="font-medium text-foreground">{{ $t('settings.thresholdPct') }}</span>
+                <span class="text-muted-foreground font-mono tabular-nums">
+                  {{ getThresholdState(integration.id).thresholdPct }}%
+                </span>
+              </div>
+              <UiSlider
+                :model-value="[getThresholdState(integration.id).thresholdPct]"
+                :min="50"
+                :max="99"
+                :step="1"
+                class="w-full"
+                @update:model-value="
+                  (v: number[] | undefined) => {
+                    if (v && v[0] != null) updateThreshold(integration.id, 'thresholdPct', v[0]);
+                  }
+                "
+              />
+              <p class="text-xs text-muted-foreground">
+                {{ $t('settings.thresholdPctDesc') }}
+              </p>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex justify-between text-sm">
+                <span class="font-medium text-foreground">{{ $t('settings.targetPct') }}</span>
+                <span class="text-muted-foreground font-mono tabular-nums">
+                  {{ getThresholdState(integration.id).targetPct }}%
+                </span>
+              </div>
+              <UiSlider
+                :model-value="[getThresholdState(integration.id).targetPct]"
+                :min="50"
+                :max="99"
+                :step="1"
+                class="w-full"
+                @update:model-value="
+                  (v: number[] | undefined) => {
+                    if (v && v[0] != null) updateThreshold(integration.id, 'targetPct', v[0]);
+                  }
+                "
+              />
+              <p class="text-xs text-muted-foreground">
+                {{ $t('settings.targetPctDesc') }}
+              </p>
+            </div>
+          </div>
+        </Transition>
+      </div>
+
       <UiCardFooter class="border-t border-border flex items-center justify-between">
         <div class="flex gap-2">
           <UiButton variant="outline" size="sm" @click="testConnection(integration)">
@@ -410,6 +488,39 @@ const weightSliders = computed(() => [
     description: t('settings.weightSeriesStatusDesc'),
   },
 ]);
+
+// ─── Per-integration threshold overrides (local state, wired to API in Phase 6) ─
+interface ThresholdOverride {
+  enabled: boolean;
+  thresholdPct: number;
+  targetPct: number;
+}
+
+const thresholdState = reactive<Record<number, ThresholdOverride>>({});
+
+function getThresholdState(integrationId: number): ThresholdOverride {
+  if (!thresholdState[integrationId]) {
+    // Initialize from integration's stored thresholds if available
+    const integration = integrations.value.find((i) => i.id === integrationId);
+    const hasOverride = integration?.thresholdPct != null || integration?.targetPct != null;
+    thresholdState[integrationId] = {
+      enabled: hasOverride,
+      thresholdPct: integration?.thresholdPct ?? 85,
+      targetPct: integration?.targetPct ?? 80,
+    };
+  }
+  return thresholdState[integrationId]!;
+}
+
+function toggleThresholdOverride(integrationId: number, enabled: boolean) {
+  const state = getThresholdState(integrationId);
+  state.enabled = enabled;
+}
+
+function updateThreshold(integrationId: number, key: 'thresholdPct' | 'targetPct', value: number) {
+  const state = getThresholdState(integrationId);
+  state[key] = value;
+}
 
 const formState = reactive({ type: 'sonarr', name: '', url: '', apiKey: '' });
 

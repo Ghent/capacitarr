@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed bottom-4 right-4 z-[100] flex flex-col space-y-2 max-w-sm">
+  <div class="fixed bottom-16 right-4 z-[100] flex flex-col space-y-2 max-w-sm">
     <TransitionGroup
       enter-active-class="transition-all duration-300 ease-out"
       enter-from-class="translate-x-full opacity-0"

@@ -22,7 +22,7 @@
         />
       </UiButton>
     </UiPopoverTrigger>
-    <UiPopoverContent align="end" class="w-72">
+    <UiPopoverContent align="center" :side="props.side" class="w-72">
       <div class="space-y-4">
         <!-- Header -->
         <div class="flex items-center justify-between">
@@ -135,6 +135,14 @@
 
 <script setup lang="ts">
 import { ShieldIcon, HandIcon, ZapIcon, PlayIcon, LoaderCircleIcon } from 'lucide-vue-next';
+
+const props = withDefaults(
+  defineProps<{
+    /** Which side the popover opens toward. Defaults to 'bottom'. */
+    side?: 'top' | 'bottom' | 'left' | 'right';
+  }>(),
+  { side: 'bottom' },
+);
 
 const {
   executionMode,

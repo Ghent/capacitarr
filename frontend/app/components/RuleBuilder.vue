@@ -101,37 +101,15 @@
 
         <!-- Free-text input (numbers and text) with optional suffix and suggestions -->
         <template v-else>
-          <!-- Combobox mode: free-text input with suggestion dropdown -->
+          <!-- Combobox mode: free-text input with CreatableCombobox for suggestion + custom values -->
           <div v-if="hasSuggestions" class="flex items-center gap-2">
-            <UiCombobox
+            <CreatableCombobox
               v-model="form.value"
-              v-model:search-term="comboboxSearch"
-              :ignore-filter="true"
-              :open-on-focus="true"
-              :reset-search-term-on-blur="false"
-              :reset-search-term-on-select="false"
+              :options="filteredSuggestions"
+              :placeholder="freeInputPlaceholder"
               :disabled="!form.operator"
               class="flex-1"
-              @update:model-value="onComboboxSelect"
-            >
-              <UiComboboxAnchor>
-                <UiComboboxInput
-                  :placeholder="freeInputPlaceholder"
-                  :type="freeInputType"
-                  :disabled="!form.operator"
-                />
-              </UiComboboxAnchor>
-              <UiComboboxContent>
-                <UiComboboxEmpty>No matching suggestions</UiComboboxEmpty>
-                <UiComboboxItem
-                  v-for="sug in filteredSuggestions"
-                  :key="sug.value"
-                  :value="sug.value"
-                >
-                  {{ sug.label }}
-                </UiComboboxItem>
-              </UiComboboxContent>
-            </UiCombobox>
+            />
             <span
               v-if="freeInputSuffix"
               class="text-xs text-muted-foreground whitespace-nowrap shrink-0"
@@ -196,6 +174,8 @@
 </template>
 
 <script setup lang="ts">
+import { CreatableCombobox } from '~/components/ui/creatable-combobox';
+
 interface Integration {
   id: number;
   type: string;
@@ -490,19 +470,8 @@ async function onFieldChange() {
   }
 }
 
-// When a combobox suggestion is selected, sync the search term to show the selected value
-function onComboboxSelect(value: string | number | bigint | Record<string, unknown> | null) {
-  const str = value != null ? String(value) : '';
-  form.value = str;
-  comboboxSearch.value = str;
-}
-
-// Sync combobox search term to form.value when user types freely (no selection)
-watch(comboboxSearch, (newVal) => {
-  if (hasSuggestions.value && newVal !== form.value) {
-    form.value = newVal;
-  }
-});
+// Note: comboboxSearch is still used for filteredSuggestions computed.
+// CreatableCombobox manages the interaction internally via v-model.
 
 function submitRule() {
   if (!isFormValid.value) return;
