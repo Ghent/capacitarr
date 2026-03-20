@@ -34,8 +34,16 @@ func New(reg *services.Registry) *Poller {
 }
 
 // Start begins the continuous polling loop. Call Stop() to terminate.
+//
+// The poller subscribes to the EventBus to receive:
+//   - ManualRunTriggeredEvent: immediate engine run (replaces the old RunNowCh)
+//   - SettingsChangedEvent: reset the poll timer to pick up interval changes
 func (p *Poller) Start() {
+	busCh := p.reg.Bus.Subscribe()
+
 	go func() {
+		defer p.reg.Bus.Unsubscribe(busCh)
+
 		// Run immediately on startup so users see results without waiting
 		// for the first poll interval to elapse.
 		p.safePoll()
@@ -47,10 +55,22 @@ func (p *Poller) Start() {
 			case <-timer.C:
 				p.safePoll()
 				timer.Reset(p.getPollInterval())
-			case <-p.reg.Engine.RunNowCh:
-				slog.Info("Manual run triggered via API", "component", "poller")
-				p.safePoll()
-				// Don't reset the timer — let the next scheduled tick proceed normally
+			case evt := <-busCh:
+				switch evt.(type) {
+				case events.ManualRunTriggeredEvent:
+					slog.Info("Manual run triggered via API", "component", "poller")
+					p.safePoll()
+					// Don't reset the timer — let the next scheduled tick proceed normally
+				case events.SettingsChangedEvent:
+					slog.Info("Settings changed, resetting poll timer", "component", "poller")
+					if !timer.Stop() {
+						select {
+						case <-timer.C:
+						default:
+						}
+					}
+					timer.Reset(p.getPollInterval())
+				}
 			case <-p.done:
 				return
 			}

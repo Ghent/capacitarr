@@ -217,6 +217,22 @@ export function useEngineControl() {
       addToast('Engine run triggered', 'info');
       // No delay or fetchStats needed — SSE engine_start/engine_complete events
       // will update the UI reactively.
+      //
+      // Safety timeout: if the SSE engine_complete event is lost (connection
+      // drop, slow-subscriber buffer overflow), reset the loading state after
+      // 5 minutes and fetch fresh stats from the REST API so the UI doesn't
+      // spin forever.
+      if (import.meta.client) {
+        setTimeout(
+          async () => {
+            if (runNowLoading.value) {
+              runNowLoading.value = false;
+              await fetchStats();
+            }
+          },
+          5 * 60 * 1000,
+        );
+      }
     } catch {
       addToast('Failed to trigger engine run', 'error');
       runNowLoading.value = false;

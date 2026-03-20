@@ -14,9 +14,8 @@ import (
 
 // EngineService manages engine run triggers and stats.
 type EngineService struct {
-	db       *gorm.DB
-	bus      *events.EventBus
-	RunNowCh chan struct{} // Signals the poller to run immediately
+	db  *gorm.DB
+	bus *events.EventBus
 
 	// Observable state
 	lastEvaluated atomic.Int64
@@ -34,27 +33,21 @@ const EngineStatusAlreadyRunning = "already_running"
 // NewEngineService creates a new EngineService.
 func NewEngineService(database *gorm.DB, bus *events.EventBus) *EngineService {
 	return &EngineService{
-		db:       database,
-		bus:      bus,
-		RunNowCh: make(chan struct{}, 1),
+		db:  database,
+		bus: bus,
 	}
 }
 
-// TriggerRun sends a signal to run the engine immediately.
-// Returns EngineStatusStarted if the signal was sent, EngineStatusAlreadyRunning
-// if a run is already in progress.
+// TriggerRun publishes a ManualRunTriggeredEvent on the EventBus to signal the
+// poller to run immediately. Returns EngineStatusStarted if the event was
+// published, EngineStatusAlreadyRunning if a run is already in progress.
 func (s *EngineService) TriggerRun() string {
 	if s.pollRunning.Load() {
 		return EngineStatusAlreadyRunning
 	}
 
-	select {
-	case s.RunNowCh <- struct{}{}:
-		s.bus.Publish(events.ManualRunTriggeredEvent{})
-		return EngineStatusStarted
-	default:
-		return EngineStatusAlreadyRunning
-	}
+	s.bus.Publish(events.ManualRunTriggeredEvent{})
+	return EngineStatusStarted
 }
 
 // SetRunning marks the engine as running or not running.
