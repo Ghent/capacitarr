@@ -290,3 +290,50 @@ func TestRulesService_Reorder_EmptySlice(t *testing.T) {
 		t.Fatalf("Reorder with empty slice returned error: %v", err)
 	}
 }
+
+// ---------- GetEnabledRules ----------
+
+func TestRulesService_GetEnabledRules_Empty(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewRulesService(database, bus)
+
+	rules, err := svc.GetEnabledRules()
+	if err != nil {
+		t.Fatalf("GetEnabledRules returned error: %v", err)
+	}
+	if len(rules) != 0 {
+		t.Errorf("Expected 0 rules, got %d", len(rules))
+	}
+}
+
+func TestRulesService_GetEnabledRules_FiltersDisabled(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewRulesService(database, bus)
+
+	// Seed enabled rules via Create
+	database.Create(&db.CustomRule{Field: "title", Operator: "equals", Value: "Firefly", Effect: "always_keep", Enabled: true})
+	database.Create(&db.CustomRule{Field: "genre", Operator: "equals", Value: "Sci-Fi", Effect: "prefer_keep", Enabled: true})
+
+	// Create a rule then disable it via raw SQL: GORM's default:true prevents
+	// inserting false directly, and Model().Update() may also skip zero-value bools.
+	disabledRule := db.CustomRule{Field: "title", Operator: "equals", Value: "Serenity", Effect: "always_keep", Enabled: true}
+	database.Create(&disabledRule)
+	database.Exec("UPDATE custom_rules SET enabled = 0 WHERE id = ?", disabledRule.ID)
+
+	rules, err := svc.GetEnabledRules()
+	if err != nil {
+		t.Fatalf("GetEnabledRules returned error: %v", err)
+	}
+	if len(rules) != 2 {
+		t.Fatalf("Expected 2 enabled rules, got %d", len(rules))
+	}
+
+	// Verify both returned rules are enabled
+	for _, rule := range rules {
+		if !rule.Enabled {
+			t.Errorf("GetEnabledRules returned disabled rule: %v", rule)
+		}
+	}
+}

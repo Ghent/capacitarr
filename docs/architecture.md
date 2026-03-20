@@ -114,8 +114,8 @@ All services accept `*gorm.DB` and `*events.EventBus` in their constructor and a
 | | MetricsService | History, rollup, lifetime stats |
 | | RulesService | Custom rule CRUD, validation, and impact preview |
 | | PreviewService | Scored media preview cache, SSE-driven invalidation |
-| **Analytics** | AnalyticsService | Composition, quality, and bloat analytics over preview cache |
-| | WatchAnalyticsService | Dead content, stale content, popularity, request fulfillment |
+| **Analytics** | AnalyticsService | Quality, bloat, and storage sunburst analytics over preview cache |
+| | WatchAnalyticsService | Dead content, stale content analytics |
 | **External** | IntegrationService | CRUD, test connections, sync data, per-integration thresholds |
 | | AuthService | Login, change password, generate API keys |
 | | NotificationChannelService | CRUD for notification channels |
@@ -392,7 +392,7 @@ flowchart LR
 | Page | Route | Purpose |
 |------|-------|---------|
 | Dashboard | `/` | Disk groups, approval queue, activity feed, engine controls, sparklines |
-| Insights | `/insights` | Library analytics: composition, quality, watch intelligence (3 tabs) |
+| Insights | `/insights` | Library analytics: capacity gauges, quality, bloat, watch intelligence, storage breakdown |
 | Library | `/library` | Browse (smart filters, virtual scrolling) + History (audit log) — 2 tabs |
 | Rules | `/rules` | Cascading rule builder, drag-and-drop sort, rule impact badges |
 | Settings | `/settings` | Preferences, integrations (per-integration thresholds), notifications, auth |

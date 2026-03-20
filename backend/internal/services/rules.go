@@ -44,6 +44,16 @@ func (s *RulesService) List() ([]db.CustomRule, error) {
 	return rules, nil
 }
 
+// GetEnabledRules returns only enabled custom rules, ordered by sort_order ASC, id ASC.
+// Used by analytics services to check protection status without including disabled rules.
+func (s *RulesService) GetEnabledRules() ([]db.CustomRule, error) {
+	rules := make([]db.CustomRule, 0)
+	if err := s.db.Where("enabled = ?", true).Order("sort_order ASC, id ASC").Find(&rules).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch enabled rules: %w", err)
+	}
+	return rules, nil
+}
+
 // Create validates and persists a new custom rule.
 func (s *RulesService) Create(rule db.CustomRule) (*db.CustomRule, error) {
 	// Validate required fields

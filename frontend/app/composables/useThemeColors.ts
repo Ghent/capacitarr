@@ -21,65 +21,63 @@ interface ChartColors {
 }
 
 /**
- * Pre-computed hex equivalents of the oklch chart colors from main.css.
- * Generated via oklch→sRGB→hex conversion. If you change the oklch values
- * in main.css, regenerate these with the conversion script in the commit
- * that introduced this table.
+ * Hand-picked hex chart palettes per theme. Each palette uses
+ * complementary/analogous hue relationships for maximum visual contrast.
  */
 const THEME_COLORS: Record<ThemeId, ChartColors> = {
   violet: {
-    chart1: '#8e51ff',
-    chart2: '#6054ec',
-    chart3: '#a96de6',
-    chart4: '#c77dd8',
-    primary: '#8e51ff',
-    destructive: '#e7000b',
-    success: '#00bc7d',
+    chart1: '#8b5cf6', // violet (primary)
+    chart2: '#06b6d4', // cyan (complementary cool)
+    chart3: '#f59e0b', // amber (warm accent)
+    chart4: '#10b981', // emerald (natural contrast)
+    primary: '#8b5cf6',
+    destructive: '#ef4444',
+    success: '#10b981',
   },
   ocean: {
-    chart1: '#0080ce',
-    chart2: '#0077a2',
-    chart3: '#0086d8',
-    chart4: '#00a7b1',
-    primary: '#0080ce',
-    destructive: '#e7000b',
-    success: '#00bc7d',
+    chart1: '#0ea5e9', // sky blue (primary)
+    chart2: '#8b5cf6', // violet (warm accent)
+    chart3: '#f59e0b', // amber (complementary warm)
+    chart4: '#10b981', // emerald (analogous cool)
+    primary: '#0ea5e9',
+    destructive: '#ef4444',
+    success: '#10b981',
   },
   emerald: {
-    chart1: '#00a056',
-    chart2: '#098926',
-    chart3: '#00ab8a',
-    chart4: '#83ae53',
-    primary: '#00a056',
-    destructive: '#e7000b',
-    success: '#00bc7d',
+    chart1: '#10b981', // emerald (primary)
+    chart2: '#0ea5e9', // sky blue (cool analogous)
+    chart3: '#f59e0b', // amber (complementary warm)
+    chart4: '#8b5cf6', // violet (contrast)
+    primary: '#10b981',
+    destructive: '#ef4444',
+    success: '#10b981',
   },
   sunset: {
-    chart1: '#f07900',
-    chart2: '#dd6836',
-    chart3: '#e79b3d',
-    chart4: '#dd4115',
-    primary: '#f07900',
-    destructive: '#e7000b',
-    success: '#00bc7d',
+    chart1: '#f59e0b', // amber (primary)
+    chart2: '#ef4444', // red (warm analogous)
+    chart3: '#0ea5e9', // sky blue (complementary cool)
+    chart4: '#8b5cf6', // violet (cool contrast)
+    primary: '#f59e0b',
+    destructive: '#ef4444',
+    success: '#10b981',
   },
   rose: {
-    chart1: '#d72f92',
-    chart2: '#b4319b',
-    chart3: '#e45580',
-    chart4: '#f16f7e',
-    primary: '#d72f92',
-    destructive: '#e7000b',
-    success: '#00bc7d',
+    chart1: '#ec4899', // pink (primary)
+    chart2: '#0ea5e9', // sky blue (complementary cool)
+    chart3: '#f59e0b', // amber (warm contrast)
+    chart4: '#10b981', // emerald (natural contrast)
+    primary: '#ec4899',
+    destructive: '#ef4444',
+    success: '#10b981',
   },
   slate: {
-    chart1: '#4c5666',
-    chart2: '#3e4955',
-    chart3: '#6c7181',
-    chart4: '#77828c',
-    primary: '#4c5666',
-    destructive: '#e7000b',
-    success: '#00bc7d',
+    chart1: '#64748b', // slate (primary)
+    chart2: '#94a3b8', // light slate
+    chart3: '#475569', // dark slate
+    chart4: '#cbd5e1', // very light slate
+    primary: '#64748b',
+    destructive: '#ef4444',
+    success: '#10b981',
   },
 };
 

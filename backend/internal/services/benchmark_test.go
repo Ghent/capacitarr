@@ -72,18 +72,6 @@ func generateLargeDataset(n int) []integrations.MediaItem {
 	return items
 }
 
-// BenchmarkAnalyticsService_GetComposition_10K benchmarks composition analytics
-// with 10,000 media items.
-func BenchmarkAnalyticsService_GetComposition_10K(b *testing.B) {
-	items := generateLargeDataset(10_000)
-	svc := NewAnalyticsService(&mockPreviewSource{items: items})
-
-	b.ResetTimer()
-	for range b.N {
-		svc.GetComposition()
-	}
-}
-
 // BenchmarkAnalyticsService_GetQualityDistribution_10K benchmarks quality analytics
 // with 10,000 media items.
 func BenchmarkAnalyticsService_GetQualityDistribution_10K(b *testing.B) {
@@ -132,30 +120,6 @@ func BenchmarkWatchAnalytics_GetStaleContent_10K(b *testing.B) {
 	}
 }
 
-// BenchmarkWatchAnalytics_GetPopularity_10K benchmarks popularity analytics
-// with 10,000 media items.
-func BenchmarkWatchAnalytics_GetPopularity_10K(b *testing.B) {
-	items := generateLargeDataset(10_000)
-	svc := NewWatchAnalyticsService(&mockPreviewSource{items: items})
-
-	b.ResetTimer()
-	for range b.N {
-		svc.GetPopularity()
-	}
-}
-
-// BenchmarkWatchAnalytics_GetRequestFulfillment_10K benchmarks request fulfillment analytics
-// with 10,000 media items.
-func BenchmarkWatchAnalytics_GetRequestFulfillment_10K(b *testing.B) {
-	items := generateLargeDataset(10_000)
-	svc := NewWatchAnalyticsService(&mockPreviewSource{items: items})
-
-	b.ResetTimer()
-	for range b.N {
-		svc.GetRequestFulfillment()
-	}
-}
-
 // BenchmarkAnalytics_AllEndpoints_10K benchmarks the full analytics suite
 // sequentially (simulates a dashboard page load).
 func BenchmarkAnalytics_AllEndpoints_10K(b *testing.B) {
@@ -165,13 +129,10 @@ func BenchmarkAnalytics_AllEndpoints_10K(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		analytics.GetComposition()
 		analytics.GetQualityDistribution()
 		analytics.GetSizeAnomalies()
 		watchAnalytics.GetDeadContent(90)
 		watchAnalytics.GetStaleContent(180)
-		watchAnalytics.GetPopularity()
-		watchAnalytics.GetRequestFulfillment()
 	}
 }
 
@@ -184,13 +145,10 @@ func TestAnalytics_Performance_10K(t *testing.T) {
 
 	start := time.Now()
 
-	analytics.GetComposition()
 	analytics.GetQualityDistribution()
 	analytics.GetSizeAnomalies()
 	watchAnalytics.GetDeadContent(90)
 	watchAnalytics.GetStaleContent(180)
-	watchAnalytics.GetPopularity()
-	watchAnalytics.GetRequestFulfillment()
 
 	elapsed := time.Since(start)
 	if elapsed > 1*time.Second {
@@ -207,13 +165,10 @@ func TestAnalytics_Performance_1K(t *testing.T) {
 
 	start := time.Now()
 
-	analytics.GetComposition()
 	analytics.GetQualityDistribution()
 	analytics.GetSizeAnomalies()
 	watchAnalytics.GetDeadContent(90)
 	watchAnalytics.GetStaleContent(180)
-	watchAnalytics.GetPopularity()
-	watchAnalytics.GetRequestFulfillment()
 
 	elapsed := time.Since(start)
 	if elapsed > 500*time.Millisecond {
