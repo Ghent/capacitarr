@@ -1,4 +1,3 @@
-rs
 <template>
   <div>
     <!-- Pull-to-refresh indicator -->
@@ -39,16 +38,6 @@ rs
           </UiSelectTrigger>
           <UiSelectContent>
             <UiSelectItem v-for="opt in dateRangeOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </UiSelectItem>
-          </UiSelectContent>
-        </UiSelect>
-        <UiSelect v-model="chartMode">
-          <UiSelectTrigger class="h-9 w-[130px]">
-            <UiSelectValue placeholder="Chart mode" />
-          </UiSelectTrigger>
-          <UiSelectContent>
-            <UiSelectItem v-for="opt in chartModeOptions" :key="opt.value" :value="opt.value">
               {{ opt.label }}
             </UiSelectItem>
           </UiSelectContent>
@@ -352,212 +341,11 @@ rs
 
     <!-- Per-Disk-Group Sections -->
     <div v-if="diskGroups.length > 0" class="space-y-5 mb-6">
-      <DiskGroupSection
-        v-for="group in diskGroups"
-        :key="group.id"
-        :group="group"
-        :chart-mode="chartMode"
-        :date-range="dateRange"
-        :date-range-label="dateRangeLabel"
-        :refresh-key="refreshKey"
-        @updated="fetchDashboardData"
-      />
-    </div>
-
-    <!-- Summary Cards (informational, at the bottom) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6" data-stagger>
-      <!-- Total Storage -->
-      <UiCard
-        v-motion
-        :initial="{ opacity: 0, y: 12 }"
-        :enter="{
-          opacity: 1,
-          y: 0,
-          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 100 },
-        }"
-        data-slot="stat-card"
-      >
-        <UiCardContent class="pt-5">
-          <div class="flex items-center gap-3 font-medium text-sm mb-3">
-            <div data-slot="stat-icon">
-              <component :is="ServerIcon" class="w-4 h-4" />
-            </div>
-            <span class="text-primary">{{ $t('dashboard.totalStorage') }}</span>
-          </div>
-          <div class="text-3xl font-bold tabular-nums">
-            {{ formatBytes(totalCapacity) }}
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">
-            {{ $t('dashboard.diskGroups', { count: diskGroups.length }, diskGroups.length) }}
-          </p>
-        </UiCardContent>
-      </UiCard>
-
-      <!-- Used Capacity -->
-      <UiCard
-        v-motion
-        :initial="{ opacity: 0, y: 12 }"
-        :enter="{
-          opacity: 1,
-          y: 0,
-          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 160 },
-        }"
-        data-slot="stat-card"
-      >
-        <UiCardContent class="pt-5">
-          <div class="flex items-center gap-3 font-medium text-sm mb-3">
-            <div data-slot="stat-icon">
-              <component :is="ChartPieIcon" class="w-4 h-4" />
-            </div>
-            <span class="text-primary">{{ $t('dashboard.usedCapacity') }}</span>
-          </div>
-          <div class="text-3xl font-bold tabular-nums">
-            {{ formatBytes(totalUsed) }}
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">
-            {{
-              $t('dashboard.utilization', {
-                pct: totalCapacity > 0 ? Math.round((totalUsed / totalCapacity) * 100) : 0,
-              })
-            }}
-          </p>
-        </UiCardContent>
-      </UiCard>
-
-      <!-- Integrations -->
-      <UiCard
-        v-motion
-        :initial="{ opacity: 0, y: 12 }"
-        :enter="{
-          opacity: 1,
-          y: 0,
-          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 220 },
-        }"
-        data-slot="stat-card"
-      >
-        <UiCardContent class="pt-5">
-          <div class="flex items-center gap-3 font-medium text-sm mb-3">
-            <div data-slot="stat-icon">
-              <component :is="HardDriveIcon" class="w-4 h-4" />
-            </div>
-            <span class="text-primary">{{ $t('dashboard.integrations') }}</span>
-          </div>
-          <div class="text-3xl font-bold tabular-nums">
-            {{ enabledIntegrations.length }}
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">
-            {{
-              $t('dashboard.syncedRecently', {
-                count: enabledIntegrations.filter((i) => i.lastSync).length,
-              })
-            }}
-          </p>
-        </UiCardContent>
-      </UiCard>
-    </div>
-
-    <!-- Lifetime Stats Cards (Row 2) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6" data-stagger>
-      <!-- Total Space Reclaimed -->
-      <UiCard
-        v-motion
-        :initial="{ opacity: 0, y: 12 }"
-        :enter="{
-          opacity: 1,
-          y: 0,
-          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 280 },
-        }"
-        data-slot="stat-card"
-      >
-        <UiCardContent class="pt-5">
-          <div class="flex items-center gap-3 font-medium text-sm mb-3">
-            <div data-slot="stat-icon">
-              <component :is="Trash2Icon" class="w-4 h-4" />
-            </div>
-            <span class="text-primary">{{ $t('dashboard.spaceReclaimed') }}</span>
-          </div>
-          <div class="text-3xl font-bold tabular-nums">
-            {{ formatBytes(dashboardStats?.totalBytesReclaimed ?? 0) }}
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">
-            {{ $t('dashboard.itemsRemoved', { count: dashboardStats?.totalItemsRemoved ?? 0 }) }}
-          </p>
-        </UiCardContent>
-      </UiCard>
-
-      <!-- Protected Items -->
-      <UiCard
-        v-motion
-        :initial="{ opacity: 0, y: 12 }"
-        :enter="{
-          opacity: 1,
-          y: 0,
-          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 340 },
-        }"
-        data-slot="stat-card"
-      >
-        <UiCardContent class="pt-5">
-          <div class="flex items-center gap-3 font-medium text-sm mb-3">
-            <div data-slot="stat-icon">
-              <component :is="ShieldCheckIcon" class="w-4 h-4" />
-            </div>
-            <span class="text-primary">{{ $t('dashboard.protectedItems') }}</span>
-          </div>
-          <div class="text-3xl font-bold tabular-nums">
-            {{ dashboardStats?.protectedCount ?? 0 }}
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">
-            {{ $t('dashboard.protectedByRules') }}
-          </p>
-        </UiCardContent>
-      </UiCard>
-
-      <!-- Library Growth Rate -->
-      <UiCard
-        v-motion
-        :initial="{ opacity: 0, y: 12 }"
-        :enter="{
-          opacity: 1,
-          y: 0,
-          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 400 },
-        }"
-        data-slot="stat-card"
-      >
-        <UiCardContent class="pt-5">
-          <div class="flex items-center gap-3 font-medium text-sm mb-3">
-            <div data-slot="stat-icon">
-              <component :is="TrendingUpIcon" class="w-4 h-4" />
-            </div>
-            <span class="text-primary">{{ $t('dashboard.growthRate') }}</span>
-          </div>
-          <div class="text-3xl font-bold tabular-nums">
-            {{ formattedGrowthRate }}
-          </div>
-          <p class="text-sm text-muted-foreground mt-1">
-            {{
-              dashboardStats?.hasGrowthData
-                ? $t('dashboard.overLastWeek')
-                : $t('dashboard.notEnoughData')
-            }}
-          </p>
-        </UiCardContent>
-      </UiCard>
+      <DiskGroupSection v-for="group in diskGroups" :key="group.id" :group="group" />
     </div>
 
     <!-- Skeleton Loading State -->
     <template v-if="loading">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
-        <UiCard v-for="i in 3" :key="i" class="animate-pulse">
-          <UiCardContent class="pt-5">
-            <div class="flex items-center gap-2 mb-3">
-              <div class="w-4 h-4 rounded bg-muted" />
-              <div class="h-3 w-24 rounded bg-muted" />
-            </div>
-            <div class="h-8 w-28 rounded bg-muted mb-2" />
-            <div class="h-3 w-32 rounded bg-muted/50" />
-          </UiCardContent>
-        </UiCard>
-      </div>
       <SkeletonCard :show-chart="true" />
     </template>
   </div>
@@ -565,17 +353,12 @@ rs
 
 <script setup lang="ts">
 import {
-  ServerIcon,
-  ChartPieIcon,
-  HardDriveIcon,
   LoaderCircleIcon,
   RefreshCwIcon,
   ActivityIcon,
   PlayIcon,
   CheckCircle2Icon,
   Trash2Icon,
-  ShieldCheckIcon,
-  TrendingUpIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   SettingsIcon,
@@ -597,13 +380,7 @@ import {
 } from 'lucide-vue-next';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { formatBytes } from '~/utils/format';
-import type {
-  ActivityEvent,
-  DeletionProgress,
-  DiskGroup,
-  IntegrationConfig,
-  DashboardStats,
-} from '~/types/api';
+import type { ActivityEvent, DeletionProgress, DiskGroup, IntegrationConfig } from '~/types/api';
 
 const { t } = useI18n();
 const api = useApi();
@@ -646,11 +423,6 @@ const { isRefreshing, pullProgress, pullDistance } = usePullToRefresh(async () =
   refreshKey.value++;
 });
 
-const chartModeOptions = [
-  { label: 'Percentage', value: 'percentage' },
-  { label: 'Raw (GB)', value: 'raw' },
-];
-
 const dateRangeOptions = [
   { label: 'Last Hour', value: '1h' },
   { label: 'Last 6h', value: '6h' },
@@ -672,7 +444,6 @@ const refreshOptions = [
   { label: '↻ 5m', value: 300000 },
 ];
 
-const chartMode = ref('percentage');
 const dateRange = ref('24h');
 const refreshIntervalStr = ref('15000');
 const refreshInterval = computed(() => Number(refreshIntervalStr.value));
@@ -698,7 +469,6 @@ watch(showMiniSparklines, (val) => {
     localStorage.setItem('capacitarr:showMiniSparklines', String(val));
   }
 });
-const dashboardStats = ref<DashboardStats | null>(null);
 const recentActivity = ref<ActivityEvent[]>([]);
 
 // Activity feed virtual scroller
@@ -866,28 +636,9 @@ function eventIconClass(eventType: string): string {
 // Engine stats — alias from shared composable
 const engineStats = computed(() => engineControlStats.value);
 
-const enabledIntegrations = computed(() => allIntegrations.value.filter((i) => i.enabled));
-
 const dateRangeLabel = computed(() => {
   const match = dateRangeOptions.find((o) => o.value === dateRange.value);
   return match?.label ?? dateRange.value;
-});
-
-const totalCapacity = computed(() =>
-  diskGroups.value.reduce((sum, g) => {
-    const override = g.totalBytesOverride;
-    const effective = override && override > 0 ? override : g.totalBytes;
-    return sum + (effective || 0);
-  }, 0),
-);
-
-const totalUsed = computed(() => diskGroups.value.reduce((sum, g) => sum + (g.usedBytes || 0), 0));
-
-const formattedGrowthRate = computed(() => {
-  if (!dashboardStats.value?.hasGrowthData) return '—';
-  const bytes = dashboardStats.value.growthBytesPerWeek;
-  const prefix = bytes >= 0 ? '+' : '';
-  return `${prefix}${formatBytes(Math.abs(bytes))} / week`;
 });
 
 // --- Status banner ---
@@ -1111,10 +862,9 @@ onUnmounted(() => {
 async function fetchDashboardData(silent = false) {
   if (!silent) loading.value = true;
   try {
-    const [groups, integrations, dStats] = await Promise.all([
+    const [groups, integrations] = await Promise.all([
       api('/api/v1/disk-groups'),
       api('/api/v1/integrations'),
-      api('/api/v1/dashboard-stats').catch(() => null),
     ]);
     // Fetch engine stats via the shared composable (handles toast on completion)
     engineFetchStats();
@@ -1126,7 +876,6 @@ async function fetchDashboardData(silent = false) {
     fetchRecentActivity();
     diskGroups.value = groups as DiskGroup[];
     allIntegrations.value = integrations as IntegrationConfig[];
-    if (dStats) dashboardStats.value = dStats as DashboardStats;
     lastUpdated.value = new Date();
   } catch (err) {
     console.warn('[Dashboard] fetchDashboardData failed:', err);

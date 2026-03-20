@@ -73,39 +73,6 @@ func seedPreviewCache(t *testing.T, reg *services.Registry, items []integrations
 	reg.Preview.SetPreviewCache(items, prefs, nil)
 }
 
-func TestAnalyticsE2E_CompositionEndpoint(t *testing.T) {
-	database := testutil.SetupTestDB(t)
-	e, reg := testutil.SetupTestServerWithRegistry(t, database)
-
-	seedPreviewCache(t, reg, sampleMediaItems())
-
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/composition", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var data services.CompositionData
-	if err := json.NewDecoder(rec.Body).Decode(&data); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-
-	if data.TotalItems != 4 {
-		t.Errorf("expected 4 total items, got %d", data.TotalItems)
-	}
-	if data.TotalSizeBytes == 0 {
-		t.Error("expected non-zero total size")
-	}
-	if len(data.QualityDistribution) == 0 {
-		t.Error("expected non-empty quality distribution")
-	}
-	if len(data.GenreDistribution) == 0 {
-		t.Error("expected non-empty genre distribution")
-	}
-}
-
 func TestAnalyticsE2E_QualityEndpoint(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e, reg := testutil.SetupTestServerWithRegistry(t, database)
@@ -136,10 +103,10 @@ func TestAnalyticsE2E_BloatEndpoint(t *testing.T) {
 
 	// Create items with a clear bloat outlier
 	items := []integrations.MediaItem{
-		{Title: "Normal 720p A", QualityProfile: "HD-720p", SizeBytes: 5 * 1024 * 1024 * 1024},
-		{Title: "Normal 720p B", QualityProfile: "HD-720p", SizeBytes: 6 * 1024 * 1024 * 1024},
-		{Title: "Normal 720p C", QualityProfile: "HD-720p", SizeBytes: 4 * 1024 * 1024 * 1024},
-		{Title: "Bloated 720p", QualityProfile: "HD-720p", SizeBytes: 30 * 1024 * 1024 * 1024},
+		{Title: "Normal 720p A", QualityProfile: "HD-720p", SizeBytes: 5 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
+		{Title: "Normal 720p B", QualityProfile: "HD-720p", SizeBytes: 6 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
+		{Title: "Normal 720p C", QualityProfile: "HD-720p", SizeBytes: 4 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
+		{Title: "Bloated 720p", QualityProfile: "HD-720p", SizeBytes: 30 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
 	}
 	seedPreviewCache(t, reg, items)
 
@@ -151,12 +118,12 @@ func TestAnalyticsE2E_BloatEndpoint(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var anomalies []services.SizeAnomaly
-	if err := json.NewDecoder(rec.Body).Decode(&anomalies); err != nil {
+	var report services.SizeAnomalyReport
+	if err := json.NewDecoder(rec.Body).Decode(&report); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if len(anomalies) == 0 {
+	if len(report.Items) == 0 {
 		t.Error("expected at least one anomaly")
 	}
 }
@@ -211,13 +178,12 @@ func TestAnalyticsE2E_StaleContentEndpoint(t *testing.T) {
 	}
 }
 
-func TestAnalyticsE2E_PopularityEndpoint(t *testing.T) {
+func TestAnalyticsE2E_ForecastEndpoint(t *testing.T) {
 	database := testutil.SetupTestDB(t)
-	e, reg := testutil.SetupTestServerWithRegistry(t, database)
+	e, _ := testutil.SetupTestServerWithRegistry(t, database)
 
-	seedPreviewCache(t, reg, sampleMediaItems())
-
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/popularity", nil)
+	// No disk groups or history — should return empty forecast
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/forecast", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -225,23 +191,47 @@ func TestAnalyticsE2E_PopularityEndpoint(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var data services.PopularityData
-	if err := json.NewDecoder(rec.Body).Decode(&data); err != nil {
+	var forecast services.CapacityForecast
+	if err := json.NewDecoder(rec.Body).Decode(&forecast); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if len(data.TopItems) == 0 {
-		t.Error("expected non-empty top items")
+	if forecast.DaysUntilThreshold != -1 {
+		t.Errorf("expected -1 days until threshold (no data), got %d", forecast.DaysUntilThreshold)
 	}
 }
 
-func TestAnalyticsE2E_RequestFulfillmentEndpoint(t *testing.T) {
+func TestAnalyticsE2E_ForecastEndpointWithDiskGroup(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e, reg := testutil.SetupTestServerWithRegistry(t, database)
 
-	seedPreviewCache(t, reg, sampleMediaItems())
+	// Create a disk group
+	dg := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   1000 * 1024 * 1024 * 1024, // 1 TB
+		UsedBytes:    500 * 1024 * 1024 * 1024,  // 500 GB
+		ThresholdPct: 85,
+		TargetPct:    75,
+	}
+	if err := database.Create(&dg).Error; err != nil {
+		t.Fatalf("failed to create disk group: %v", err)
+	}
 
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/request-fulfillment", nil)
+	// Seed some history data for linear regression
+	now := time.Now()
+	for i := 30; i >= 0; i-- {
+		h := db.LibraryHistory{
+			Timestamp:     now.Add(-time.Duration(i) * 24 * time.Hour),
+			TotalCapacity: 1000 * 1024 * 1024 * 1024,
+			UsedCapacity:  int64(500+i) * 1024 * 1024 * 1024, // growing slightly
+			Resolution:    "raw",
+			DiskGroupID:   &dg.ID,
+		}
+		database.Create(&h)
+	}
+	_ = reg // registry used for future test deps
+
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/forecast", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -249,16 +239,40 @@ func TestAnalyticsE2E_RequestFulfillmentEndpoint(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var data services.RequestFulfillmentData
-	if err := json.NewDecoder(rec.Body).Decode(&data); err != nil {
+	var forecast services.CapacityForecast
+	if err := json.NewDecoder(rec.Body).Decode(&forecast); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
 
-	if data.TotalRequested != 1 {
-		t.Errorf("expected 1 requested item, got %d", data.TotalRequested)
+	if forecast.TotalCapacity == 0 {
+		t.Error("expected non-zero total capacity")
 	}
-	if data.Fulfilled != 1 {
-		t.Errorf("expected 1 fulfilled, got %d", data.Fulfilled)
+	if forecast.UsedCapacity == 0 {
+		t.Error("expected non-zero used capacity")
+	}
+}
+
+func TestAnalyticsE2E_StorageBreakdownEndpoint(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e, reg := testutil.SetupTestServerWithRegistry(t, database)
+
+	seedPreviewCache(t, reg, sampleMediaItems())
+
+	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/storage-breakdown", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var nodes []services.SunburstNode
+	if err := json.NewDecoder(rec.Body).Decode(&nodes); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if len(nodes) == 0 {
+		t.Error("expected non-empty storage breakdown")
 	}
 }
 
@@ -270,13 +284,12 @@ func TestAnalyticsE2E_EmptyCacheReturnsDefaults(t *testing.T) {
 
 	// Preview cache is empty by default — no items seeded
 	endpoints := []string{
-		"/api/analytics/composition",
 		"/api/analytics/quality",
 		"/api/analytics/bloat",
 		"/api/analytics/dead-content",
 		"/api/analytics/stale-content",
-		"/api/analytics/popularity",
-		"/api/analytics/request-fulfillment",
+		"/api/analytics/forecast",
+		"/api/analytics/storage-breakdown",
 	}
 
 	for _, ep := range endpoints {
@@ -299,13 +312,12 @@ func TestAnalyticsE2E_UnauthenticatedReturns401(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	endpoints := []string{
-		"/api/analytics/composition",
 		"/api/analytics/quality",
 		"/api/analytics/bloat",
 		"/api/analytics/dead-content",
 		"/api/analytics/stale-content",
-		"/api/analytics/popularity",
-		"/api/analytics/request-fulfillment",
+		"/api/analytics/forecast",
+		"/api/analytics/storage-breakdown",
 	}
 
 	for _, ep := range endpoints {

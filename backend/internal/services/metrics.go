@@ -229,6 +229,103 @@ func (s *MetricsService) PruneHistory(resolution string, before time.Time) (int6
 	return result.RowsAffected, nil
 }
 
+// ─── Capacity forecast ──────────────────────────────────────────────────────
+
+// CapacityForecast holds projected capacity data based on linear regression of
+// recent usage history.
+type CapacityForecast struct {
+	CurrentUsedPct     float64 `json:"currentUsedPct"`
+	GrowthRatePerDay   int64   `json:"growthRatePerDay"`   // bytes/day
+	DaysUntilThreshold int     `json:"daysUntilThreshold"` // -1 if shrinking
+	DaysUntilFull      int     `json:"daysUntilFull"`      // -1 if shrinking
+	TotalCapacity      int64   `json:"totalCapacity"`
+	UsedCapacity       int64   `json:"usedCapacity"`
+}
+
+// GetCapacityForecast computes a linear regression on the last 30 days of
+// capacity history and projects when the given threshold (and 100%) will be
+// reached. Returns nil, nil if there is insufficient data (< 2 data points).
+func (s *MetricsService) GetCapacityForecast(thresholdPct float64, totalCapacity, usedCapacity int64) (*CapacityForecast, error) {
+	history, err := s.GetHistory("raw", "", "30d")
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch history for forecast: %w", err)
+	}
+
+	if len(history) < 2 {
+		// Not enough data for regression — return current state with no projections
+		currentPct := 0.0
+		if totalCapacity > 0 {
+			currentPct = float64(usedCapacity) / float64(totalCapacity) * 100
+		}
+		return &CapacityForecast{
+			CurrentUsedPct:     currentPct,
+			GrowthRatePerDay:   0,
+			DaysUntilThreshold: -1,
+			DaysUntilFull:      -1,
+			TotalCapacity:      totalCapacity,
+			UsedCapacity:       usedCapacity,
+		}, nil
+	}
+
+	// Perform least-squares linear regression on usedCapacity over time.
+	// x = days since first data point, y = usedCapacity bytes.
+	baseTime := history[0].Timestamp
+	n := float64(len(history))
+	var sumX, sumY, sumXY, sumX2 float64
+
+	for _, h := range history {
+		x := h.Timestamp.Sub(baseTime).Hours() / 24.0 // days
+		y := float64(h.UsedCapacity)
+		sumX += x
+		sumY += y
+		sumXY += x * y
+		sumX2 += x * x
+	}
+
+	// slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
+	denominator := n*sumX2 - sumX*sumX
+	var slope float64
+	if denominator != 0 {
+		slope = (n*sumXY - sumX*sumY) / denominator
+	}
+
+	growthRatePerDay := int64(slope) // bytes/day
+
+	currentPct := 0.0
+	if totalCapacity > 0 {
+		currentPct = float64(usedCapacity) / float64(totalCapacity) * 100
+	}
+
+	daysUntilThreshold := -1
+	daysUntilFull := -1
+
+	if growthRatePerDay > 0 && totalCapacity > 0 {
+		thresholdBytes := int64(float64(totalCapacity) * thresholdPct / 100.0)
+		remaining := thresholdBytes - usedCapacity
+		if remaining > 0 {
+			daysUntilThreshold = int(remaining / growthRatePerDay)
+		} else {
+			daysUntilThreshold = 0 // Already past threshold
+		}
+
+		fullRemaining := totalCapacity - usedCapacity
+		if fullRemaining > 0 {
+			daysUntilFull = int(fullRemaining / growthRatePerDay)
+		} else {
+			daysUntilFull = 0 // Already full
+		}
+	}
+
+	return &CapacityForecast{
+		CurrentUsedPct:     currentPct,
+		GrowthRatePerDay:   growthRatePerDay,
+		DaysUntilThreshold: daysUntilThreshold,
+		DaysUntilFull:      daysUntilFull,
+		TotalCapacity:      totalCapacity,
+		UsedCapacity:       usedCapacity,
+	}, nil
+}
+
 // GetWorkerMetrics assembles worker metrics from the EngineService and DeletionService.
 // Keys match the frontend TypeScript WorkerStats interface.
 func (s *MetricsService) GetWorkerMetrics() map[string]any {

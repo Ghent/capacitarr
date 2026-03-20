@@ -106,6 +106,10 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	// Wire RulesService's preview source for rule impact calculation
 	reg.Rules.SetPreviewSource(previewSvc)
 
+	// Wire analytics services' rules sources for protected-item filtering
+	reg.Analytics.SetRulesSource(reg.Rules)
+	reg.WatchAnalytics.SetRulesSource(reg.Rules)
+
 	return reg
 }
 

@@ -10,7 +10,7 @@ import (
 
 // newTestMetricsService creates a MetricsService with real engine/deletion dependencies
 // backed by the test DB. Engine and deletion services are constructed but not started.
-func newTestMetricsService(t *testing.T) (*MetricsService, *EngineService, *DeletionService) {
+func newTestMetricsService(t *testing.T) *MetricsService {
 	t.Helper()
 	database := setupTestDB(t)
 	bus := newTestBus(t)
@@ -21,13 +21,13 @@ func newTestMetricsService(t *testing.T) (*MetricsService, *EngineService, *Dele
 	svc := NewMetricsService(database, engine, deletion)
 	svc.SetSettingsService(settings)
 	deletion.SetDependencies(settings, engine, svc)
-	return svc, engine, deletion
+	return svc
 }
 
 // ---------- GetHistory ----------
 
 func TestMetricsService_GetHistory_Empty(t *testing.T) {
-	svc, _, _ := newTestMetricsService(t)
+	svc := newTestMetricsService(t)
 
 	history, err := svc.GetHistory("raw", "", "")
 	if err != nil {
@@ -258,6 +258,106 @@ func TestMetricsService_GetDashboardStats_WithGrowthData(t *testing.T) {
 	}
 	if growth != 200000 {
 		t.Errorf("Expected growthBytesPerWeek 200000, got %d", growth)
+	}
+}
+
+// ---------- GetCapacityForecast ----------
+
+func TestMetricsService_GetCapacityForecast_NoHistory(t *testing.T) {
+	svc := newTestMetricsService(t)
+
+	forecast, err := svc.GetCapacityForecast(85.0, 1000000, 500000)
+	if err != nil {
+		t.Fatalf("GetCapacityForecast returned error: %v", err)
+	}
+	if forecast.DaysUntilThreshold != -1 {
+		t.Errorf("expected -1 days until threshold with no data, got %d", forecast.DaysUntilThreshold)
+	}
+	if forecast.DaysUntilFull != -1 {
+		t.Errorf("expected -1 days until full with no data, got %d", forecast.DaysUntilFull)
+	}
+	if forecast.CurrentUsedPct != 50 {
+		t.Errorf("expected 50%% used, got %.1f%%", forecast.CurrentUsedPct)
+	}
+}
+
+func TestMetricsService_GetCapacityForecast_WithGrowingHistory(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	engine := NewEngineService(database, bus)
+	auditLog := NewAuditLogService(database)
+	deletion := NewDeletionService(bus, auditLog)
+	svc := NewMetricsService(database, engine, deletion)
+
+	// Seed 30 days of linearly growing history: 500 GB → 530 GB (1 GB/day)
+	now := time.Now()
+	for i := 30; i >= 0; i-- {
+		h := db.LibraryHistory{
+			Timestamp:     now.Add(-time.Duration(i) * 24 * time.Hour),
+			TotalCapacity: 1000 * 1024 * 1024 * 1024,            // 1 TB
+			UsedCapacity:  int64(500+30-i) * 1024 * 1024 * 1024, // Growing 1 GB/day
+			Resolution:    "raw",
+		}
+		database.Create(&h)
+	}
+
+	totalCap := int64(1000) * 1024 * 1024 * 1024 // 1 TB
+	usedCap := int64(530) * 1024 * 1024 * 1024   // 530 GB
+	forecast, err := svc.GetCapacityForecast(85.0, totalCap, usedCap)
+	if err != nil {
+		t.Fatalf("GetCapacityForecast returned error: %v", err)
+	}
+
+	if forecast.GrowthRatePerDay <= 0 {
+		t.Errorf("expected positive growth rate, got %d", forecast.GrowthRatePerDay)
+	}
+	if forecast.DaysUntilThreshold <= 0 {
+		t.Errorf("expected positive days until threshold, got %d", forecast.DaysUntilThreshold)
+	}
+	if forecast.DaysUntilFull <= 0 {
+		t.Errorf("expected positive days until full, got %d", forecast.DaysUntilFull)
+	}
+	if forecast.DaysUntilFull <= forecast.DaysUntilThreshold {
+		t.Errorf("expected days until full (%d) > days until threshold (%d)",
+			forecast.DaysUntilFull, forecast.DaysUntilThreshold)
+	}
+}
+
+func TestMetricsService_GetCapacityForecast_ShrinkingUsage(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	engine := NewEngineService(database, bus)
+	auditLog := NewAuditLogService(database)
+	deletion := NewDeletionService(bus, auditLog)
+	svc := NewMetricsService(database, engine, deletion)
+
+	// Seed 10 days of shrinking history: 800 GB → 700 GB
+	now := time.Now()
+	for i := 10; i >= 0; i-- {
+		h := db.LibraryHistory{
+			Timestamp:     now.Add(-time.Duration(i) * 24 * time.Hour),
+			TotalCapacity: 1000 * 1024 * 1024 * 1024,
+			UsedCapacity:  int64(700+i*10) * 1024 * 1024 * 1024, // Shrinking 10 GB/day
+			Resolution:    "raw",
+		}
+		database.Create(&h)
+	}
+
+	totalCap := int64(1000) * 1024 * 1024 * 1024
+	usedCap := int64(700) * 1024 * 1024 * 1024
+	forecast, err := svc.GetCapacityForecast(85.0, totalCap, usedCap)
+	if err != nil {
+		t.Fatalf("GetCapacityForecast returned error: %v", err)
+	}
+
+	if forecast.GrowthRatePerDay >= 0 {
+		t.Errorf("expected negative growth rate for shrinking usage, got %d", forecast.GrowthRatePerDay)
+	}
+	if forecast.DaysUntilThreshold != -1 {
+		t.Errorf("expected -1 days until threshold when shrinking, got %d", forecast.DaysUntilThreshold)
+	}
+	if forecast.DaysUntilFull != -1 {
+		t.Errorf("expected -1 days until full when shrinking, got %d", forecast.DaysUntilFull)
 	}
 }
 

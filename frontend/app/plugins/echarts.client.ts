@@ -4,21 +4,21 @@
  */
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { PieChart, BarChart, LineChart, TreemapChart } from 'echarts/charts';
+import { BarChart, LineChart, TreemapChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent,
   VisualMapComponent,
-  DataZoomComponent,
+  MarkLineComponent,
 } from 'echarts/components';
+import 'echarts-liquidfill';
 import VChart from 'vue-echarts';
 
 // Register only the modules we use (tree-shaking)
 use([
   CanvasRenderer,
-  PieChart,
   BarChart,
   LineChart,
   TreemapChart,
@@ -27,7 +27,7 @@ use([
   LegendComponent,
   GridComponent,
   VisualMapComponent,
-  DataZoomComponent,
+  MarkLineComponent,
 ]);
 
 export default defineNuxtPlugin((nuxtApp) => {

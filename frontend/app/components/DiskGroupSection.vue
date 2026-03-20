@@ -6,7 +6,7 @@
     class="overflow-hidden"
   >
     <!-- Header with progress -->
-    <UiCardContent class="pt-5 pb-0 border-b border-border">
+    <UiCardContent class="pt-5 pb-0">
       <div class="flex items-center justify-between mb-3">
         <div class="flex items-center gap-3">
           <div
@@ -46,99 +46,33 @@
           {{ usagePercent }}%
         </span>
       </div>
-
-      <!-- Progress Bar with segmented zone background + triangle markers -->
-      <div class="relative w-full mt-8 mb-6">
-        <!-- Bar container -->
-        <div class="relative w-full h-3 rounded-full overflow-hidden">
-          <!-- Segmented background zones -->
-          <div class="absolute inset-0 flex">
-            <!-- Green zone: 0% → target% -->
-            <div
-              class="h-full"
-              :style="{
-                width: (group.targetPct || 75) + '%',
-                backgroundColor: 'oklch(0.648 0.2 160 / 0.2)',
-              }"
-            />
-            <!-- Amber zone: target% → threshold% -->
-            <div
-              class="h-full"
-              :style="{
-                width: (group.thresholdPct || 85) - (group.targetPct || 75) + '%',
-                backgroundColor: 'oklch(0.75 0.183 55.934 / 0.2)',
-              }"
-            />
-            <!-- Red zone: threshold% → 100% -->
-            <div
-              class="h-full"
-              :style="{
-                width: 100 - (group.thresholdPct || 85) + '%',
-                backgroundColor: 'oklch(0.577 0.245 27.325 / 0.2)',
-              }"
-            />
-          </div>
-          <!-- Usage fill bar (on top of zones) -->
-          <div
-            data-slot="progress-bar-fill"
-            role="progressbar"
-            :aria-valuenow="usagePercent"
-            aria-valuemin="0"
-            aria-valuemax="100"
-            :aria-label="`Disk usage: ${usagePercent}%`"
-            :data-status="diskUsageStatus(rawUsagePct, group.targetPct, group.thresholdPct)"
-            class="relative h-full rounded-full transition-all duration-700 ease-out z-10"
-            :style="{ width: usagePercent + '%', backgroundColor: barFillColor }"
-          />
-        </div>
-
-        <!-- Target marker ABOVE the bar -->
-        <div
-          v-if="group.targetPct"
-          class="absolute bottom-3 flex flex-col items-center z-20"
-          :style="{ left: group.targetPct + '%', transform: 'translateX(-50%)' }"
-        >
-          <span class="text-[10px] font-medium text-emerald-500 whitespace-nowrap mb-0.5">
-            Target {{ group.targetPct }}%
-          </span>
-          <span class="text-emerald-500 text-[10px] leading-none mb-0.5">▼</span>
-        </div>
-        <!-- Threshold marker BELOW the bar -->
-        <div
-          v-if="group.thresholdPct"
-          class="absolute top-3 flex flex-col items-center z-20"
-          :style="{ left: group.thresholdPct + '%', transform: 'translateX(-50%)' }"
-        >
-          <span class="text-red-500 text-[10px] leading-none mt-0.5">▲</span>
-          <span class="text-[10px] font-medium text-red-500 whitespace-nowrap mt-0.5">
-            Threshold {{ group.thresholdPct }}%
-          </span>
-        </div>
-      </div>
-
-      <!-- Free space info -->
-      <div class="text-xs text-muted-foreground pb-4">
-        <span>{{ formatBytes(effectiveTotalBytes - group.usedBytes) }} free</span>
-        <span v-if="hasOverride" class="ml-1 text-muted-foreground/50">
-          (detected: {{ formatBytes(group.totalBytes) }})
-        </span>
-      </div>
     </UiCardContent>
 
-    <!-- Chart Area -->
-    <UiCardContent class="pt-3 pb-1">
-      <span class="text-xs font-medium text-muted-foreground">
-        Capacity · {{ dateRangeLabel }}
-      </span>
-      <div class="h-64 pt-1">
-        <CapacityChart
-          :key="`chart-${group.id}-${refreshKey || 0}`"
-          :mode="chartMode"
-          :disk-group-id="group.id"
-          :since="dateRange"
-          :threshold-pct="group.thresholdPct"
-          :target-pct="group.targetPct"
-        />
+    <!-- Thermometer Bar -->
+    <UiCardContent class="pt-3 pb-3">
+      <div
+        class="h-20"
+        :class="{ 'thermometer-critical': rawUsagePct >= (group.thresholdPct || 85) }"
+      >
+        <ClientOnly>
+          <VChart :option="thermometerOption" :autoresize="true" class="h-full w-full" />
+        </ClientOnly>
+      </div>
+
+      <!-- Free space + link -->
+      <div class="flex items-center justify-between mt-1">
+        <span class="text-xs text-muted-foreground">
+          {{ formatBytes(effectiveTotalBytes - group.usedBytes) }} free
+          <span v-if="hasOverride" class="ml-1 text-muted-foreground/50">
+            (detected: {{ formatBytes(group.totalBytes) }})
+          </span>
+        </span>
+        <NuxtLink
+          to="/insights"
+          class="text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {{ $t('dashboard.viewCapacityDetails') }}
+        </NuxtLink>
       </div>
     </UiCardContent>
   </UiCard>
@@ -146,22 +80,16 @@
 
 <script setup lang="ts">
 import { HardDriveIcon } from 'lucide-vue-next';
-import {
-  formatBytes,
-  diskUsageStatus,
-  diskStatusBgClass,
-  diskStatusTextClass,
-  diskStatusFillColor,
-} from '~/utils/format';
+import { formatBytes, diskStatusBgClass, diskStatusTextClass } from '~/utils/format';
 import type { DiskGroup } from '~/types/api';
 
 const props = defineProps<{
   group: DiskGroup;
-  chartMode: string;
-  dateRange: string;
-  dateRangeLabel: string;
-  refreshKey?: number;
 }>();
+
+const api = useApi();
+
+const { successColor, destructiveColor, tooltipConfig, colorAlpha } = useEChartsDefaults();
 
 /** Effective total bytes — override if set, otherwise API-detected. */
 const effectiveTotalBytes = computed(() => {
@@ -192,8 +120,235 @@ const statusTextColor = computed(() =>
   diskStatusTextClass(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
 );
 
-/** Inline fill color for the progress bar (bypasses Tailwind alpha issues). */
-const barFillColor = computed(() =>
-  diskStatusFillColor(rawUsagePct.value, props.group.targetPct, props.group.thresholdPct),
-);
+// --- Forecast data for tooltip ---
+interface CapacityForecast {
+  currentUsedPct: number;
+  growthRatePerDay: number;
+  daysUntilThreshold: number;
+  daysUntilFull: number;
+  totalCapacity: number;
+  usedCapacity: number;
+}
+
+const forecastData = ref<CapacityForecast | null>(null);
+
+async function fetchForecast() {
+  try {
+    forecastData.value = (await api('/api/v1/analytics/forecast')) as CapacityForecast;
+  } catch {
+    // Non-critical — tooltip will just show usage without forecast
+  }
+}
+
+onMounted(() => {
+  fetchForecast();
+});
+
+// --- Zone colors ---
+const targetPct = computed(() => props.group.targetPct || 75);
+const thresholdPct = computed(() => props.group.thresholdPct || 85);
+
+/** Determine the zone color pair (lighter, saturated) for the gradient fill. */
+const zoneGradient = computed(() => {
+  const pct = rawUsagePct.value;
+  if (pct >= thresholdPct.value) {
+    // Red zone
+    return {
+      light: '#fca5a5', // red-300
+      saturated: '#ef4444', // red-500
+      glow: destructiveColor.value,
+    };
+  }
+  if (pct >= targetPct.value) {
+    // Amber zone
+    return {
+      light: '#fcd34d', // amber-300
+      saturated: '#f59e0b', // amber-500
+      glow: '#f59e0b',
+    };
+  }
+  // Green zone
+  return {
+    light: '#6ee7b7', // emerald-300
+    saturated: '#10b981', // emerald-500
+    glow: successColor.value,
+  };
+});
+
+// --- ECharts thermometer option ---
+const thermometerOption = computed(() => {
+  const usage = Math.round(rawUsagePct.value * 10) / 10;
+  const tgtPct = targetPct.value;
+  const thrPct = thresholdPct.value;
+  const grad = zoneGradient.value;
+  const usedBytes = props.group.usedBytes;
+  const totalBytes = effectiveTotalBytes.value;
+  const forecast = forecastData.value;
+
+  // Build tooltip content
+  const tooltipFormatter = () => {
+    let html = `<div style="font-size:12px">`;
+    html += `<strong>${formatBytes(usedBytes)} / ${formatBytes(totalBytes)}</strong> · ${usage}%`;
+    if (forecast) {
+      if (forecast.growthRatePerDay > 0) {
+        html += `<br/><span style="opacity:0.7">Growth: +${formatBytes(forecast.growthRatePerDay)}/day</span>`;
+      } else if (forecast.growthRatePerDay < 0) {
+        html += `<br/><span style="opacity:0.7">Shrinking: ${formatBytes(Math.abs(forecast.growthRatePerDay))}/day</span>`;
+      }
+      if (forecast.daysUntilFull > 0) {
+        html += `<br/><span style="opacity:0.7">Full in ~${forecast.daysUntilFull} days</span>`;
+      }
+    }
+    html += `</div>`;
+    return html;
+  };
+
+  return {
+    animation: true,
+    animationDuration: 1500,
+    animationEasing: 'elasticOut',
+    animationDurationUpdate: 800,
+    animationEasingUpdate: 'cubicOut',
+    tooltip: {
+      trigger: 'item' as const,
+      ...tooltipConfig(),
+      formatter: tooltipFormatter,
+    },
+    grid: {
+      top: 28,
+      right: 16,
+      bottom: 16,
+      left: 16,
+    },
+    xAxis: {
+      type: 'value' as const,
+      min: 0,
+      max: 100,
+      show: false,
+    },
+    yAxis: {
+      type: 'category' as const,
+      data: ['usage'],
+      show: false,
+    },
+    series: [
+      // Background zone segments (behind the fill bar)
+      {
+        name: 'zones',
+        type: 'bar',
+        stack: 'bg',
+        barWidth: 24,
+        silent: true,
+        barGap: '-100%',
+        z: 1,
+        data: [tgtPct],
+        itemStyle: {
+          color: colorAlpha('#10b981', 0.08),
+          borderRadius: [0, 0, 0, 0],
+        },
+      },
+      {
+        name: 'zones-amber',
+        type: 'bar',
+        stack: 'bg',
+        barWidth: 24,
+        silent: true,
+        barGap: '-100%',
+        z: 1,
+        data: [thrPct - tgtPct],
+        itemStyle: {
+          color: colorAlpha('#f59e0b', 0.08),
+          borderRadius: [0, 0, 0, 0],
+        },
+      },
+      {
+        name: 'zones-red',
+        type: 'bar',
+        stack: 'bg',
+        barWidth: 24,
+        silent: true,
+        barGap: '-100%',
+        z: 1,
+        data: [100 - thrPct],
+        itemStyle: {
+          color: colorAlpha('#ef4444', 0.08),
+          borderRadius: [0, 6, 6, 0],
+        },
+      },
+      // Usage fill bar
+      {
+        name: 'usage',
+        type: 'bar',
+        barWidth: 24,
+        z: 2,
+        data: [usage],
+        itemStyle: {
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 1,
+            y2: 0,
+            colorStops: [
+              { offset: 0, color: grad.light },
+              { offset: 1, color: grad.saturated },
+            ],
+          },
+          borderRadius: [0, 6, 6, 0],
+          shadowBlur: 12,
+          shadowColor: colorAlpha(grad.glow, 0.5),
+          shadowOffsetX: 4,
+        },
+        markLine: {
+          silent: true,
+          symbol: ['none', 'triangle'],
+          symbolSize: [8, 6],
+          animation: false,
+          data: [
+            {
+              xAxis: tgtPct,
+              lineStyle: { color: '#10b981', type: 'dashed', width: 1 },
+              label: {
+                show: true,
+                formatter: `${tgtPct}%`,
+                fontSize: 9,
+                color: '#10b981',
+                position: 'start',
+                offset: Math.abs(tgtPct - thrPct) < 8 ? [-12, 0] : [0, 0],
+              },
+            },
+            {
+              xAxis: thrPct,
+              lineStyle: { color: '#ef4444', type: 'dashed', width: 1 },
+              label: {
+                show: true,
+                formatter: `${thrPct}%`,
+                fontSize: 9,
+                color: '#ef4444',
+                position: 'start',
+                offset: Math.abs(tgtPct - thrPct) < 8 ? [12, 0] : [0, 0],
+              },
+            },
+          ],
+        },
+      },
+    ],
+  };
+});
 </script>
+
+<style scoped>
+@keyframes thermometer-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px var(--destructive));
+  }
+  50% {
+    filter: drop-shadow(0 0 14px var(--destructive));
+  }
+}
+
+.thermometer-critical {
+  animation: thermometer-pulse 2s ease-in-out infinite;
+}
+</style>

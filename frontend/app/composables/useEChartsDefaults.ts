@@ -128,7 +128,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export function useEChartsDefaults() {
   const { isDark } = useAppColorMode();
-  const { chart1Color, chart2Color, chart3Color, chart4Color, destructiveColor, successColor } =
+  const { chart1Color, chart2Color, chart3Color, destructiveColor, successColor } =
     useThemeColors();
 
   /** Line style with glow shadow. */
@@ -154,21 +154,6 @@ export function useEChartsDefaults() {
     };
   }
 
-  /** Horizontal gradient for bar charts. */
-  function gradientBar(color: string) {
-    return {
-      type: 'linear',
-      x: 0,
-      y: 0,
-      x2: 1,
-      y2: 0,
-      colorStops: [
-        { offset: 0, color: color },
-        { offset: 1, color: hexToRgba(color, 0.6) },
-      ],
-    };
-  }
-
   /** Frosted glass tooltip configuration. */
   function tooltipConfig() {
     return {
@@ -189,16 +174,16 @@ export function useEChartsDefaults() {
   }
 
   /**
-   * Generate N harmonious colors from a base hex color.
-   * Spreads hues across a ~120° analogous arc.
+   * Generate N harmonious colors from a base hex color using golden-angle
+   * (137.5°) hue rotation for maximum perceptual spread.
    */
   function generatePalette(baseHex: string, count: number): string[] {
     const hsl = hexToHSL(baseHex);
-    const arc = Math.min(120, count * 25);
+    const goldenAngle = 137.508;
     return Array.from({ length: count }, (_, i) => {
-      const hue = (hsl.h + (i * arc) / Math.max(count, 1)) % 360;
+      const hue = (hsl.h + i * goldenAngle) % 360;
       const lightness = isDark.value ? 55 + (i % 3) * 8 : 45 + (i % 3) * 8;
-      return hslToHex(hue, hsl.s, lightness);
+      return hslToHex(hue, Math.max(hsl.s, 50), lightness);
     });
   }
 
@@ -211,12 +196,10 @@ export function useEChartsDefaults() {
     chart1Color,
     chart2Color,
     chart3Color,
-    chart4Color,
     destructiveColor,
     successColor,
     glowLineStyle,
     gradientArea,
-    gradientBar,
     tooltipConfig,
     emphasisConfig,
     generatePalette,

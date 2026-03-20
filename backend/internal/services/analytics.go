@@ -1,20 +1,15 @@
 package services
 
 import (
-	"fmt"
 	"math"
 	"sort"
 
+	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/integrations"
 )
 
 const unknownLabel = "Unknown"
-
-// AnalyticsService provides library composition and quality analytics.
-// All computations run over the in-memory preview cache — no DB queries needed.
-type AnalyticsService struct {
-	preview PreviewDataSource
-}
 
 // PreviewDataSource is the interface for accessing preview cache data.
 // Satisfied by PreviewService.
@@ -22,93 +17,28 @@ type PreviewDataSource interface {
 	GetCachedItems() []integrations.MediaItem
 }
 
+// RulesSource provides read access to enabled custom rules for analytics filtering.
+// Satisfied by RulesService.
+type RulesSource interface {
+	GetEnabledRules() ([]db.CustomRule, error)
+}
+
+// AnalyticsService provides library composition and quality analytics.
+// All computations run over the in-memory preview cache — no DB queries needed.
+type AnalyticsService struct {
+	preview PreviewDataSource
+	rules   RulesSource
+}
+
 // NewAnalyticsService creates a new AnalyticsService.
 func NewAnalyticsService(preview PreviewDataSource) *AnalyticsService {
 	return &AnalyticsService{preview: preview}
 }
 
-// ─── Composition analytics ──────────────────────────────────────────────────
-
-// CompositionData holds all composition breakdown data.
-type CompositionData struct {
-	QualityDistribution []NameCount `json:"qualityDistribution"`
-	GenreDistribution   []NameCount `json:"genreDistribution"`
-	YearDistribution    []NameCount `json:"yearDistribution"`
-	TypeDistribution    []NameCount `json:"typeDistribution"`
-	TotalItems          int         `json:"totalItems"`
-	TotalSizeBytes      int64       `json:"totalSizeBytes"`
-}
-
-// NameCount is a label + count pair for chart data.
-type NameCount struct {
-	Name      string `json:"name"`
-	Count     int    `json:"count"`
-	SizeBytes int64  `json:"sizeBytes"`
-}
-
-// GetComposition returns library composition breakdowns.
-func (s *AnalyticsService) GetComposition() *CompositionData {
-	items := s.preview.GetCachedItems()
-
-	qualityMap := make(map[string]*NameCount)
-	genreMap := make(map[string]*NameCount)
-	yearMap := make(map[string]*NameCount)
-	typeMap := make(map[string]*NameCount)
-
-	var totalSize int64
-	for _, item := range items {
-		totalSize += item.SizeBytes
-
-		// Quality
-		qp := item.QualityProfile
-		if qp == "" {
-			qp = unknownLabel
-		}
-		if _, ok := qualityMap[qp]; !ok {
-			qualityMap[qp] = &NameCount{Name: qp}
-		}
-		qualityMap[qp].Count++
-		qualityMap[qp].SizeBytes += item.SizeBytes
-
-		// Genre
-		genre := item.Genre
-		if genre == "" {
-			genre = unknownLabel
-		}
-		if _, ok := genreMap[genre]; !ok {
-			genreMap[genre] = &NameCount{Name: genre}
-		}
-		genreMap[genre].Count++
-		genreMap[genre].SizeBytes += item.SizeBytes
-
-		// Year (grouped by decade)
-		yearStr := decadeLabel(item.Year)
-		if _, ok := yearMap[yearStr]; !ok {
-			yearMap[yearStr] = &NameCount{Name: yearStr}
-		}
-		yearMap[yearStr].Count++
-		yearMap[yearStr].SizeBytes += item.SizeBytes
-
-		// Type
-		t := string(item.Type)
-		if t == "" {
-			t = "unknown"
-		}
-		if _, ok := typeMap[t]; !ok {
-			typeMap[t] = &NameCount{Name: t}
-		}
-		typeMap[t].Count++
-		typeMap[t].SizeBytes += item.SizeBytes
-	}
-
-	return &CompositionData{
-		QualityDistribution: sortedNameCounts(qualityMap),
-		GenreDistribution:   sortedNameCounts(genreMap),
-		YearDistribution:    sortedNameCounts(yearMap),
-		TypeDistribution:    sortedNameCounts(typeMap),
-		TotalItems:          len(items),
-		TotalSizeBytes:      totalSize,
-	}
+// SetRulesSource sets the rules source for protected-item filtering.
+// Called by Registry after construction to avoid circular initialization.
+func (s *AnalyticsService) SetRulesSource(rules RulesSource) {
+	s.rules = rules
 }
 
 // ─── Quality analytics ──────────────────────────────────────────────────────
@@ -155,24 +85,47 @@ func (s *AnalyticsService) GetQualityDistribution() *QualityDistribution {
 
 // ─── Bloat detection ────────────────────────────────────────────────────────
 
-// SizeAnomaly represents an item whose size is anomalous for its quality profile.
+// SizeAnomaly represents an item whose size is anomalous for its quality profile and media type.
 type SizeAnomaly struct {
 	Title          string  `json:"title"`
 	QualityProfile string  `json:"qualityProfile"`
+	MediaType      string  `json:"mediaType"`
 	SizeBytes      int64   `json:"sizeBytes"`
 	MedianBytes    int64   `json:"medianBytes"`
 	Ratio          float64 `json:"ratio"` // item size / median size
 	IntegrationID  uint    `json:"integrationId"`
 }
 
-// GetSizeAnomalies returns items that are > 2x the median size for their quality profile.
-func (s *AnalyticsService) GetSizeAnomalies() []SizeAnomaly {
-	items := s.preview.GetCachedItems()
+// SizeAnomalyReport is the response for the bloat detection endpoint.
+type SizeAnomalyReport struct {
+	Items          []SizeAnomaly `json:"items"`
+	ProtectedCount int           `json:"protectedCount"`
+}
 
-	// Group sizes by quality profile
-	profileSizes := make(map[string][]int64)
-	profileItems := make(map[string][]integrations.MediaItem)
+// groupKey combines quality profile and media type for size anomaly grouping.
+type groupKey struct {
+	qualityProfile string
+	mediaType      string
+}
+
+// GetSizeAnomalies returns items that are > 2x the median size for their
+// (qualityProfile, mediaType) group. Items with always_keep protection are
+// excluded and counted separately.
+func (s *AnalyticsService) GetSizeAnomalies() *SizeAnomalyReport {
+	items := s.preview.GetCachedItems()
+	enabledRules := s.getEnabledRules()
+
+	// Group sizes by (qualityProfile, mediaType)
+	profileSizes := make(map[groupKey][]int64)
+	profileItems := make(map[groupKey][]integrations.MediaItem)
+	protectedCount := 0
+
 	for _, item := range items {
+		// Shows are excluded because their SizeBytes is the sum of all seasons —
+		// including both would double-count TV storage.
+		if item.Type == integrations.MediaTypeShow {
+			continue
+		}
 		if item.SizeBytes == 0 {
 			continue
 		}
@@ -180,12 +133,27 @@ func (s *AnalyticsService) GetSizeAnomalies() []SizeAnomaly {
 		if qp == "" {
 			continue // Skip items with unknown quality profile
 		}
-		profileSizes[qp] = append(profileSizes[qp], item.SizeBytes)
-		profileItems[qp] = append(profileItems[qp], item)
+
+		// Exclude absolutely protected items
+		if len(enabledRules) > 0 {
+			isProtected, _, _, _ := engine.ApplyRulesExported(item, enabledRules)
+			if isProtected {
+				protectedCount++
+				continue
+			}
+		}
+
+		mt := string(item.Type)
+		if mt == "" {
+			mt = "unknown"
+		}
+		key := groupKey{qualityProfile: qp, mediaType: mt}
+		profileSizes[key] = append(profileSizes[key], item.SizeBytes)
+		profileItems[key] = append(profileItems[key], item)
 	}
 
 	var anomalies []SizeAnomaly
-	for qp, sizes := range profileSizes {
+	for key, sizes := range profileSizes {
 		if len(sizes) < 3 {
 			continue // Need at least 3 items for meaningful median
 		}
@@ -193,12 +161,13 @@ func (s *AnalyticsService) GetSizeAnomalies() []SizeAnomaly {
 		if median == 0 {
 			continue
 		}
-		for _, item := range profileItems[qp] {
+		for _, item := range profileItems[key] {
 			ratio := float64(item.SizeBytes) / float64(median)
 			if ratio > 2.0 {
 				anomalies = append(anomalies, SizeAnomaly{
 					Title:          item.Title,
-					QualityProfile: qp,
+					QualityProfile: key.qualityProfile,
+					MediaType:      key.mediaType,
 					SizeBytes:      item.SizeBytes,
 					MedianBytes:    median,
 					Ratio:          math.Round(ratio*100) / 100,
@@ -213,28 +182,101 @@ func (s *AnalyticsService) GetSizeAnomalies() []SizeAnomaly {
 		return anomalies[i].Ratio > anomalies[j].Ratio
 	})
 
-	return anomalies
+	return &SizeAnomalyReport{
+		Items:          anomalies,
+		ProtectedCount: protectedCount,
+	}
+}
+
+// ─── Storage sunburst ───────────────────────────────────────────────────────
+
+// SunburstNode holds hierarchical data for the storage sunburst chart.
+type SunburstNode struct {
+	Name     string         `json:"name"`
+	Value    int64          `json:"value"` // bytes
+	Children []SunburstNode `json:"children,omitempty"`
+}
+
+// GetStorageSunburst returns hierarchical storage data grouped by media type
+// and then by quality profile within each type.
+// Structure: root → [movies, seasons, artists, books, ...] → [quality profiles]
+// Shows are excluded because their SizeBytes is the sum of all seasons —
+// including both would double-count TV storage.
+func (s *AnalyticsService) GetStorageSunburst() []SunburstNode {
+	items := s.preview.GetCachedItems()
+
+	// First level: media type → second level: quality profile → size
+	type profileData struct {
+		name      string
+		sizeBytes int64
+	}
+	typeMap := make(map[string]map[string]*profileData)
+
+	for _, item := range items {
+		if item.Type == integrations.MediaTypeShow {
+			continue
+		}
+		mt := string(item.Type)
+		if mt == "" {
+			mt = "unknown"
+		}
+		qp := item.QualityProfile
+		if qp == "" {
+			qp = unknownLabel
+		}
+
+		if _, ok := typeMap[mt]; !ok {
+			typeMap[mt] = make(map[string]*profileData)
+		}
+		if _, ok := typeMap[mt][qp]; !ok {
+			typeMap[mt][qp] = &profileData{name: qp}
+		}
+		typeMap[mt][qp].sizeBytes += item.SizeBytes
+	}
+
+	// Build the tree
+	nodes := make([]SunburstNode, 0, len(typeMap))
+	for mt, profiles := range typeMap {
+		children := make([]SunburstNode, 0, len(profiles))
+		var typeTotal int64
+		for _, pd := range profiles {
+			children = append(children, SunburstNode{
+				Name:  pd.name,
+				Value: pd.sizeBytes,
+			})
+			typeTotal += pd.sizeBytes
+		}
+		// Sort children by value descending
+		sort.Slice(children, func(i, j int) bool {
+			return children[i].Value > children[j].Value
+		})
+		nodes = append(nodes, SunburstNode{
+			Name:     mt,
+			Value:    typeTotal,
+			Children: children,
+		})
+	}
+
+	// Sort top-level nodes by value descending
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].Value > nodes[j].Value
+	})
+
+	return nodes
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-func decadeLabel(year int) string {
-	if year <= 0 {
-		return unknownLabel
+// getEnabledRules returns the enabled rules from the rules source, or nil if unavailable.
+func (s *AnalyticsService) getEnabledRules() []db.CustomRule {
+	if s.rules == nil {
+		return nil
 	}
-	decade := (year / 10) * 10
-	return fmt.Sprintf("%ds", decade)
-}
-
-func sortedNameCounts(m map[string]*NameCount) []NameCount {
-	result := make([]NameCount, 0, len(m))
-	for _, v := range m {
-		result = append(result, *v)
+	rules, err := s.rules.GetEnabledRules()
+	if err != nil {
+		return nil
 	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Count > result[j].Count
-	})
-	return result
+	return rules
 }
 
 func medianInt64(vals []int64) int64 {

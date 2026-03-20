@@ -6,20 +6,28 @@ import (
 	"strings"
 	"time"
 
+	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/integrations"
 )
 
 // WatchAnalyticsService provides watch-intelligence analytics (dead content,
-// stale content, popularity, request fulfillment). Requires enrichment data
-// from a media server — items without enrichment are excluded to avoid
-// false positives.
+// stale content). Requires enrichment data from a media server — items
+// without enrichment are excluded to avoid false positives.
 type WatchAnalyticsService struct {
 	preview PreviewDataSource
+	rules   RulesSource
 }
 
 // NewWatchAnalyticsService creates a new WatchAnalyticsService.
 func NewWatchAnalyticsService(preview PreviewDataSource) *WatchAnalyticsService {
 	return &WatchAnalyticsService{preview: preview}
+}
+
+// SetRulesSource sets the rules source for protected-item filtering.
+// Called by Registry after construction to avoid circular initialization.
+func (s *WatchAnalyticsService) SetRulesSource(rules RulesSource) {
+	s.rules = rules
 }
 
 // ─── Dead content ───────────────────────────────────────────────────────────
@@ -35,20 +43,24 @@ type DeadContentItem struct {
 
 // DeadContentReport is the response for the dead content analytics endpoint.
 type DeadContentReport struct {
-	Items      []DeadContentItem `json:"items"`
-	TotalCount int               `json:"totalCount"`
-	TotalSize  int64             `json:"totalSize"`
+	Items          []DeadContentItem `json:"items"`
+	TotalCount     int               `json:"totalCount"`
+	TotalSize      int64             `json:"totalSize"`
+	ProtectedCount int               `json:"protectedCount"`
 }
 
 // GetDeadContent returns items with PlayCount == 0, not on watchlist,
-// and added more than minAgeDays ago.
+// and added more than minAgeDays ago. Items with always_keep protection
+// are excluded and counted separately.
 func (s *WatchAnalyticsService) GetDeadContent(minAgeDays int) *DeadContentReport {
 	items := s.preview.GetCachedItems()
+	enabledRules := s.getEnabledRules()
 	now := time.Now()
 	minAge := time.Duration(minAgeDays) * 24 * time.Hour
 
 	var dead []DeadContentItem
 	var totalSize int64
+	protectedCount := 0
 
 	for _, item := range items {
 		// Only include items that have enrichment data (to avoid false positives)
@@ -60,6 +72,15 @@ func (s *WatchAnalyticsService) GetDeadContent(minAgeDays int) *DeadContentRepor
 		}
 		if item.AddedAt == nil || now.Sub(*item.AddedAt) < minAge {
 			continue
+		}
+
+		// Exclude absolutely protected items
+		if len(enabledRules) > 0 {
+			isProtected, _, _, _ := engine.ApplyRulesExported(item, enabledRules)
+			if isProtected {
+				protectedCount++
+				continue
+			}
 		}
 
 		daysInLib := int(now.Sub(*item.AddedAt).Hours() / 24)
@@ -79,9 +100,10 @@ func (s *WatchAnalyticsService) GetDeadContent(minAgeDays int) *DeadContentRepor
 	})
 
 	return &DeadContentReport{
-		Items:      dead,
-		TotalCount: len(dead),
-		TotalSize:  totalSize,
+		Items:          dead,
+		TotalCount:     len(dead),
+		TotalSize:      totalSize,
+		ProtectedCount: protectedCount,
 	}
 }
 
@@ -100,19 +122,23 @@ type StaleContentItem struct {
 
 // StaleContentReport is the response for the stale content analytics endpoint.
 type StaleContentReport struct {
-	Items      []StaleContentItem `json:"items"`
-	TotalCount int                `json:"totalCount"`
-	TotalSize  int64              `json:"totalSize"`
+	Items          []StaleContentItem `json:"items"`
+	TotalCount     int                `json:"totalCount"`
+	TotalSize      int64              `json:"totalSize"`
+	ProtectedCount int                `json:"protectedCount"`
 }
 
 // GetStaleContent returns items where LastPlayed > staleDays ago and PlayCount > 0.
+// Items with always_keep protection are excluded and counted separately.
 func (s *WatchAnalyticsService) GetStaleContent(staleDays int) *StaleContentReport {
 	items := s.preview.GetCachedItems()
+	enabledRules := s.getEnabledRules()
 	now := time.Now()
 	staleDuration := time.Duration(staleDays) * 24 * time.Hour
 
 	var stale []StaleContentItem
 	var totalSize int64
+	protectedCount := 0
 
 	for _, item := range items {
 		if !hasEnrichmentData(item) {
@@ -123,6 +149,15 @@ func (s *WatchAnalyticsService) GetStaleContent(staleDays int) *StaleContentRepo
 		}
 		if now.Sub(*item.LastPlayed) < staleDuration {
 			continue
+		}
+
+		// Exclude absolutely protected items
+		if len(enabledRules) > 0 {
+			isProtected, _, _, _ := engine.ApplyRulesExported(item, enabledRules)
+			if isProtected {
+				protectedCount++
+				continue
+			}
 		}
 
 		daysSince := int(now.Sub(*item.LastPlayed).Hours() / 24)
@@ -146,175 +181,207 @@ func (s *WatchAnalyticsService) GetStaleContent(staleDays int) *StaleContentRepo
 	})
 
 	return &StaleContentReport{
-		Items:      stale,
-		TotalCount: len(stale),
-		TotalSize:  totalSize,
+		Items:          stale,
+		TotalCount:     len(stale),
+		TotalSize:      totalSize,
+		ProtectedCount: protectedCount,
 	}
 }
 
-// ─── Popularity ─────────────────────────────────────────────────────────────
+// ─── Status breakdown ───────────────────────────────────────────────────────
 
-// PopularityEntry is a genre×year cell in the popularity heatmap.
-type PopularityEntry struct {
-	Genre     string `json:"genre"`
-	Year      string `json:"year"`
-	PlayCount int    `json:"playCount"`
-	ItemCount int    `json:"itemCount"`
+// StatusBreakdown is the response for the status breakdown analytics endpoint.
+// It returns a tree of status → items, where items have dynamic depth based on
+// media type (movies are leaves, seasons nest under their parent show, etc.).
+type StatusBreakdown struct {
+	Statuses []StatusGroup `json:"statuses"`
 }
 
-// RankedItem is a single item in the top/bottom lists.
-type RankedItem struct {
-	Title     string `json:"title"`
-	PlayCount int    `json:"playCount"`
-	SizeBytes int64  `json:"sizeBytes"`
+// StatusGroup represents a single status bucket (dead, stale, protected, active).
+type StatusGroup struct {
+	Name       string     `json:"name"` // "dead", "stale", "protected", "active"
+	TotalSize  int64      `json:"totalSize"`
+	TotalCount int        `json:"totalCount"`
+	Children   []TreeNode `json:"children"`
 }
 
-// PopularityData holds heatmap data and ranked lists.
-type PopularityData struct {
-	Heatmap  []PopularityEntry `json:"heatmap"`
-	TopItems []RankedItem      `json:"topItems"`
-	LowItems []RankedItem      `json:"lowItems"`
+// TreeNode is a recursive node in the status breakdown tree.
+// Leaf nodes have Value > 0 and no Children. Container nodes (shows, artists)
+// have Children and their Value is the sum of children (computed by ECharts).
+type TreeNode struct {
+	Name     string     `json:"name"`
+	Value    int64      `json:"value,omitempty"`    // bytes — set on leaf nodes only
+	Children []TreeNode `json:"children,omitempty"` // set on container nodes only
 }
 
-// GetPopularity returns popularity analytics (heatmap + ranked lists).
-func (s *WatchAnalyticsService) GetPopularity() *PopularityData {
+// GetLibraryStatusBreakdown classifies every enriched item into exactly one
+// status bucket (priority: protected > dead > stale > active), then builds a
+// hierarchical tree with dynamic depth based on media type.
+//
+// Hierarchy:
+//   - Movies: status → movie title (leaf)
+//   - TV: status → show title → season title (leaf)
+//   - Music/Books: status → title (leaf)
+//
+// Classification priority:
+//  1. Protected — always_keep via rules engine
+//  2. Dead — PlayCount == 0, not on watchlist, AddedAt > 7 days ago
+//  3. Stale — LastPlayed before 180 days ago
+//  4. Active — everything else with enrichment data
+//
+// Items of type "show" are skipped (seasons carry the storage data).
+// Items without enrichment data are excluded entirely.
+func (s *WatchAnalyticsService) GetLibraryStatusBreakdown() *StatusBreakdown {
 	items := s.preview.GetCachedItems()
+	enabledRules := s.getEnabledRules()
+	now := time.Now()
 
-	// Build heatmap: genre × decade → play count
-	type heatKey struct{ genre, decade string }
-	heatmap := make(map[heatKey]*PopularityEntry)
-	var enrichedItems []integrations.MediaItem
+	const (
+		deadMinAgeDays = 7
+		staleDays      = 180
+	)
+
+	deadMinAge := time.Duration(deadMinAgeDays) * 24 * time.Hour
+	staleDuration := time.Duration(staleDays) * 24 * time.Hour
+
+	// Classify each item into a status bucket
+	type classifiedItem struct {
+		item   integrations.MediaItem
+		bucket string
+	}
+	var classified []classifiedItem
 
 	for _, item := range items {
+		// Skip shows — seasons carry the actual storage data
+		if item.Type == integrations.MediaTypeShow {
+			continue
+		}
 		if !hasEnrichmentData(item) {
 			continue
 		}
-		enrichedItems = append(enrichedItems, item)
 
-		genre := item.Genre
-		if genre == "" {
-			genre = unknownLabel
+		var bucket string
+
+		// Priority 1: Protected
+		if len(enabledRules) > 0 {
+			isProtected, _, _, _ := engine.ApplyRulesExported(item, enabledRules)
+			if isProtected {
+				bucket = "protected"
+			}
 		}
-		decade := decadeLabel(item.Year)
-		key := heatKey{genre, decade}
-		if _, ok := heatmap[key]; !ok {
-			heatmap[key] = &PopularityEntry{Genre: genre, Year: decade}
+
+		// Priority 2: Dead
+		if bucket == "" && item.PlayCount == 0 && !item.OnWatchlist &&
+			item.AddedAt != nil && now.Sub(*item.AddedAt) >= deadMinAge {
+			bucket = "dead"
 		}
-		heatmap[key].PlayCount += item.PlayCount
-		heatmap[key].ItemCount++
-	}
 
-	heatmapSlice := make([]PopularityEntry, 0, len(heatmap))
-	for _, v := range heatmap {
-		heatmapSlice = append(heatmapSlice, *v)
-	}
-
-	// Ranked lists
-	sort.Slice(enrichedItems, func(i, j int) bool {
-		return enrichedItems[i].PlayCount > enrichedItems[j].PlayCount
-	})
-
-	topN := 20
-	if len(enrichedItems) < topN {
-		topN = len(enrichedItems)
-	}
-	topItems := make([]RankedItem, topN)
-	for i := 0; i < topN; i++ {
-		topItems[i] = RankedItem{
-			Title:     enrichedItems[i].Title,
-			PlayCount: enrichedItems[i].PlayCount,
-			SizeBytes: enrichedItems[i].SizeBytes,
+		// Priority 3: Stale
+		if bucket == "" && item.PlayCount > 0 && item.LastPlayed != nil &&
+			now.Sub(*item.LastPlayed) >= staleDuration {
+			bucket = "stale"
 		}
-	}
 
-	// Bottom items (least watched, excluding unwatched)
-	var watchedItems []integrations.MediaItem
-	for _, item := range enrichedItems {
-		if item.PlayCount > 0 {
-			watchedItems = append(watchedItems, item)
+		// Priority 4: Active
+		if bucket == "" {
+			bucket = "active"
 		}
+
+		classified = append(classified, classifiedItem{item: item, bucket: bucket})
 	}
-	sort.Slice(watchedItems, func(i, j int) bool {
-		return watchedItems[i].PlayCount < watchedItems[j].PlayCount
-	})
-	lowN := 20
-	if len(watchedItems) < lowN {
-		lowN = len(watchedItems)
+
+	// Build tree per status bucket
+	statusOrder := []string{"dead", "stale", "protected", "active"}
+	bucketItems := make(map[string][]classifiedItem)
+	for _, ci := range classified {
+		bucketItems[ci.bucket] = append(bucketItems[ci.bucket], ci)
 	}
-	lowItems := make([]RankedItem, lowN)
-	for i := 0; i < lowN; i++ {
-		lowItems[i] = RankedItem{
-			Title:     watchedItems[i].Title,
-			PlayCount: watchedItems[i].PlayCount,
-			SizeBytes: watchedItems[i].SizeBytes,
+
+	result := &StatusBreakdown{
+		Statuses: make([]StatusGroup, 0, len(statusOrder)),
+	}
+
+	for _, name := range statusOrder {
+		items := bucketItems[name]
+		group := StatusGroup{Name: name}
+
+		// Group items into a tree: seasons nest under their ShowTitle,
+		// everything else is a direct child (leaf).
+		showMap := make(map[string][]TreeNode) // showTitle → season nodes
+		var directChildren []TreeNode
+
+		for _, ci := range items {
+			group.TotalSize += ci.item.SizeBytes
+			group.TotalCount++
+
+			if ci.item.Type == integrations.MediaTypeSeason && ci.item.ShowTitle != "" {
+				// Nest under parent show
+				showMap[ci.item.ShowTitle] = append(showMap[ci.item.ShowTitle], TreeNode{
+					Name:  ci.item.Title,
+					Value: ci.item.SizeBytes,
+				})
+			} else {
+				// Direct child (movie, artist, book, or season without ShowTitle)
+				directChildren = append(directChildren, TreeNode{
+					Name:  ci.item.Title,
+					Value: ci.item.SizeBytes,
+				})
+			}
 		}
-	}
 
-	return &PopularityData{
-		Heatmap:  heatmapSlice,
-		TopItems: topItems,
-		LowItems: lowItems,
-	}
-}
-
-// ─── Request fulfillment ────────────────────────────────────────────────────
-
-// RequestFulfillmentData holds request fulfillment statistics.
-type RequestFulfillmentData struct {
-	TotalRequested   int             `json:"totalRequested"`
-	Fulfilled        int             `json:"fulfilled"`      // Watched by requestor
-	Unfulfilled      int             `json:"unfulfilled"`    // Not watched by requestor
-	FulfillmentPct   float64         `json:"fulfillmentPct"` // 0-100
-	UnfulfilledItems []RequestedItem `json:"unfulfilledItems"`
-}
-
-// RequestedItem is a requested media item with fulfillment status.
-type RequestedItem struct {
-	Title              string `json:"title"`
-	RequestedBy        string `json:"requestedBy"`
-	WatchedByRequestor bool   `json:"watchedByRequestor"`
-	SizeBytes          int64  `json:"sizeBytes"`
-}
-
-// GetRequestFulfillment returns request fulfillment analytics.
-func (s *WatchAnalyticsService) GetRequestFulfillment() *RequestFulfillmentData {
-	items := s.preview.GetCachedItems()
-
-	var totalRequested, fulfilled int
-	var unfulfilled []RequestedItem
-
-	for _, item := range items {
-		if !item.IsRequested {
-			continue
-		}
-		totalRequested++
-		if item.WatchedByRequestor {
-			fulfilled++
-		} else {
-			unfulfilled = append(unfulfilled, RequestedItem{
-				Title:              item.Title,
-				RequestedBy:        item.RequestedBy,
-				WatchedByRequestor: false,
-				SizeBytes:          item.SizeBytes,
+		// Build show container nodes
+		showNodes := make([]TreeNode, 0, len(showMap))
+		for showTitle, seasons := range showMap {
+			// Sort seasons by size descending
+			sort.Slice(seasons, func(i, j int) bool {
+				return seasons[i].Value > seasons[j].Value
+			})
+			showNodes = append(showNodes, TreeNode{
+				Name:     showTitle,
+				Children: seasons,
 			})
 		}
+
+		// Sort show nodes by total size descending
+		sort.Slice(showNodes, func(i, j int) bool {
+			var si, sj int64
+			for _, c := range showNodes[i].Children {
+				si += c.Value
+			}
+			for _, c := range showNodes[j].Children {
+				sj += c.Value
+			}
+			return si > sj
+		})
+
+		// Sort direct children by size descending
+		sort.Slice(directChildren, func(i, j int) bool {
+			return directChildren[i].Value > directChildren[j].Value
+		})
+
+		// Merge: shows first, then direct items
+		group.Children = append(group.Children, showNodes...)
+		group.Children = append(group.Children, directChildren...)
+
+		result.Statuses = append(result.Statuses, group)
 	}
 
-	pct := 0.0
-	if totalRequested > 0 {
-		pct = math.Round(float64(fulfilled)/float64(totalRequested)*10000) / 100
-	}
-
-	return &RequestFulfillmentData{
-		TotalRequested:   totalRequested,
-		Fulfilled:        fulfilled,
-		Unfulfilled:      totalRequested - fulfilled,
-		FulfillmentPct:   pct,
-		UnfulfilledItems: unfulfilled,
-	}
+	return result
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+// getEnabledRules returns the enabled rules from the rules source, or nil if unavailable.
+func (s *WatchAnalyticsService) getEnabledRules() []db.CustomRule {
+	if s.rules == nil {
+		return nil
+	}
+	rules, err := s.rules.GetEnabledRules()
+	if err != nil {
+		return nil
+	}
+	return rules
+}
 
 // hasEnrichmentData returns true if the item has been through the enrichment
 // pipeline (has watch data or watchlist status). Items without enrichment

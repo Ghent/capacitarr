@@ -2,128 +2,48 @@
   <div class="container mx-auto px-4 py-6 max-w-7xl">
     <h1 class="text-2xl font-bold mb-6">{{ $t('insights.title') }}</h1>
 
-    <!-- Tabs -->
-    <UiTabs v-model="activeTab" class="w-full">
-      <UiTabsList class="mb-6">
-        <UiTabsTrigger value="overview">
-          <BarChart3Icon class="w-4 h-4 mr-1.5" />
-          {{ $t('insights.tabs.overview') }}
-        </UiTabsTrigger>
-        <UiTabsTrigger value="quality">
-          <SparklesIcon class="w-4 h-4 mr-1.5" />
-          {{ $t('insights.tabs.quality') }}
-        </UiTabsTrigger>
-        <UiTabsTrigger value="watch">
-          <EyeIcon class="w-4 h-4 mr-1.5" />
-          {{ $t('insights.tabs.watch') }}
-        </UiTabsTrigger>
-      </UiTabsList>
+    <div class="space-y-4">
+      <!-- Watch Intelligence: Empty state — no media server configured -->
+      <div
+        v-if="noWatchProviders"
+        class="flex flex-col items-center justify-center py-16 text-center"
+      >
+        <EyeOffIcon class="w-12 h-12 text-muted-foreground/40 mb-4" />
+        <h3 class="text-lg font-medium text-foreground mb-2">
+          {{ $t('insights.noWatchProviders') }}
+        </h3>
+        <p class="text-muted-foreground max-w-md">
+          {{ $t('insights.noWatchProvidersDesc') }}
+        </p>
+        <UiButton class="mt-4" as-child>
+          <NuxtLink to="/settings?tab=integrations">
+            {{ $t('insights.configureMediaServer') }}
+          </NuxtLink>
+        </UiButton>
+      </div>
 
-      <!-- Tab 1: Overview -->
-      <UiTabsContent value="overview">
+      <template v-else>
+        <!-- Row 1: Capacity Gauge + Forecast (side by side) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Quality Profile Distribution (donut) -->
-          <DashboardCard :title="$t('insights.qualityProfile')" :icon="PieChartIcon">
-            <div class="h-64">
-              <ClientOnly>
-                <v-chart
-                  v-if="compositionData"
-                  :option="qualityDonutOption"
-                  autoresize
-                  class="h-full w-full"
-                  @click="onQualityDonutClick"
-                />
-                <template #fallback>
-                  <div class="h-full flex items-center justify-center">
-                    <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                </template>
-              </ClientOnly>
-            </div>
-          </DashboardCard>
-
-          <!-- Genre Distribution (horizontal bar) -->
-          <DashboardCard :title="$t('insights.genreDistribution')" :icon="BarChart3Icon">
-            <div class="h-64">
-              <ClientOnly>
-                <v-chart
-                  v-if="compositionData"
-                  :option="genreBarOption"
-                  autoresize
-                  class="h-full w-full"
-                />
-                <template #fallback>
-                  <div class="h-full flex items-center justify-center">
-                    <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                </template>
-              </ClientOnly>
-            </div>
-          </DashboardCard>
-
-          <!-- Integration Contribution (treemap) -->
-          <DashboardCard :title="$t('insights.integrationContribution')" :icon="LayersIcon">
-            <div class="h-64">
-              <ClientOnly>
-                <v-chart
-                  v-if="compositionData"
-                  :option="integrationTreemapOption"
-                  autoresize
-                  class="h-full w-full"
-                />
-                <template #fallback>
-                  <div class="h-full flex items-center justify-center">
-                    <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                </template>
-              </ClientOnly>
-            </div>
-          </DashboardCard>
-
-          <!-- Growth Over Time (line chart) — full width -->
+          <!-- Capacity Gauge -->
           <DashboardCard
-            :title="$t('insights.growthOverTime')"
-            :icon="TrendingUpIcon"
-            class="md:col-span-2"
+            v-motion
+            :initial="{ opacity: 0, y: 12 }"
+            :enter="{
+              opacity: 1,
+              y: 0,
+              transition: { type: 'spring', stiffness: 260, damping: 24, delay: 0 },
+            }"
+            :title="$t('insights.capacityGauge')"
+            :icon="GaugeIcon"
           >
-            <div class="h-64">
-              <ClientOnly>
-                <v-chart
-                  v-if="metricsData && metricsData.length >= 3"
-                  :option="growthLineOption"
-                  autoresize
-                  class="h-full w-full"
-                />
-                <div
-                  v-else
-                  class="h-full flex items-center justify-center text-muted-foreground text-sm"
-                >
-                  {{ $t('insights.noGrowthData') }}
-                </div>
-                <template #fallback>
-                  <div class="h-full flex items-center justify-center">
-                    <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
-                  </div>
-                </template>
-              </ClientOnly>
-            </div>
-          </DashboardCard>
-        </div>
-      </UiTabsContent>
-
-      <!-- Tab 2: Quality -->
-      <UiTabsContent value="quality">
-        <div class="grid grid-cols-1 gap-4">
-          <!-- Quality Distribution (stacked bar: count + storage) -->
-          <DashboardCard :title="$t('insights.qualityBreakdown')" :icon="SparklesIcon">
             <div class="h-72">
               <ClientOnly>
                 <v-chart
-                  v-if="qualityData"
-                  :option="qualityStackedBarOption"
+                  v-if="latestMetrics"
+                  :option="capacityGaugeOption"
                   autoresize
                   class="h-full w-full"
-                  @click="onQualityBarClick"
                 />
                 <div
                   v-else
@@ -140,449 +60,194 @@
             </div>
           </DashboardCard>
 
-          <!-- Size Anomalies / Bloat Detection -->
-          <DashboardCard :title="$t('insights.sizeAnomalies')" :icon="AlertTriangleIcon">
-            <div v-if="bloatData && bloatData.length > 0" class="overflow-x-auto">
-              <UiTable>
-                <UiTableHeader>
-                  <UiTableRow>
-                    <UiTableHead>{{ $t('insights.bloatTitle') }}</UiTableHead>
-                    <UiTableHead>{{ $t('insights.bloatQuality') }}</UiTableHead>
-                    <UiTableHead class="text-right">{{ $t('insights.bloatSize') }}</UiTableHead>
-                    <UiTableHead class="text-right">{{ $t('insights.bloatMedian') }}</UiTableHead>
-                    <UiTableHead class="text-right">{{ $t('insights.bloatRatio') }}</UiTableHead>
-                  </UiTableRow>
-                </UiTableHeader>
-                <UiTableBody>
-                  <UiTableRow v-for="(item, idx) in bloatData.slice(0, 20)" :key="idx">
-                    <UiTableCell class="font-medium max-w-[200px] truncate">
-                      {{ item.title }}
-                    </UiTableCell>
-                    <UiTableCell>
-                      <NuxtLink
-                        :to="`/library?quality=${encodeURIComponent(item.qualityProfile)}`"
-                        class="text-primary hover:underline"
-                      >
-                        {{ item.qualityProfile }}
-                      </NuxtLink>
-                    </UiTableCell>
-                    <UiTableCell class="text-right font-mono text-xs tabular-nums">
-                      {{ formatBytes(item.sizeBytes) }}
-                    </UiTableCell>
-                    <UiTableCell class="text-right font-mono text-xs tabular-nums">
-                      {{ formatBytes(item.medianBytes) }}
-                    </UiTableCell>
-                    <UiTableCell class="text-right">
-                      <UiBadge variant="destructive" class="text-xs tabular-nums">
-                        {{ item.ratio }}x
-                      </UiBadge>
-                    </UiTableCell>
-                  </UiTableRow>
-                </UiTableBody>
-              </UiTable>
-            </div>
-            <div
-              v-else
-              class="min-h-[120px] flex items-center justify-center text-muted-foreground text-sm"
-            >
-              {{ $t('insights.noBloat') }}
+          <!-- Capacity Forecast -->
+          <DashboardCard
+            v-motion
+            :initial="{ opacity: 0, y: 12 }"
+            :enter="{
+              opacity: 1,
+              y: 0,
+              transition: { type: 'spring', stiffness: 260, damping: 24, delay: 60 },
+            }"
+            :title="$t('insights.capacityForecast')"
+            :icon="TrendingUpIcon"
+          >
+            <div class="py-6 space-y-4">
+              <template v-if="forecastData">
+                <!-- Shrinking -->
+                <div v-if="forecastData.growthRatePerDay < 0" class="text-center py-8">
+                  <div class="text-2xl font-bold text-green-500">
+                    {{ $t('insights.capacityDecreasing') }} ↓
+                  </div>
+                  <div class="text-sm text-muted-foreground mt-2">
+                    {{ formatBytes(Math.abs(forecastData.growthRatePerDay)) }}/day
+                  </div>
+                </div>
+
+                <!-- Growing or stable -->
+                <template v-else>
+                  <div class="grid grid-cols-1 gap-3">
+                    <!-- Growth rate -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-muted/40">
+                      <span class="text-sm text-muted-foreground">
+                        {{ $t('insights.growthRate') }}
+                      </span>
+                      <span class="text-lg font-bold tabular-nums">
+                        {{ formatGrowthRate(forecastData.growthRatePerDay) }}
+                      </span>
+                    </div>
+
+                    <!-- Days until threshold -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-muted/40">
+                      <span class="text-sm text-muted-foreground">
+                        {{ $t('insights.daysUntilThreshold') }}
+                      </span>
+                      <span class="text-lg font-bold tabular-nums">
+                        <template v-if="forecastData.daysUntilThreshold === -1">—</template>
+                        <template v-else-if="forecastData.daysUntilThreshold === 0">
+                          <UiBadge variant="destructive">Now</UiBadge>
+                        </template>
+                        <template v-else>
+                          {{ forecastData.daysUntilThreshold }} {{ $t('insights.days') }}
+                        </template>
+                      </span>
+                    </div>
+
+                    <!-- Days until full -->
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-muted/40">
+                      <span class="text-sm text-muted-foreground">
+                        {{ $t('insights.daysUntilFull') }}
+                      </span>
+                      <span class="text-lg font-bold tabular-nums">
+                        <template v-if="forecastData.daysUntilFull === -1">—</template>
+                        <template v-else-if="forecastData.daysUntilFull === 0">
+                          <UiBadge variant="destructive">Now</UiBadge>
+                        </template>
+                        <template v-else>
+                          {{ forecastData.daysUntilFull }} {{ $t('insights.days') }}
+                        </template>
+                      </span>
+                    </div>
+                  </div>
+                </template>
+              </template>
+
+              <!-- Loading state -->
+              <div
+                v-else
+                class="h-40 flex items-center justify-center text-muted-foreground text-sm"
+              >
+                <LoaderCircleIcon class="w-5 h-5 animate-spin" />
+              </div>
             </div>
           </DashboardCard>
         </div>
-      </UiTabsContent>
 
-      <!-- Tab 3: Watch Intelligence -->
-      <UiTabsContent value="watch">
-        <!-- Empty state: no media server configured -->
-        <div
-          v-if="noWatchProviders"
-          class="flex flex-col items-center justify-center py-16 text-center"
+        <!-- Row 2: Storage Map — full width -->
+        <DashboardCard
+          v-motion
+          :initial="{ opacity: 0, y: 12 }"
+          :enter="{
+            opacity: 1,
+            y: 0,
+            transition: { type: 'spring', stiffness: 260, damping: 24, delay: 120 },
+          }"
+          title="Storage Map"
+          :icon="LayoutGridIcon"
         >
-          <EyeOffIcon class="w-12 h-12 text-muted-foreground/40 mb-4" />
-          <h3 class="text-lg font-medium text-foreground mb-2">
-            {{ $t('insights.noWatchProviders') }}
-          </h3>
-          <p class="text-muted-foreground max-w-md">
-            {{ $t('insights.noWatchProvidersDesc') }}
-          </p>
-          <UiButton class="mt-4" as-child>
-            <NuxtLink to="/settings?tab=integrations">
-              {{ $t('insights.configureMediaServer') }}
-            </NuxtLink>
-          </UiButton>
-        </div>
-
-        <!-- Watch Intelligence cards -->
-        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Dead Content -->
-          <DashboardCard :title="$t('insights.deadContent')" :icon="SkullIcon">
-            <div class="py-4 text-center">
-              <div class="text-4xl font-bold tabular-nums">
-                {{ deadData?.totalCount ?? '—' }}
-              </div>
-              <div class="text-sm text-muted-foreground mt-1">
-                {{ $t('insights.deadContentItems') }}
-              </div>
-              <div v-if="deadData?.totalSize" class="text-xs text-muted-foreground mt-0.5">
-                {{ formatBytes(deadData.totalSize) }} {{ $t('insights.reclaimable') }}
-              </div>
-            </div>
-            <template #footer>
-              <NuxtLink to="/library?filter=dead" class="text-primary hover:underline text-xs">
-                {{ $t('insights.viewInLibrary') }} →
-              </NuxtLink>
-            </template>
-          </DashboardCard>
-
-          <!-- Stale Content -->
-          <DashboardCard :title="$t('insights.staleContent')" :icon="ClockIcon">
-            <div class="py-4 text-center">
-              <div class="text-4xl font-bold tabular-nums">
-                {{ staleData?.totalCount ?? '—' }}
-              </div>
-              <div class="text-sm text-muted-foreground mt-1">
-                {{ $t('insights.staleContentItems') }}
-              </div>
-              <div v-if="staleData?.totalSize" class="text-xs text-muted-foreground mt-0.5">
-                {{ formatBytes(staleData.totalSize) }} {{ $t('insights.reclaimable') }}
-              </div>
-            </div>
-            <template #footer>
-              <NuxtLink to="/library?filter=stale" class="text-primary hover:underline text-xs">
-                {{ $t('insights.viewInLibrary') }} →
-              </NuxtLink>
-            </template>
-          </DashboardCard>
-
-          <!-- Top 20 / Bottom 20 ranked lists -->
-          <DashboardCard v-if="popularityData" :title="$t('insights.topItems')" :icon="TrophyIcon">
-            <div
-              v-if="popularityData.topItems.length > 0"
-              class="max-h-64 overflow-y-auto space-y-1"
-            >
+          <div class="h-[500px]">
+            <ClientOnly>
+              <v-chart
+                v-if="statusData && statusData.statuses.some((s: StatusGroup) => s.totalCount > 0)"
+                :option="treemapOption"
+                autoresize
+                class="h-full w-full"
+              />
               <div
-                v-for="(item, idx) in popularityData.topItems"
-                :key="idx"
-                class="flex items-center justify-between px-2 py-1 rounded hover:bg-muted/50 text-sm"
+                v-else-if="statusData"
+                class="h-full flex items-center justify-center text-muted-foreground text-sm"
               >
-                <div class="flex items-center gap-2 truncate">
-                  <span class="text-xs text-muted-foreground font-mono tabular-nums w-5"
-                    >{{ idx + 1 }}.</span
-                  >
-                  <span class="truncate">{{ item.title }}</span>
-                </div>
-                <UiBadge variant="secondary" class="text-xs tabular-nums shrink-0 ml-2">
-                  {{ item.playCount }} {{ $t('insights.plays') }}
-                </UiBadge>
+                No status breakdown data available — run an engine cycle to populate.
               </div>
-            </div>
-            <div v-else class="h-32 flex items-center justify-center text-muted-foreground text-sm">
-              {{ $t('insights.noData') }}
-            </div>
-          </DashboardCard>
-
-          <DashboardCard
-            v-if="popularityData"
-            :title="$t('insights.leastPopular')"
-            :icon="ThumbsDownIcon"
-          >
-            <div
-              v-if="popularityData.lowItems.length > 0"
-              class="max-h-64 overflow-y-auto space-y-1"
-            >
               <div
-                v-for="(item, idx) in popularityData.lowItems"
-                :key="idx"
-                class="flex items-center justify-between px-2 py-1 rounded hover:bg-muted/50 text-sm"
+                v-else
+                class="h-full flex items-center justify-center text-muted-foreground text-sm"
               >
-                <div class="flex items-center gap-2 truncate">
-                  <span class="text-xs text-muted-foreground font-mono tabular-nums w-5"
-                    >{{ idx + 1 }}.</span
-                  >
-                  <span class="truncate">{{ item.title }}</span>
-                </div>
-                <UiBadge variant="outline" class="text-xs tabular-nums shrink-0 ml-2">
-                  {{ item.playCount }} {{ $t('insights.plays') }}
-                </UiBadge>
+                <LoaderCircleIcon class="w-5 h-5 animate-spin" />
               </div>
-            </div>
-            <div v-else class="h-32 flex items-center justify-center text-muted-foreground text-sm">
-              {{ $t('insights.noData') }}
-            </div>
-          </DashboardCard>
-
-          <!-- Request Fulfillment -->
-          <DashboardCard
-            :title="$t('insights.requestFulfillment')"
-            :icon="CheckCircleIcon"
-            class="md:col-span-2"
-          >
-            <div v-if="requestData" class="space-y-4">
-              <!-- Headline stats -->
-              <div class="flex items-center gap-6 justify-center py-2">
-                <div class="text-center">
-                  <div class="text-3xl font-bold tabular-nums">
-                    {{ requestData.fulfillmentPct }}%
-                  </div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ $t('insights.fulfillmentRate') }}
-                  </div>
+              <template #fallback>
+                <div class="h-full flex items-center justify-center">
+                  <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
                 </div>
-                <div class="text-center">
-                  <div class="text-2xl font-semibold tabular-nums">
-                    {{ requestData.fulfilled }}/{{ requestData.totalRequested }}
-                  </div>
-                  <div class="text-xs text-muted-foreground">
-                    {{ $t('insights.requestsFulfilled') }}
-                  </div>
-                </div>
-              </div>
-
-              <!-- Unfulfilled table -->
-              <div
-                v-if="requestData.unfulfilledItems && requestData.unfulfilledItems.length > 0"
-                class="overflow-x-auto"
-              >
-                <h4 class="text-sm font-medium mb-2">
-                  {{ $t('insights.unfulfilledRequests') }}
-                </h4>
-                <UiTable>
-                  <UiTableHeader>
-                    <UiTableRow>
-                      <UiTableHead>{{ $t('insights.requestTitle') }}</UiTableHead>
-                      <UiTableHead>{{ $t('insights.requestedBy') }}</UiTableHead>
-                      <UiTableHead class="text-right">{{ $t('insights.requestSize') }}</UiTableHead>
-                    </UiTableRow>
-                  </UiTableHeader>
-                  <UiTableBody>
-                    <UiTableRow
-                      v-for="(item, idx) in requestData.unfulfilledItems.slice(0, 15)"
-                      :key="idx"
-                    >
-                      <UiTableCell class="font-medium max-w-[200px] truncate">
-                        {{ item.title }}
-                      </UiTableCell>
-                      <UiTableCell class="text-muted-foreground">
-                        {{ item.requestedBy || '—' }}
-                      </UiTableCell>
-                      <UiTableCell class="text-right font-mono text-xs tabular-nums">
-                        {{ formatBytes(item.sizeBytes) }}
-                      </UiTableCell>
-                    </UiTableRow>
-                  </UiTableBody>
-                </UiTable>
-              </div>
-            </div>
-            <div
-              v-else
-              class="min-h-[120px] flex items-center justify-center text-muted-foreground text-sm"
-            >
-              {{ $t('insights.noRequestData') }}
-            </div>
-          </DashboardCard>
-        </div>
-      </UiTabsContent>
-    </UiTabs>
+              </template>
+            </ClientOnly>
+          </div>
+        </DashboardCard>
+      </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import {
-  BarChart3Icon,
-  SparklesIcon,
-  EyeIcon,
   EyeOffIcon,
-  PieChartIcon,
-  AlertTriangleIcon,
-  SkullIcon,
-  ClockIcon,
-  CheckCircleIcon,
   LoaderCircleIcon,
-  LayersIcon,
   TrendingUpIcon,
-  TrophyIcon,
-  ThumbsDownIcon,
+  GaugeIcon,
+  LayoutGridIcon,
 } from 'lucide-vue-next';
 import { DashboardCard } from '~/components/ui/dashboard-card';
 import { formatBytes } from '~/utils/format';
-import type { IntegrationConfig, MetricsHistoryResponse, LibraryHistoryRow } from '~/types/api';
+import type {
+  IntegrationConfig,
+  MetricsHistoryResponse,
+  LibraryHistoryRow,
+  DiskGroup,
+} from '~/types/api';
 
 // ─── API response types ─────────────────────────────────────────────────────
 
-interface NameCount {
+interface TreeNode {
   name: string;
-  count: number;
-  sizeBytes: number;
+  value?: number;
+  children?: TreeNode[];
 }
 
-interface CompositionResponse {
-  qualityDistribution: NameCount[];
-  genreDistribution: NameCount[];
-  yearDistribution: NameCount[];
-  typeDistribution: NameCount[];
-  totalItems: number;
-  totalSizeBytes: number;
-}
-
-interface QualityProfile {
+interface StatusGroup {
   name: string;
-  count: number;
-  sizeBytes: number;
-}
-
-interface QualityDistributionResponse {
-  profiles: QualityProfile[];
-}
-
-interface SizeAnomaly {
-  title: string;
-  qualityProfile: string;
-  sizeBytes: number;
-  medianBytes: number;
-  ratio: number;
-  integrationId: number;
-}
-
-interface DeadContentReport {
-  items: { title: string; type: string; sizeBytes: number; daysInLibrary: number }[];
-  totalCount: number;
   totalSize: number;
-}
-
-interface StaleContentReport {
-  items: {
-    title: string;
-    type: string;
-    sizeBytes: number;
-    daysSinceWatched: number;
-    playCount: number;
-    stalenessScore: number;
-  }[];
   totalCount: number;
-  totalSize: number;
+  children: TreeNode[];
 }
 
-interface PopularityEntry {
-  genre: string;
-  year: string;
-  playCount: number;
-  itemCount: number;
+interface StatusBreakdown {
+  statuses: StatusGroup[];
 }
 
-interface RankedItem {
-  title: string;
-  playCount: number;
-  sizeBytes: number;
-}
-
-interface PopularityData {
-  heatmap: PopularityEntry[];
-  topItems: RankedItem[];
-  lowItems: RankedItem[];
-}
-
-interface RequestFulfillmentData {
-  totalRequested: number;
-  fulfilled: number;
-  unfulfilled: number;
-  fulfillmentPct: number;
-  unfulfilledItems: {
-    title: string;
-    requestedBy: string;
-    watchedByRequestor: boolean;
-    sizeBytes: number;
-  }[];
+interface CapacityForecast {
+  currentUsedPct: number;
+  growthRatePerDay: number;
+  daysUntilThreshold: number;
+  daysUntilFull: number;
+  totalCapacity: number;
+  usedCapacity: number;
 }
 
 // ─── Reactive state ─────────────────────────────────────────────────────────
 
-const activeTab = ref('overview');
 const api = useApi();
-const router = useRouter();
 const { isDark } = useAppColorMode();
-const {
-  chart1Color,
-  chart2Color,
-  chart3Color,
-  chart4Color,
-  glowLineStyle,
-  gradientArea,
-  gradientBar,
-  tooltipConfig,
-  emphasisConfig,
-  generatePalette,
-} = useEChartsDefaults();
+const { tooltipConfig, colorAlpha, successColor, destructiveColor } = useEChartsDefaults();
+const { primaryColor } = useThemeColors();
 const { on, off } = useEventStream();
 
-const compositionData = ref<CompositionResponse | null>(null);
-const qualityData = ref<QualityDistributionResponse | null>(null);
-const bloatData = ref<SizeAnomaly[] | null>(null);
-const deadData = ref<DeadContentReport | null>(null);
-const staleData = ref<StaleContentReport | null>(null);
-const popularityData = ref<PopularityData | null>(null);
-const requestData = ref<RequestFulfillmentData | null>(null);
 const metricsData = ref<LibraryHistoryRow[]>([]);
 const integrations = ref<IntegrationConfig[]>([]);
+const forecastData = ref<CapacityForecast | null>(null);
+const diskGroups = ref<DiskGroup[]>([]);
+const statusData = ref<StatusBreakdown | null>(null);
 
 // ─── Data fetching ──────────────────────────────────────────────────────────
-
-async function fetchComposition() {
-  try {
-    compositionData.value = (await api('/api/v1/analytics/composition')) as CompositionResponse;
-  } catch {
-    // Silent — charts show placeholder
-  }
-}
-
-async function fetchQuality() {
-  try {
-    qualityData.value = (await api('/api/v1/analytics/quality')) as QualityDistributionResponse;
-  } catch {
-    // Silent
-  }
-}
-
-async function fetchBloat() {
-  try {
-    bloatData.value = (await api('/api/v1/analytics/bloat')) as SizeAnomaly[];
-  } catch {
-    // Silent
-  }
-}
-
-async function fetchDeadContent() {
-  try {
-    deadData.value = (await api('/api/v1/analytics/dead-content')) as DeadContentReport;
-  } catch {
-    // Silent
-  }
-}
-
-async function fetchStaleContent() {
-  try {
-    staleData.value = (await api('/api/v1/analytics/stale-content')) as StaleContentReport;
-  } catch {
-    // Silent
-  }
-}
-
-async function fetchPopularity() {
-  try {
-    popularityData.value = (await api('/api/v1/analytics/popularity')) as PopularityData;
-  } catch {
-    // Silent
-  }
-}
-
-async function fetchRequestFulfillment() {
-  try {
-    requestData.value = (await api(
-      '/api/v1/analytics/request-fulfillment',
-    )) as RequestFulfillmentData;
-  } catch {
-    // Silent
-  }
-}
 
 async function fetchMetrics() {
   try {
@@ -601,15 +266,34 @@ async function fetchIntegrations() {
   }
 }
 
+async function fetchForecast() {
+  try {
+    forecastData.value = (await api('/api/v1/analytics/forecast')) as CapacityForecast;
+  } catch {
+    // Silent
+  }
+}
+
+async function fetchDiskGroups() {
+  try {
+    diskGroups.value = (await api('/api/v1/disk-groups')) as DiskGroup[];
+  } catch {
+    // Silent
+  }
+}
+
+async function fetchStatusBreakdown() {
+  try {
+    statusData.value = (await api('/api/v1/analytics/status-breakdown')) as StatusBreakdown;
+  } catch {
+    // Silent
+  }
+}
+
 function fetchAllAnalytics() {
-  fetchComposition();
-  fetchQuality();
-  fetchBloat();
-  fetchDeadContent();
-  fetchStaleContent();
-  fetchPopularity();
-  fetchRequestFulfillment();
   fetchMetrics();
+  fetchForecast();
+  fetchStatusBreakdown();
 }
 
 // ─── Watch providers detection ──────────────────────────────────────────────
@@ -621,233 +305,264 @@ const noWatchProviders = computed(() => {
   return !enabled.some((i) => WATCH_PROVIDER_TYPES.has(i.type));
 });
 
+// ─── Derived data ───────────────────────────────────────────────────────────
+
+/** Latest metrics data point for the capacity gauge. */
+const latestMetrics = computed(() => {
+  if (!metricsData.value.length) return null;
+  const sorted = [...metricsData.value].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  );
+  return sorted[0] ?? null;
+});
+
+/** Disk group threshold and target (from first disk group). */
+const diskThreshold = computed(() => diskGroups.value[0]?.thresholdPct ?? 90);
+const diskTarget = computed(() => diskGroups.value[0]?.targetPct ?? 80);
+
+// ─── Formatting helpers ─────────────────────────────────────────────────────
+
+function formatGrowthRate(bytesPerDay: number): string {
+  if (bytesPerDay === 0) return '0 B/day';
+  return `${formatBytes(bytesPerDay)}/day`;
+}
+
 // ─── SSE: analytics_updated → refetch ───────────────────────────────────────
 
 function handleAnalyticsUpdated() {
   fetchAllAnalytics();
 }
 
-// ─── Click handlers for chart→Library navigation ────────────────────────────
-
-function onQualityDonutClick(params: { name?: string }) {
-  if (params.name) {
-    router.push(`/library?quality=${encodeURIComponent(params.name)}`);
-  }
-}
-
-function onQualityBarClick(params: { name?: string }) {
-  if (params.name) {
-    router.push(`/library?quality=${encodeURIComponent(params.name)}`);
-  }
-}
-
 // ─── Chart options ──────────────────────────────────────────────────────────
 
-const textColor = computed(() => (isDark.value ? '#a1a1aa' : '#71717a'));
+// Status → color mapping (semantic)
+const STATUS_COLORS: Record<string, string> = {
+  dead: '#ef4444',
+  stale: '#f59e0b',
+  protected: '', // filled dynamically from primaryColor
+  active: '#10b981',
+};
 
-const qualityDonutOption = computed(() => {
-  const data = compositionData.value?.qualityDistribution ?? [];
-  const palette = generatePalette(chart1Color.value, data.length);
+function getStatusColor(name: string): string {
+  if (name === 'protected') return primaryColor.value;
+  return STATUS_COLORS[name] ?? '#64748b';
+}
+
+// Capacity Gauge — liquid fill tank with zone-aware color
+const capacityGaugeOption = computed(() => {
+  const latest = latestMetrics.value;
+  if (!latest) return {};
+
+  const usedPct = latest.totalCapacity > 0 ? (latest.usedCapacity / latest.totalCapacity) * 100 : 0;
+  const usedTB = (latest.usedCapacity / 1e12).toFixed(1);
+  const totalTB = (latest.totalCapacity / 1e12).toFixed(1);
+  const threshold = diskThreshold.value;
+
+  // Determine tank color based on zone
+  let tankColor = successColor.value;
+  if (usedPct >= threshold) {
+    tankColor = destructiveColor.value;
+  } else if (usedPct >= diskTarget.value) {
+    tankColor = '#f59e0b'; // amber
+  }
+
   return {
     backgroundColor: 'transparent',
-    tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)', ...tooltipConfig() },
     series: [
       {
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: true,
-        animationType: 'scale',
-        label: { color: textColor.value, fontSize: 11 },
-        itemStyle: { shadowBlur: 6, shadowColor: 'rgba(0,0,0,0.15)' },
-        emphasis: { itemStyle: { shadowBlur: 12, shadowColor: 'rgba(0,0,0,0.3)' } },
-        data: data.map((d, i) => ({
-          name: d.name,
-          value: d.count,
-          itemStyle: { color: palette[i] },
-        })),
+        type: 'liquidFill',
+        data: [usedPct / 100],
+        radius: '80%',
+        center: ['50%', '50%'],
+        color: [tankColor],
+        backgroundStyle: {
+          color: isDark.value ? 'rgba(63,63,70,0.3)' : 'rgba(228,228,231,0.4)',
+          borderColor: isDark.value ? 'rgba(63,63,70,0.6)' : 'rgba(228,228,231,0.8)',
+          borderWidth: 2,
+        },
+        outline: {
+          show: true,
+          borderDistance: 4,
+          itemStyle: {
+            borderColor: colorAlpha(tankColor, 0.3),
+            borderWidth: 3,
+          },
+        },
+        label: {
+          formatter: () => `${usedPct.toFixed(1)}%\n${usedTB} / ${totalTB} TB`,
+          fontSize: 20,
+          fontWeight: 'bold',
+          color: isDark.value ? '#e4e4e7' : '#18181b',
+        },
+        shape: 'circle',
+        waveAnimation: true,
+        animationDuration: 2000,
+        animationDurationUpdate: 1000,
       },
     ],
   };
 });
 
-const genreBarOption = computed(() => {
-  const data = (compositionData.value?.genreDistribution ?? []).slice(0, 10);
-  return {
-    backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis', ...tooltipConfig() },
-    grid: { top: 10, right: 10, bottom: 30, left: 80 },
-    xAxis: {
-      type: 'value',
-      axisLabel: { color: textColor.value, fontSize: 11 },
-      splitLine: { lineStyle: { type: 'dashed', opacity: 0.15 } },
-    },
-    yAxis: {
-      type: 'category',
-      data: data.map((d) => d.name).reverse(),
-      axisLabel: { color: textColor.value, fontSize: 11 },
-    },
-    series: [
-      {
-        type: 'bar',
-        data: data.map((d) => d.count).reverse(),
-        itemStyle: { color: gradientBar(chart1Color.value), borderRadius: [0, 4, 4, 0] },
-        emphasis: { itemStyle: { shadowBlur: 8 } },
-      },
-    ],
-  };
-});
+// ─── Treemap option ─────────────────────────────────────────────────────────
 
-const integrationTreemapOption = computed(() => {
-  const data = compositionData.value?.typeDistribution ?? [];
-  const colors = [chart1Color.value, chart2Color.value, chart3Color.value, chart4Color.value];
+const treemapOption = computed(() => {
+  if (!statusData.value) return {};
+
+  const cardBg = isDark.value ? '#18181b' : '#ffffff';
+
+  // Recursively color tree nodes — children inherit lighter variations of parent color
+  function colorTree(
+    nodes: TreeNode[],
+    baseColor: string,
+    depth: number,
+  ): Record<string, unknown>[] {
+    return nodes.map((node, i) => {
+      const nodeColor = depth === 0 ? baseColor : colorAlpha(baseColor, 0.5 + (i % 6) * 0.08);
+
+      if (node.children && node.children.length > 0) {
+        return {
+          name: node.name,
+          itemStyle: { color: nodeColor },
+          children: colorTree(node.children, nodeColor, depth + 1),
+        };
+      }
+      return {
+        name: node.name,
+        value: node.value ?? 0,
+        itemStyle: { color: nodeColor },
+      };
+    });
+  }
+
+  // Build treemap data from the recursive StatusBreakdown tree
+  const data = statusData.value.statuses
+    .filter((s) => s.totalCount > 0)
+    .map((status) => {
+      const baseColor = getStatusColor(status.name);
+      return {
+        name: capitalize(status.name),
+        itemStyle: { color: baseColor },
+        children: colorTree(status.children ?? [], baseColor, 0),
+      };
+    });
+
   return {
     backgroundColor: 'transparent',
+    animationDuration: 1000,
+    animationEasing: 'cubicOut',
     tooltip: {
-      trigger: 'item',
       ...tooltipConfig(),
-      formatter: (params: { name: string; value: number }) =>
-        `${params.name}: ${params.value} items`,
+      formatter: (params: { name?: string; value?: number; treePathInfo?: { name: string }[] }) => {
+        const name = params.name ?? '';
+        const gb = params.value ? (params.value / 1e9).toFixed(1) : '0';
+        // Show breadcrumb path in tooltip
+        const path = params.treePathInfo
+          ?.map((p) => p.name)
+          .filter(Boolean)
+          .join(' › ');
+        return `<div style="font-size:11px;color:#999;margin-bottom:2px">${path ?? ''}</div><strong>${name}</strong><br/>${gb} GB`;
+      },
     },
     series: [
       {
         type: 'treemap',
-        data: data.map((d, i) => ({
-          name: d.name,
-          value: d.count,
-          itemStyle: { color: colors[i % colors.length] },
-        })),
+        data,
+        leafDepth: 2,
+        drillDownIcon: '▶',
+        breadcrumb: {
+          show: true,
+          itemStyle: {
+            color: isDark.value ? '#27272a' : '#f4f4f5',
+            borderColor: isDark.value ? '#3f3f46' : '#e4e4e7',
+            textStyle: {
+              color: isDark.value ? '#a1a1aa' : '#71717a',
+            },
+          },
+        },
+        roam: false,
+        visibleMin: 200,
+        upperLabel: {
+          show: true,
+          height: 28,
+          color: isDark.value ? '#fafafa' : '#18181b',
+          fontSize: 12,
+          fontWeight: 'bold',
+          backgroundColor: 'transparent',
+        },
         itemStyle: {
+          borderColor: cardBg,
           borderWidth: 2,
-          borderColor: isDark.value ? '#18181b' : '#fafafa',
+          gapWidth: 2,
+          borderRadius: 4,
+        },
+        emphasis: {
+          itemStyle: {
+            shadowBlur: 12,
+            shadowColor: isDark.value ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.2)',
+          },
+          upperLabel: {
+            show: true,
+            color: isDark.value ? '#ffffff' : '#000000',
+          },
         },
         label: {
           show: true,
-          color: '#fff',
-          fontSize: 12,
-          formatter: '{b}\n{c}',
-          textShadowBlur: 2,
-          textShadowColor: 'rgba(0,0,0,0.5)',
+          formatter: (params: { name?: string; value?: number }) => {
+            const name = params.name ?? '';
+            const gb = params.value ? (params.value / 1e9).toFixed(1) : '0';
+            return `${name}\n${gb} GB`;
+          },
+          color: isDark.value ? '#e4e4e7' : '#18181b',
+          fontSize: 11,
+          lineHeight: 16,
         },
-        breadcrumb: { show: false },
+        levels: [
+          {
+            // Level 0: top status groups (Dead, Stale, Protected, Active)
+            itemStyle: {
+              borderColor: cardBg,
+              borderWidth: 4,
+              gapWidth: 4,
+              borderRadius: 6,
+            },
+          },
+          {
+            // Level 1: shows / movies (containers or leaves)
+            itemStyle: {
+              borderColor: cardBg,
+              borderWidth: 2,
+              gapWidth: 2,
+              borderRadius: 4,
+            },
+            colorSaturation: [0.3, 0.7],
+          },
+          {
+            // Level 2: seasons within shows (deepest leaves)
+            itemStyle: {
+              borderColor: cardBg,
+              borderWidth: 1,
+              gapWidth: 1,
+              borderRadius: 3,
+            },
+            colorSaturation: [0.25, 0.6],
+          },
+        ],
       },
     ],
   };
 });
 
-const growthLineOption = computed(() => {
-  const rows = [...metricsData.value].sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-  );
-  const labels = rows.map((r) => {
-    const d = new Date(r.timestamp);
-    return `${d.getMonth() + 1}/${d.getDate()}`;
-  });
-  const used = rows.map((r) => Math.round(r.usedCapacity / 1e9));
-  const total = rows.map((r) => Math.round(r.totalCapacity / 1e9));
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-  return {
-    backgroundColor: 'transparent',
-    tooltip: { trigger: 'axis', ...tooltipConfig() },
-    legend: {
-      data: ['Used (GB)', 'Total (GB)'],
-      textStyle: { color: textColor.value },
-    },
-    grid: { top: 30, right: 10, bottom: 30, left: 50 },
-    xAxis: {
-      type: 'category',
-      data: labels,
-      axisLabel: { color: textColor.value, fontSize: 11 },
-    },
-    yAxis: {
-      type: 'value',
-      axisLabel: { color: textColor.value, fontSize: 11 },
-    },
-    series: [
-      {
-        name: 'Used (GB)',
-        type: 'line',
-        smooth: true,
-        symbol: 'none',
-        lineStyle: glowLineStyle(chart1Color.value),
-        areaStyle: gradientArea(chart1Color.value),
-        data: used,
-        itemStyle: { color: chart1Color.value },
-        emphasis: emphasisConfig(),
-      },
-      {
-        name: 'Total (GB)',
-        type: 'line',
-        smooth: true,
-        symbol: 'none',
-        lineStyle: { type: 'dashed', width: 1, color: chart2Color.value },
-        data: total,
-        itemStyle: { color: chart2Color.value },
-      },
-    ],
-  };
-});
-
-const qualityStackedBarOption = computed(() => {
-  const profiles = qualityData.value?.profiles ?? [];
-  const names = profiles.map((p) => p.name);
-  const counts = profiles.map((p) => p.count);
-  const sizes = profiles.map((p) => Math.round(p.sizeBytes / 1e9)); // GB
-
-  return {
-    backgroundColor: 'transparent',
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
-      ...tooltipConfig(),
-    },
-    legend: {
-      data: ['Items', 'Storage (GB)'],
-      textStyle: { color: textColor.value },
-    },
-    grid: { top: 30, right: 10, bottom: 30, left: 50 },
-    xAxis: {
-      type: 'category',
-      data: names,
-      axisLabel: { color: textColor.value, fontSize: 11, rotate: names.length > 5 ? 30 : 0 },
-    },
-    yAxis: [
-      {
-        type: 'value',
-        name: 'Items',
-        axisLabel: { color: textColor.value, fontSize: 11 },
-        nameTextStyle: { color: textColor.value },
-      },
-      {
-        type: 'value',
-        name: 'GB',
-        axisLabel: { color: textColor.value, fontSize: 11 },
-        nameTextStyle: { color: textColor.value },
-      },
-    ],
-    series: [
-      {
-        name: 'Items',
-        type: 'bar',
-        data: counts,
-        itemStyle: { color: chart1Color.value, borderRadius: [4, 4, 0, 0] },
-        emphasis: emphasisConfig(),
-      },
-      {
-        name: 'Storage (GB)',
-        type: 'bar',
-        yAxisIndex: 1,
-        data: sizes,
-        itemStyle: { color: chart3Color.value, borderRadius: [4, 4, 0, 0] },
-        emphasis: emphasisConfig(),
-      },
-    ],
-  };
-});
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
 
 // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
 onMounted(async () => {
   await fetchIntegrations();
+  await fetchDiskGroups();
   fetchAllAnalytics();
   on('analytics_updated', handleAnalyticsUpdated);
 });
