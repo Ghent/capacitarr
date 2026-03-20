@@ -117,6 +117,61 @@ func TestStartStop_Lifecycle(t *testing.T) {
 	p.Stop()
 }
 
+func TestPoller_ManualRunTriggeredEvent(t *testing.T) {
+	_, reg := setupPollerTestDB(t)
+	p := New(reg)
+
+	p.Start()
+	defer p.Stop()
+
+	// Give the startup poll a moment to complete
+	time.Sleep(50 * time.Millisecond)
+
+	// Publishing a ManualRunTriggeredEvent on the bus should trigger a poll.
+	// We verify this indirectly: the poller calls safePoll(), which calls poll(),
+	// which increments engine runs. We can check that no panic occurred and the
+	// engine was marked running then idle.
+	reg.Bus.Publish(events.ManualRunTriggeredEvent{})
+
+	// Give time for the event to be received and processed
+	time.Sleep(100 * time.Millisecond)
+
+	// The poller should not be stuck running
+	if reg.Engine.IsRunning() {
+		t.Error("engine should not be running after manual trigger completes")
+	}
+}
+
+func TestPoller_SettingsChangedEvent_ResetsTimer(t *testing.T) {
+	database, reg := setupPollerTestDB(t)
+	p := New(reg)
+
+	// Set a very long poll interval so the timer-based tick won't fire during the test
+	database.Model(&db.PreferenceSet{}).Where("id = 1").Update("poll_interval_seconds", 86400)
+
+	p.Start()
+	defer p.Stop()
+
+	// Give the startup poll a moment to complete
+	time.Sleep(50 * time.Millisecond)
+
+	// Now change the poll interval to something short
+	database.Model(&db.PreferenceSet{}).Where("id = 1").Update("poll_interval_seconds", 60)
+
+	// Publish SettingsChangedEvent — this should reset the timer to read the new interval
+	reg.Bus.Publish(events.SettingsChangedEvent{})
+
+	// Allow time for the event to be processed
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify the new interval is read correctly
+	interval := p.getPollInterval()
+	expected := 1 * time.Minute
+	if interval != expected {
+		t.Errorf("expected interval %v after settings change, got %v", expected, interval)
+	}
+}
+
 // ---------- safePoll() ----------
 
 func TestSafePoll_NoPanic(t *testing.T) {

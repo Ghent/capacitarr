@@ -20,7 +20,7 @@ func TestEngineService_TriggerRun(t *testing.T) {
 		t.Errorf("expected %q, got %q", EngineStatusStarted, result)
 	}
 
-	// Verify event published
+	// Verify ManualRunTriggeredEvent published on the EventBus
 	select {
 	case evt := <-ch:
 		if evt.EventType() != "manual_run_triggered" {
@@ -28,13 +28,6 @@ func TestEngineService_TriggerRun(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timeout waiting for manual_run_triggered event")
-	}
-
-	// Drain the RunNowCh signal
-	select {
-	case <-svc.RunNowCh:
-	default:
-		t.Fatal("expected signal on RunNowCh")
 	}
 }
 
@@ -50,17 +43,32 @@ func TestEngineService_TriggerRun_AlreadyRunning(t *testing.T) {
 	}
 }
 
-func TestEngineService_TriggerRun_ChannelFull(t *testing.T) {
+func TestEngineService_TriggerRun_IdempotentWhenIdle(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewEngineService(database, bus)
 
-	// Fill the RunNowCh (buffered with size 1)
-	svc.RunNowCh <- struct{}{}
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
 
-	result := svc.TriggerRun()
-	if result != EngineStatusAlreadyRunning {
-		t.Errorf("expected %q when channel full, got %q", EngineStatusAlreadyRunning, result)
+	// Multiple triggers when idle should all succeed (EventBus is non-blocking)
+	for i := 0; i < 3; i++ {
+		result := svc.TriggerRun()
+		if result != EngineStatusStarted {
+			t.Errorf("trigger %d: expected %q, got %q", i, EngineStatusStarted, result)
+		}
+	}
+
+	// All three events should be on the bus
+	for i := 0; i < 3; i++ {
+		select {
+		case evt := <-ch:
+			if evt.EventType() != "manual_run_triggered" {
+				t.Errorf("trigger %d: expected 'manual_run_triggered', got %q", i, evt.EventType())
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timeout waiting for event %d", i)
+		}
 	}
 }
 
