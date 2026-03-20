@@ -850,6 +850,208 @@ func TestDeletionQueuedEvent_EventMessage(t *testing.T) {
 	}
 }
 
+func TestDeletionService_UpsertAudit_UsesUpsertSemantics(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	svc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: false}, // dry-run mode
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+	)
+
+	svc.Start()
+	defer svc.Stop()
+
+	// Queue the same item twice with UpsertAudit=true — should produce only 1 audit entry
+	for i := 0; i < 2; i++ {
+		svc.SignalBatchSize(1)
+		job := DeleteJob{
+			Client:      nil, // Dry-run with nil client
+			Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
+			Reason:      "upsert-test",
+			Score:       float64(i+1) * 0.5,
+			ForceDryRun: true,
+			UpsertAudit: true,
+		}
+		if err := svc.QueueDeletion(job); err != nil {
+			t.Fatalf("QueueDeletion returned error: %v", err)
+		}
+		// Wait for processing
+		ch := bus.Subscribe()
+		drainBatchEvent(t, ch, 15*time.Second)
+		bus.Unsubscribe(ch)
+	}
+
+	// Verify: only 1 audit entry (upsert semantics)
+	var count int64
+	database.Model(&db.AuditLogEntry{}).Count(&count)
+	if count != 1 {
+		t.Errorf("expected 1 audit entry (upsert), got %d", count)
+	}
+
+	// Verify the entry has the latest score
+	var entry db.AuditLogEntry
+	database.First(&entry)
+	if entry.Score != 1.0 {
+		t.Errorf("expected score 1.0 (latest upsert), got %f", entry.Score)
+	}
+	if entry.Action != db.ActionDryDelete {
+		t.Errorf("expected action %q, got %q", db.ActionDryDelete, entry.Action)
+	}
+}
+
+func TestDeletionService_UpsertAudit_False_AppendsMultiple(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	svc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: false}, // dry-run mode
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+	)
+
+	svc.Start()
+	defer svc.Stop()
+
+	// Queue the same item twice with UpsertAudit=false — should produce 2 audit entries
+	for i := 0; i < 2; i++ {
+		svc.SignalBatchSize(1)
+		job := DeleteJob{
+			Client:      nil,
+			Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
+			Reason:      "append-test",
+			Score:       float64(i+1) * 0.3,
+			ForceDryRun: true,
+			UpsertAudit: false,
+		}
+		if err := svc.QueueDeletion(job); err != nil {
+			t.Fatalf("QueueDeletion returned error: %v", err)
+		}
+		ch := bus.Subscribe()
+		drainBatchEvent(t, ch, 15*time.Second)
+		bus.Unsubscribe(ch)
+	}
+
+	// Verify: 2 audit entries (append-only semantics)
+	var count int64
+	database.Model(&db.AuditLogEntry{}).Count(&count)
+	if count != 2 {
+		t.Errorf("expected 2 audit entries (append), got %d", count)
+	}
+}
+
+func TestDeletionService_NilClient_DryRunSucceeds(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	svc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: false}, // dry-run mode
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+	)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	svc.Start()
+	defer svc.Stop()
+
+	svc.SignalBatchSize(1)
+
+	// Queue a job with nil client in dry-run mode — should succeed
+	job := DeleteJob{
+		Client:      nil,
+		Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
+		Reason:      "nil-client-dry-run",
+		Score:       0.65,
+		ForceDryRun: true,
+	}
+	if err := svc.QueueDeletion(job); err != nil {
+		t.Fatalf("QueueDeletion returned error: %v", err)
+	}
+
+	// Should get DeletionDryRunEvent (not a failure)
+	deadline := time.After(15 * time.Second)
+	gotDryRun := false
+	for {
+		select {
+		case evt := <-ch:
+			switch evt.(type) {
+			case events.DeletionDryRunEvent:
+				gotDryRun = true
+			case events.DeletionFailedEvent:
+				t.Fatal("Expected DeletionDryRunEvent but got DeletionFailedEvent — nil client should not fail dry-run")
+			case events.DeletionBatchCompleteEvent:
+				if !gotDryRun {
+					t.Fatal("Batch completed without DeletionDryRunEvent")
+				}
+				// Verify audit entry was created
+				var entry db.AuditLogEntry
+				if err := database.First(&entry).Error; err != nil {
+					t.Fatalf("Expected audit log entry: %v", err)
+				}
+				if entry.Action != db.ActionDryDelete {
+					t.Errorf("expected action %q, got %q", db.ActionDryDelete, entry.Action)
+				}
+				return
+			}
+		case <-deadline:
+			t.Fatal("timeout waiting for events")
+		}
+	}
+}
+
+func TestDeletionService_NilClient_ActualDeletion_Fails(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	svc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: true}, // actual deletions enabled
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+	)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	svc.Start()
+	defer svc.Stop()
+
+	svc.SignalBatchSize(1)
+
+	// Queue a job with nil client AND deletions enabled, ForceDryRun=false
+	// This should hit the nil-safety check and count as a failure
+	job := DeleteJob{
+		Client:      nil,
+		Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
+		Reason:      "nil-client-actual",
+		ForceDryRun: false,
+	}
+	if err := svc.QueueDeletion(job); err != nil {
+		t.Fatalf("QueueDeletion returned error: %v", err)
+	}
+
+	bce := drainBatchEvent(t, ch, 15*time.Second)
+	if bce.Succeeded != 0 {
+		t.Errorf("expected Succeeded=0, got %d", bce.Succeeded)
+	}
+	if bce.Failed != 1 {
+		t.Errorf("expected Failed=1, got %d", bce.Failed)
+	}
+
+	// Verify no audit entry was created (nil client fails before logging)
+	var count int64
+	database.Model(&db.AuditLogEntry{}).Count(&count)
+	if count != 0 {
+		t.Errorf("expected 0 audit entries for nil client failure, got %d", count)
+	}
+}
+
 func TestDeletionService_QueueDeletion_PublishesDeletionQueuedEvent(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

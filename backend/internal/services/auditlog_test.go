@@ -51,7 +51,7 @@ func TestAuditLogService_UpsertDryRun_Create(t *testing.T) {
 		MediaName: "Firefly",
 		MediaType: "show",
 		Reason:    "Score: 0.70",
-		Action:    db.ActionDryRun,
+		Action:    db.ActionDryDelete,
 		SizeBytes: 3000000000,
 		Score:     0.70,
 	}
@@ -83,7 +83,7 @@ func TestAuditLogService_UpsertDryRun_Update(t *testing.T) {
 		MediaName: "Firefly",
 		MediaType: "show",
 		Reason:    "Score: 0.70",
-		Action:    db.ActionDryRun,
+		Action:    db.ActionDryDelete,
 		SizeBytes: 3000000000,
 		Score:     0.70,
 	}

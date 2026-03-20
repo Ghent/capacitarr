@@ -199,7 +199,6 @@ func (ApprovalQueueItem) TableName() string {
 // Audit log action constants — used in AuditLogEntry.Action field.
 const (
 	ActionDeleted   = "deleted"
-	ActionDryRun    = "dry_run"
 	ActionDryDelete = "dry_delete"
 	ActionCancelled = "cancelled"
 )
@@ -212,7 +211,7 @@ type AuditLogEntry struct {
 	MediaType     string    `gorm:"not null" json:"mediaType"`
 	Reason        string    `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)"
 	ScoreDetails  string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
-	Action        string    `gorm:"not null" json:"action"`        // "deleted", "dry_run", "dry_delete", "cancelled"
+	Action        string    `gorm:"not null" json:"action"`        // "deleted", "dry_delete", "cancelled"
 	SizeBytes     int64     `gorm:"not null;default:0" json:"sizeBytes"`
 	Score         float64   `gorm:"not null;default:0" json:"score"`                      // Numeric score from engine evaluation
 	IntegrationID *uint     `json:"integrationId,omitempty" gorm:"column:integration_id"` // FK to IntegrationConfig (nullable — preserved on integration delete)

@@ -65,16 +65,18 @@ func (s *AuditLogService) Create(entry db.AuditLogEntry) error {
 }
 
 // UpsertDryRun creates or updates a dry-run audit log entry.
-// If an entry with the same media_name, media_type, and action already exists,
-// it is updated. Otherwise, a new entry is created.
+// If an entry with the same media_name, media_type, and action=dry_delete already
+// exists, it is updated. Otherwise, a new entry is created. The entry's Action
+// field is forced to ActionDryDelete regardless of what the caller passes.
 func (s *AuditLogService) UpsertDryRun(entry db.AuditLogEntry) error {
 	entry.CreatedAt = time.Now().UTC()
+	entry.Action = db.ActionDryDelete
 
 	// Try to find an existing dry-run entry for the same media
 	var existing db.AuditLogEntry
 	result := s.db.Where(
 		"media_name = ? AND media_type = ? AND action = ?",
-		entry.MediaName, entry.MediaType, entry.Action,
+		entry.MediaName, entry.MediaType, db.ActionDryDelete,
 	).First(&existing)
 
 	if result.Error == nil {
