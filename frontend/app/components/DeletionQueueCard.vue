@@ -20,8 +20,6 @@ const {
 const { queuedItems, completedItems, countdown, fetchQueue, cancelItem, snoozeItem, clearAll } =
   useDeletionQueue();
 
-const isApprovalMode = computed(() => executionMode.value === 'approval');
-
 // Fetch queue on mount
 onMounted(() => {
   fetchQueue();
@@ -32,7 +30,17 @@ const hasContent = computed(
     engineIsDeletionActive.value || queuedItems.value.length > 0 || completedItems.value.length > 0,
 );
 
-const showCard = computed(() => hasContent.value || isApprovalMode.value);
+/** Mode-specific empty state message key */
+const emptyStateMessage = computed(() => {
+  switch (executionMode.value) {
+    case 'approval':
+      return t('deletion.emptyInApproval');
+    case 'dry-run':
+      return t('deletion.emptyInDryRun');
+    default:
+      return t('deletion.noItems');
+  }
+});
 
 const progressPercent = computed(() => {
   if (!engineDeletionProgress.value) return 0;
@@ -43,7 +51,6 @@ const progressPercent = computed(() => {
 
 <template>
   <UiCard
-    v-if="showCard"
     v-motion
     :initial="{ opacity: 0, y: 12 }"
     :enter="{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } }"
@@ -203,9 +210,9 @@ const progressPercent = computed(() => {
         </div>
       </div>
 
-      <!-- Empty state — shown in approval mode when no items are queued -->
+      <!-- Empty state — always shown when no items are queued -->
       <div v-if="!hasContent" class="text-center py-6 text-muted-foreground text-sm">
-        {{ isApprovalMode ? t('deletion.emptyInApproval') : t('deletion.noItems') }}
+        {{ emptyStateMessage }}
       </div>
     </UiCardContent>
   </UiCard>

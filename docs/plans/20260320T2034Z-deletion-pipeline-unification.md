@@ -1,7 +1,7 @@
 # Deletion Pipeline Unification
 
 **Created:** 2026-03-20T20:34Z
-**Status:** 🔄 In Progress (Phase 2 complete)
+**Status:** 🔄 In Progress (Phase 5 complete)
 **Base Branch:** `feature/2.0`
 **Breaking:** Yes — no backward compatibility required (2.0 baseline migration)
 
@@ -314,76 +314,88 @@ Replaced the old channel-based immediate-processing worker with a grace-period-a
 
 ## Phase 4: Always-Visible Deletion Queue Card
 
-### Step 4.1: Update card visibility logic
+**Status:** ✅ Complete
+**Completed:** 2026-03-20T22:15Z
+
+### Step 4.1: Update card visibility logic ✅
 
 **File:** `frontend/app/components/DeletionQueueCard.vue`
 
-Currently the card is shown when `hasContent || isApprovalMode`. Change to always show the card regardless of mode. When empty, show an appropriate empty state message based on mode.
+Removed the `v-if="showCard"` conditional and the `showCard`/`isApprovalMode` computed properties. The card now always renders. Added a `emptyStateMessage` computed that returns mode-specific text based on `executionMode`.
 
-### Step 4.2: Update empty state messages
+### Step 4.2: Update empty state messages ✅
 
-**File:** Frontend i18n files
+**Files:** `frontend/app/locales/en.json`
 
-Add mode-specific empty state messages:
-- Auto: "No items queued for deletion"
-- Approval: "Approve items from the approval queue to see them here"
-- Dry-run: "No items queued for dry-run"
+Updated and added mode-specific empty state messages:
+- Auto: "No items queued for deletion" (`deletion.noItems`)
+- Approval: "Approve items from the approval queue to see them here" (`deletion.emptyInApproval`)
+- Dry-run: "No items queued for dry-run" (`deletion.emptyInDryRun` — new key)
 
 ## Phase 5: Snoozed Items Card
 
+**Status:** ✅ Complete
+**Completed:** 2026-03-20T22:15Z
+
 Extract snoozed items from the approval queue card into a dedicated, always-mode-aware card. This card is visible in all execution modes (auto, approval, dry-run) and only renders when snoozed items exist.
 
-### Step 5.1: Create `SnoozedItemsCard.vue` component
+### Step 5.1: Create `SnoozedItemsCard.vue` component ✅
 
 **File:** `frontend/app/components/SnoozedItemsCard.vue`
 
-Create a new card component that:
-- Fetches snoozed items from the API (`GET /api/v1/approval-queue?status=rejected` filtered to items with active `snoozedUntil`)
-- Displays each item with: media name, type, size, snooze expiration countdown ("Unsnoozed in 18h"), and an unsnooze button
-- Uses `v-motion` animations for smooth enter/leave transitions (spring stiffness 260, damping 24 — matching existing cards)
-- Animates individual items in/out when snoozes are added or expire
-- Hidden when no snoozed items exist (no empty state — card simply doesn't render)
-- Calls `POST /api/v1/approval-queue/:id/unsnooze` when the unsnooze button is clicked
+Created a new card component that:
+- Uses `useSnoozedItems` composable to fetch and manage snoozed items
+- Displays each item with media name, type, size, and snooze expiration countdown ("Expires in 18h 30m")
+- Includes an unsnooze button (Undo2Icon) per item
+- Uses `v-motion` animations for card-level and item-level transitions (spring stiffness 260, damping 24)
+- Conditionally renders via `v-if="snoozedItems.length > 0"` — no empty state, card simply hides
+- Uses UiCard, UiCardHeader, UiCardContent, UiBadge, UiButton (shadcn-vue design system)
 
-### Step 5.2: Remove snoozed section from `ApprovalQueueCard.vue`
+### Step 5.2: Remove snoozed section from `ApprovalQueueCard.vue` ✅
 
 **File:** `frontend/app/components/ApprovalQueueCard.vue`
 
-- Remove the `snoozedItems` section and related jump bar navigation
-- Remove the `snoozedSectionRef` and IntersectionObserver logic for the snoozed section
-- The approval card becomes purely "pending items awaiting review"
-- Update the `totalCount` computed to only count pending items
+- Removed the entire "Section 2: Snoozed" template block (grid + list views, ~170 lines)
+- Removed `snoozedItems` and `unsnoozeGroup` from `useApprovalQueue` destructuring
+- Removed `Undo2Icon` import (no longer used)
+- Removed `snoozedSectionRef`, `activeSection`, `showJumpBar`, `scrollToSection()`, IntersectionObserver setup/cleanup
+- Updated `totalCount` computed to only count `pendingItems.value.length`
+- Simplified pending badge (removed jump bar interaction classes)
+- Updated Clear All button condition to check only `pendingItems.length > 0`
+- Simplified ScoreDetailModal action display (removed snoozed state check)
 
-### Step 5.3: Add `SnoozedItemsCard` to dashboard layout
+### Step 5.3: Add `SnoozedItemsCard` to dashboard layout ✅
 
-**File:** Dashboard page component
+**File:** `frontend/app/pages/index.vue`
 
-Add the `SnoozedItemsCard` to the dashboard layout, positioned between the approval queue card and the deletion queue card (or after both — determine best visual flow). The card auto-hides when empty via `v-if`.
+Added `<SnoozedItemsCard />` to the dashboard layout, positioned between the ApprovalQueueCard and DeletionQueueCard. The card auto-hides when empty. Reordered dashboard cards: Engine Activity → Approval Queue → Snoozed Items → Deletion Queue → Disk Groups.
 
-### Step 5.4: Create `useSnoozedItems` composable
+### Step 5.4: Create `useSnoozedItems` composable ✅
 
 **File:** `frontend/app/composables/useSnoozedItems.ts`
 
-Create a composable that:
-- Fetches snoozed items from the API
-- Provides reactive `snoozedItems` list
-- Provides `unsnooze(id)` method
-- Subscribes to SSE events for real-time updates when snoozes are added/expire
-- Auto-refreshes on engine run completion (via `runCompletionCounter` from `useEngineControl`)
+Created composable that:
+- Fetches `GET /api/v1/approval-queue?status=rejected&limit=1000` and filters client-side to items with active `snoozedUntil`
+- Provides reactive `snoozedItems` list (SnoozedItem[] with id, mediaName, mediaType, sizeBytes, snoozedUntil, posterUrl, score)
+- Provides `unsnooze(id)` method with optimistic removal and revert-on-failure
+- Auto-refreshes on `runCompletionCounter` change from `useEngineControl`
+- Subscribes to SSE events: `approval_rejected`, `approval_unsnoozed`, `approval_bulk_unsnoozed`, `approval_queue_cleared`, `approval_dismissed`, `engine_complete`
+- Uses module-level `_snoozedSseRegistered` flag for one-time SSE handler registration
 
-### Step 5.5: Extend `IsSnoozed()` check to all execution modes
+### Step 5.5: Extend `IsSnoozed()` check to all execution modes ✅
 
 **File:** `internal/poller/evaluate.go`
 
-Currently the `IsSnoozed()` check at line 180 only runs in approval mode. Move it to run for **all modes** (before the mode-specific branching) so that items snoozed from the deletion queue in auto/dry-run mode are respected.
+Moved the `IsSnoozed()` check from inside the `else if prefs.ExecutionMode == "approval"` block to immediately after the dedup check (before mode-specific branching). The check now runs for all execution modes (auto, approval, dry-run), ensuring items snoozed from the deletion queue in auto/dry-run mode are respected by the engine.
 
-### Step 5.6: Update tests
+### Step 5.6: Update tests ✅
 
-**Files:** Frontend component tests, `internal/poller/evaluate_test.go`
+**File:** `internal/poller/evaluate_test.go`
 
-- Test that `IsSnoozed()` is checked in auto and dry-run modes
-- Test that the snoozed card renders when items exist and hides when empty
-- Test unsnooze action from the snoozed card
+Added two new tests:
+- `TestEvaluateAndCleanDisk_IsSnoozed_AutoMode` — verifies snoozed item ("Serenity") is skipped in auto mode, returning 0 deletions queued
+- `TestEvaluateAndCleanDisk_IsSnoozed_DryRunMode` — verifies snoozed item ("Firefly") is skipped in dry-run mode, returning 0 deletions queued
+- Both tests create a snoozed approval queue entry, provide a matching media item, and verify the engine skips it
 
 ## Phase 6: Dry-Run Return to Approval Queue
 

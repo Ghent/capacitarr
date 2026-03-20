@@ -3,7 +3,6 @@ import {
   CheckIcon,
   AlarmClockIcon,
   ClipboardListIcon,
-  Undo2Icon,
   ChevronRightIcon,
   Trash2Icon,
   XIcon,
@@ -15,11 +14,9 @@ const { t } = useI18n();
 const { viewMode } = useDisplayPrefs();
 const {
   pendingItems,
-  snoozedItems,
   loading,
   approveGroup,
   rejectGroup,
-  unsnoozeGroup,
   approveSeason,
   snoozeSeason,
   dismissGroup,
@@ -27,83 +24,11 @@ const {
   clearQueue,
 } = useApprovalQueue();
 
-const totalCount = computed(() => pendingItems.value.length + snoozedItems.value.length);
+const totalCount = computed(() => pendingItems.value.length);
 
-// --- Section jump navigation ---
 const scrollAreaRef = ref<InstanceType<
   typeof import('~/components/ui/scroll-area/ScrollArea.vue').default
 > | null>(null);
-const pendingSectionRef = ref<HTMLElement | null>(null);
-const snoozedSectionRef = ref<HTMLElement | null>(null);
-
-/** Which section is currently most visible in the scroll viewport */
-const activeSection = ref<'pending' | 'snoozed'>('pending');
-
-/** Whether the jump bar should be shown (2+ visible sections) */
-const showJumpBar = computed(() => {
-  return [pendingItems.value.length, snoozedItems.value.length].filter((n) => n > 0).length > 1;
-});
-
-/** Scroll to a section within the scroll area viewport */
-function scrollToSection(el: HTMLElement | null) {
-  if (!el || !scrollAreaRef.value) return;
-  // Reka UI ScrollArea wraps content in a ScrollAreaViewport div
-  const viewport = scrollAreaRef.value?.$el?.querySelector('[data-slot="scroll-area-viewport"]');
-  if (viewport) {
-    viewport.scrollTo({ top: el.offsetTop, behavior: 'smooth' });
-  }
-}
-
-// IntersectionObserver to track which section is currently visible
-let sectionObserver: IntersectionObserver | null = null;
-
-function setupSectionObserver() {
-  cleanupSectionObserver();
-
-  const viewport = scrollAreaRef.value?.$el?.querySelector('[data-slot="scroll-area-viewport"]');
-  if (!viewport) return;
-
-  sectionObserver = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting && entry.intersectionRatio > 0.1) {
-          const section = (entry.target as HTMLElement).dataset.section;
-          if (section === 'pending' || section === 'snoozed') {
-            activeSection.value = section;
-          }
-        }
-      }
-    },
-    {
-      root: viewport,
-      threshold: [0.1, 0.5],
-    },
-  );
-
-  // Observe each section that exists
-  if (pendingSectionRef.value) sectionObserver.observe(pendingSectionRef.value);
-  if (snoozedSectionRef.value) sectionObserver.observe(snoozedSectionRef.value);
-}
-
-function cleanupSectionObserver() {
-  if (sectionObserver) {
-    sectionObserver.disconnect();
-    sectionObserver = null;
-  }
-}
-
-// Re-setup observer when sections change visibility
-watch([pendingItems, snoozedItems], () => {
-  nextTick(() => setupSectionObserver());
-});
-
-onMounted(() => {
-  nextTick(() => setupSectionObserver());
-});
-
-onUnmounted(() => {
-  cleanupSectionObserver();
-});
 
 /** Expanded group keys (for show groups with seasons) */
 const expandedKeys = ref<Set<string>>(new Set());
@@ -331,32 +256,11 @@ onUnmounted(() => {
         </div>
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
           <ViewModeToggle />
-          <UiBadge
-            v-if="pendingItems.length > 0"
-            variant="default"
-            :class="[
-              'text-xs transition-colors',
-              showJumpBar ? 'cursor-pointer hover:bg-primary/80' : '',
-              activeSection === 'pending' && showJumpBar ? 'ring-1 ring-primary-foreground/50' : '',
-            ]"
-            @click="showJumpBar && scrollToSection(pendingSectionRef)"
-          >
+          <UiBadge v-if="pendingItems.length > 0" variant="default" class="text-xs">
             {{ t('approval.pendingCount', { count: pendingItems.length }) }}
           </UiBadge>
-          <UiBadge
-            v-if="snoozedItems.length > 0"
-            variant="secondary"
-            :class="[
-              'text-xs transition-colors',
-              showJumpBar ? 'cursor-pointer hover:bg-secondary/80' : '',
-              activeSection === 'snoozed' && showJumpBar ? 'ring-1 ring-foreground/20' : '',
-            ]"
-            @click="showJumpBar && scrollToSection(snoozedSectionRef)"
-          >
-            {{ t('approval.snoozedCount', { count: snoozedItems.length }) }}
-          </UiBadge>
           <UiButton
-            v-if="pendingItems.length > 0 || snoozedItems.length > 0"
+            v-if="pendingItems.length > 0"
             variant="ghost"
             size="sm"
             class="h-6 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
@@ -376,8 +280,8 @@ onUnmounted(() => {
 
       <UiScrollArea v-else ref="scrollAreaRef" class="h-[480px] pr-4">
         <div class="space-y-4">
-          <!-- Section 1: Pending Approval -->
-          <div v-if="pendingItems.length > 0" ref="pendingSectionRef" data-section="pending">
+          <!-- Pending Approval -->
+          <div v-if="pendingItems.length > 0">
             <div class="flex items-center justify-between mb-2">
               <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 {{ t('approval.pending') }}
@@ -717,176 +621,6 @@ onUnmounted(() => {
               </div>
             </div>
           </div>
-
-          <!-- Section 2: Snoozed -->
-          <div v-if="snoozedItems.length > 0" ref="snoozedSectionRef" data-section="snoozed">
-            <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              {{ t('approval.snoozed') }}
-            </h4>
-            <!-- Grid view for snoozed items -->
-            <div
-              v-if="viewMode === 'grid'"
-              class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 opacity-75"
-            >
-              <template v-for="group in snoozedItems" :key="group.key">
-                <!-- Show groups: popover with seasons + unsnooze -->
-                <UiPopover v-if="group.seasonCount > 0">
-                  <UiPopoverTrigger as-child>
-                    <MediaPosterCard
-                      :title="group.showTitle"
-                      :poster-url="group.posterUrl"
-                      :media-type="group.type"
-                      :score="group.score"
-                      :size-bytes="group.totalSizeBytes"
-                      :season-count="group.seasonCount"
-                    />
-                  </UiPopoverTrigger>
-                  <UiPopoverContent class="w-72 p-0" side="bottom" align="start">
-                    <div class="flex items-center justify-between px-3 py-2 border-b">
-                      <div>
-                        <p class="text-sm font-medium truncate">{{ group.showTitle }}</p>
-                        <p class="text-xs text-muted-foreground">
-                          {{ group.seasonCount }} season{{ group.seasonCount !== 1 ? 's' : '' }}
-                          · 💤 Snoozed
-                        </p>
-                      </div>
-                      <div class="flex items-center gap-1 shrink-0">
-                        <UiButton
-                          variant="outline"
-                          size="sm"
-                          class="h-7 text-xs"
-                          @click="unsnoozeGroup(group)"
-                        >
-                          <Undo2Icon class="h-3 w-3 mr-1" />
-                          Unsnooze
-                        </UiButton>
-                        <UiButton
-                          variant="ghost"
-                          size="sm"
-                          class="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
-                          aria-label="Dismiss"
-                          @click="dismissGroup(group)"
-                        >
-                          <XIcon class="h-3.5 w-3.5" />
-                        </UiButton>
-                      </div>
-                    </div>
-                    <div class="max-h-60 overflow-y-auto">
-                      <div
-                        v-for="season in group.seasons"
-                        :key="season.title"
-                        class="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 transition-colors cursor-pointer"
-                        @click="showSeasonDetail(season)"
-                      >
-                        <span
-                          class="text-xs font-mono tabular-nums font-semibold w-10 text-right shrink-0 text-primary"
-                        >
-                          {{ season.score.toFixed(2) }}
-                        </span>
-                        <span class="text-xs truncate flex-1">
-                          {{ extractPreviewSeasonLabel(season.title) }}
-                        </span>
-                      </div>
-                    </div>
-                  </UiPopoverContent>
-                </UiPopover>
-                <!-- Non-show snoozed items: card with unsnooze overlay on hover -->
-                <div v-else class="relative group/snooze">
-                  <MediaPosterCard
-                    :title="group.showTitle"
-                    :poster-url="group.posterUrl"
-                    :media-type="group.type"
-                    :score="group.score"
-                    :size-bytes="group.totalSizeBytes"
-                    @click="showDetail(group)"
-                  />
-                  <div
-                    class="absolute inset-x-0 top-0 flex justify-center gap-1 pt-8 opacity-0 group-hover/snooze:opacity-100 transition-opacity"
-                  >
-                    <UiButton
-                      variant="secondary"
-                      size="sm"
-                      class="h-7 text-xs shadow-lg"
-                      @click.stop="unsnoozeGroup(group)"
-                    >
-                      <Undo2Icon class="h-3 w-3 mr-1" />
-                      Unsnooze
-                    </UiButton>
-                    <UiButton
-                      variant="secondary"
-                      size="sm"
-                      class="h-7 w-7 p-0 shadow-lg text-muted-foreground hover:text-destructive"
-                      aria-label="Dismiss"
-                      @click.stop="dismissGroup(group)"
-                    >
-                      <XIcon class="h-3.5 w-3.5" />
-                    </UiButton>
-                  </div>
-                </div>
-              </template>
-            </div>
-            <!-- List view for snoozed items -->
-            <div v-else class="space-y-1.5">
-              <div
-                v-for="group in snoozedItems"
-                :key="group.key"
-                class="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 opacity-75 cursor-pointer hover:bg-muted/50 transition-colors"
-                @click="showDetail(group)"
-              >
-                <!-- Snooze icon -->
-                <span class="text-sm shrink-0 w-12 text-right" title="Snoozed">💤</span>
-
-                <!-- Title + type badge + snooze time -->
-                <div class="flex-1 min-w-0">
-                  <span class="inline-flex items-center gap-1.5">
-                    <span class="text-sm font-medium truncate">{{ group.showTitle }}</span>
-                    <UiBadge
-                      variant="secondary"
-                      class="capitalize text-[10px] px-1.5 py-0 shrink-0"
-                    >
-                      {{ group.type }}
-                    </UiBadge>
-                  </span>
-                  <span
-                    v-if="group.snoozedUntil"
-                    class="text-xs text-muted-foreground inline-flex items-center gap-1 block"
-                  >
-                    {{ t('approval.snoozedUntilLabel') }}
-                    <DateDisplay :date="group.snoozedUntil" />
-                  </span>
-                  <span v-else class="text-xs text-muted-foreground block">{{
-                    groupSubtitle(group)
-                  }}</span>
-                </div>
-
-                <!-- Undo + dismiss actions -->
-                <div class="flex items-center gap-1 shrink-0" @click.stop>
-                  <UiButton
-                    variant="ghost"
-                    size="sm"
-                    class="h-7 p-0 px-2 text-muted-foreground hover:text-foreground"
-                    :disabled="!!loading[group.key]"
-                    :aria-label="t('approval.undoSnooze')"
-                    @click="unsnoozeGroup(group)"
-                  >
-                    <Undo2Icon class="h-3.5 w-3.5 mr-1" />
-                    <span class="text-xs">{{ t('approval.undoSnooze') }}</span>
-                  </UiButton>
-                  <UiButton
-                    variant="ghost"
-                    size="sm"
-                    class="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
-                    :disabled="!!loading[group.key]"
-                    aria-label="Dismiss"
-                    title="Dismiss"
-                    @click="dismissGroup(group)"
-                  >
-                    <XIcon class="h-4 w-4" />
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </UiScrollArea>
     </UiCardContent>
@@ -901,13 +635,7 @@ onUnmounted(() => {
     :score="selectedGroup.score"
     :score-details="selectedGroup.scoreDetails"
     :size-bytes="selectedGroup.totalSizeBytes"
-    :action="
-      selectedGroup.state === 'approved'
-        ? 'Approved'
-        : selectedGroup.state === 'snoozed'
-          ? 'Snoozed'
-          : 'Pending'
-    "
+    :action="selectedGroup.state === 'approved' ? 'Approved' : 'Pending'"
     @close="selectedGroup = null"
   />
 

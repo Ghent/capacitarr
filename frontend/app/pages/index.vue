@@ -333,11 +333,14 @@
       </UiCardContent>
     </UiCard>
 
-    <!-- Deletion Queue (visible when items are queued/in-progress/completed) -->
-    <DeletionQueueCard />
-
     <!-- Approval Queue (only in approval mode) -->
     <ApprovalQueueCard v-if="approvalQueueVisible" />
+
+    <!-- Snoozed Items (visible in all modes when snoozed items exist) -->
+    <SnoozedItemsCard />
+
+    <!-- Deletion Queue (always visible) -->
+    <DeletionQueueCard />
 
     <!-- Per-Disk-Group Sections -->
     <div v-if="diskGroups.length > 0" class="space-y-5 mb-6">

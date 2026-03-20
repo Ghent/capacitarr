@@ -12,6 +12,7 @@ import (
 	"capacitarr/internal/config"
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
+	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
 )
 
@@ -565,5 +566,145 @@ func TestEvaluateAndCleanDisk_ReconcileNoopInDryRun(t *testing.T) {
 	).Count(&pendingCount)
 	if pendingCount != 1 {
 		t.Errorf("expected 1 pending item preserved in dry-run mode, got %d", pendingCount)
+	}
+}
+
+// TestEvaluateAndCleanDisk_IsSnoozed_AutoMode verifies that the IsSnoozed()
+// check runs in auto mode (not just approval mode), so snoozed items are
+// skipped regardless of execution mode.
+func TestEvaluateAndCleanDisk_IsSnoozed_AutoMode(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	integrationID := uint(1)
+
+	// Create a disk group above threshold (95% used, 80% threshold)
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100000000, // 100 MB
+		UsedBytes:    95000000,  // 95 MB = 95%
+		ThresholdPct: 80.0,
+		TargetPct:    70.0,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	// Create a snoozed entry in the approval queue for "Serenity"
+	dgID := group.ID
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+	snoozedItem := db.ApprovalQueueItem{
+		MediaName:     "Serenity",
+		MediaType:     "movie",
+		Reason:        "Score: 0.90 (snoozed)",
+		SizeBytes:     50000000,
+		Score:         0.90,
+		Status:        db.StatusRejected,
+		SnoozedUntil:  &snoozedUntil,
+		IntegrationID: integrationID,
+		ExternalID:    "snoozed-1",
+		DiskGroupID:   &dgID,
+	}
+	if err := database.Create(&snoozedItem).Error; err != nil {
+		t.Fatalf("Failed to create snoozed item: %v", err)
+	}
+
+	// Create a media item that would normally be a candidate
+	items := []integrations.MediaItem{
+		{
+			ExternalID:    "movie-1",
+			IntegrationID: integrationID,
+			Type:          integrations.MediaTypeMovie,
+			Title:         "Serenity",
+			SizeBytes:     50000000, // 50 MB
+			Path:          "/data/movies/Serenity",
+			Rating:        3.0,
+		},
+	}
+
+	prefs := db.PreferenceSet{
+		ExecutionMode:       db.ModeAuto,
+		WatchHistoryWeight:  5,
+		FileSizeWeight:      5,
+		RatingWeight:        5,
+		LastWatchedWeight:   5,
+		TimeInLibraryWeight: 5,
+		SeriesStatusWeight:  5,
+	}
+
+	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, nil)
+
+	// The item should be skipped because it's snoozed — 0 queued
+	if result != 0 {
+		t.Errorf("expected 0 deletions queued (snoozed item skipped in auto mode), got %d", result)
+	}
+}
+
+// TestEvaluateAndCleanDisk_IsSnoozed_DryRunMode verifies that the IsSnoozed()
+// check runs in dry-run mode, so snoozed items are skipped.
+func TestEvaluateAndCleanDisk_IsSnoozed_DryRunMode(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	integrationID := uint(1)
+
+	// Create a disk group above threshold
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100000000,
+		UsedBytes:    95000000,
+		ThresholdPct: 80.0,
+		TargetPct:    70.0,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	// Create a snoozed entry for "Firefly"
+	dgID := group.ID
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+	snoozedItem := db.ApprovalQueueItem{
+		MediaName:     "Firefly",
+		MediaType:     "show",
+		Reason:        "Score: 0.85 (snoozed)",
+		SizeBytes:     60000000,
+		Score:         0.85,
+		Status:        db.StatusRejected,
+		SnoozedUntil:  &snoozedUntil,
+		IntegrationID: integrationID,
+		ExternalID:    "snoozed-2",
+		DiskGroupID:   &dgID,
+	}
+	if err := database.Create(&snoozedItem).Error; err != nil {
+		t.Fatalf("Failed to create snoozed item: %v", err)
+	}
+
+	items := []integrations.MediaItem{
+		{
+			ExternalID:    "show-1",
+			IntegrationID: integrationID,
+			Type:          integrations.MediaTypeShow,
+			Title:         "Firefly",
+			SizeBytes:     60000000,
+			Path:          "/data/shows/Firefly",
+			Rating:        3.0,
+		},
+	}
+
+	prefs := db.PreferenceSet{
+		ExecutionMode:       db.ModeDryRun,
+		WatchHistoryWeight:  5,
+		FileSizeWeight:      5,
+		RatingWeight:        5,
+		LastWatchedWeight:   5,
+		TimeInLibraryWeight: 5,
+		SeriesStatusWeight:  5,
+	}
+
+	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, nil)
+
+	// The item should be skipped because it's snoozed — 0 queued
+	if result != 0 {
+		t.Errorf("expected 0 deletions queued (snoozed item skipped in dry-run mode), got %d", result)
 	}
 }

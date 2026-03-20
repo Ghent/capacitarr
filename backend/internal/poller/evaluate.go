@@ -143,6 +143,15 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			}
 		}
 
+		// Skip items that are currently snoozed (rejected with an active snooze window).
+		// This check runs in ALL execution modes so items snoozed from the deletion queue
+		// in auto/dry-run mode are also respected by the engine.
+		if p.reg.Approval.IsSnoozed(ev.Item.Title, string(ev.Item.Type), group.ID) {
+			skippedSnoozed++
+			slog.Debug("Skipping snoozed item", "component", "poller", "media", ev.Item.Title)
+			continue
+		}
+
 		slog.Debug("Deletion candidate", "component", "poller",
 			"media", ev.Item.Title, "score", fmt.Sprintf("%.4f", ev.Score),
 			"size", ev.Item.SizeBytes, "reason", ev.Reason)
@@ -173,13 +182,6 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			deletionsQueued++
 			continue // Skip the synchronous DB insert below, worker handles it
 		} else if prefs.ExecutionMode == "approval" {
-			// Skip items that are currently snoozed (rejected with an active snooze window)
-			if p.reg.Approval.IsSnoozed(ev.Item.Title, string(ev.Item.Type), group.ID) {
-				skippedSnoozed++
-				slog.Debug("Skipping snoozed item", "component", "poller", "media", ev.Item.Title)
-				continue
-			}
-
 			// Upsert into approval_queue via ApprovalService
 			factorsJSON, marshalErr := json.Marshal(ev.Factors)
 			if marshalErr != nil {
