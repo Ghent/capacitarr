@@ -20,7 +20,7 @@ func newTestMetricsService(t *testing.T) *MetricsService {
 	settings := NewSettingsService(database, bus)
 	svc := NewMetricsService(database, engine, deletion)
 	svc.SetSettingsService(settings)
-	deletion.SetDependencies(settings, engine, svc)
+	deletion.SetDependencies(settings, engine, svc, nil)
 	return svc
 }
 
@@ -373,7 +373,7 @@ func TestMetricsService_GetWorkerMetrics_ReturnsExpectedKeys(t *testing.T) {
 	settings := NewSettingsService(database, bus)
 	svc := NewMetricsService(database, engine, deletion)
 	svc.SetSettingsService(settings)
-	deletion.SetDependencies(settings, engine, svc)
+	deletion.SetDependencies(settings, engine, svc, nil)
 
 	metrics := svc.GetWorkerMetrics()
 
@@ -407,7 +407,7 @@ func TestMetricsService_GetWorkerMetrics_ExecutionModeFromPreferences(t *testing
 	settings := NewSettingsService(database, bus)
 	svc := NewMetricsService(database, engine, deletion)
 	svc.SetSettingsService(settings)
-	deletion.SetDependencies(settings, engine, svc)
+	deletion.SetDependencies(settings, engine, svc, nil)
 
 	// Create an engine run stats record with "dry-run" mode (simulating a past run)
 	database.Create(&db.EngineRunStats{ExecutionMode: "dry-run"})

@@ -1121,3 +1121,100 @@ func TestApprovalService_ReconcileQueue_NoopWhenAllNeeded(t *testing.T) {
 		t.Errorf("expected 2 remaining items, got %d", len(remaining))
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ReturnToPending tests
+// ---------------------------------------------------------------------------
+
+func TestApprovalService_ReturnToPending(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	item := seedPendingItem(t, database, intID)
+
+	// Approve the item first
+	approved, err := svc.Approve(item.ID)
+	if err != nil {
+		t.Fatalf("Approve returned error: %v", err)
+	}
+	if approved.Status != db.StatusApproved {
+		t.Fatalf("expected status %q, got %q", db.StatusApproved, approved.Status)
+	}
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	// Return to pending
+	err = svc.ReturnToPending(item.ID)
+	if err != nil {
+		t.Fatalf("ReturnToPending returned error: %v", err)
+	}
+
+	// Verify status is pending
+	var reloaded db.ApprovalQueueItem
+	database.First(&reloaded, item.ID)
+	if reloaded.Status != db.StatusPending {
+		t.Errorf("expected status %q after ReturnToPending, got %q", db.StatusPending, reloaded.Status)
+	}
+
+	// Verify event was published
+	select {
+	case evt := <-ch:
+		if evt.EventType() != "approval_returned_to_pending" {
+			t.Errorf("expected event type 'approval_returned_to_pending', got %q", evt.EventType())
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for event")
+	}
+}
+
+func TestApprovalService_ReturnToPending_NotApproved(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	item := seedPendingItem(t, database, intID)
+
+	// Item is still pending — ReturnToPending should fail
+	err := svc.ReturnToPending(item.ID)
+	if err == nil {
+		t.Fatal("expected error when returning non-approved item to pending")
+	}
+}
+
+func TestApprovalService_ReturnToPending_NotFound(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	err := svc.ReturnToPending(99999)
+	if err == nil {
+		t.Fatal("expected error for non-existent entry")
+	}
+}
+
+func TestApprovalReturnedToPendingEvent_EventType(t *testing.T) {
+	evt := events.ApprovalReturnedToPendingEvent{
+		EntryID:   1,
+		MediaName: "Firefly",
+		MediaType: "show",
+	}
+	if got := evt.EventType(); got != "approval_returned_to_pending" {
+		t.Errorf("expected EventType() = %q, got %q", "approval_returned_to_pending", got)
+	}
+}
+
+func TestApprovalReturnedToPendingEvent_EventMessage(t *testing.T) {
+	evt := events.ApprovalReturnedToPendingEvent{
+		EntryID:   1,
+		MediaName: "Firefly",
+		MediaType: "show",
+	}
+	expected := "Returned to pending after dry-delete: Firefly"
+	if got := evt.EventMessage(); got != expected {
+		t.Errorf("expected EventMessage() = %q, got %q", expected, got)
+	}
+}

@@ -1,7 +1,7 @@
 # Deletion Pipeline Unification
 
 **Created:** 2026-03-20T20:34Z
-**Status:** 🔄 In Progress (Phase 5 complete)
+**Status:** 🔄 In Progress (Phase 6 complete)
 **Base Branch:** `feature/2.0`
 **Breaking:** Yes — no backward compatibility required (2.0 baseline migration)
 
@@ -399,56 +399,64 @@ Added two new tests:
 
 ## Phase 6: Dry-Run Return to Approval Queue
 
-### Step 6.1: Track approval source in `DeleteJob`
+**Status:** ✅ Complete
+
+### Step 6.1: Track approval source in `DeleteJob` ✅
 
 **File:** `internal/services/deletion.go`
 
-Add a field to `DeleteJob` to track whether the item came from the approval queue:
+Added `ApprovalEntryID uint` field to `DeleteJob` struct. Non-zero when the job originated from an approval queue item.
 
-```go
-type DeleteJob struct {
-    // ... existing fields ...
-    ApprovalEntryID uint // Non-zero if this job originated from an approval queue item
-}
-```
-
-### Step 6.2: Return dry-deleted items to approval queue
+### Step 6.2: Return dry-deleted items to approval queue ✅
 
 **File:** `internal/services/deletion.go`
 
-In the dry-delete branch of `processJob()`, after logging the audit entry, check if `job.ApprovalEntryID != 0`. If so, call `ApprovalService.ReturnToPending(job.ApprovalEntryID)` to reset the item back to pending status.
+In the dry-delete branch of `processJob()`, after audit logging and event publishing, added check: if `job.ApprovalEntryID != 0 && s.approvalReturner != nil`, calls `ReturnToPending()` to reset the item back to pending status.
 
-### Step 6.3: Add `ReturnToPending` method
-
-**File:** `internal/services/approval.go`
-
-Create a method that resets an approved item back to pending:
-
-```go
-func (s *ApprovalService) ReturnToPending(entryID uint) error
-```
-
-This updates the status from `approved` back to `pending` and publishes an appropriate event.
-
-### Step 6.4: Wire `ApprovalEntryID` through `ExecuteApproval()`
+### Step 6.3: Add `ReturnToPending` method ✅
 
 **File:** `internal/services/approval.go`
 
-When `ExecuteApproval()` queues a `DeleteJob`, set `ApprovalEntryID` to the approval queue item's ID so the DeletionService can return it if dry-deleted.
+Created `ReturnToPending(entryID uint) error` method that:
+1. Finds the entry by ID
+2. Verifies it's in `approved` status (safety check)
+3. Updates status to `pending`
+4. Publishes `ApprovalReturnedToPendingEvent`
+5. Logs the action
 
-### Step 6.5: Add `ApprovalService` dependency to `DeletionService`
+Also added `ApprovalReturnedToPendingEvent` to `internal/events/types.go`.
 
-**File:** `internal/services/deletion.go`, `internal/services/registry.go`
+### Step 6.4: Wire `ApprovalEntryID` through `ExecuteApproval()` ✅
 
-The DeletionService needs to call `ApprovalService.ReturnToPending()`. Add this as a dependency via `SetDependencies()` to avoid circular initialization.
+**File:** `internal/services/approval.go`
 
-### Step 6.6: Update tests
+Added `ApprovalEntryID: approved.ID` to the `DeleteJob` struct literal in `ExecuteApproval()` when queueing via `deps.Deletion.QueueDeletion()`.
+
+### Step 6.5: Add `ApprovalService` dependency to `DeletionService` ✅
+
+**Files:** `internal/services/deletion.go`, `internal/services/registry.go`
+
+- Added `ApprovalReturner` interface with `ReturnToPending(entryID uint) error`
+- Added `approvalReturner ApprovalReturner` field to `DeletionService` struct
+- Extended `SetDependencies()` to accept and wire the `ApprovalReturner` parameter
+- Updated `registry.go` to construct `approvalSvc` before the `SetDependencies` call and pass it as the 4th argument
+
+### Step 6.6: Update tests ✅
 
 **Files:** `internal/services/deletion_test.go`, `internal/services/approval_test.go`
 
-- Test that dry-deleted items with `ApprovalEntryID` are returned to pending
-- Test that dry-deleted items without `ApprovalEntryID` are not returned
-- Test the intentional loop: approve → dry-delete → return to pending → approve again
+Added 9 new tests:
+- `TestDeletionService_DryRun_ReturnsToPending_WhenApprovalEntrySet` — dry-deleted items with ApprovalEntryID call ReturnToPending
+- `TestDeletionService_DryRun_DoesNotReturn_WhenNoApprovalEntry` — normal dry-runs don't trigger ReturnToPending
+- `TestDeletionService_ActualDelete_DoesNotReturn_WhenApprovalEntrySet` — actual deletions never trigger ReturnToPending
+- `TestDeletionService_DryRunLoop_ApproveAndReturn` — full integration test of approve → dry-delete → return to pending → approve again
+- `TestApprovalService_ReturnToPending` — happy path
+- `TestApprovalService_ReturnToPending_NotApproved` — rejects non-approved items
+- `TestApprovalService_ReturnToPending_NotFound` — rejects non-existent entries
+- `TestApprovalReturnedToPendingEvent_EventType` — event type assertion
+- `TestApprovalReturnedToPendingEvent_EventMessage` — event message assertion
+
+Updated all 22 existing `SetDependencies()` calls (19 in deletion_test.go, 3 in metrics_test.go) to include the new `nil` ApprovalReturner parameter.
 
 ## Phase 7: Drop `Reason` Field, Add Structured Fields
 

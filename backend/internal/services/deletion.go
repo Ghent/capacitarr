@@ -19,15 +19,16 @@ import (
 
 // DeleteJob describes a media item to be deleted.
 type DeleteJob struct {
-	Client      integrations.MediaDeleter
-	Item        integrations.MediaItem
-	Reason      string
-	Score       float64
-	Factors     []engine.ScoreFactor
-	RunStatsID  uint  // Engine run stats row to increment Deleted counter
-	DiskGroupID *uint // Disk group that triggered this deletion (nil for user-initiated deletes)
-	ForceDryRun bool  // When true, skip actual deletion even if DeletionsEnabled=true
-	UpsertAudit bool  // When true, use AuditLog.UpsertDryRun() (idempotent poller dry-runs); when false, use AuditLog.Create() (append-only)
+	Client          integrations.MediaDeleter
+	Item            integrations.MediaItem
+	Reason          string
+	Score           float64
+	Factors         []engine.ScoreFactor
+	RunStatsID      uint  // Engine run stats row to increment Deleted counter
+	DiskGroupID     *uint // Disk group that triggered this deletion (nil for user-initiated deletes)
+	ForceDryRun     bool  // When true, skip actual deletion even if DeletionsEnabled=true
+	UpsertAudit     bool  // When true, use AuditLog.UpsertDryRun() (idempotent poller dry-runs); when false, use AuditLog.Create() (append-only)
+	ApprovalEntryID uint  // Non-zero if this job originated from an approval queue item
 }
 
 // DeleteJobSummary is a serialisable snapshot of a queued deletion job,
@@ -51,13 +52,14 @@ type DeleteJobSummary struct {
 // normally but do not restart the grace period until the current batch
 // completes and a new item arrives.
 type DeletionService struct {
-	bus         *events.EventBus
-	auditLog    *AuditLogService
-	settings    SettingsReader
-	engine      EngineStatsWriter
-	metrics     DeletionStatsWriter
-	rateLimiter *rate.Limiter
-	done        chan struct{}
+	bus              *events.EventBus
+	auditLog         *AuditLogService
+	settings         SettingsReader
+	engine           EngineStatsWriter
+	metrics          DeletionStatsWriter
+	approvalReturner ApprovalReturner
+	rateLimiter      *rate.Limiter
+	done             chan struct{}
 
 	// Observable state
 	currentlyDeleting atomic.Value // string
@@ -108,6 +110,12 @@ type DeletionStatsWriter interface {
 	IncrementDeletionStats(sizeBytes int64) error
 }
 
+// ApprovalReturner allows the DeletionService to return dry-deleted approval
+// queue items back to pending status without importing ApprovalService directly.
+type ApprovalReturner interface {
+	ReturnToPending(entryID uint) error
+}
+
 // NewDeletionService creates a new DeletionService.
 // The settings, engine, and metrics dependencies are injected via SetDependencies()
 // after registry construction to avoid circular initialization.
@@ -124,10 +132,11 @@ func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *Deleti
 
 // SetDependencies wires cross-service dependencies that cannot be injected
 // at construction time due to circular initialization in the registry.
-func (s *DeletionService) SetDependencies(settings SettingsReader, engine EngineStatsWriter, metrics DeletionStatsWriter) {
+func (s *DeletionService) SetDependencies(settings SettingsReader, engine EngineStatsWriter, metrics DeletionStatsWriter, approvalReturner ApprovalReturner) {
 	s.settings = settings
 	s.engine = engine
 	s.metrics = metrics
+	s.approvalReturner = approvalReturner
 }
 
 // Start begins the background deletion worker.
@@ -445,6 +454,15 @@ func (s *DeletionService) processJob(job DeleteJob) {
 			SizeBytes: job.Item.SizeBytes,
 		})
 		s.publishProgress()
+
+		// Return approval queue items to pending after dry-delete so the user
+		// can approve again when deletions are actually enabled.
+		if job.ApprovalEntryID != 0 && s.approvalReturner != nil {
+			if err := s.approvalReturner.ReturnToPending(job.ApprovalEntryID); err != nil {
+				slog.Error("Failed to return dry-deleted item to approval queue",
+					"component", "services", "entryID", job.ApprovalEntryID, "error", err)
+			}
+		}
 
 		slog.Info("Dry-Delete completed", "component", "services",
 			"media", job.Item.Title, "action", "Dry-Delete", "freed", job.Item.SizeBytes)

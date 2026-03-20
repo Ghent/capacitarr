@@ -394,6 +394,25 @@ func (e ApprovalDismissedEvent) EventMessage() string {
 	return fmt.Sprintf("Dismissed from queue: %s", e.MediaName)
 }
 
+// ApprovalReturnedToPendingEvent is published when a dry-deleted approval queue
+// item is returned to pending status, creating the intentional dry-run loop:
+// approve → dry-delete → return to pending.
+type ApprovalReturnedToPendingEvent struct {
+	EntryID   uint   `json:"entryId"`
+	MediaName string `json:"mediaName"`
+	MediaType string `json:"mediaType"`
+}
+
+// EventType implements Event.
+func (e ApprovalReturnedToPendingEvent) EventType() string {
+	return "approval_returned_to_pending"
+}
+
+// EventMessage implements Event.
+func (e ApprovalReturnedToPendingEvent) EventMessage() string {
+	return fmt.Sprintf("Returned to pending after dry-delete: %s", e.MediaName)
+}
+
 // =============================================================================
 // Deletion Events
 // =============================================================================

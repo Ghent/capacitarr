@@ -382,13 +382,14 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 
 	// 7. Queue for background deletion
 	if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
-		Client:      client,
-		Item:        item,
-		Reason:      approved.Reason,
-		Score:       approved.Score,
-		Factors:     factors,
-		RunStatsID:  runStatsID,
-		ForceDryRun: deps.ForceDryRun,
+		Client:          client,
+		Item:            item,
+		Reason:          approved.Reason,
+		Score:           approved.Score,
+		Factors:         factors,
+		RunStatsID:      runStatsID,
+		ForceDryRun:     deps.ForceDryRun,
+		ApprovalEntryID: approved.ID,
 	}); queueErr != nil {
 		return approved, fmt.Errorf("deletion queue is full: %w", queueErr)
 	}
@@ -609,6 +610,39 @@ func (s *ApprovalService) RecoverOrphans() (int, error) {
 	}
 
 	return count, nil
+}
+
+// ReturnToPending resets an approved approval queue item back to pending status.
+// This is called by the DeletionService when a dry-deleted item originated from
+// the approval queue, creating the intentional loop: approve → dry-delete →
+// return to pending. The user can then approve again when deletions are enabled.
+func (s *ApprovalService) ReturnToPending(entryID uint) error {
+	var entry db.ApprovalQueueItem
+	if err := s.db.First(&entry, entryID).Error; err != nil {
+		return fmt.Errorf("%w: %v", ErrApprovalNotFound, err)
+	}
+
+	if entry.Status != db.StatusApproved {
+		return fmt.Errorf("cannot return to pending: entry %d is in %q status, expected %q", entryID, entry.Status, db.StatusApproved)
+	}
+
+	if err := s.db.Model(&entry).Updates(map[string]any{
+		"status":     db.StatusPending,
+		"updated_at": time.Now().UTC(),
+	}).Error; err != nil {
+		return fmt.Errorf("failed to return entry %d to pending: %w", entryID, err)
+	}
+
+	s.bus.Publish(events.ApprovalReturnedToPendingEvent{
+		EntryID:   entry.ID,
+		MediaName: entry.MediaName,
+		MediaType: entry.MediaType,
+	})
+
+	slog.Info("Returned dry-deleted approval item to pending",
+		"component", "services", "entryID", entryID, "media", entry.MediaName)
+
+	return nil
 }
 
 // CreateSnoozedEntry creates or updates an approval queue entry with

@@ -136,6 +136,7 @@ func TestDeletionService_BatchTracking_AllSuccess(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -181,6 +182,7 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1}, // actual deletions
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -240,6 +242,7 @@ func TestDeletionService_BatchTracking_CorrectCounts(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -292,6 +295,7 @@ func TestDeletionService_GracefulShutdown_DrainsQueue(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode for safety
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	svc.Start()
@@ -360,6 +364,7 @@ func TestDeletionService_ProgressEvent_DryRun(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -417,6 +422,7 @@ func TestDeletionService_ProgressEvent_ActualDeletion(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -474,6 +480,7 @@ func TestDeletionService_ForceDryRun_OverridesDeletionsEnabled(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1}, // deletions enabled, but ForceDryRun overrides
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -527,6 +534,7 @@ func TestDeletionService_NoDryRun_WhenDeletionsDisabled(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // deletions disabled
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -584,6 +592,7 @@ func TestDeletionService_CancelDeletion_ReturnsTrue_WhenItemInQueue(t *testing.T
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	// Queue an item (service NOT started — item stays in channel and tracking slice)
@@ -629,6 +638,7 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -797,6 +807,7 @@ func TestDeletionService_ProgressEvent_Failure(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -871,6 +882,7 @@ func TestDeletionService_UpsertAudit_UsesUpsertSemantics(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	svc.Start()
@@ -923,6 +935,7 @@ func TestDeletionService_UpsertAudit_False_AppendsMultiple(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	svc.Start()
@@ -964,6 +977,7 @@ func TestDeletionService_NilClient_DryRunSucceeds(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -1026,6 +1040,7 @@ func TestDeletionService_NilClient_ActualDeletion_Fails(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1}, // actual deletions enabled
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -1073,6 +1088,7 @@ func TestDeletionService_QueueDeletion_PublishesDeletionQueuedEvent(t *testing.T
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -1131,6 +1147,7 @@ func TestDeletionService_GracePeriod_StartsOnQueue(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 2},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 	svc.Start()
 	defer svc.Stop()
@@ -1162,6 +1179,7 @@ func TestDeletionService_GracePeriod_ExpiresAndProcesses(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	ch := bus.Subscribe()
@@ -1193,6 +1211,7 @@ func TestDeletionService_ClearQueue_CancelsAll(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 30},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
+		nil,
 	)
 
 	// Queue 3 items without starting the worker
@@ -1356,5 +1375,214 @@ func TestApprovalService_CreateSnoozedEntry_UpdatesExisting(t *testing.T) {
 	database.Where("media_name = ?", "Serenity").First(&updated)
 	if updated.Status != db.StatusRejected {
 		t.Errorf("expected status=%q, got %q", db.StatusRejected, updated.Status)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Dry-run return-to-approval-queue tests
+// ---------------------------------------------------------------------------
+
+// mockApprovalReturner records calls to ReturnToPending for test assertions.
+type mockApprovalReturner struct {
+	returnedIDs []uint
+}
+
+func (m *mockApprovalReturner) ReturnToPending(entryID uint) error {
+	m.returnedIDs = append(m.returnedIDs, entryID)
+	return nil
+}
+
+func TestDeletionService_DryRun_ReturnsToPending_WhenApprovalEntrySet(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	returner := &mockApprovalReturner{}
+	svc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+		returner,
+	)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	svc.Start()
+	defer svc.Stop()
+
+	svc.SignalBatchSize(1)
+
+	// Queue a job with ApprovalEntryID set (simulates ExecuteApproval flow)
+	job := DeleteJob{
+		Client:          nil,
+		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
+		Reason:          "return-to-pending-test",
+		ForceDryRun:     true,
+		ApprovalEntryID: 42,
+	}
+	if err := svc.QueueDeletion(job); err != nil {
+		t.Fatalf("QueueDeletion returned error: %v", err)
+	}
+
+	// Wait for batch completion
+	drainBatchEvent(t, ch)
+
+	// Verify ReturnToPending was called with the correct entry ID
+	if len(returner.returnedIDs) != 1 {
+		t.Fatalf("expected 1 ReturnToPending call, got %d", len(returner.returnedIDs))
+	}
+	if returner.returnedIDs[0] != 42 {
+		t.Errorf("expected ReturnToPending(42), got ReturnToPending(%d)", returner.returnedIDs[0])
+	}
+}
+
+func TestDeletionService_DryRun_DoesNotReturn_WhenNoApprovalEntry(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	returner := &mockApprovalReturner{}
+	svc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+		returner,
+	)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	svc.Start()
+	defer svc.Stop()
+
+	svc.SignalBatchSize(1)
+
+	// Queue a job WITHOUT ApprovalEntryID (normal engine-driven dry-run)
+	job := DeleteJob{
+		Client:          nil,
+		Item:            integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
+		Reason:          "normal-dry-run-test",
+		ForceDryRun:     true,
+		ApprovalEntryID: 0, // Not from approval queue
+	}
+	if err := svc.QueueDeletion(job); err != nil {
+		t.Fatalf("QueueDeletion returned error: %v", err)
+	}
+
+	drainBatchEvent(t, ch)
+
+	// ReturnToPending should NOT have been called
+	if len(returner.returnedIDs) != 0 {
+		t.Errorf("expected 0 ReturnToPending calls for non-approval job, got %d", len(returner.returnedIDs))
+	}
+}
+
+func TestDeletionService_ActualDelete_DoesNotReturn_WhenApprovalEntrySet(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	returner := &mockApprovalReturner{}
+	svc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1}, // actual deletions enabled
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+		returner,
+	)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	svc.Start()
+	defer svc.Stop()
+
+	svc.SignalBatchSize(1)
+
+	// Queue a job WITH ApprovalEntryID and actual deletion enabled
+	job := DeleteJob{
+		Client:          &mockIntegration{deleteErr: nil},
+		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
+		Reason:          "actual-delete-approval-test",
+		ApprovalEntryID: 42,
+	}
+	if err := svc.QueueDeletion(job); err != nil {
+		t.Fatalf("QueueDeletion returned error: %v", err)
+	}
+
+	drainBatchEvent(t, ch)
+
+	// ReturnToPending should NOT be called for actual deletions
+	if len(returner.returnedIDs) != 0 {
+		t.Errorf("expected 0 ReturnToPending calls for actual deletion, got %d", len(returner.returnedIDs))
+	}
+}
+
+func TestDeletionService_DryRunLoop_ApproveAndReturn(t *testing.T) {
+	// Integration test: simulates the full approve → dry-delete → return to pending loop
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	approvalSvc := NewApprovalService(database, bus)
+
+	deletionSvc := NewDeletionService(bus, auditLog)
+	deletionSvc.SetDependencies(
+		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+		approvalSvc, // Wire real ApprovalService as the returner
+	)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	deletionSvc.Start()
+	defer deletionSvc.Stop()
+
+	// 1. Create a pending approval queue item
+	intID := seedIntegration(t, database)
+	item := seedPendingItem(t, database, intID)
+
+	// 2. Approve it (marks as approved)
+	approved, err := approvalSvc.Approve(item.ID)
+	if err != nil {
+		t.Fatalf("Approve returned error: %v", err)
+	}
+	if approved.Status != db.StatusApproved {
+		t.Fatalf("expected status %q after approve, got %q", db.StatusApproved, approved.Status)
+	}
+
+	// 3. Queue deletion with ApprovalEntryID set (simulates what ExecuteApproval does)
+	deletionSvc.SignalBatchSize(1)
+	if queueErr := deletionSvc.QueueDeletion(DeleteJob{
+		Client:          nil,
+		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 5069636198},
+		Reason:          "Score: 0.85",
+		Score:           0.85,
+		ForceDryRun:     true,
+		ApprovalEntryID: item.ID,
+	}); queueErr != nil {
+		t.Fatalf("QueueDeletion returned error: %v", queueErr)
+	}
+
+	// 4. Wait for batch completion (dry-delete + return to pending)
+	drainBatchEvent(t, ch)
+
+	// 5. Verify the approval queue item is back to pending
+	var reloaded db.ApprovalQueueItem
+	if err := database.First(&reloaded, item.ID).Error; err != nil {
+		t.Fatalf("Failed to reload approval queue item: %v", err)
+	}
+	if reloaded.Status != db.StatusPending {
+		t.Errorf("expected status %q after dry-delete return, got %q", db.StatusPending, reloaded.Status)
+	}
+
+	// 6. Verify the item can be approved again (the intentional loop)
+	approved2, err := approvalSvc.Approve(item.ID)
+	if err != nil {
+		t.Fatalf("Second Approve returned error: %v", err)
+	}
+	if approved2.Status != db.StatusApproved {
+		t.Errorf("expected status %q after second approve, got %q", db.StatusApproved, approved2.Status)
 	}
 }
