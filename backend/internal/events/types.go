@@ -363,6 +363,21 @@ func (e ApprovalQueueClearedEvent) EventMessage() string {
 	return fmt.Sprintf("Approval queue cleared: %d items removed (disk below threshold)", e.Count)
 }
 
+// ApprovalQueueReconciledEvent is published when stale pending items are
+// dismissed from a disk group's approval queue during per-cycle reconciliation.
+type ApprovalQueueReconciledEvent struct {
+	DiskGroupID uint `json:"diskGroupId"`
+	Dismissed   int  `json:"dismissed"`
+}
+
+// EventType implements Event.
+func (e ApprovalQueueReconciledEvent) EventType() string { return "approval_queue_reconciled" }
+
+// EventMessage implements Event.
+func (e ApprovalQueueReconciledEvent) EventMessage() string {
+	return fmt.Sprintf("Approval queue reconciled for disk group %d: %d stale items dismissed", e.DiskGroupID, e.Dismissed)
+}
+
 // ApprovalDismissedEvent is published when a single approval queue item is
 // manually dismissed (removed without approving or snoozing).
 type ApprovalDismissedEvent struct {

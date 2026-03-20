@@ -316,6 +316,70 @@ func TestDiskGroupService_ListWithIntegrations_Empty(t *testing.T) {
 	}
 }
 
+// mockEngineRunTrigger records whether TriggerRun was called.
+type mockEngineRunTrigger struct {
+	triggered bool
+}
+
+func (m *mockEngineRunTrigger) TriggerRun() string {
+	m.triggered = true
+	return "started"
+}
+
+func TestDiskGroupService_UpdateThresholds_TriggersEngineRun(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+
+	mock := &mockEngineRunTrigger{}
+	svc.SetEngineService(mock)
+
+	group := db.DiskGroup{
+		MountPath:    "/mnt/media",
+		TotalBytes:   1000000000,
+		UsedBytes:    800000000,
+		ThresholdPct: 85.0,
+		TargetPct:    75.0,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	// Update thresholds — should trigger an engine run
+	_, err := svc.UpdateThresholds(group.ID, 90.0, 80.0, nil)
+	if err != nil {
+		t.Fatalf("UpdateThresholds returned error: %v", err)
+	}
+
+	if !mock.triggered {
+		t.Error("expected engine run to be triggered after threshold change")
+	}
+}
+
+func TestDiskGroupService_UpdateThresholds_NoEngineService(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+	// Do NOT call SetEngineService — engine is nil
+
+	group := db.DiskGroup{
+		MountPath:    "/mnt/media",
+		TotalBytes:   1000000000,
+		UsedBytes:    800000000,
+		ThresholdPct: 85.0,
+		TargetPct:    75.0,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	// Should not panic when engine is nil
+	_, err := svc.UpdateThresholds(group.ID, 90.0, 80.0, nil)
+	if err != nil {
+		t.Fatalf("UpdateThresholds returned error: %v", err)
+	}
+}
+
 func TestDiskGroupService_RemoveAll_ClearsJunctionTable(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

@@ -430,3 +430,140 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 		t.Errorf("Expected 2 total entries (1 approved + 1 pending), got %d", total)
 	}
 }
+
+// TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems verifies that the
+// per-cycle reconciliation in evaluateAndCleanDisk removes pending approval
+// queue items that are no longer candidates after threshold changes.
+func TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	integrationID := uint(1)
+
+	// Create a disk group that is above threshold (95% used, 80% threshold)
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100000,
+		UsedBytes:    95000,
+		ThresholdPct: 80.0,
+		TargetPct:    70.0,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	// Pre-seed a stale pending item from a previous cycle.
+	// This item's media won't appear in the current evaluation's candidates
+	// because we're running with no media items.
+	dgID := group.ID
+	staleItem := db.ApprovalQueueItem{
+		MediaName:     "Serenity",
+		MediaType:     "movie",
+		Reason:        "Score: 0.50 (stale from previous cycle)",
+		SizeBytes:     4000000000,
+		Score:         0.50,
+		Status:        db.StatusPending,
+		IntegrationID: integrationID,
+		ExternalID:    "stale-1",
+		DiskGroupID:   &dgID,
+	}
+	if err := database.Create(&staleItem).Error; err != nil {
+		t.Fatalf("Failed to create stale item: %v", err)
+	}
+
+	// Also seed a rejected/snoozed item — it should NOT be dismissed
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+	snoozedItem := db.ApprovalQueueItem{
+		MediaName:     "Firefly",
+		MediaType:     "show",
+		Reason:        "Score: 0.80 (snoozed)",
+		SizeBytes:     6000000000,
+		Score:         0.80,
+		Status:        db.StatusRejected,
+		SnoozedUntil:  &snoozedUntil,
+		IntegrationID: integrationID,
+		ExternalID:    "snoozed-1",
+		DiskGroupID:   &dgID,
+	}
+	if err := database.Create(&snoozedItem).Error; err != nil {
+		t.Fatalf("Failed to create snoozed item: %v", err)
+	}
+
+	prefs := db.PreferenceSet{ExecutionMode: "approval"}
+
+	// Run with no media items — no candidates will be generated, so
+	// neededKeys will be empty, and all pending items should be reconciled away
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, nil)
+	if result != 0 {
+		t.Errorf("expected 0 deletions queued, got %d", result)
+	}
+
+	// Verify: stale pending item is dismissed
+	var pendingCount int64
+	database.Model(&db.ApprovalQueueItem{}).Where(
+		"disk_group_id = ? AND status = ?", dgID, db.StatusPending,
+	).Count(&pendingCount)
+	if pendingCount != 0 {
+		t.Errorf("expected 0 pending items after reconciliation, got %d", pendingCount)
+	}
+
+	// Verify: snoozed/rejected item is preserved
+	var rejectedCount int64
+	database.Model(&db.ApprovalQueueItem{}).Where(
+		"disk_group_id = ? AND status = ?", dgID, db.StatusRejected,
+	).Count(&rejectedCount)
+	if rejectedCount != 1 {
+		t.Errorf("expected 1 rejected item preserved, got %d", rejectedCount)
+	}
+}
+
+// TestEvaluateAndCleanDisk_ReconcileNoopInDryRun verifies that per-cycle
+// reconciliation does NOT run in dry-run mode (only in approval mode).
+func TestEvaluateAndCleanDisk_ReconcileNoopInDryRun(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	integrationID := uint(1)
+
+	// Create a disk group above threshold
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100000,
+		UsedBytes:    95000,
+		ThresholdPct: 80.0,
+		TargetPct:    70.0,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	// Pre-seed a pending item
+	dgID := group.ID
+	staleItem := db.ApprovalQueueItem{
+		MediaName:     "Serenity",
+		MediaType:     "movie",
+		Reason:        "Score: 0.50",
+		SizeBytes:     4000000000,
+		Score:         0.50,
+		Status:        db.StatusPending,
+		IntegrationID: integrationID,
+		ExternalID:    "stale-1",
+		DiskGroupID:   &dgID,
+	}
+	if err := database.Create(&staleItem).Error; err != nil {
+		t.Fatalf("Failed to create stale item: %v", err)
+	}
+
+	// Run in dry-run mode — reconciliation should NOT happen
+	prefs := db.PreferenceSet{ExecutionMode: "dry-run"}
+	p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, nil)
+
+	// Verify: pending item is preserved (reconciliation didn't run)
+	var pendingCount int64
+	database.Model(&db.ApprovalQueueItem{}).Where(
+		"disk_group_id = ? AND status = ?", dgID, db.StatusPending,
+	).Count(&pendingCount)
+	if pendingCount != 1 {
+		t.Errorf("expected 1 pending item preserved in dry-run mode, got %d", pendingCount)
+	}
+}

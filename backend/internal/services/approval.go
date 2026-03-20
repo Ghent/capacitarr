@@ -455,6 +455,61 @@ func (s *ApprovalService) RemoveForceDelete(id uint) error {
 	return nil
 }
 
+// ListPendingForDiskGroup returns all pending (non-force-delete) items for a
+// specific disk group. Used by the engine's per-cycle reconciliation to identify
+// stale items that are no longer needed after threshold changes.
+func (s *ApprovalService) ListPendingForDiskGroup(diskGroupID uint) ([]db.ApprovalQueueItem, error) {
+	var items []db.ApprovalQueueItem
+	if err := s.db.Where(
+		"status = ? AND force_delete = ? AND disk_group_id = ?",
+		db.StatusPending, false, diskGroupID,
+	).Find(&items).Error; err != nil {
+		return nil, fmt.Errorf("failed to list pending items for disk group %d: %w", diskGroupID, err)
+	}
+	return items, nil
+}
+
+// ReconcileQueue removes pending items for a disk group that are no longer in
+// the provided "still-needed" set. Items whose MediaName+MediaType key is NOT
+// in the neededKeys set are dismissed. Returns the number of items dismissed.
+//
+// This is called after each engine evaluation cycle to trim stale entries that
+// no longer qualify (e.g., threshold was raised, scores changed).
+// Rejected/snoozed items are left untouched — only status=pending items are
+// eligible for reconciliation.
+func (s *ApprovalService) ReconcileQueue(diskGroupID uint, neededKeys map[string]bool) (int, error) {
+	pending, err := s.ListPendingForDiskGroup(diskGroupID)
+	if err != nil {
+		return 0, err
+	}
+
+	var dismissed int
+	for _, item := range pending {
+		key := item.MediaName + "|" + item.MediaType
+		if neededKeys[key] {
+			continue
+		}
+
+		if delErr := s.db.Delete(&item).Error; delErr != nil {
+			slog.Error("Failed to dismiss stale approval item during reconciliation",
+				"component", "services", "id", item.ID, "media", item.MediaName, "error", delErr)
+			continue
+		}
+		dismissed++
+	}
+
+	if dismissed > 0 {
+		s.bus.Publish(events.ApprovalQueueReconciledEvent{
+			DiskGroupID: diskGroupID,
+			Dismissed:   dismissed,
+		})
+		slog.Info("Approval queue reconciled — stale items dismissed",
+			"component", "services", "diskGroupID", diskGroupID, "dismissed", dismissed)
+	}
+
+	return dismissed, nil
+}
+
 // RecoverOrphans finds approved items that have no corresponding active deletion
 // and requeues them as pending. This handles recovery after crashes or restarts.
 func (s *ApprovalService) RecoverOrphans() (int, error) {

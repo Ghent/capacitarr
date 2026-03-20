@@ -11,16 +11,31 @@ import (
 	"capacitarr/internal/integrations"
 )
 
+// EngineRunTrigger is the subset of EngineService needed by DiskGroupService
+// to trigger an immediate engine run after threshold changes. Defined as an
+// interface to avoid a direct dependency on EngineService and to simplify
+// testing.
+type EngineRunTrigger interface {
+	TriggerRun() string
+}
+
 // DiskGroupService manages disk group lifecycle: discovery, reconciliation,
 // threshold configuration, and integration tracking.
 type DiskGroupService struct {
-	db  *gorm.DB
-	bus *events.EventBus
+	db     *gorm.DB
+	bus    *events.EventBus
+	engine EngineRunTrigger // optional; wired via SetEngineService()
 }
 
 // NewDiskGroupService creates a new DiskGroupService.
 func NewDiskGroupService(database *gorm.DB, bus *events.EventBus) *DiskGroupService {
 	return &DiskGroupService{db: database, bus: bus}
+}
+
+// SetEngineService wires the EngineService dependency so that threshold changes
+// can trigger an immediate engine run for queue reconciliation.
+func (s *DiskGroupService) SetEngineService(engine EngineRunTrigger) {
+	s.engine = engine
 }
 
 // List returns all disk groups.
@@ -103,6 +118,15 @@ func (s *DiskGroupService) UpdateThresholds(groupID uint, threshold, target floa
 		ThresholdPct: threshold,
 		TargetPct:    target,
 	})
+
+	// Trigger an immediate engine run so the approval queue is reconciled
+	// against the new thresholds. The engine cycle's per-group reconciliation
+	// will dismiss stale pending items that no longer qualify.
+	if s.engine != nil {
+		status := s.engine.TriggerRun()
+		slog.Info("Threshold change triggered engine run for queue reconciliation",
+			"component", "diskgroup_service", "mount", group.MountPath, "status", status)
+	}
 
 	// Reload the updated group
 	s.db.First(&group, groupID)

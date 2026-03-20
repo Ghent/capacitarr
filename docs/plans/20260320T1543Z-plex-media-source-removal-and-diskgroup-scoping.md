@@ -202,6 +202,44 @@ To enable this filtering, the preview cache items need to retain their `Path` fi
 - [x] **7.2** Fixed all compilation errors, lint warnings (gofmt), and test failures (factory_test.go, analytics_test.go, benchmark_test.go, preview_test.go)
 - [x] **7.3** Migration detection logic verified — TestMigrationUpDownUp passes with updated baseline
 
+## Phase 8: Approval Queue Reconciliation on Threshold Change
+
+**Problem:** The approval queue was append-only during each engine cycle. When a user adjusted thresholds (e.g., raised from 95% to 98%), the queue retained stale items from previous cycles that were no longer needed at the new threshold level.
+
+**Solution (two parts):**
+
+### Part 1: Per-cycle queue reconciliation in `evaluateAndCleanDisk()`
+
+After the candidate loop in `evaluate.go`, a reconciliation step now:
+1. Tracks which items were actually upserted/kept this cycle in a `neededKeys` set
+2. Calls `ApprovalService.ReconcileQueue()` to dismiss pending items not in the set
+3. Leaves rejected/snoozed items untouched — only `status=pending` items are eligible
+
+- [x] **8.1** Add `ListPendingForDiskGroup(diskGroupID uint)` to `ApprovalService`
+- [x] **8.2** Add `ReconcileQueue(diskGroupID uint, neededKeys map[string]bool)` to `ApprovalService`
+- [x] **8.3** Add `ApprovalQueueReconciledEvent` to `events/types.go`
+- [x] **8.4** Track `neededKeys` in the approval-mode candidate loop in `evaluate.go`
+- [x] **8.5** Call `ReconcileQueue()` after the candidate loop (approval mode only)
+
+### Part 2: Instant feedback on threshold change
+
+When the user changes thresholds via the UI, a `ThresholdChangedEvent` fires. The `DiskGroupService.UpdateThresholds()` now also triggers an immediate engine run via `EngineService.TriggerRun()`. The engine cycle naturally reconciles the queue using Part 1's logic.
+
+- [x] **8.6** Add `EngineRunTrigger` interface and `SetEngineService()` to `DiskGroupService`
+- [x] **8.7** Call `engine.TriggerRun()` in `UpdateThresholds()` after publishing the event
+- [x] **8.8** Wire `DiskGroupService → EngineService` in `NewRegistry()`
+
+### Tests
+
+- [x] **8.9** `TestApprovalService_ListPendingForDiskGroup` — verifies disk group scoping
+- [x] **8.10** `TestApprovalService_ReconcileQueue_DismissesStaleItems` — verifies stale items are dismissed
+- [x] **8.11** `TestApprovalService_ReconcileQueue_LeavesRejectedUntouched` — verifies rejected items survive
+- [x] **8.12** `TestApprovalService_ReconcileQueue_NoopWhenAllNeeded` — verifies no-op when all items are current
+- [x] **8.13** `TestDiskGroupService_UpdateThresholds_TriggersEngineRun` — verifies engine trigger
+- [x] **8.14** `TestDiskGroupService_UpdateThresholds_NoEngineService` — verifies nil-safety
+- [x] **8.15** `TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems` — end-to-end poller reconciliation
+- [x] **8.16** `TestEvaluateAndCleanDisk_ReconcileNoopInDryRun` — verifies reconciliation skipped in dry-run
+
 ## Manual Database Update SQL
 
 Since this is a breaking-change branch, the running database must be updated manually:
@@ -265,3 +303,13 @@ CREATE INDEX idx_audit_log_disk_group_id ON audit_log(disk_group_id);
 - `backend/internal/services/metrics.go` — disk group scoping
 - `backend/routes/analytics.go` — forecast handler
 - `backend/routes/metrics.go` — dashboard stats handler
+
+### Phase 8 (Approval queue reconciliation)
+- `backend/internal/services/approval.go` — `ListPendingForDiskGroup()`, `ReconcileQueue()`
+- `backend/internal/events/types.go` — `ApprovalQueueReconciledEvent`
+- `backend/internal/poller/evaluate.go` — `neededKeys` tracking + reconciliation after candidate loop
+- `backend/internal/services/diskgroup.go` — `EngineRunTrigger` interface, `SetEngineService()`, engine trigger in `UpdateThresholds()`
+- `backend/internal/services/registry.go` — wire `DiskGroupService → EngineService`
+- `backend/internal/services/approval_test.go` — reconciliation tests
+- `backend/internal/services/diskgroup_test.go` — engine trigger tests
+- `backend/internal/poller/evaluate_test.go` — end-to-end reconciliation tests

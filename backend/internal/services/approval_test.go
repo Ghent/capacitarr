@@ -913,3 +913,211 @@ func TestApprovalService_ClearQueue_PublishesEvent(t *testing.T) {
 		t.Fatal("timeout waiting for queue cleared event")
 	}
 }
+
+// seedDiskGroup creates a minimal disk group for FK references.
+func seedDiskGroup(t *testing.T, database *gorm.DB) uint {
+	t.Helper()
+	dg := db.DiskGroup{
+		MountPath:    "/mnt/media",
+		TotalBytes:   1000000000,
+		UsedBytes:    900000000,
+		ThresholdPct: 80.0,
+		TargetPct:    70.0,
+	}
+	if err := database.Create(&dg).Error; err != nil {
+		t.Fatalf("Failed to seed disk group: %v", err)
+	}
+	return dg.ID
+}
+
+func TestApprovalService_ListPendingForDiskGroup(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+
+	// Create a second disk group for cross-group filtering
+	otherDG := db.DiskGroup{MountPath: "/mnt/other", TotalBytes: 500000000, UsedBytes: 400000000, ThresholdPct: 80.0, TargetPct: 70.0}
+	if err := database.Create(&otherDG).Error; err != nil {
+		t.Fatalf("Failed to create other disk group: %v", err)
+	}
+	otherDGID := otherDG.ID
+
+	// Create pending items: two for our disk group, one for another
+	for _, item := range []db.ApprovalQueueItem{
+		{MediaName: "Firefly", MediaType: "show", Status: db.StatusPending, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID},
+		{MediaName: "Serenity", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID},
+		{MediaName: "Other Show", MediaType: "show", Status: db.StatusPending, IntegrationID: intID, ExternalID: "3", DiskGroupID: &otherDGID},
+		{MediaName: "Rejected Show", MediaType: "show", Status: db.StatusRejected, IntegrationID: intID, ExternalID: "4", DiskGroupID: &dgID},
+	} {
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("Failed to create item: %v", err)
+		}
+	}
+
+	items, err := svc.ListPendingForDiskGroup(dgID)
+	if err != nil {
+		t.Fatalf("ListPendingForDiskGroup returned error: %v", err)
+	}
+
+	if len(items) != 2 {
+		t.Errorf("expected 2 pending items for disk group, got %d", len(items))
+	}
+
+	// Verify the items are the correct ones
+	names := make(map[string]bool)
+	for _, item := range items {
+		names[item.MediaName] = true
+	}
+	if !names["Firefly"] || !names["Serenity"] {
+		t.Errorf("expected Firefly and Serenity, got %v", names)
+	}
+}
+
+func TestApprovalService_ReconcileQueue_DismissesStaleItems(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+
+	// Create 3 pending items for the disk group
+	for _, item := range []db.ApprovalQueueItem{
+		{MediaName: "Firefly", MediaType: "show", Status: db.StatusPending, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID},
+		{MediaName: "Serenity", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID},
+		{MediaName: "Firefly - Season 1", MediaType: "season", Status: db.StatusPending, IntegrationID: intID, ExternalID: "3", DiskGroupID: &dgID},
+	} {
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("Failed to create item: %v", err)
+		}
+	}
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	// Only "Firefly|show" is still needed — the other two should be dismissed
+	neededKeys := map[string]bool{
+		"Firefly|show": true,
+	}
+
+	dismissed, err := svc.ReconcileQueue(dgID, neededKeys)
+	if err != nil {
+		t.Fatalf("ReconcileQueue returned error: %v", err)
+	}
+
+	if dismissed != 2 {
+		t.Errorf("expected 2 items dismissed, got %d", dismissed)
+	}
+
+	// Verify only the needed item remains
+	var remaining []db.ApprovalQueueItem
+	database.Where("disk_group_id = ?", dgID).Find(&remaining)
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining item, got %d", len(remaining))
+	}
+	if remaining[0].MediaName != "Firefly" {
+		t.Errorf("expected remaining item to be 'Firefly', got %q", remaining[0].MediaName)
+	}
+
+	// Verify reconciliation event was published
+	select {
+	case evt := <-ch:
+		reconciled, ok := evt.(events.ApprovalQueueReconciledEvent)
+		if !ok {
+			t.Fatalf("expected ApprovalQueueReconciledEvent, got %T", evt)
+		}
+		if reconciled.Dismissed != 2 {
+			t.Errorf("expected event dismissed count 2, got %d", reconciled.Dismissed)
+		}
+		if reconciled.DiskGroupID != dgID {
+			t.Errorf("expected event disk group ID %d, got %d", dgID, reconciled.DiskGroupID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for reconciliation event")
+	}
+}
+
+func TestApprovalService_ReconcileQueue_LeavesRejectedUntouched(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+
+	// Create a pending and a rejected item
+	for _, item := range []db.ApprovalQueueItem{
+		{MediaName: "Firefly", MediaType: "show", Status: db.StatusPending, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID},
+		{MediaName: "Serenity", MediaType: "movie", Status: db.StatusRejected, SnoozedUntil: &snoozedUntil, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID},
+	} {
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("Failed to create item: %v", err)
+		}
+	}
+
+	// No items are still needed — pending should be dismissed, rejected should stay
+	dismissed, err := svc.ReconcileQueue(dgID, map[string]bool{})
+	if err != nil {
+		t.Fatalf("ReconcileQueue returned error: %v", err)
+	}
+
+	if dismissed != 1 {
+		t.Errorf("expected 1 item dismissed (pending only), got %d", dismissed)
+	}
+
+	// Verify rejected item is preserved
+	var remaining []db.ApprovalQueueItem
+	database.Where("disk_group_id = ?", dgID).Find(&remaining)
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining item (rejected), got %d", len(remaining))
+	}
+	if remaining[0].Status != db.StatusRejected {
+		t.Errorf("expected remaining item to be rejected, got %q", remaining[0].Status)
+	}
+}
+
+func TestApprovalService_ReconcileQueue_NoopWhenAllNeeded(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+
+	// Create pending items
+	for _, item := range []db.ApprovalQueueItem{
+		{MediaName: "Firefly", MediaType: "show", Status: db.StatusPending, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID},
+		{MediaName: "Serenity", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID},
+	} {
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("Failed to create item: %v", err)
+		}
+	}
+
+	// All items are still needed
+	neededKeys := map[string]bool{
+		"Firefly|show":   true,
+		"Serenity|movie": true,
+	}
+
+	dismissed, err := svc.ReconcileQueue(dgID, neededKeys)
+	if err != nil {
+		t.Fatalf("ReconcileQueue returned error: %v", err)
+	}
+
+	if dismissed != 0 {
+		t.Errorf("expected 0 items dismissed, got %d", dismissed)
+	}
+
+	// Verify all items remain
+	var remaining []db.ApprovalQueueItem
+	database.Where("disk_group_id = ?", dgID).Find(&remaining)
+	if len(remaining) != 2 {
+		t.Errorf("expected 2 remaining items, got %d", len(remaining))
+	}
+}

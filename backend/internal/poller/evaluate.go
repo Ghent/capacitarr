@@ -118,6 +118,10 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		}
 	}
 
+	// Track which items are still needed this cycle (for queue reconciliation).
+	// Keys are "MediaName|MediaType" strings matching the approval queue schema.
+	neededKeys := make(map[string]bool)
+
 	var bytesFreed int64
 	var deletionsQueued int
 	var skippedZeroScore int
@@ -202,6 +206,9 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 				continue
 			}
 
+			// Track this item as still-needed for post-loop reconciliation
+			neededKeys[ev.Item.Title+"|"+string(ev.Item.Type)] = true
+
 			bytesFreed += ev.Item.SizeBytes
 			atomic.AddInt64(&p.lastRunFlagged, 1)
 			atomic.AddInt64(&p.lastRunFreedBytes, ev.Item.SizeBytes)
@@ -239,6 +246,20 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		atomic.AddInt64(&p.lastRunFreedBytes, ev.Item.SizeBytes)
 		slog.Info("Engine action taken", "component", "poller",
 			"media", ev.Item.Title, "action", db.ActionDryRun, "score", ev.Score, "freed", ev.Item.SizeBytes)
+	}
+
+	// Per-cycle queue reconciliation: in approval mode, dismiss any pending items
+	// for this disk group that are no longer in the "still-needed" set. This trims
+	// stale entries that were added in previous cycles but are no longer candidates
+	// (e.g., threshold was raised, scores changed, media was removed).
+	if prefs.ExecutionMode == "approval" {
+		if dismissed, reconcileErr := p.reg.Approval.ReconcileQueue(group.ID, neededKeys); reconcileErr != nil {
+			slog.Error("Failed to reconcile approval queue", "component", "poller",
+				"mount", group.MountPath, "error", reconcileErr)
+		} else if dismissed > 0 {
+			slog.Info("Approval queue reconciled", "component", "poller",
+				"mount", group.MountPath, "dismissed", dismissed)
+		}
 	}
 
 	// Diagnostic summary: log when candidates were found but all were skipped

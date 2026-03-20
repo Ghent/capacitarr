@@ -91,6 +91,10 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	// Wire IntegrationService's cross-service dependency on DiskGroupService
 	reg.Integration.SetDiskGroupService(diskGroupSvc)
 
+	// Wire DiskGroupService's cross-service dependency on EngineService
+	// so threshold changes trigger an immediate engine run for queue reconciliation
+	diskGroupSvc.SetEngineService(engineSvc)
+
 	// Wire BackupService's cross-service dependency on DiskGroupService
 	backupSvc.SetDiskGroupService(diskGroupSvc)
 
