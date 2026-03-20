@@ -132,7 +132,7 @@ export interface ApprovalQueueItem {
   integrationId: number;
   externalId: string;
   status: 'pending' | 'approved' | 'rejected';
-  forceDelete?: boolean;
+  userInitiated?: boolean;
   snoozedUntil?: string;
   createdAt: string;
   updatedAt: string;
@@ -243,8 +243,8 @@ export interface EvaluatedItem {
   isProtected: boolean;
   reason: string;
   factors: ScoreFactor[];
-  /** Queue state indicator: pending approval, approved, force-delete, or actively deleting. */
-  queueStatus?: 'pending' | 'approved' | 'force_delete' | 'deleting';
+  /** Queue state indicator: pending approval, approved, user-initiated, or actively deleting. */
+  queueStatus?: 'pending' | 'approved' | 'user_initiated' | 'deleting';
   /** Links to the approval queue entry for action buttons. */
   approvalQueueId?: number;
   /** Present on legacy responses that embed score details as a JSON string. */

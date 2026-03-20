@@ -169,9 +169,17 @@ const (
 	StatusRejected = "rejected"
 )
 
+// Execution mode constants — used in PreferenceSet.ExecutionMode field.
+const (
+	ModeAuto     = "auto"
+	ModeDryRun   = "dry-run"
+	ModeApproval = "approval"
+)
+
 // ApprovalQueueItem represents an item in the approval queue (state machine).
 // Items flow through: pending → approved → (deletion) OR pending → rejected (snoozed).
-// Items with ForceDelete=true bypass disk threshold checks and are processed unconditionally.
+// Items with UserInitiated=true were queued by a user (via POST /delete) rather than
+// the engine poller, and are preserved when the queue is cleared on below-threshold cycles.
 type ApprovalQueueItem struct {
 	ID            uint       `gorm:"primarykey" json:"id"`
 	MediaName     string     `gorm:"index;not null" json:"mediaName"`
@@ -185,7 +193,7 @@ type ApprovalQueueItem struct {
 	ExternalID    string     `gorm:"not null;default:''" json:"externalId"`              // External ID in the integration
 	DiskGroupID   *uint      `gorm:"index" json:"diskGroupId,omitempty"`                 // FK to DiskGroup (nullable — set by poller to scope queue per disk group)
 	Status        string     `gorm:"not null;default:'pending'" json:"status"`           // pending, approved, rejected
-	ForceDelete   bool       `gorm:"not null;default:false" json:"forceDelete"`          // Bypass disk threshold — delete on next engine run
+	UserInitiated bool       `gorm:"not null;default:false" json:"userInitiated"`        // True when queued by user via POST /delete (preserved on queue clear)
 	SnoozedUntil  *time.Time `gorm:"column:snoozed_until" json:"snoozedUntil,omitempty"` // When snooze expires (rejected items)
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`

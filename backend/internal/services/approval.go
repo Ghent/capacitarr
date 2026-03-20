@@ -260,12 +260,12 @@ func (s *ApprovalService) CleanExpiredSnoozes() (int, error) {
 }
 
 // ClearQueue removes all pending and rejected items from the approval queue.
-// Approved items (mid-deletion) and force-delete items are preserved. This is
+// Approved items (mid-deletion) and user-initiated items are preserved. This is
 // called when disk usage drops below threshold to ensure the queue only contains
 // current, actionable candidates.
 func (s *ApprovalService) ClearQueue() (int, error) {
 	result := s.db.Where(
-		"status IN ? AND force_delete = ?",
+		"status IN ? AND user_initiated = ?",
 		[]string{string(db.StatusPending), string(db.StatusRejected)},
 		false,
 	).Delete(&db.ApprovalQueueItem{})
@@ -285,10 +285,10 @@ func (s *ApprovalService) ClearQueue() (int, error) {
 }
 
 // ClearQueueForDiskGroup removes pending and rejected items for a specific disk group.
-// Like ClearQueue, approved items and force-delete items are preserved.
+// Like ClearQueue, approved items and user-initiated items are preserved.
 func (s *ApprovalService) ClearQueueForDiskGroup(diskGroupID uint) (int, error) {
 	result := s.db.Where(
-		"status IN ? AND force_delete = ? AND disk_group_id = ?",
+		"status IN ? AND user_initiated = ? AND disk_group_id = ?",
 		[]string{string(db.StatusPending), string(db.StatusRejected)},
 		false,
 		diskGroupID,
@@ -406,62 +406,140 @@ type ExecuteApprovalDeps struct {
 	ForceDryRun bool // When true, the queued DeleteJob will simulate deletion
 }
 
-// CreateForceDelete inserts an item into the approval queue with force_delete=true
-// and status=approved. The item will be processed by the poller on the next engine
-// cycle regardless of disk threshold. The reason is prefixed with "Force delete: "
-// for audit trail clarity.
-func (s *ApprovalService) CreateForceDelete(item db.ApprovalQueueItem) (*db.ApprovalQueueItem, error) {
-	now := time.Now().UTC()
-	item.Status = db.StatusApproved
-	item.ForceDelete = true
-	item.Reason = "Force delete: " + item.Reason
-	item.CreatedAt = now
-	item.UpdatedAt = now
-
-	if err := s.db.Create(&item).Error; err != nil {
-		return nil, fmt.Errorf("failed to create force-delete entry: %w", err)
-	}
-
-	s.bus.Publish(events.ApprovalApprovedEvent{
-		EntryID:   item.ID,
-		MediaName: item.MediaName,
-		MediaType: item.MediaType,
-		SizeBytes: item.SizeBytes,
-	})
-
-	slog.Info("Force-delete item queued", "component", "services",
-		"media", item.MediaName, "type", item.MediaType, "size", item.SizeBytes)
-
-	return &item, nil
+// ManualDeleteItem contains the data needed for a user-initiated deletion.
+type ManualDeleteItem struct {
+	MediaName     string
+	MediaType     string
+	IntegrationID uint
+	ExternalID    string
+	SizeBytes     int64
+	ScoreDetails  string
+	PosterURL     string
+	Score         float64
 }
 
-// ListForceDeletes returns all approved force-delete items awaiting processing.
-func (s *ApprovalService) ListForceDeletes() ([]db.ApprovalQueueItem, error) {
-	var items []db.ApprovalQueueItem
-	if err := s.db.Where(
-		"force_delete = ? AND status = ?", true, db.StatusApproved,
-	).Find(&items).Error; err != nil {
-		return nil, fmt.Errorf("failed to list force-delete items: %w", err)
-	}
-	return items, nil
+// ManualDeleteDeps holds the service dependencies needed by ManualDelete.
+type ManualDeleteDeps struct {
+	Integration *IntegrationService
+	Deletion    *DeletionService
+	Engine      *EngineService
 }
 
-// RemoveForceDelete removes a processed force-delete item from the queue.
-func (s *ApprovalService) RemoveForceDelete(id uint) error {
-	result := s.db.Where("id = ? AND force_delete = ?", id, true).Delete(&db.ApprovalQueueItem{})
-	if result.Error != nil {
-		return fmt.Errorf("failed to remove force-delete item: %w", result.Error)
-	}
-	return nil
+// ManualDeleteResult contains the outcome of a ManualDelete call.
+type ManualDeleteResult struct {
+	Queued int    `json:"queued"`
+	Total  int    `json:"total"`
+	Mode   string `json:"mode"`
 }
 
-// ListPendingForDiskGroup returns all pending (non-force-delete) items for a
+// ManualDelete encapsulates mode-aware deletion for user-initiated actions.
+// In auto/dry-run mode, items are queued to the DeletionService immediately.
+// In approval mode, items are upserted as pending approval queue entries with
+// UserInitiated=true.
+func (s *ApprovalService) ManualDelete(items []ManualDeleteItem, mode string, deletionsEnabled bool, deps ManualDeleteDeps) (ManualDeleteResult, error) {
+	var queued int
+
+	// Get the latest run stats ID for attribution
+	var runStatsID uint
+	if deps.Engine != nil {
+		runStatsID = deps.Engine.LatestRunStatsID()
+	}
+
+	forceDryRun := mode == db.ModeDryRun || !deletionsEnabled
+
+	for _, item := range items {
+		if mode == db.ModeApproval {
+			// In approval mode, upsert as pending with UserInitiated=true
+			if _, err := s.UpsertPending(db.ApprovalQueueItem{
+				MediaName:     item.MediaName,
+				MediaType:     item.MediaType,
+				Reason:        fmt.Sprintf("Score: %.2f (user-initiated)", item.Score),
+				ScoreDetails:  item.ScoreDetails,
+				SizeBytes:     item.SizeBytes,
+				Score:         item.Score,
+				PosterURL:     item.PosterURL,
+				IntegrationID: item.IntegrationID,
+				ExternalID:    item.ExternalID,
+				UserInitiated: true,
+			}); err != nil {
+				slog.Error("Failed to upsert manual delete as pending", "component", "services",
+					"media", item.MediaName, "error", err)
+				continue
+			}
+			queued++
+			continue
+		}
+
+		// Auto / dry-run mode: build integration client and queue for deletion
+		integration, err := deps.Integration.GetByID(item.IntegrationID)
+		if err != nil {
+			slog.Error("Integration not found for manual delete", "component", "services",
+				"integrationId", item.IntegrationID, "media", item.MediaName, "error", err)
+			continue
+		}
+
+		rawClient := integrations.CreateClient(integration.Type, integration.URL, integration.APIKey)
+		if rawClient == nil {
+			slog.Error("Unsupported integration type for manual delete", "component", "services",
+				"type", integration.Type, "media", item.MediaName)
+			continue
+		}
+		client, ok := rawClient.(integrations.MediaDeleter)
+		if !ok {
+			slog.Error("Integration does not support deletion for manual delete", "component", "services",
+				"type", integration.Type, "media", item.MediaName)
+			continue
+		}
+
+		// Parse score details into factors
+		var factors []engine.ScoreFactor
+		if item.ScoreDetails != "" {
+			if jsonErr := json.Unmarshal([]byte(item.ScoreDetails), &factors); jsonErr != nil {
+				slog.Warn("Failed to parse score details for manual delete", "component", "services",
+					"media", item.MediaName, "error", jsonErr)
+			}
+		}
+
+		mediaItem := integrations.MediaItem{
+			ExternalID:    item.ExternalID,
+			IntegrationID: item.IntegrationID,
+			Type:          integrations.MediaType(item.MediaType),
+			Title:         item.MediaName,
+			SizeBytes:     item.SizeBytes,
+		}
+
+		if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
+			Client:      client,
+			Item:        mediaItem,
+			Reason:      fmt.Sprintf("Score: %.2f (user-initiated)", item.Score),
+			Score:       item.Score,
+			Factors:     factors,
+			RunStatsID:  runStatsID,
+			ForceDryRun: forceDryRun,
+		}); queueErr != nil {
+			slog.Warn("Deletion queue full for manual delete", "component", "services",
+				"media", item.MediaName, "error", queueErr)
+			continue
+		}
+		queued++
+	}
+
+	return ManualDeleteResult{
+		Queued: queued,
+		Total:  len(items),
+		Mode:   mode,
+	}, nil
+}
+
+// ListPendingForDiskGroup returns all pending (non-user-initiated) items for a
 // specific disk group. Used by the engine's per-cycle reconciliation to identify
 // stale items that are no longer needed after threshold changes.
+// User-initiated items are excluded because they should not be pruned by
+// reconciliation — they were explicitly requested by a user.
 func (s *ApprovalService) ListPendingForDiskGroup(diskGroupID uint) ([]db.ApprovalQueueItem, error) {
 	var items []db.ApprovalQueueItem
 	if err := s.db.Where(
-		"status = ? AND force_delete = ? AND disk_group_id = ?",
+		"status = ? AND user_initiated = ? AND disk_group_id = ?",
 		db.StatusPending, false, diskGroupID,
 	).Find(&items).Error; err != nil {
 		return nil, fmt.Errorf("failed to list pending items for disk group %d: %w", diskGroupID, err)

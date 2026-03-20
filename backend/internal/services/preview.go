@@ -313,7 +313,7 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 }
 
 // EnrichWithQueueStatus annotates each EvaluatedItem with its current queue
-// state (pending, approved, force_delete, deleting). This is a best-effort
+// state (pending, approved, user_initiated, deleting). This is a best-effort
 // enrichment — if the approval queue or deletion state is unavailable, items
 // are left unannotated.
 func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
@@ -323,9 +323,9 @@ func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
 
 	// Build lookup map from approval queue: "mediaName|mediaType" → queueInfo
 	type queueInfo struct {
-		status      string
-		forceDelete bool
-		id          uint
+		status        string
+		userInitiated bool
+		id            uint
 	}
 	lookup := make(map[string]queueInfo)
 
@@ -337,7 +337,7 @@ func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
 		} else {
 			for _, entry := range pending {
 				key := entry.MediaName + "|" + entry.MediaType
-				lookup[key] = queueInfo{status: db.StatusPending, forceDelete: entry.ForceDelete, id: entry.ID}
+				lookup[key] = queueInfo{status: db.StatusPending, userInitiated: entry.UserInitiated, id: entry.ID}
 			}
 		}
 
@@ -348,7 +348,7 @@ func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
 		} else {
 			for _, entry := range approved {
 				key := entry.MediaName + "|" + entry.MediaType
-				lookup[key] = queueInfo{status: db.StatusApproved, forceDelete: entry.ForceDelete, id: entry.ID}
+				lookup[key] = queueInfo{status: db.StatusApproved, userInitiated: entry.UserInitiated, id: entry.ID}
 			}
 		}
 	}
@@ -378,8 +378,8 @@ func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
 		if info, ok := lookup[key]; ok {
 			id := info.id
 			items[i].ApprovalQueueID = &id
-			if info.forceDelete {
-				items[i].QueueStatus = "force_delete"
+			if info.userInitiated {
+				items[i].QueueStatus = "user_initiated"
 			} else {
 				items[i].QueueStatus = info.status
 			}

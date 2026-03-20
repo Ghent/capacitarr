@@ -90,7 +90,7 @@
           :integrations="enabledIntegrations"
           :loading="loading"
           @refresh="refresh(true)"
-          @force-delete="handleForceDelete"
+          @delete="handleDelete"
         />
       </UiTabsContent>
 
@@ -296,13 +296,13 @@ async function fetchIntegrations() {
 }
 
 // ---------------------------------------------------------------------------
-// Force Delete
+// Delete
 // ---------------------------------------------------------------------------
 const libraryTableRef = ref<InstanceType<
   typeof import('~/components/LibraryTable.vue').default
 > | null>(null);
 
-async function handleForceDelete(selectedItems: EvaluatedItem[]) {
+async function handleDelete(selectedItems: EvaluatedItem[]) {
   try {
     const body = selectedItems.map((e) => ({
       mediaName: e.item.title,
@@ -310,24 +310,33 @@ async function handleForceDelete(selectedItems: EvaluatedItem[]) {
       integrationId: e.item.integrationId,
       externalId: e.item.externalId,
       sizeBytes: e.item.sizeBytes,
-      reason: e.reason || `Score: ${e.score.toFixed(2)}`,
       scoreDetails: JSON.stringify(e.factors),
       posterUrl: e.item.posterUrl ?? '',
+      score: e.score,
     }));
 
-    const result = (await api('/api/v1/force-delete', {
+    const result = (await api('/api/v1/delete', {
       method: 'POST',
       body,
-    })) as { queued: number; total: number };
+    })) as { queued: number; total: number; mode: string };
 
-    addToast(t('library.forceDeleteSuccess', { count: result.queued }), 'success');
+    // Mode-dependent toast feedback
+    const toastMessages: Record<string, string> = {
+      auto: t('library.deleteSuccessAuto', { count: result.queued }),
+      approval: t('library.deleteSuccessApproval', { count: result.queued }),
+      'dry-run': t('library.deleteSuccessDryRun', { count: result.queued }),
+    };
+    addToast(
+      toastMessages[result.mode] || t('library.deleteSuccess', { count: result.queued }),
+      'success',
+    );
     libraryTableRef.value?.onDeleteComplete();
 
     // Refresh to reflect changes
     await refresh(true);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    addToast(`${t('library.forceDeleteError')}: ${message}`, 'error');
+    addToast(`${t('library.deleteError')}: ${message}`, 'error');
     libraryTableRef.value?.onDeleteComplete();
   }
 }

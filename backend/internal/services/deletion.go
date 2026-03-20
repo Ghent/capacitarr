@@ -25,7 +25,7 @@ type DeleteJob struct {
 	Score       float64
 	Factors     []engine.ScoreFactor
 	RunStatsID  uint  // Engine run stats row to increment Deleted counter
-	DiskGroupID *uint // Disk group that triggered this deletion (nil for force-deletes)
+	DiskGroupID *uint // Disk group that triggered this deletion (nil for user-initiated deletes)
 	ForceDryRun bool  // When true, skip actual deletion even if DeletionsEnabled=true
 	UpsertAudit bool  // When true, use AuditLog.UpsertDryRun() (idempotent poller dry-runs); when false, use AuditLog.Create() (append-only)
 }

@@ -178,7 +178,7 @@ CREATE TABLE approval_queue (
     external_id    TEXT    NOT NULL DEFAULT '',
     disk_group_id  INTEGER REFERENCES disk_groups(id) ON DELETE SET NULL,
     status         TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
-    force_delete   INTEGER NOT NULL DEFAULT 0,             -- Bypass disk threshold — delete on next engine run
+    user_initiated INTEGER NOT NULL DEFAULT 0,              -- True when queued by user via POST /delete (preserved on queue clear)
     snoozed_until  DATETIME,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

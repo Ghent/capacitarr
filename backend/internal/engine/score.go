@@ -30,7 +30,7 @@ type EvaluatedItem struct {
 	IsProtected     bool                   `json:"isProtected"`
 	Reason          string                 `json:"reason"`
 	Factors         []ScoreFactor          `json:"factors"`
-	QueueStatus     string                 `json:"queueStatus,omitempty"`     // "", "pending", "approved", "force_delete", "deleting"
+	QueueStatus     string                 `json:"queueStatus,omitempty"`     // "", "pending", "approved", "user_initiated", "deleting"
 	ApprovalQueueID *uint                  `json:"approvalQueueId,omitempty"` // for linking to approval actions
 }
 

@@ -1,7 +1,7 @@
 # Deletion Pipeline Unification
 
 **Created:** 2026-03-20T20:34Z
-**Status:** 🔄 In Progress (Phase 1 complete)
+**Status:** 🔄 In Progress (Phase 2 complete)
 **Base Branch:** `feature/2.0`
 **Breaking:** Yes — no backward compatibility required (2.0 baseline migration)
 
@@ -139,79 +139,74 @@ No separate change needed — handled automatically by the Step 1.3 change. The 
 - Added `TestDeletionService_NilClient_ActualDeletion_Fails` — verifies nil client fails safely in actual deletion path
 - Updated all existing `ActionDryRun`/`"dry_run"` references to `ActionDryDelete`/`"dry_delete"`
 
-## Phase 2: Replace Force-Delete with Mode-Aware Delete
+## Phase 2: Replace Force-Delete with Mode-Aware Delete ✅
 
-### Step 2.1: Create `ManualDelete` service method
+**Completed:** 2026-03-20T21:39Z
 
-**File:** `internal/services/approval.go` (or a new file)
+### Step 2.1: Create `ManualDelete` service method ✅
 
-Create a new method that encapsulates mode-aware deletion for user-initiated actions:
+**File:** `internal/services/approval.go`
 
-```
-ManualDelete(items []ManualDeleteItem, mode string, deletionsEnabled bool, deps ManualDeleteDeps) (ManualDeleteResult, error)
-```
+Created `ManualDelete()` method on `ApprovalService` with supporting types `ManualDeleteItem`, `ManualDeleteDeps`, and `ManualDeleteResult`. In approval mode, items are upserted as pending with `UserInitiated=true`. In auto/dry-run mode, items are queued to the DeletionService via integration client construction and `QueueDeletion()`.
 
-Behavior per mode:
-- **auto / dry-run:** Build integration client per item, call `DeletionService.QueueDeletion()` with `ForceDryRun = (mode == "dry-run" || !deletionsEnabled)`
-- **approval:** Call `UpsertPending()` per item with `UserInitiated=true`
-
-### Step 2.2: Rename `ForceDelete` to `UserInitiated` in DB model
+### Step 2.2: Rename `ForceDelete` to `UserInitiated` in DB model ✅
 
 **Files:** `internal/db/models.go`, `internal/db/migrations/00001_v2_baseline.sql`
 
-- Rename `ForceDelete bool` to `UserInitiated bool` on `ApprovalQueueItem`
-- Update the baseline migration: `force_delete` column → `user_initiated`
-- Update all references in Go code
+- Renamed `ForceDelete bool` → `UserInitiated bool` on `ApprovalQueueItem` with JSON tag `"userInitiated"`
+- Updated baseline migration column `force_delete` → `user_initiated`
+- Added execution mode constants (`ModeAuto`, `ModeDryRun`, `ModeApproval`) to `db` package to resolve goconst lint warnings
+- Updated all references across Go code, including `preview.go` (queue enrichment), `score.go` (QueueStatus comment), `deletion.go` (DiskGroupID comment)
 
-### Step 2.3: Update `ClearQueue()` and `ClearQueueForDiskGroup()`
-
-**File:** `internal/services/approval.go`
-
-Update the WHERE clause to preserve `user_initiated=true` items (same protection as current `force_delete=true`).
-
-### Step 2.4: Update `ReconcileQueue()`
+### Step 2.3: Update `ClearQueue()` and `ClearQueueForDiskGroup()` ✅
 
 **File:** `internal/services/approval.go`
 
-Ensure reconciliation skips `user_initiated=true` items — they should not be pruned just because the engine didn't flag them this cycle.
+Updated WHERE clauses from `force_delete = ?` to `user_initiated = ?` to preserve user-initiated items on below-threshold queue clearing.
 
-### Step 2.5: Rename API endpoint
+### Step 2.4: Update `ReconcileQueue()` ✅
 
-**File:** `routes/approval.go`
+**File:** `internal/services/approval.go`
 
-- Rename `POST /force-delete` to `POST /delete`
-- Update the handler to call `ManualDelete()` instead of `CreateForceDelete()`
-- The handler reads `executionMode` and `deletionsEnabled` from preferences and passes them to the service
+`ListPendingForDiskGroup()` already filtered on `force_delete = false` — updated to `user_initiated = false` so user-initiated items are excluded from reconciliation pruning.
 
-### Step 2.6: Remove force-delete infrastructure
+### Step 2.5: Rename API endpoint ✅
+
+**Files:** `routes/approval.go`, `routes/deletion.go`
+
+- Removed `POST /force-delete` handler from `routes/approval.go`
+- Added `POST /delete` handler (`handleManualDelete`) to `routes/deletion.go`
+- Handler reads `executionMode` and `deletionsEnabled` from preferences, calls `ManualDelete()`
+- Response includes `mode` field for frontend toast messages
+- Removed unused `db` import from `routes/approval.go`
+
+### Step 2.6: Remove force-delete infrastructure ✅
 
 **Files:** `internal/services/approval.go`, `internal/poller/evaluate.go`
 
-- Remove `CreateForceDelete()` method
-- Remove `ListForceDeletes()` method
-- Remove `RemoveForceDelete()` method
-- Remove `processForceDeletes()` from the poller
-- Remove the `processForceDeletes()` call in `evaluateAndCleanDisk()` (below-threshold path)
+- Removed `CreateForceDelete()`, `ListForceDeletes()`, `RemoveForceDelete()` methods
+- Removed `processForceDeletes()` function from poller
+- Removed the `processForceDeletes()` call in below-threshold path of `evaluateAndCleanDisk()`
 
-### Step 2.7: Update frontend
+### Step 2.7: Update frontend ✅
 
-**Files:** Frontend components that reference force-delete
+**Files:** `frontend/app/types/api.ts`, `frontend/app/components/LibraryTable.vue`, `frontend/app/components/MediaPosterCard.vue`, `frontend/app/pages/library.vue`, all 22 locale JSON files
 
-- Rename "Force Delete" button to "Delete" in the preview/rules page
-- Update API call from `POST /force-delete` to `POST /delete`
-- Add mode-dependent toast feedback:
-  - Auto: "Items queued for deletion"
-  - Approval: "Items added to approval queue"
-  - Dry-run: "Items queued for dry-run"
+- Renamed `forceDelete` → `userInitiated` on `ApprovalQueueItem` TypeScript type
+- Renamed `force_delete` → `user_initiated` in `EvaluatedItem.queueStatus` union type
+- Updated `MediaPosterCard.vue` queue status badge: `force_delete` → `user_initiated`, label "Force Delete" → "Delete"
+- Updated `LibraryTable.vue`: emit `delete` instead of `force-delete`, function `confirmDelete()` instead of `confirmForceDelete()`, queue badge references
+- Updated `library.vue`: API call `POST /delete`, mode-dependent toast messages (auto/approval/dry-run), renamed handler `handleDelete()`
+- Updated all 22 locale files: renamed i18n keys from `forceDelete*` to `delete*`, added mode-specific success messages to `en.json`
 
-### Step 2.8: Update tests
+### Step 2.8: Update tests ✅
 
-**Files:** `internal/services/approval_test.go`, `internal/poller/evaluate_test.go`, `routes/approval_test.go`
+**Files:** `routes/approval_test.go`, `internal/services/preview_test.go`
 
-- Add tests for `ManualDelete()` in each mode
-- Remove tests for `CreateForceDelete()`, `ListForceDeletes()`, `RemoveForceDelete()`
-- Remove tests for `processForceDeletes()`
-- Update route tests for the renamed endpoint
+- Added 3 route tests: `TestManualDelete_ApprovalMode`, `TestManualDelete_DryRunMode`, `TestManualDelete_DeletionsDisabled`
+- Removed 2 old force-delete route tests: `TestForceDelete_DryRunMode`, `TestForceDelete_DeletionsDisabled`
+- Updated preview test: `TestPreviewService_EnrichWithQueueStatus_ForceDelete` → `TestPreviewService_EnrichWithQueueStatus_UserInitiated`
+- No approval service-level force-delete tests existed to remove (they were never created for `CreateForceDelete` etc.)
 
 ## Phase 3: Deletion Queue Grace Period
 

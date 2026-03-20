@@ -28,7 +28,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   refresh: [];
-  'force-delete': [items: EvaluatedItem[]];
+  delete: [items: EvaluatedItem[]];
 }>();
 
 const { t } = useI18n();
@@ -278,9 +278,9 @@ function openDeleteDialog() {
   showDeleteDialog.value = true;
 }
 
-async function confirmForceDelete() {
+async function confirmDelete() {
   deleteLoading.value = true;
-  emit('force-delete', selectedItems.value);
+  emit('delete', selectedItems.value);
   // Parent handles the API call and will close selection mode on success
 }
 
@@ -617,12 +617,12 @@ const tableColumns = computed(() => [
                         {{ t('library.queueApproved') }}
                       </UiBadge>
                       <UiBadge
-                        v-else-if="getEntry(vRow.index).queueStatus === 'force_delete'"
+                        v-else-if="getEntry(vRow.index).queueStatus === 'user_initiated'"
                         variant="destructive"
                         class="text-[10px] shrink-0"
                       >
                         <ZapIcon class="w-3 h-3" />
-                        {{ t('library.queueForceDelete') }}
+                        {{ t('library.queueDelete') }}
                       </UiBadge>
                       <UiBadge
                         v-else-if="getEntry(vRow.index).queueStatus === 'deleting'"
@@ -703,13 +703,13 @@ const tableColumns = computed(() => [
         </UiButton>
         <UiButton variant="destructive" size="sm" @click="openDeleteDialog">
           <Trash2Icon class="w-3.5 h-3.5 mr-1" />
-          {{ t('library.forceDelete') }}
+          {{ t('library.delete') }}
         </UiButton>
       </div>
     </Transition>
   </Teleport>
 
-  <!-- Force-Delete Confirmation Dialog -->
+  <!-- Delete Confirmation Dialog -->
   <UiDialog
     :open="showDeleteDialog"
     @update:open="
@@ -722,10 +722,10 @@ const tableColumns = computed(() => [
       <UiDialogHeader>
         <UiDialogTitle class="flex items-center gap-2">
           <AlertTriangleIcon class="w-5 h-5 text-destructive" />
-          {{ t('library.forceDeleteTitle', { count: selectedItems.length }) }}
+          {{ t('library.deleteTitle', { count: selectedItems.length }) }}
         </UiDialogTitle>
         <UiDialogDescription>
-          {{ t('library.forceDeleteDesc') }}
+          {{ t('library.deleteDesc') }}
         </UiDialogDescription>
       </UiDialogHeader>
 
@@ -743,17 +743,17 @@ const tableColumns = computed(() => [
       </div>
 
       <div class="flex items-center justify-between text-sm font-medium px-2 pt-2 border-t">
-        <span>{{ t('library.forceDeleteTotal', { size: formatBytes(selectedTotalBytes) }) }}</span>
+        <span>{{ t('library.deleteTotal', { size: formatBytes(selectedTotalBytes) }) }}</span>
       </div>
 
       <UiDialogFooter>
         <UiButton variant="outline" :disabled="deleteLoading" @click="showDeleteDialog = false">
           {{ t('library.cancel') }}
         </UiButton>
-        <UiButton variant="destructive" :disabled="deleteLoading" @click="confirmForceDelete">
+        <UiButton variant="destructive" :disabled="deleteLoading" @click="confirmDelete">
           <LoaderCircleIcon v-if="deleteLoading" class="w-3.5 h-3.5 mr-1 animate-spin" />
           <Trash2Icon v-else class="w-3.5 h-3.5 mr-1" />
-          {{ t('library.forceDelete') }}
+          {{ t('library.delete') }}
         </UiButton>
       </UiDialogFooter>
     </UiDialogContent>

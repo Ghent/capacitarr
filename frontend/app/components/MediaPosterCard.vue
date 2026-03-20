@@ -25,7 +25,7 @@ const props = defineProps<{
   selectable?: boolean;
   selected?: boolean;
   seasonCount?: number;
-  queueStatus?: 'pending' | 'approved' | 'force_delete' | 'deleting';
+  queueStatus?: 'pending' | 'approved' | 'user_initiated' | 'deleting';
 }>();
 
 defineEmits<{
@@ -107,8 +107,8 @@ const queueStatusLabel = computed(() => {
       return 'Pending';
     case 'approved':
       return 'Approved';
-    case 'force_delete':
-      return 'Force Delete';
+    case 'user_initiated':
+      return 'Delete';
     case 'deleting':
       return 'Deleting…';
     default:
@@ -219,13 +219,13 @@ const queueStatusLabel = computed(() => {
       :class="{
         'bg-amber-500/70 text-white': queueStatus === 'pending',
         'bg-emerald-500/70 text-white': queueStatus === 'approved',
-        'bg-red-500/70 text-white': queueStatus === 'force_delete',
+        'bg-red-500/70 text-white': queueStatus === 'user_initiated',
         'bg-red-500/70 text-white animate-pulse': queueStatus === 'deleting',
       }"
     >
       <ClockIcon v-if="queueStatus === 'pending'" class="w-3 h-3" />
       <CheckIcon v-else-if="queueStatus === 'approved'" class="w-3 h-3" />
-      <ZapIcon v-else-if="queueStatus === 'force_delete'" class="w-3 h-3" />
+      <ZapIcon v-else-if="queueStatus === 'user_initiated'" class="w-3 h-3" />
       <LoaderCircleIcon v-else-if="queueStatus === 'deleting'" class="w-3 h-3 animate-spin" />
       <span>{{ queueStatusLabel }}</span>
     </div>

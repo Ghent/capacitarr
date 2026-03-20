@@ -400,7 +400,7 @@ func TestPreviewService_EnrichWithQueueStatus_Approved(t *testing.T) {
 	}
 }
 
-func TestPreviewService_EnrichWithQueueStatus_ForceDelete(t *testing.T) {
+func TestPreviewService_EnrichWithQueueStatus_UserInitiated(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewPreviewService(database, bus)
@@ -409,7 +409,7 @@ func TestPreviewService_EnrichWithQueueStatus_ForceDelete(t *testing.T) {
 		items: map[string][]db.ApprovalQueueItem{
 			db.StatusPending: {},
 			db.StatusApproved: {
-				{ID: 3, MediaName: "Firefly", MediaType: "show", Status: db.StatusApproved, ForceDelete: true},
+				{ID: 3, MediaName: "Firefly", MediaType: "show", Status: db.StatusApproved, UserInitiated: true},
 			},
 		},
 	}
@@ -422,8 +422,8 @@ func TestPreviewService_EnrichWithQueueStatus_ForceDelete(t *testing.T) {
 
 	svc.EnrichWithQueueStatus(items)
 
-	if items[0].QueueStatus != "force_delete" {
-		t.Errorf("expected 'force_delete' for Firefly, got %q", items[0].QueueStatus)
+	if items[0].QueueStatus != "user_initiated" {
+		t.Errorf("expected 'user_initiated' for Firefly, got %q", items[0].QueueStatus)
 	}
 }
 

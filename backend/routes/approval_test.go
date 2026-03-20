@@ -482,7 +482,55 @@ func TestClearQueue(t *testing.T) {
 	}
 }
 
-func TestForceDelete_DryRunMode(t *testing.T) {
+func TestManualDelete_ApprovalMode(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Set approval mode
+	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
+		"execution_mode":    "approval",
+		"deletions_enabled": true,
+	})
+
+	ic := db.IntegrationConfig{
+		Type: "sonarr", Name: "Test", URL: "http://localhost:8989", APIKey: "key",
+	}
+	database.Create(&ic)
+
+	body := fmt.Sprintf(`[{"mediaName":"Firefly","mediaType":"show","integrationId":%d,"externalId":"1","sizeBytes":5000000,"score":0.85}]`, ic.ID)
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/delete", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 in approval mode, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+	if queued, ok := result["queued"].(float64); !ok || int(queued) != 1 {
+		t.Errorf("Expected queued=1, got %v", result["queued"])
+	}
+	if mode, ok := result["mode"].(string); !ok || mode != "approval" {
+		t.Errorf("Expected mode='approval', got %v", result["mode"])
+	}
+
+	// Verify item was created as pending+user_initiated in approval queue
+	var item db.ApprovalQueueItem
+	if err := database.Where("media_name = ? AND media_type = ?", "Firefly", "show").First(&item).Error; err != nil {
+		t.Fatalf("Expected approval queue item to exist: %v", err)
+	}
+	if item.Status != db.StatusPending {
+		t.Errorf("Expected status=%q, got %q", db.StatusPending, item.Status)
+	}
+	if !item.UserInitiated {
+		t.Error("Expected UserInitiated=true for manually queued item")
+	}
+}
+
+func TestManualDelete_DryRunMode(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
@@ -497,8 +545,8 @@ func TestForceDelete_DryRunMode(t *testing.T) {
 	}
 	database.Create(&ic)
 
-	body := fmt.Sprintf(`[{"mediaName":"Firefly","mediaType":"show","integrationId":%d,"externalId":"1","sizeBytes":5000000,"reason":"user request"}]`, ic.ID)
-	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/force-delete", strings.NewReader(body))
+	body := fmt.Sprintf(`[{"mediaName":"Firefly","mediaType":"show","integrationId":%d,"externalId":"1","sizeBytes":5000000,"score":0.85}]`, ic.ID)
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/delete", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -513,15 +561,18 @@ func TestForceDelete_DryRunMode(t *testing.T) {
 	if queued, ok := result["queued"].(float64); !ok || int(queued) != 1 {
 		t.Errorf("Expected queued=1, got %v", result["queued"])
 	}
+	if mode, ok := result["mode"].(string); !ok || mode != "dry-run" {
+		t.Errorf("Expected mode='dry-run', got %v", result["mode"])
+	}
 }
 
-func TestForceDelete_DeletionsDisabled(t *testing.T) {
+func TestManualDelete_DeletionsDisabled(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	// Disable deletions — force-delete should still accept the request
+	// Disable deletions in auto mode — should still accept (dry-run internally)
 	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
-		"execution_mode":    "approval",
+		"execution_mode":    "auto",
 		"deletions_enabled": false,
 	})
 
@@ -530,8 +581,8 @@ func TestForceDelete_DeletionsDisabled(t *testing.T) {
 	}
 	database.Create(&ic)
 
-	body := fmt.Sprintf(`[{"mediaName":"Serenity","mediaType":"movie","integrationId":%d,"externalId":"42","sizeBytes":3000000,"reason":"user request"}]`, ic.ID)
-	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/force-delete", strings.NewReader(body))
+	body := fmt.Sprintf(`[{"mediaName":"Serenity","mediaType":"movie","integrationId":%d,"externalId":"42","sizeBytes":3000000,"score":0.72}]`, ic.ID)
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/delete", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 

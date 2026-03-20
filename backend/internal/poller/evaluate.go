@@ -31,10 +31,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		slog.Debug("Disk within threshold, no action needed", "component", "poller",
 			"mount", group.MountPath, "usedPct", fmt.Sprintf("%.1f", currentPct),
 			"threshold", group.ThresholdPct)
-
-		// Process any force-delete items even when below threshold
-		forceQueued := p.processForceDeletes(registry, runStatsID)
-		return forceQueued
+		return 0
 	}
 
 	slog.Info("Disk threshold breached, evaluating media for deletion", "component", "poller",
@@ -268,79 +265,4 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 	}
 
 	return deletionsQueued
-}
-
-// processForceDeletes queries the approval queue for force-delete items and
-// queues them for deletion via the DeletionService, regardless of disk threshold.
-// Returns the number of items queued.
-func (p *Poller) processForceDeletes(registry *integrations.IntegrationRegistry, runStatsID uint) int {
-	items, err := p.reg.Approval.ListForceDeletes()
-	if err != nil {
-		slog.Error("Failed to list force-delete items", "component", "poller", "error", err)
-		return 0
-	}
-	if len(items) == 0 {
-		return 0
-	}
-
-	slog.Info("Processing force-delete items", "component", "poller", "count", len(items))
-
-	prefs, err := p.reg.Settings.GetPreferences()
-	if err != nil {
-		slog.Error("Failed to load preferences for force-delete", "component", "poller", "error", err)
-		return 0
-	}
-
-	// Determine whether to simulate (dry-delete) instead of actually deleting
-	forceDryRun := !prefs.DeletionsEnabled || prefs.ExecutionMode == "dry-run"
-
-	var queued int
-	for _, item := range items {
-		deleter, err := registry.Deleter(item.IntegrationID)
-		if err != nil {
-			slog.Error("Integration not registered as MediaDeleter for force-delete", "component", "poller",
-				"integrationId", item.IntegrationID, "media", item.MediaName, "error", err)
-			continue
-		}
-
-		// Parse stored score details back into factors
-		var factors []engine.ScoreFactor
-		if item.ScoreDetails != "" {
-			if jsonErr := json.Unmarshal([]byte(item.ScoreDetails), &factors); jsonErr != nil {
-				slog.Warn("Failed to parse score details for force-delete", "id", item.ID, "error", jsonErr)
-			}
-		}
-
-		mediaItem := integrations.MediaItem{
-			ExternalID:    item.ExternalID,
-			IntegrationID: item.IntegrationID,
-			Type:          integrations.MediaType(item.MediaType),
-			Title:         item.MediaName,
-			SizeBytes:     item.SizeBytes,
-		}
-
-		if queueErr := p.reg.Deletion.QueueDeletion(services.DeleteJob{
-			Client:      deleter,
-			Item:        mediaItem,
-			Reason:      item.Reason,
-			Score:       0,
-			Factors:     factors,
-			RunStatsID:  runStatsID,
-			ForceDryRun: forceDryRun,
-		}); queueErr != nil {
-			slog.Warn("Deletion queue full, skipping force-delete item", "component", "poller", "item", item.MediaName)
-			continue
-		}
-
-		// Remove the force-delete entry from the queue after successful queueing
-		if rmErr := p.reg.Approval.RemoveForceDelete(item.ID); rmErr != nil {
-			slog.Error("Failed to remove force-delete entry", "component", "poller", "id", item.ID, "error", rmErr)
-		}
-
-		queued++
-		slog.Info("Force-delete item queued for deletion", "component", "poller",
-			"media", item.MediaName, "size", item.SizeBytes)
-	}
-
-	return queued
 }
