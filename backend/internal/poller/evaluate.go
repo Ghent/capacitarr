@@ -17,7 +17,7 @@ import (
 
 // evaluateAndCleanDisk scores all media items on a disk group and, when the
 // threshold is breached, queues the highest-scoring candidates for deletion.
-// Returns the number of items queued to the DeletionService worker (auto mode only).
+// Returns the number of items queued to the DeletionService worker (auto and dry-run modes).
 func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, runStatsID uint, prefs db.PreferenceSet, rules []db.CustomRule) int {
 	effectiveTotal := group.EffectiveTotalBytes()
 	if effectiveTotal == 0 {
@@ -217,35 +217,28 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			continue
 		}
 
-		// Dry-run mode: write to audit_log via AuditLogService
-		factorsJSON, marshalErr := json.Marshal(ev.Factors)
-		if marshalErr != nil {
-			slog.Error("Failed to marshal score factors", "component", "poller", "error", marshalErr)
-			factorsJSON = []byte("[]")
-		}
-		integrationID := ev.Item.IntegrationID
+		// Dry-run mode: queue through DeletionService with ForceDryRun + UpsertAudit
 		diskGroupID := group.ID
-		logEntry := db.AuditLogEntry{
-			MediaName:     ev.Item.Title,
-			MediaType:     string(ev.Item.Type),
-			Reason:        fmt.Sprintf("Score: %.2f (%s)", ev.Score, ev.Reason),
-			ScoreDetails:  string(factorsJSON),
-			Action:        db.ActionDryRun,
-			SizeBytes:     ev.Item.SizeBytes,
-			Score:         ev.Score,
-			IntegrationID: &integrationID,
-			DiskGroupID:   &diskGroupID,
+		if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
+			Client:      nil, // Dry-run never calls DeleteMediaItem; nil-safe in processJob()
+			Item:        ev.Item,
+			Reason:      ev.Reason,
+			Score:       ev.Score,
+			Factors:     ev.Factors,
+			RunStatsID:  runStatsID,
+			DiskGroupID: &diskGroupID,
+			ForceDryRun: true,
+			UpsertAudit: true,
+		}); err != nil {
+			slog.Warn("Deletion queue full, skipping dry-run item", "component", "poller", "item", ev.Item.Title)
+			continue
 		}
-
-		if err := p.reg.AuditLog.UpsertDryRun(logEntry); err != nil {
-			slog.Error("Failed to upsert dry-run audit entry", "component", "poller", "media", ev.Item.Title, "error", err)
-		}
-
 		bytesFreed += ev.Item.SizeBytes
+		deletionsQueued++
 		atomic.AddInt64(&p.lastRunFlagged, 1)
 		atomic.AddInt64(&p.lastRunFreedBytes, ev.Item.SizeBytes)
 		slog.Info("Engine action taken", "component", "poller",
-			"media", ev.Item.Title, "action", db.ActionDryRun, "score", ev.Score, "freed", ev.Item.SizeBytes)
+			"media", ev.Item.Title, "action", db.ActionDryDelete, "score", ev.Score, "freed", ev.Item.SizeBytes)
 	}
 
 	// Per-cycle queue reconciliation: in approval mode, dismiss any pending items

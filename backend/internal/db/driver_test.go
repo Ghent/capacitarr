@@ -243,7 +243,7 @@ func TestDataTypeRoundTrip(t *testing.T) {
 		MediaName: "null-test",
 		MediaType: "movie",
 		Reason:    "null-round-trip",
-		Action:    "dry_run",
+		Action:    "dry_delete",
 	}
 	if err := database.Create(&logWithNull).Error; err != nil {
 		t.Fatalf("Failed to create audit log with null fields: %v", err)

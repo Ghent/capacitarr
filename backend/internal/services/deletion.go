@@ -27,6 +27,7 @@ type DeleteJob struct {
 	RunStatsID  uint  // Engine run stats row to increment Deleted counter
 	DiskGroupID *uint // Disk group that triggered this deletion (nil for force-deletes)
 	ForceDryRun bool  // When true, skip actual deletion even if DeletionsEnabled=true
+	UpsertAudit bool  // When true, use AuditLog.UpsertDryRun() (idempotent poller dry-runs); when false, use AuditLog.Create() (append-only)
 }
 
 // DeleteJobSummary is a serialisable snapshot of a queued deletion job,
@@ -271,7 +272,11 @@ func (s *DeletionService) processJob(job DeleteJob) {
 			Score:        job.Score,
 			DiskGroupID:  job.DiskGroupID,
 		}
-		if err := s.auditLog.Create(logEntry); err != nil {
+		if job.UpsertAudit {
+			if err := s.auditLog.UpsertDryRun(logEntry); err != nil {
+				slog.Error("Failed to upsert audit log entry", "component", "services", "error", err)
+			}
+		} else if err := s.auditLog.Create(logEntry); err != nil {
 			slog.Error("Failed to create audit log entry", "component", "services", "error", err)
 		}
 
@@ -287,7 +292,15 @@ func (s *DeletionService) processJob(job DeleteJob) {
 		return
 	}
 
-	// Actual deletion
+	// Actual deletion — nil-safety check for dry-run jobs that have no client
+	if job.Client == nil {
+		slog.Error("Deletion job has nil client — cannot perform actual deletion",
+			"component", "services", "media", job.Item.Title)
+		s.failed.Add(1)
+		s.batchFailed.Add(1)
+		s.publishProgress()
+		return
+	}
 	if err := job.Client.DeleteMediaItem(job.Item); err != nil {
 		slog.Error("Deletion failed", "component", "services", "item", job.Item.Title, "error", err)
 		s.failed.Add(1)

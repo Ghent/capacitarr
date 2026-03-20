@@ -199,7 +199,7 @@ CREATE TABLE audit_log (
     media_type     TEXT    NOT NULL,
     reason         TEXT    NOT NULL,
     score_details  TEXT,                                   -- JSON-encoded []ScoreFactor
-    action         TEXT    NOT NULL CHECK(action IN ('deleted','dry_run','dry_delete','cancelled')),
+    action         TEXT    NOT NULL CHECK(action IN ('deleted','dry_delete','cancelled')),
     size_bytes     INTEGER NOT NULL DEFAULT 0,
     score          REAL    NOT NULL DEFAULT 0,
     integration_id INTEGER REFERENCES integration_configs(id) ON DELETE SET NULL,
