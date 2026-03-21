@@ -29,6 +29,7 @@
       :rules="rules"
       :integrations="allIntegrations"
       @add-rule="addRule"
+      @edit-rule="editRule"
       @delete-rule="deleteRule"
       @toggle-enabled="toggleRuleEnabled"
       @reorder="reorderRules"
@@ -182,6 +183,22 @@ async function deleteRule(id: number) {
     await fetchRules();
   } catch {
     addToast('Failed to delete rule', 'error');
+  }
+}
+
+async function editRule(
+  id: number,
+  rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+) {
+  try {
+    await api(`/api/v1/custom-rules/${id}`, {
+      method: 'PUT',
+      body: { ...rule, id },
+    });
+    addToast('Rule updated', 'success');
+    await fetchRules();
+  } catch {
+    addToast('Failed to update rule', 'error');
   }
 }
 

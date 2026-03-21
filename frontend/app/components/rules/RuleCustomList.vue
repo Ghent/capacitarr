@@ -25,7 +25,7 @@
             <component :is="ArchiveIcon" class="w-3.5 h-3.5" />
             {{ $t('rules.backupRestore') }}
           </UiButton>
-          <UiButton size="sm" @click="showAddRule = !showAddRule">
+          <UiButton size="sm" @click="viewMode = 'add'; editingRule = null">
             <component :is="PlusIcon" class="w-3.5 h-3.5" />
             {{ $t('rules.addRule') }}
           </UiButton>
@@ -33,18 +33,52 @@
       </div>
     </UiCardHeader>
     <UiCardContent>
-      <!-- Add Rule Form — Cascading Rule Builder -->
-      <RuleBuilder
-        v-if="showAddRule"
-        :integrations="integrations"
-        class="mb-4"
-        @save="onAddRule"
-        @cancel="showAddRule = false"
-      />
+      <!-- Editor Mode (Add or Edit) — state-swap with list -->
+      <div
+        v-if="viewMode !== 'list'"
+        v-motion
+        :initial="{ opacity: 0, x: 12 }"
+        :enter="{ opacity: 1, x: 0, transition: { duration: 200 } }"
+      >
+        <!-- Back link + title -->
+        <div class="flex items-center gap-2 mb-4">
+          <UiButton variant="ghost" size="sm" @click="viewMode = 'list'; editingRule = null">
+            <ArrowLeftIcon class="w-4 h-4" />
+            {{ $t('rules.backToRules') }}
+          </UiButton>
+          <span class="text-sm font-medium">
+            {{ viewMode === 'edit' ? $t('rules.editRule') : $t('rules.addRule') }}
+          </span>
+        </div>
 
+        <!-- RuleBuilder form -->
+        <RuleBuilder
+          :key="editingRule?.id ?? 'new'"
+          :integrations="integrations"
+          :initial-rule="editingRule ? {
+            id: editingRule.id,
+            integrationId: editingRule.integrationId ?? 0,
+            field: editingRule.field,
+            operator: editingRule.operator,
+            value: editingRule.value,
+            effect: editingRule.effect,
+          } : undefined"
+          @save="onAddRule"
+          @update="onUpdateRule"
+          @cancel="viewMode = 'list'; editingRule = null"
+        />
+      </div>
+
+      <!-- List Mode -->
+      <div
+        v-else
+        v-motion
+        :initial="{ opacity: 0, x: -12 }"
+        :enter="{ opacity: 1, x: 0, transition: { duration: 200 } }"
+      >
       <!-- Empty state -->
       <div
-        v-if="rules.length === 0 && !showAddRule"
+        v-if="rules.length === 0"
         class="text-center py-6 text-muted-foreground text-sm"
       >
         {{ $t('rules.noRules') }}
@@ -189,6 +223,15 @@
                   <UiButton
                     variant="ghost"
                     size="icon-sm"
+                    aria-label="Edit rule"
+                    class="text-muted-foreground hover:text-foreground shrink-0"
+                    @click="editingRule = rule; viewMode = 'edit'"
+                  >
+                    <PencilIcon class="w-4 h-4" />
+                  </UiButton>
+                  <UiButton
+                    variant="ghost"
+                    size="icon-sm"
                     aria-label="Delete rule"
                     class="text-muted-foreground hover:text-red-500 shrink-0"
                     @click="$emit('delete-rule', rule.id)"
@@ -201,6 +244,7 @@
           </UiCollapsibleContent>
         </UiCollapsible>
       </div>
+      </div><!-- end list mode -->
     </UiCardContent>
   </UiCard>
 </template>
@@ -214,6 +258,8 @@ import {
   ChevronRightIcon,
   ArchiveIcon,
   BarChart3Icon,
+  PencilIcon,
+  ArrowLeftIcon,
 } from 'lucide-vue-next';
 import {
   fieldLabel,
@@ -245,12 +291,18 @@ const emit = defineEmits<{
   'add-rule': [
     rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
   ];
+  'edit-rule': [
+    id: number,
+    rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+  ];
   'delete-rule': [id: number];
   'toggle-enabled': [rule: CustomRule, enabled: boolean];
   reorder: [order: number[]];
 }>();
 
-const showAddRule = ref(false);
+type ViewMode = 'list' | 'add' | 'edit';
+const viewMode = ref<ViewMode>('list');
+const editingRule = ref<CustomRule | null>(null);
 
 function goToBackupRestore() {
   router.push({ path: '/settings', query: { tab: 'backup', section: 'rules' } });
@@ -293,8 +345,20 @@ function onAddRule(rule: {
   value: string;
   effect: string;
 }) {
-  showAddRule.value = false;
+  viewMode.value = 'list';
   emit('add-rule', rule);
+}
+
+function onUpdateRule(id: number, rule: {
+  integrationId: number;
+  field: string;
+  operator: string;
+  value: string;
+  effect: string;
+}) {
+  viewMode.value = 'list';
+  editingRule.value = null;
+  emit('edit-rule', id, rule);
 }
 
 // ─── Drag-to-Reorder (scoped per integration group) ────────────────────────────

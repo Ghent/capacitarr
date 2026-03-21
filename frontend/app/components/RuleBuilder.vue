@@ -1,6 +1,16 @@
 <template>
-  <div class="p-4 rounded-lg border border-border bg-muted space-y-4">
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+  <div class="p-4 rounded-lg border border-border bg-muted space-y-4 relative">
+    <!-- Loading overlay during edit initialization -->
+    <div
+      v-if="isInitializing"
+      class="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-10"
+    >
+      <LoaderCircleIcon class="w-5 h-5 animate-spin text-muted-foreground" />
+    </div>
+    <div
+      class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3"
+      :class="{ 'opacity-50 pointer-events-none': isInitializing }"
+    >
       <!-- ① Service Instance -->
       <div class="space-y-1.5">
         <UiLabel class="text-xs text-muted-foreground"> Service </UiLabel>
@@ -167,13 +177,16 @@
     </div>
 
     <div class="flex items-center gap-3">
-      <UiButton size="sm" :disabled="!isFormValid" @click="submitRule"> Save Rule </UiButton>
-      <UiButton variant="ghost" size="sm" @click="$emit('cancel')"> Cancel </UiButton>
+      <UiButton size="sm" :disabled="!isFormValid || isInitializing" @click="submitRule">
+        {{ isEditMode ? $t('rules.updateRule') : $t('rules.saveRule') }}
+      </UiButton>
+      <UiButton variant="ghost" size="sm" @click="$emit('cancel')"> {{ $t('common.cancel') }} </UiButton>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { LoaderCircleIcon } from 'lucide-vue-next';
 import { CreatableCombobox } from '~/components/ui/creatable-combobox';
 
 interface Integration {
@@ -204,21 +217,30 @@ interface RuleValuesResponse {
   suffix?: string;
 }
 
+interface RuleContextResponse {
+  rule: { id: number; integrationId: number; field: string; operator: string; value: string; effect: string };
+  fields: FieldDef[];
+  values: RuleValuesResponse | null;
+}
+
 const props = defineProps<{
   integrations: Integration[];
+  /** When provided, the builder enters edit mode and prepopulates the form. */
+  initialRule?: {
+    id: number;
+    integrationId: number;
+    field: string;
+    operator: string;
+    value: string;
+    effect: string;
+  };
 }>();
 
+const isEditMode = computed(() => !!props.initialRule);
+
 const emit = defineEmits<{
-  (
-    e: 'save',
-    rule: {
-      integrationId: number;
-      field: string;
-      operator: string;
-      value: string;
-      effect: string;
-    },
-  ): void;
+  (e: 'save', rule: { integrationId: number; field: string; operator: string; value: string; effect: string }): void;
+  (e: 'update', id: number, rule: { integrationId: number; field: string; operator: string; value: string; effect: string }): void;
   (e: 'cancel'): void;
 }>();
 
@@ -275,6 +297,10 @@ const fields = ref<FieldDef[]>([]);
 // Rule values response from API
 const ruleValues = ref<RuleValuesResponse | null>(null);
 const valueLoading = ref(false);
+
+// Edit mode initialization guard — prevents cascade functions from
+// clearing downstream values during sequential prepopulation.
+const isInitializing = ref(false);
 
 // Combobox search term (synced with the combobox input)
 const comboboxSearch = ref('');
@@ -421,6 +447,7 @@ const isFormValid = computed(
 
 // Cascade: when service changes, reset downstream fields and fetch field definitions
 async function onServiceChange() {
+  if (isInitializing.value) return; // Guard: skip during edit initialization
   form.field = '';
   form.operator = '';
   form.value = '';
@@ -442,6 +469,7 @@ async function onServiceChange() {
 
 // Cascade: when action (field) changes, reset operator and value, fetch value options
 async function onFieldChange() {
+  if (isInitializing.value) return; // Guard: skip during edit initialization
   form.operator = '';
   form.value = '';
   form.effect = '';
@@ -473,23 +501,71 @@ async function onFieldChange() {
 // Note: comboboxSearch is still used for filteredSuggestions computed.
 // CreatableCombobox manages the interaction internally via v-model.
 
+// Initialize the form for editing an existing rule. Uses the combined
+// /context endpoint to fetch fields + values in a single round-trip,
+// then populates all form fields with cascade guards active.
+async function initializeForEdit() {
+  if (!props.initialRule) return;
+
+  isInitializing.value = true;
+  try {
+    const ctx = (await api(
+      `/api/v1/custom-rules/${props.initialRule.id}/context`,
+    )) as RuleContextResponse;
+
+    // Populate field definitions and value options directly from context
+    if (ctx.fields) {
+      fields.value = ctx.fields;
+    }
+    if (ctx.values) {
+      ruleValues.value = ctx.values;
+    }
+
+    // Set all form fields at once — cascade guards prevent downstream resets
+    form.integrationId = String(props.initialRule.integrationId);
+    form.field = props.initialRule.field;
+    form.operator = props.initialRule.operator;
+    form.value = props.initialRule.value;
+    form.effect = props.initialRule.effect;
+  } catch (err) {
+    console.warn('[RuleBuilder] Failed to initialize for edit:', err);
+  } finally {
+    isInitializing.value = false;
+  }
+}
+
+onMounted(() => {
+  if (props.initialRule) {
+    initializeForEdit();
+  }
+});
+
 function submitRule() {
   if (!isFormValid.value) return;
-  emit('save', {
+  const ruleData = {
     integrationId: Number(form.integrationId),
     field: form.field,
     operator: form.operator,
     value: valueNotRequired.value ? 'true' : String(form.value),
     effect: form.effect,
-  });
-  // Reset form
-  form.integrationId = '';
-  form.field = '';
-  form.operator = '';
-  form.value = '';
-  form.effect = '';
-  fields.value = [];
-  ruleValues.value = null;
-  comboboxSearch.value = '';
+  };
+
+  if (isEditMode.value && props.initialRule) {
+    emit('update', props.initialRule.id, ruleData);
+  } else {
+    emit('save', ruleData);
+  }
+
+  // Only reset form on create (edit mode will unmount when returning to list)
+  if (!isEditMode.value) {
+    form.integrationId = '';
+    form.field = '';
+    form.operator = '';
+    form.value = '';
+    form.effect = '';
+    fields.value = [];
+    ruleValues.value = null;
+    comboboxSearch.value = '';
+  }
 }
 </script>
