@@ -586,7 +586,6 @@
   "library.quickFilters": "Quick Filters",
   "library.filterDead": "Dead",
   "library.filterStale": "Stale",
-  "library.filterBloated": "Bloated",
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",

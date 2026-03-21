@@ -111,7 +111,6 @@ type PreferenceSet struct {
 	TimeInLibraryWeight       int       `gorm:"default:4" json:"timeInLibraryWeight"`
 	SeriesStatusWeight        int       `gorm:"default:3" json:"seriesStatusWeight"`
 	RequestPopularityWeight   int       `gorm:"default:2" json:"requestPopularityWeight"`             // NEW in 2.0: RequestPopularityFactor
-	QualityBloatWeight        int       `gorm:"default:2" json:"qualityBloatWeight"`                  // NEW in 2.0: QualityBloatFactor
 	ExecutionMode             string    `gorm:"default:'dry-run';not null" json:"executionMode"`      // "dry-run", "approval", "auto"
 	TiebreakerMethod          string    `gorm:"default:'size_desc';not null" json:"tiebreakerMethod"` // "size_desc", "size_asc", "name_asc", "oldest_first", "newest_first"
 	DeletionsEnabled          bool      `gorm:"default:true;not null" json:"deletionsEnabled"`        // Safety guard: actual deletions only when true
@@ -141,8 +140,6 @@ func (p PreferenceSet) GetFactorWeight(key string) int {
 		return p.SeriesStatusWeight
 	case "request_popularity":
 		return p.RequestPopularityWeight
-	case "quality_bloat":
-		return p.QualityBloatWeight
 	default:
 		return 0
 	}

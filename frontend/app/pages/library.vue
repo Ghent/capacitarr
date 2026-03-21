@@ -108,7 +108,6 @@ import {
   ClockIcon,
   SkullIcon,
   TimerIcon,
-  ExpandIcon,
   StarIcon,
   ShieldIcon,
   XIcon,
@@ -143,7 +142,6 @@ watch(activeTab, (tab) => {
 const filterPresets = [
   { key: 'dead', label: t('library.filterDead'), icon: SkullIcon },
   { key: 'stale', label: t('library.filterStale'), icon: TimerIcon },
-  { key: 'bloated', label: t('library.filterBloated'), icon: ExpandIcon },
   { key: 'requested', label: t('library.filterRequested'), icon: StarIcon },
   { key: 'protected', label: t('library.filterProtected'), icon: ShieldIcon },
 ];
@@ -202,24 +200,17 @@ interface StaleContentReport {
   items: { title: string }[];
   totalCount: number;
 }
-interface SizeAnomaly {
-  title: string;
-}
-
 const deadTitles = ref<Set<string>>(new Set());
 const staleTitles = ref<Set<string>>(new Set());
-const bloatedTitles = ref<Set<string>>(new Set());
 
 async function fetchFilterData() {
   try {
-    const [deadResp, staleResp, bloatResp] = await Promise.all([
+    const [deadResp, staleResp] = await Promise.all([
       api('/api/v1/analytics/dead-content') as Promise<DeadContentReport>,
       api('/api/v1/analytics/stale-content') as Promise<StaleContentReport>,
-      api('/api/v1/analytics/bloat') as Promise<SizeAnomaly[]>,
     ]);
     deadTitles.value = new Set((deadResp?.items ?? []).map((i) => i.title));
     staleTitles.value = new Set((staleResp?.items ?? []).map((i) => i.title));
-    bloatedTitles.value = new Set((bloatResp ?? []).map((i) => i.title));
   } catch {
     // Silent — filters will just show all items
   }
@@ -237,10 +228,6 @@ const filterCounts = computed<Record<string, number | null>>(() => {
       staleTitles.value.size > 0
         ? all.filter((e) => staleTitles.value.has(e.item.title)).length
         : null,
-    bloated:
-      bloatedTitles.value.size > 0
-        ? all.filter((e) => bloatedTitles.value.has(e.item.title)).length
-        : null,
     requested: all.filter((e) => e.item.isRequested).length || null,
     protected: all.filter((e) => e.isProtected).length || null,
   };
@@ -257,8 +244,6 @@ const filteredItems = computed<EvaluatedItem[]>(() => {
     result = result.filter((e) => deadTitles.value.has(e.item.title));
   } else if (activeFilter.value === 'stale') {
     result = result.filter((e) => staleTitles.value.has(e.item.title));
-  } else if (activeFilter.value === 'bloated') {
-    result = result.filter((e) => bloatedTitles.value.has(e.item.title));
   } else if (activeFilter.value === 'requested') {
     result = result.filter((e) => e.item.isRequested);
   } else if (activeFilter.value === 'protected') {

@@ -81,7 +81,7 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 	// Deletion queue management (list + cancel)
 	RegisterDeletionQueueRoutes(protected, reg)
 
-	// Analytics routes (composition, quality, bloat, watch intelligence)
+	// Analytics routes (watch intelligence: dead content, stale content, forecast)
 	RegisterAnalyticsRoutes(protected, reg)
 
 	// Library management routes (CRUD)

@@ -39,7 +39,6 @@ type Registry struct {
 	Metrics              *MetricsService
 	Version              *VersionService
 	Library              *LibraryService
-	Analytics            *AnalyticsService
 	WatchAnalytics       *WatchAnalyticsService
 	Migration            *MigrationService
 }
@@ -85,7 +84,6 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 		Rules:                NewRulesService(database, bus),
 		Metrics:              metricsSvc,
 		Library:              NewLibraryService(database, bus),
-		Analytics:            NewAnalyticsService(previewSvc),
 		WatchAnalytics:       NewWatchAnalyticsService(previewSvc),
 		Migration:            NewMigrationService(database, bus, filepath.Dir(cfg.Database)),
 	}
@@ -113,11 +111,10 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	reg.Rules.SetPreviewSource(previewSvc)
 
 	// Wire analytics services' rules sources for protected-item filtering
-	reg.Analytics.SetRulesSource(reg.Rules)
 	reg.WatchAnalytics.SetRulesSource(reg.Rules)
 
 	// Wire analytics services' disk group lister for per-disk-group filtering
-	reg.Analytics.SetDiskGroupLister(diskGroupSvc)
+
 	reg.WatchAnalytics.SetDiskGroupLister(diskGroupSvc)
 
 	// Wire DataService's preview dependency for cache clearing on data reset

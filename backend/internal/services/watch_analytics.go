@@ -11,6 +11,18 @@ import (
 	"capacitarr/internal/integrations"
 )
 
+// PreviewDataSource is the interface for accessing preview cache data.
+// Satisfied by PreviewService.
+type PreviewDataSource interface {
+	GetCachedItems() []integrations.MediaItem
+}
+
+// RulesSource provides read access to enabled custom rules for analytics filtering.
+// Satisfied by RulesService.
+type RulesSource interface {
+	GetEnabledRules() ([]db.CustomRule, error)
+}
+
 // WatchAnalyticsService provides watch-intelligence analytics (dead content,
 // stale content). Requires enrichment data from a media server — items
 // without enrichment are excluded to avoid false positives.

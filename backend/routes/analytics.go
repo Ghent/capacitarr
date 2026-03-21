@@ -23,17 +23,9 @@ func parseDiskGroupID(c echo.Context) *uint {
 
 // RegisterAnalyticsRoutes registers all analytics-related endpoints.
 func RegisterAnalyticsRoutes(g *echo.Group, reg *services.Registry) {
-	g.GET("/analytics/bloat", analyticsBloatHandler(reg))
 	g.GET("/analytics/dead-content", analyticsDeadContentHandler(reg))
 	g.GET("/analytics/stale-content", analyticsStaleContentHandler(reg))
 	g.GET("/analytics/forecast", analyticsForecastHandler(reg))
-}
-
-func analyticsBloatHandler(reg *services.Registry) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		data := reg.Analytics.GetSizeAnomalies(parseDiskGroupID(c))
-		return c.JSON(http.StatusOK, data)
-	}
 }
 
 func analyticsDeadContentHandler(reg *services.Registry) echo.HandlerFunc {

@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"math"
 	"strings"
 	"time"
 
@@ -32,7 +31,6 @@ func DefaultFactors() []ScoringFactor {
 		&LibraryAgeFactor{},
 		&SeriesStatusFactor{},
 		&RequestPopularityFactor{},
-		&QualityBloatFactor{},
 	}
 }
 
@@ -194,50 +192,4 @@ func (f *RequestPopularityFactor) Calculate(item integrations.MediaItem) float64
 		return 0.1 // Strongly protect unfulfilled requests
 	}
 	return 0.5
-}
-
-// ─── QualityBloatFactor (NEW in 2.0) ────────────────────────────────────────
-
-// QualityBloatFactor scores items that are unusually large for their quality profile.
-// This is a simplified per-item check; the full bloat analysis (median-based) runs
-// in the AnalyticsService. Here we penalize obviously oversized items.
-type QualityBloatFactor struct{}
-
-// Name returns the display name.
-func (f *QualityBloatFactor) Name() string { return "Quality Bloat" }
-
-// Key returns the preference key.
-func (f *QualityBloatFactor) Key() string { return "quality_bloat" }
-
-// Calculate returns a score based on size-to-expected-size ratio.
-// Items exceeding expected size for their quality tier get higher scores.
-func (f *QualityBloatFactor) Calculate(item integrations.MediaItem) float64 {
-	sizeGB := float64(item.SizeBytes) / (1024 * 1024 * 1024)
-	if sizeGB == 0 {
-		return 0.5
-	}
-
-	// Expected maximum sizes by quality tier (rough heuristics for movies/full seasons)
-	profile := strings.ToLower(item.QualityProfile)
-	var expectedMaxGB float64
-	switch {
-	case strings.Contains(profile, "4k") || strings.Contains(profile, "2160"):
-		expectedMaxGB = 80.0
-	case strings.Contains(profile, "1080"):
-		expectedMaxGB = 25.0
-	case strings.Contains(profile, "720"):
-		expectedMaxGB = 12.0
-	case strings.Contains(profile, "480") || strings.Contains(profile, "sd"):
-		expectedMaxGB = 5.0
-	default:
-		return 0.5 // Unknown quality profile, neutral
-	}
-
-	ratio := sizeGB / expectedMaxGB
-	if ratio <= 1.0 {
-		return 0.0 // Within expected range, no bloat
-	}
-	// Scale from 0.0 to 1.0 as items go from 1x to 3x expected size
-	bloatScore := math.Min((ratio-1.0)/2.0, 1.0)
-	return bloatScore
 }

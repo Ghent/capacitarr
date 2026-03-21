@@ -16,7 +16,6 @@ func defaultPrefs() db.PreferenceSet {
 		TimeInLibraryWeight:     4,
 		SeriesStatusWeight:      3,
 		RequestPopularityWeight: 2,
-		QualityBloatWeight:      2,
 	}
 }
 
@@ -112,7 +111,7 @@ func TestEvaluationResult_CandidatesForDeletion(t *testing.T) {
 func TestEvaluator_Factors(t *testing.T) {
 	eval := NewEvaluator()
 	factors := eval.Factors()
-	if len(factors) != 8 {
-		t.Errorf("expected 8 factors, got %d", len(factors))
+	if len(factors) != 7 {
+		t.Errorf("expected 7 factors, got %d", len(factors))
 	}
 }

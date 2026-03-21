@@ -73,37 +73,6 @@ func seedPreviewCache(t *testing.T, reg *services.Registry, items []integrations
 	reg.Preview.SetPreviewCache(items, prefs, nil)
 }
 
-func TestAnalyticsE2E_BloatEndpoint(t *testing.T) {
-	database := testutil.SetupTestDB(t)
-	e, reg := testutil.SetupTestServerWithRegistry(t, database)
-
-	// Create items with a clear bloat outlier
-	items := []integrations.MediaItem{
-		{Title: "Normal 720p A", QualityProfile: "HD-720p", SizeBytes: 5 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
-		{Title: "Normal 720p B", QualityProfile: "HD-720p", SizeBytes: 6 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
-		{Title: "Normal 720p C", QualityProfile: "HD-720p", SizeBytes: 4 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
-		{Title: "Bloated 720p", QualityProfile: "HD-720p", SizeBytes: 30 * 1024 * 1024 * 1024, Type: integrations.MediaTypeMovie},
-	}
-	seedPreviewCache(t, reg, items)
-
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/bloat", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var report services.SizeAnomalyReport
-	if err := json.NewDecoder(rec.Body).Decode(&report); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-
-	if len(report.Items) == 0 {
-		t.Error("expected at least one anomaly")
-	}
-}
-
 func TestAnalyticsE2E_DeadContentEndpoint(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e, reg := testutil.SetupTestServerWithRegistry(t, database)
@@ -236,7 +205,6 @@ func TestAnalyticsE2E_EmptyCacheReturnsDefaults(t *testing.T) {
 
 	// Preview cache is empty by default — no items seeded
 	endpoints := []string{
-		"/api/analytics/bloat",
 		"/api/analytics/dead-content",
 		"/api/analytics/stale-content",
 		"/api/analytics/forecast",
@@ -262,7 +230,6 @@ func TestAnalyticsE2E_UnauthenticatedReturns401(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	endpoints := []string{
-		"/api/analytics/bloat",
 		"/api/analytics/dead-content",
 		"/api/analytics/stale-content",
 		"/api/analytics/forecast",

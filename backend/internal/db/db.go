@@ -53,13 +53,13 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 		TimeInLibraryWeight:     4,
 		SeriesStatusWeight:      3,
 		RequestPopularityWeight: 2,
-		QualityBloatWeight:      2,
-		TiebreakerMethod:        "size_desc",
-		DeletionsEnabled:        true,
-		SnoozeDurationHours:     24,
-		CheckForUpdates:         true,
-		DeadContentMinDays:      90,
-		StaleContentDays:        180,
+
+		TiebreakerMethod:    "size_desc",
+		DeletionsEnabled:    true,
+		SnoozeDurationHours: 24,
+		CheckForUpdates:     true,
+		DeadContentMinDays:  90,
+		StaleContentDays:    180,
 	}).Error; err != nil {
 		slog.Error("Failed to seed default preferences", "component", "db", "operation", "seed_preferences", "error", err)
 	}

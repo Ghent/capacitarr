@@ -142,31 +142,9 @@ func TestRequestPopularityFactor(t *testing.T) {
 	}
 }
 
-func TestQualityBloatFactor(t *testing.T) {
-	f := &QualityBloatFactor{}
-
-	// Unknown quality → 0.5
-	score := f.Calculate(integrations.MediaItem{Title: "Serenity", SizeBytes: 10 * 1024 * 1024 * 1024})
-	if score != 0.5 {
-		t.Errorf("expected 0.5 for unknown quality, got %.2f", score)
-	}
-
-	// 720p at 5GB = normal → 0.0
-	score = f.Calculate(integrations.MediaItem{Title: "Serenity", SizeBytes: 5 * 1024 * 1024 * 1024, QualityProfile: "HD-720p"})
-	if score != 0.0 {
-		t.Errorf("expected 0.0 for normal 720p size, got %.2f", score)
-	}
-
-	// 720p at 36GB = 3x expected → 1.0
-	score = f.Calculate(integrations.MediaItem{Title: "Serenity", SizeBytes: 36 * 1024 * 1024 * 1024, QualityProfile: "HD-720p"})
-	if score != 1.0 {
-		t.Errorf("expected 1.0 for bloated 720p, got %.2f", score)
-	}
-}
-
 func TestDefaultFactors(t *testing.T) {
 	factors := DefaultFactors()
-	if len(factors) != 8 {
+	if len(factors) != 7 {
 		t.Errorf("expected 8 default factors, got %d", len(factors))
 	}
 
