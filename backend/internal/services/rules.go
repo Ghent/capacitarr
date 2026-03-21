@@ -18,6 +18,20 @@ var ErrRuleNotFound = errors.New("rule not found")
 // ErrRuleValidation is returned when a rule fails input validation.
 var ErrRuleValidation = errors.New("rule validation failed")
 
+// Service type constants for rule field definitions.
+const serviceTypeSonarr = "sonarr"
+
+// Rule field name constants (shared across services to satisfy goconst linter).
+const ruleFieldSeriesStatus = "seriesstatus"
+
+// arrServiceTypes maps *arr integration type strings to true for quick lookup.
+var arrServiceTypes = map[string]bool{
+	serviceTypeSonarr: true,
+	"radarr":          true,
+	"lidarr":          true,
+	"readarr":         true,
+}
+
 // IntegrationContextProvider provides integration metadata needed for
 // building rule context (field definitions + value options). Defined here
 // to avoid import cycles between RulesService and IntegrationService.
@@ -253,12 +267,12 @@ func (s *RulesService) GetFieldDefinitions(serviceType string, enrichment Enrich
 
 	// Sonarr-specific fields
 	sonarrFields := []FieldDef{
-		{Field: "seriesstatus", Label: "Show Status", Type: "string", Operators: []string{"==", "!="}},
+		{Field: ruleFieldSeriesStatus, Label: "Show Status", Type: "string", Operators: []string{"==", "!="}},
 		{Field: "seasoncount", Label: "Season Count", Type: "number", Operators: []string{"==", "!=", ">", ">=", "<", "<="}},
 		{Field: "episodecount", Label: "Episode Count", Type: "number", Operators: []string{"==", "!=", ">", ">=", "<", "<="}},
 	}
 
-	if serviceType == "sonarr" {
+	if serviceType == serviceTypeSonarr {
 		fields = append(fields, sonarrFields...)
 	} else if serviceType == "" && enrichment.HasSonarr {
 		fields = append(fields, sonarrFields...)
@@ -267,8 +281,7 @@ func (s *RulesService) GetFieldDefinitions(serviceType string, enrichment Enrich
 	// Enrichment fields — add for *arr service types or when unfiltered
 	addEnrichment := serviceType == ""
 	if !addEnrichment {
-		arrTypes := map[string]bool{"sonarr": true, "radarr": true, "lidarr": true, "readarr": true}
-		addEnrichment = arrTypes[serviceType]
+		addEnrichment = arrServiceTypes[serviceType]
 	}
 	if addEnrichment {
 		fields = appendEnrichmentFieldDefs(fields, enrichment)

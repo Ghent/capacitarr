@@ -180,7 +180,9 @@
       <UiButton size="sm" :disabled="!isFormValid || isInitializing" @click="submitRule">
         {{ isEditMode ? $t('rules.updateRule') : $t('rules.saveRule') }}
       </UiButton>
-      <UiButton variant="ghost" size="sm" @click="$emit('cancel')"> {{ $t('common.cancel') }} </UiButton>
+      <UiButton variant="ghost" size="sm" @click="$emit('cancel')">
+        {{ $t('common.cancel') }}
+      </UiButton>
     </div>
   </div>
 </template>
@@ -218,7 +220,14 @@ interface RuleValuesResponse {
 }
 
 interface RuleContextResponse {
-  rule: { id: number; integrationId: number; field: string; operator: string; value: string; effect: string };
+  rule: {
+    id: number;
+    integrationId: number;
+    field: string;
+    operator: string;
+    value: string;
+    effect: string;
+  };
   fields: FieldDef[];
   values: RuleValuesResponse | null;
 }
@@ -239,8 +248,15 @@ const props = defineProps<{
 const isEditMode = computed(() => !!props.initialRule);
 
 const emit = defineEmits<{
-  (e: 'save', rule: { integrationId: number; field: string; operator: string; value: string; effect: string }): void;
-  (e: 'update', id: number, rule: { integrationId: number; field: string; operator: string; value: string; effect: string }): void;
+  (
+    e: 'save',
+    rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+  ): void;
+  (
+    e: 'update',
+    id: number,
+    rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+  ): void;
   (e: 'cancel'): void;
 }>();
 

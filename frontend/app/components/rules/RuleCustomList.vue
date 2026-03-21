@@ -25,7 +25,13 @@
             <component :is="ArchiveIcon" class="w-3.5 h-3.5" />
             {{ $t('rules.backupRestore') }}
           </UiButton>
-          <UiButton size="sm" @click="viewMode = 'add'; editingRule = null">
+          <UiButton
+            size="sm"
+            @click="
+              viewMode = 'add';
+              editingRule = null;
+            "
+          >
             <component :is="PlusIcon" class="w-3.5 h-3.5" />
             {{ $t('rules.addRule') }}
           </UiButton>
@@ -42,7 +48,14 @@
       >
         <!-- Back link + title -->
         <div class="flex items-center gap-2 mb-4">
-          <UiButton variant="ghost" size="sm" @click="viewMode = 'list'; editingRule = null">
+          <UiButton
+            variant="ghost"
+            size="sm"
+            @click="
+              viewMode = 'list';
+              editingRule = null;
+            "
+          >
             <ArrowLeftIcon class="w-4 h-4" />
             {{ $t('rules.backToRules') }}
           </UiButton>
@@ -55,17 +68,24 @@
         <RuleBuilder
           :key="editingRule?.id ?? 'new'"
           :integrations="integrations"
-          :initial-rule="editingRule ? {
-            id: editingRule.id,
-            integrationId: editingRule.integrationId ?? 0,
-            field: editingRule.field,
-            operator: editingRule.operator,
-            value: editingRule.value,
-            effect: editingRule.effect,
-          } : undefined"
+          :initial-rule="
+            editingRule
+              ? {
+                  id: editingRule.id,
+                  integrationId: editingRule.integrationId ?? 0,
+                  field: editingRule.field,
+                  operator: editingRule.operator,
+                  value: editingRule.value,
+                  effect: editingRule.effect,
+                }
+              : undefined
+          "
           @save="onAddRule"
           @update="onUpdateRule"
-          @cancel="viewMode = 'list'; editingRule = null"
+          @cancel="
+            viewMode = 'list';
+            editingRule = null;
+          "
         />
       </div>
 
@@ -76,175 +96,176 @@
         :initial="{ opacity: 0, x: -12 }"
         :enter="{ opacity: 1, x: 0, transition: { duration: 200 } }"
       >
-      <!-- Empty state -->
-      <div
-        v-if="rules.length === 0"
-        class="text-center py-6 text-muted-foreground text-sm"
-      >
-        {{ $t('rules.noRules') }}
-      </div>
+        <!-- Empty state -->
+        <div v-if="rules.length === 0" class="text-center py-6 text-muted-foreground text-sm">
+          {{ $t('rules.noRules') }}
+        </div>
 
-      <!-- Grouped rules by integration — collapsible sections -->
-      <div v-else class="space-y-3">
-        <UiCollapsible
-          v-for="group in groupedRules"
-          :key="group.integrationId"
-          :default-open="true"
-        >
-          <!-- Section header / trigger -->
-          <UiCollapsibleTrigger
-            class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80 transition-colors group"
+        <!-- Grouped rules by integration — collapsible sections -->
+        <div v-else class="space-y-3">
+          <UiCollapsible
+            v-for="group in groupedRules"
+            :key="group.integrationId"
+            :default-open="true"
           >
-            <div class="flex items-center gap-2">
-              <ChevronRightIcon
-                class="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90"
-              />
-              <span>{{ group.name }}</span>
-              <UiBadge variant="secondary" class="text-xs tabular-nums">
-                {{ $t('rules.ruleCount', { count: group.rules.length }, group.rules.length) }}
-              </UiBadge>
-            </div>
-          </UiCollapsibleTrigger>
+            <!-- Section header / trigger -->
+            <UiCollapsibleTrigger
+              class="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-muted/80 transition-colors group"
+            >
+              <div class="flex items-center gap-2">
+                <ChevronRightIcon
+                  class="w-4 h-4 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-90"
+                />
+                <span>{{ group.name }}</span>
+                <UiBadge variant="secondary" class="text-xs tabular-nums">
+                  {{ $t('rules.ruleCount', { count: group.rules.length }, group.rules.length) }}
+                </UiBadge>
+              </div>
+            </UiCollapsibleTrigger>
 
-          <!-- Collapsible rule list -->
-          <UiCollapsibleContent>
-            <div class="space-y-2 mt-2">
-              <div
-                v-for="(rule, ruleIdx) in group.rules"
-                :key="rule.id"
-                draggable="true"
-                class="flex items-center justify-between px-4 py-2.5 rounded-lg border bg-muted/50 transition-opacity duration-200"
-                :class="[
-                  (conflictsMap.get(rule.id)?.length ?? 0) > 0
-                    ? 'border-amber-400/50'
-                    : 'border-border',
-                  rule.enabled === false ? 'opacity-50' : '',
-                  dragOverKey === ruleKey(group.integrationId, ruleIdx)
-                    ? 'border-primary border-dashed'
-                    : '',
-                  dragSourceKey === ruleKey(group.integrationId, ruleIdx) ? 'opacity-30' : '',
-                ]"
-                @dragstart="onDragStart($event, group.integrationId, ruleIdx)"
-                @dragover.prevent="onDragOver($event, group.integrationId, ruleIdx)"
-                @dragleave="onDragLeave"
-                @drop.prevent="onDrop($event, group.integrationId, ruleIdx)"
-                @dragend="onDragEnd"
-              >
-                <div class="flex items-center gap-2 text-sm flex-wrap">
-                  <!-- Drag handle -->
-                  <span
-                    role="button"
-                    aria-label="Drag to reorder"
-                    class="inline-flex items-center shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-                  >
-                    <GripVerticalIcon class="w-4 h-4" />
-                  </span>
-                  <!-- Rule number (per-group) -->
-                  <span class="text-xs font-mono tabular-nums text-muted-foreground w-5 shrink-0"
-                    >{{ ruleIdx + 1 }}.</span
-                  >
-                  <!-- Enable/Disable toggle -->
-                  <UiSwitch
-                    :model-value="rule.enabled !== false"
-                    :aria-label="rule.enabled !== false ? 'Disable rule' : 'Enable rule'"
-                    class="shrink-0"
-                    @update:model-value="(v: boolean) => $emit('toggle-enabled', rule, v)"
-                  />
-                  <!-- Conflict indicator -->
-                  <UiTooltipProvider v-if="(conflictsMap.get(rule.id)?.length ?? 0) > 0">
-                    <UiTooltip>
-                      <UiTooltipTrigger as-child>
-                        <span class="inline-flex items-center shrink-0 cursor-help">
-                          <component :is="AlertTriangleIcon" class="w-4 h-4 text-amber-500" />
-                        </span>
-                      </UiTooltipTrigger>
-                      <UiTooltipContent side="top" class="max-w-xs text-xs">
-                        <p
-                          v-for="(conflict, idx) in conflictsMap.get(rule.id)"
-                          :key="idx"
-                          class="mb-1 last:mb-0"
-                        >
-                          {{ conflict }}
-                        </p>
-                      </UiTooltipContent>
-                    </UiTooltip>
-                  </UiTooltipProvider>
-                  <!-- Human-readable condition (no service name — it's in the section header) -->
-                  <span
-                    :class="rule.enabled === false ? 'text-muted-foreground' : 'text-foreground'"
-                    >{{ fieldLabel(rule.field) }}</span
-                  >
-                  <span class="text-muted-foreground">{{ operatorLabel(rule.operator) }}</span>
-                  <span
-                    v-if="rule.operator !== 'never'"
-                    :class="rule.enabled === false ? 'text-muted-foreground' : 'font-medium'"
-                    >"{{ rule.value }}"{{ ruleValueSuffix(rule) }}</span
-                  >
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                  <!-- Impact badge — shows how many items this rule affects -->
-                  <NuxtLink
-                    v-if="rule.enabled !== false"
-                    :to="`/library?ruleId=${rule.id}`"
-                    class="no-underline"
-                    @click.stop
-                  >
-                    <UiBadge
-                      variant="secondary"
-                      class="text-xs tabular-nums cursor-pointer hover:bg-accent transition-colors gap-1"
+            <!-- Collapsible rule list -->
+            <UiCollapsibleContent>
+              <div class="space-y-2 mt-2">
+                <div
+                  v-for="(rule, ruleIdx) in group.rules"
+                  :key="rule.id"
+                  draggable="true"
+                  class="flex items-center justify-between px-4 py-2.5 rounded-lg border bg-muted/50 transition-opacity duration-200"
+                  :class="[
+                    (conflictsMap.get(rule.id)?.length ?? 0) > 0
+                      ? 'border-amber-400/50'
+                      : 'border-border',
+                    rule.enabled === false ? 'opacity-50' : '',
+                    dragOverKey === ruleKey(group.integrationId, ruleIdx)
+                      ? 'border-primary border-dashed'
+                      : '',
+                    dragSourceKey === ruleKey(group.integrationId, ruleIdx) ? 'opacity-30' : '',
+                  ]"
+                  @dragstart="onDragStart($event, group.integrationId, ruleIdx)"
+                  @dragover.prevent="onDragOver($event, group.integrationId, ruleIdx)"
+                  @dragleave="onDragLeave"
+                  @drop.prevent="onDrop($event, group.integrationId, ruleIdx)"
+                  @dragend="onDragEnd"
+                >
+                  <div class="flex items-center gap-2 text-sm flex-wrap">
+                    <!-- Drag handle -->
+                    <span
+                      role="button"
+                      aria-label="Drag to reorder"
+                      class="inline-flex items-center shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/50 hover:text-muted-foreground transition-colors"
                     >
-                      <component :is="BarChart3Icon" class="w-3 h-3" />
-                      <span>{{ impactCounts.get(rule.id) ?? '—' }}</span>
-                    </UiBadge>
-                  </NuxtLink>
-                  <!-- Effect badge -->
-                  <UiBadge
-                    variant="outline"
-                    :class="
-                      effectBadgeClass(
-                        rule.effect || legacyEffect(rule.type ?? '', rule.intensity ?? ''),
-                      )
-                    "
-                    class="shrink-0"
-                  >
-                    <span class="inline-flex items-center gap-1">
-                      <span class="text-xs">{{
-                        effectIconMap[
-                          rule.effect || legacyEffect(rule.type ?? '', rule.intensity ?? '')
-                        ] || ''
-                      }}</span>
-                      {{
-                        effectLabel(
+                      <GripVerticalIcon class="w-4 h-4" />
+                    </span>
+                    <!-- Rule number (per-group) -->
+                    <span class="text-xs font-mono tabular-nums text-muted-foreground w-5 shrink-0"
+                      >{{ ruleIdx + 1 }}.</span
+                    >
+                    <!-- Enable/Disable toggle -->
+                    <UiSwitch
+                      :model-value="rule.enabled !== false"
+                      :aria-label="rule.enabled !== false ? 'Disable rule' : 'Enable rule'"
+                      class="shrink-0"
+                      @update:model-value="(v: boolean) => $emit('toggle-enabled', rule, v)"
+                    />
+                    <!-- Conflict indicator -->
+                    <UiTooltipProvider v-if="(conflictsMap.get(rule.id)?.length ?? 0) > 0">
+                      <UiTooltip>
+                        <UiTooltipTrigger as-child>
+                          <span class="inline-flex items-center shrink-0 cursor-help">
+                            <component :is="AlertTriangleIcon" class="w-4 h-4 text-amber-500" />
+                          </span>
+                        </UiTooltipTrigger>
+                        <UiTooltipContent side="top" class="max-w-xs text-xs">
+                          <p
+                            v-for="(conflict, idx) in conflictsMap.get(rule.id)"
+                            :key="idx"
+                            class="mb-1 last:mb-0"
+                          >
+                            {{ conflict }}
+                          </p>
+                        </UiTooltipContent>
+                      </UiTooltip>
+                    </UiTooltipProvider>
+                    <!-- Human-readable condition (no service name — it's in the section header) -->
+                    <span
+                      :class="rule.enabled === false ? 'text-muted-foreground' : 'text-foreground'"
+                      >{{ fieldLabel(rule.field) }}</span
+                    >
+                    <span class="text-muted-foreground">{{ operatorLabel(rule.operator) }}</span>
+                    <span
+                      v-if="rule.operator !== 'never'"
+                      :class="rule.enabled === false ? 'text-muted-foreground' : 'font-medium'"
+                      >"{{ rule.value }}"{{ ruleValueSuffix(rule) }}</span
+                    >
+                  </div>
+                  <div class="flex items-center gap-2 shrink-0">
+                    <!-- Impact badge — shows how many items this rule affects -->
+                    <NuxtLink
+                      v-if="rule.enabled !== false"
+                      :to="`/library?ruleId=${rule.id}`"
+                      class="no-underline"
+                      @click.stop
+                    >
+                      <UiBadge
+                        variant="secondary"
+                        class="text-xs tabular-nums cursor-pointer hover:bg-accent transition-colors gap-1"
+                      >
+                        <component :is="BarChart3Icon" class="w-3 h-3" />
+                        <span>{{ impactCounts.get(rule.id) ?? '—' }}</span>
+                      </UiBadge>
+                    </NuxtLink>
+                    <!-- Effect badge -->
+                    <UiBadge
+                      variant="outline"
+                      :class="
+                        effectBadgeClass(
                           rule.effect || legacyEffect(rule.type ?? '', rule.intensity ?? ''),
                         )
-                      }}
-                    </span>
-                  </UiBadge>
-                  <UiButton
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Edit rule"
-                    class="text-muted-foreground hover:text-foreground shrink-0"
-                    @click="editingRule = rule; viewMode = 'edit'"
-                  >
-                    <PencilIcon class="w-4 h-4" />
-                  </UiButton>
-                  <UiButton
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="Delete rule"
-                    class="text-muted-foreground hover:text-red-500 shrink-0"
-                    @click="$emit('delete-rule', rule.id)"
-                  >
-                    <component :is="XIcon" class="w-4 h-4" />
-                  </UiButton>
+                      "
+                      class="shrink-0"
+                    >
+                      <span class="inline-flex items-center gap-1">
+                        <span class="text-xs">{{
+                          effectIconMap[
+                            rule.effect || legacyEffect(rule.type ?? '', rule.intensity ?? '')
+                          ] || ''
+                        }}</span>
+                        {{
+                          effectLabel(
+                            rule.effect || legacyEffect(rule.type ?? '', rule.intensity ?? ''),
+                          )
+                        }}
+                      </span>
+                    </UiBadge>
+                    <UiButton
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Edit rule"
+                      class="text-muted-foreground hover:text-foreground shrink-0"
+                      @click="
+                        editingRule = rule;
+                        viewMode = 'edit';
+                      "
+                    >
+                      <PencilIcon class="w-4 h-4" />
+                    </UiButton>
+                    <UiButton
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Delete rule"
+                      class="text-muted-foreground hover:text-red-500 shrink-0"
+                      @click="$emit('delete-rule', rule.id)"
+                    >
+                      <component :is="XIcon" class="w-4 h-4" />
+                    </UiButton>
+                  </div>
                 </div>
               </div>
-            </div>
-          </UiCollapsibleContent>
-        </UiCollapsible>
+            </UiCollapsibleContent>
+          </UiCollapsible>
+        </div>
       </div>
-      </div><!-- end list mode -->
+      <!-- end list mode -->
     </UiCardContent>
   </UiCard>
 </template>
@@ -349,13 +370,16 @@ function onAddRule(rule: {
   emit('add-rule', rule);
 }
 
-function onUpdateRule(id: number, rule: {
-  integrationId: number;
-  field: string;
-  operator: string;
-  value: string;
-  effect: string;
-}) {
+function onUpdateRule(
+  id: number,
+  rule: {
+    integrationId: number;
+    field: string;
+    operator: string;
+    value: string;
+    effect: string;
+  },
+) {
   viewMode.value = 'list';
   editingRule.value = null;
   emit('edit-rule', id, rule);

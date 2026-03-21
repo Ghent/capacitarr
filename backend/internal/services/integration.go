@@ -194,7 +194,7 @@ func (s *IntegrationService) FetchRuleValues(integrationID uint, action string) 
 
 	// Static field types — no external API call needed
 	switch action {
-	case "seriesstatus":
+	case ruleFieldSeriesStatus:
 		result := map[string]any{
 			"type": "closed",
 			"options": []integrations.NameValue{
