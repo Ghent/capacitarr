@@ -1,5 +1,5 @@
 <template>
-  <header data-slot="navbar" class="sticky top-0 z-50 relative">
+  <header v-motion v-bind="fadeIn" data-slot="navbar" class="sticky top-0 z-50 relative">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <!-- Brand -->
@@ -66,6 +66,7 @@
 <script setup lang="ts">
 import { DatabaseIcon } from 'lucide-vue-next';
 
+const { fadeIn } = useMotionPresets();
 const { uiVersion, apiVersion } = useVersion();
 const route = useRoute();
 const { t } = useI18n();

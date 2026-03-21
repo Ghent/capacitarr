@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-8">
     <!-- Export Section -->
-    <UiCard>
+    <UiCard v-motion v-bind="cardEntrance">
       <UiCardHeader>
         <UiCardTitle>{{ $t('settings.export') }}</UiCardTitle>
         <UiCardDescription>{{ $t('settings.exportDesc') }}</UiCardDescription>
@@ -63,7 +63,7 @@
     </UiCard>
 
     <!-- Import Section -->
-    <UiCard>
+    <UiCard v-motion v-bind="cardEntrance">
       <UiCardHeader>
         <UiCardTitle>{{ $t('settings.import') }}</UiCardTitle>
         <UiCardDescription>{{ $t('settings.importDesc') }}</UiCardDescription>
@@ -324,6 +324,7 @@ import type {
   RuleOverride,
 } from '~/types/api';
 
+const { cardEntrance } = useMotionPresets();
 const api = useApi();
 const { addToast } = useToast();
 const { t } = useI18n();

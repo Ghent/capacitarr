@@ -59,8 +59,10 @@
           <!-- Factor rows -->
           <div class="space-y-1.5">
             <div
-              v-for="f in weightFactors"
+              v-for="(f, idx) in weightFactors"
               :key="f.name"
+              v-motion
+              v-bind="listItem(idx * 40)"
               class="flex items-center justify-between text-sm"
             >
               <span class="flex items-center gap-2">
@@ -104,7 +106,7 @@
           </h3>
           <!-- Rule modifier rows -->
           <div class="space-y-2.5">
-            <div v-for="f in ruleFactors" :key="f.name">
+            <div v-for="(f, idx) in ruleFactors" :key="f.name" v-motion v-bind="listItem(idx * 40)">
               <div class="flex items-center justify-between text-sm">
                 <span class="flex items-center gap-2 min-w-0">
                   <span class="text-xs shrink-0">{{ ruleIcon(f.name) }}</span>
@@ -195,6 +197,8 @@
 import { ClockIcon } from 'lucide-vue-next';
 import { formatBytes } from '~/utils/format';
 import type { ScoreFactor } from '~/types/api';
+
+const { listItem } = useMotionPresets();
 
 interface Props {
   visible: boolean;

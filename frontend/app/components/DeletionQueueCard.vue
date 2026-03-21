@@ -12,6 +12,7 @@ import {
 import { formatBytes } from '~/utils/format';
 
 const { t } = useI18n();
+const { listItem } = useMotionPresets();
 const {
   deletionProgress: engineDeletionProgress,
   isDeletionActive: engineIsDeletionActive,
@@ -133,8 +134,10 @@ const progressPercent = computed(() => {
         </h4>
         <div class="space-y-1.5">
           <div
-            v-for="item in queuedItems"
+            v-for="(item, idx) in queuedItems"
             :key="`${item.mediaName}:${item.mediaType}`"
+            v-motion
+            v-bind="listItem(idx * 30)"
             class="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2"
           >
             <div class="flex-1 min-w-0">
@@ -178,6 +181,8 @@ const progressPercent = computed(() => {
           <div
             v-for="(item, idx) in completedItems"
             :key="idx"
+            v-motion
+            v-bind="listItem(idx * 30)"
             class="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2 opacity-75"
           >
             <CheckCircle2Icon

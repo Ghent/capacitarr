@@ -13,6 +13,8 @@ import {
   LoaderCircleIcon,
 } from 'lucide-vue-next';
 
+const { gridItem } = useMotionPresets();
+
 const props = defineProps<{
   title: string;
   posterUrl?: string;
@@ -26,7 +28,11 @@ const props = defineProps<{
   selected?: boolean;
   seasonCount?: number;
   queueStatus?: 'pending' | 'approved' | 'user_initiated' | 'deleting';
+  /** Animation stagger delay in ms (e.g., index * 30). Defaults to 0. */
+  animationDelay?: number;
 }>();
+
+const motionProps = computed(() => gridItem(props.animationDelay ?? 0));
 
 defineEmits<{
   click: [];
@@ -119,6 +125,8 @@ const queueStatusLabel = computed(() => {
 
 <template>
   <div
+    v-motion
+    v-bind="motionProps"
     class="group relative aspect-[2/3] overflow-hidden rounded-lg border cursor-pointer transition-all hover:ring-2 hover:ring-primary/50"
     :class="{
       'ring-2 ring-emerald-500/50': isProtected,

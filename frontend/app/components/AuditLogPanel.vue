@@ -176,36 +176,46 @@
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
-            <template v-for="group in renderedAuditGroups" :key="group.key">
+            <!-- Top spacer for virtual scroll -->
+            <tr
+              :style="{
+                height: `${virtualRows[0]?.start ?? 0}px`,
+              }"
+            />
+            <template v-for="vRow in virtualRows" :key="vRow.index">
+              <!-- Group header row -->
               <UiTableRow
+                v-if="vRow.entry.type === 'group'"
                 class="cursor-pointer"
                 @click="
-                  selectItem(group.entry);
-                  group.seasons.length > 0 && toggleGroup(group.key);
+                  selectItem(vRow.entry.group.entry);
+                  vRow.entry.group.seasons.length > 0 && toggleGroup(vRow.entry.group.key);
                 "
               >
                 <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap">
-                  <DateDisplay :date="group.entry.createdAt" :always-exact="true" />
+                  <DateDisplay :date="vRow.entry.group.entry.createdAt" :always-exact="true" />
                 </UiTableCell>
                 <UiTableCell class="font-medium whitespace-nowrap">
                   <div class="flex items-center gap-2">
-                    <span class="truncate">{{ group.entry.mediaName }}</span>
+                    <span class="truncate">{{ vRow.entry.group.entry.mediaName }}</span>
                     <button
-                      v-if="group.seasons.length > 0"
+                      v-if="vRow.entry.group.seasons.length > 0"
                       :aria-label="
-                        expandedGroups.has(group.key) ? 'Collapse seasons' : 'Expand seasons'
+                        expandedGroups.has(vRow.entry.group.key)
+                          ? 'Collapse seasons'
+                          : 'Expand seasons'
                       "
-                      :aria-expanded="expandedGroups.has(group.key)"
+                      :aria-expanded="expandedGroups.has(vRow.entry.group.key)"
                       class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5"
-                      @click.stop="toggleGroup(group.key)"
+                      @click.stop="toggleGroup(vRow.entry.group.key)"
                     >
                       <ChevronRightIcon
                         class="w-3.5 h-3.5 transition-transform duration-200"
-                        :class="{ 'rotate-90': expandedGroups.has(group.key) }"
+                        :class="{ 'rotate-90': expandedGroups.has(vRow.entry.group.key) }"
                       />
                       <span class="text-xs text-muted-foreground font-normal whitespace-nowrap"
-                        >({{ group.seasons.length }} season{{
-                          group.seasons.length !== 1 ? 's' : ''
+                        >({{ vRow.entry.group.seasons.length }} season{{
+                          vRow.entry.group.seasons.length !== 1 ? 's' : ''
                         }})</span
                       >
                     </button>
@@ -213,78 +223,74 @@
                 </UiTableCell>
                 <UiTableCell>
                   <UiBadge variant="secondary" class="capitalize">
-                    {{ group.entry.mediaType }}
+                    {{ vRow.entry.group.entry.mediaType }}
                   </UiBadge>
                 </UiTableCell>
                 <UiTableCell>
-                  <UiBadge :variant="actionBadgeVariant(group.entry.action)">
-                    {{ actionLabel(group.entry.action) }}
+                  <UiBadge :variant="actionBadgeVariant(vRow.entry.group.entry.action)">
+                    {{ actionLabel(vRow.entry.group.entry.action) }}
                   </UiBadge>
                 </UiTableCell>
                 <UiTableCell>
                   <ScoreBreakdown
-                    :score="group.entry.score"
-                    :score-details="group.entry.scoreDetails || ''"
+                    :score="vRow.entry.group.entry.score"
+                    :score-details="vRow.entry.group.entry.scoreDetails || ''"
                   />
                 </UiTableCell>
                 <UiTableCell class="text-right font-mono text-xs tabular-nums">
-                  {{ (group.entry.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB
+                  {{ (vRow.entry.group.entry.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB
                 </UiTableCell>
               </UiTableRow>
-              <template v-if="expandedGroups.has(group.key)">
-                <UiTableRow
-                  v-for="season in group.seasons"
-                  :key="season.id"
-                  class="bg-muted/30 cursor-pointer"
-                  @click.stop="selectItem(season)"
+              <!-- Expanded season row -->
+              <UiTableRow
+                v-else
+                class="bg-muted/30 cursor-pointer"
+                @click.stop="selectItem(vRow.entry.season)"
+              >
+                <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap pl-8">
+                  <DateDisplay :date="vRow.entry.season.createdAt" :always-exact="true" />
+                </UiTableCell>
+                <UiTableCell class="text-muted-foreground whitespace-nowrap pl-8">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="w-3 h-px bg-border inline-block" />
+                    {{ extractSeasonLabel(vRow.entry.season.mediaName) }}
+                  </span>
+                </UiTableCell>
+                <UiTableCell>
+                  <UiBadge variant="secondary" class="capitalize">
+                    {{ vRow.entry.season.mediaType }}
+                  </UiBadge>
+                </UiTableCell>
+                <UiTableCell>
+                  <UiBadge :variant="actionBadgeVariant(vRow.entry.season.action)">
+                    {{ actionLabel(vRow.entry.season.action) }}
+                  </UiBadge>
+                </UiTableCell>
+                <UiTableCell>
+                  <ScoreBreakdown
+                    :score="vRow.entry.season.score"
+                    :score-details="vRow.entry.season.scoreDetails || ''"
+                    size="sm"
+                  />
+                </UiTableCell>
+                <UiTableCell
+                  class="text-right font-mono text-xs tabular-nums text-muted-foreground"
                 >
-                  <UiTableCell class="text-xs text-muted-foreground whitespace-nowrap pl-8">
-                    <DateDisplay :date="season.createdAt" :always-exact="true" />
-                  </UiTableCell>
-                  <UiTableCell class="text-muted-foreground whitespace-nowrap pl-8">
-                    <span class="inline-flex items-center gap-1.5">
-                      <span class="w-3 h-px bg-border inline-block" />
-                      {{ extractSeasonLabel(season.mediaName) }}
-                    </span>
-                  </UiTableCell>
-                  <UiTableCell>
-                    <UiBadge variant="secondary" class="capitalize">
-                      {{ season.mediaType }}
-                    </UiBadge>
-                  </UiTableCell>
-                  <UiTableCell>
-                    <UiBadge :variant="actionBadgeVariant(season.action)">
-                      {{ actionLabel(season.action) }}
-                    </UiBadge>
-                  </UiTableCell>
-                  <UiTableCell>
-                    <ScoreBreakdown
-                      :score="season.score"
-                      :score-details="season.scoreDetails || ''"
-                      size="sm"
-                    />
-                  </UiTableCell>
-                  <UiTableCell
-                    class="text-right font-mono text-xs tabular-nums text-muted-foreground"
-                  >
-                    {{ (season.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB
-                  </UiTableCell>
-                </UiTableRow>
-              </template>
+                  {{ (vRow.entry.season.sizeBytes / 1024 / 1024 / 1024).toFixed(2) }} GB
+                </UiTableCell>
+              </UiTableRow>
             </template>
+            <!-- Bottom spacer for virtual scroll -->
+            <tr
+              :style="{
+                height: `${auditVirtualizer.getTotalSize() - (virtualRows.at(-1)?.end ?? 0)}px`,
+              }"
+            />
           </UiTableBody>
         </UiTable>
-        <!-- Progressive rendering indicator -->
-        <div
-          v-if="renderedAuditGroups.length < groupedLogs.length"
-          class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
-        >
-          <LoaderCircleIcon class="w-3.5 h-3.5 animate-spin" />
-          Showing {{ renderedAuditGroups.length }} of {{ groupedLogs.length }} — scroll for more
-        </div>
         <!-- Load more from server indicator -->
         <div
-          v-else-if="logs.length < total && !loadingMore"
+          v-if="logs.length < total && !loadingMore"
           class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
         >
           <LoaderCircleIcon class="w-3.5 h-3.5 animate-spin" />
@@ -319,6 +325,7 @@
 
 <script setup lang="ts">
 import { useInfiniteScroll } from '@vueuse/core';
+import { useVirtualizer } from '@tanstack/vue-virtual';
 import {
   RefreshCwIcon,
   LoaderCircleIcon,
@@ -431,7 +438,6 @@ async function fetchLogs(append = false) {
 
 async function resetAndFetch() {
   logs.value = [];
-  visibleCount.value = 100;
   await fetchLogs(false);
 }
 
@@ -490,32 +496,59 @@ const groupedLogs = computed<AuditGroupItem[]>(() => {
 
   return groups;
 });
-
-// ─── Progressive Rendering (Virtual Scroll) ─────────────────────────────────
-// Render groups incrementally and fetch more from server as user scrolls.
+// ─── Virtual Scrolling ──────────────────────────────────────────────────────
+// Flatten groups + expanded seasons into virtual rows for efficient rendering.
 const auditScrollRef = ref<HTMLElement | null>(null);
-const visibleCount = ref(100);
 
-const renderedAuditGroups = computed(() => groupedLogs.value.slice(0, visibleCount.value));
+/** Row types for the flattened virtual list */
+type FlatRow = { type: 'group'; group: AuditGroupItem } | { type: 'season'; season: AuditLogEntry };
 
+/** Flatten groups + expanded seasons into a single row list for the virtualizer */
+const flatRows = computed<FlatRow[]>(() => {
+  const rows: FlatRow[] = [];
+  for (const group of groupedLogs.value) {
+    rows.push({ type: 'group', group });
+    if (expandedGroups.value.has(group.key)) {
+      for (const season of group.seasons) {
+        rows.push({ type: 'season', season });
+      }
+    }
+  }
+  return rows;
+});
+
+const auditVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: flatRows.value.length,
+    getScrollElement: () => auditScrollRef.value,
+    estimateSize: () => 44,
+    overscan: 15,
+  })),
+);
+
+const virtualRows = computed(() =>
+  auditVirtualizer.value.getVirtualItems().map((vRow) => ({
+    ...vRow,
+    entry: flatRows.value[vRow.index]!,
+  })),
+);
+
+// Reset virtualizer scroll position when sort/search/filters change
+watch([auditSearch, auditActionFilter, auditSortBy, auditSortDir], () => {
+  auditVirtualizer.value.scrollToIndex(0);
+});
+
+// Infinite loading: fetch more from server when nearing the end of available data
 useInfiniteScroll(
   auditScrollRef,
   async () => {
-    // First: render more already-fetched groups
-    if (visibleCount.value < groupedLogs.value.length) {
-      visibleCount.value = Math.min(visibleCount.value + 100, groupedLogs.value.length);
-      return;
-    }
-    // Second: if all fetched groups are rendered, load more from server
     if (logs.value.length < total.value && !loadingMore.value) {
       await fetchLogs(true);
-      visibleCount.value = groupedLogs.value.length;
     }
   },
   {
     distance: 200,
-    canLoadMore: () =>
-      visibleCount.value < groupedLogs.value.length || logs.value.length < total.value,
+    canLoadMore: () => logs.value.length < total.value,
   },
 );
 

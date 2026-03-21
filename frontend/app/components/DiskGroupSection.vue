@@ -48,24 +48,27 @@
       </div>
     </UiCardContent>
 
-    <!-- Thermometer Bar -->
+    <!-- Dual-Grid Chart: Bar + Sparkline -->
     <UiCardContent class="pt-3 pb-3">
       <div
-        class="h-20"
         :class="{ 'thermometer-critical': rawUsagePct >= (group.thresholdPct || 85) }"
+        :style="{ height: historyData.length > 0 ? '120px' : '48px' }"
       >
         <ClientOnly>
-          <VChart :option="thermometerOption" :autoresize="true" class="h-full w-full" />
+          <VChart :option="chartOption" :autoresize="true" class="h-full w-full" />
         </ClientOnly>
       </div>
 
-      <!-- Free space + link -->
+      <!-- Free space -->
       <div class="flex items-center justify-between mt-1">
         <span class="text-xs text-muted-foreground">
           {{ formatBytes(effectiveTotalBytes - group.usedBytes) }} free
           <span v-if="hasOverride" class="ml-1 text-muted-foreground/50">
             (detected: {{ formatBytes(group.totalBytes) }})
           </span>
+        </span>
+        <span v-if="historyData.length > 0" class="text-[10px] text-muted-foreground/50">
+          last 7d
         </span>
       </div>
     </UiCardContent>
@@ -83,7 +86,8 @@ const props = defineProps<{
 
 const api = useApi();
 
-const { successColor, destructiveColor, tooltipConfig, colorAlpha } = useEChartsDefaults();
+const { successColor, destructiveColor, tooltipConfig, colorAlpha, glowLineStyle, gradientArea } =
+  useEChartsDefaults();
 
 /** Effective total bytes — override if set, otherwise API-detected. */
 const effectiveTotalBytes = computed(() => {
@@ -128,14 +132,37 @@ const forecastData = ref<CapacityForecast | null>(null);
 
 async function fetchForecast() {
   try {
-    forecastData.value = (await api('/api/v1/analytics/forecast')) as CapacityForecast;
+    forecastData.value = (await api(
+      `/api/v1/analytics/forecast?disk_group_id=${props.group.id}`,
+    )) as CapacityForecast;
   } catch {
     // Non-critical — tooltip will just show usage without forecast
   }
 }
 
+// --- Historical usage data for sparkline ---
+interface HistoryEntry {
+  timestamp: string;
+  totalCapacity: number;
+  usedCapacity: number;
+}
+
+const historyData = ref<HistoryEntry[]>([]);
+
+async function fetchHistory() {
+  try {
+    const resp = (await api(
+      `/api/v1/metrics/history?disk_group_id=${props.group.id}&resolution=hourly&since=7d`,
+    )) as { data: HistoryEntry[] };
+    historyData.value = resp.data ?? [];
+  } catch {
+    // Non-critical — chart will show bar only without sparkline
+  }
+}
+
 onMounted(() => {
   fetchForecast();
+  fetchHistory();
 });
 
 // --- Zone colors ---
@@ -146,31 +173,36 @@ const thresholdPct = computed(() => props.group.thresholdPct || 85);
 const zoneGradient = computed(() => {
   const pct = rawUsagePct.value;
   if (pct >= thresholdPct.value) {
-    // Red zone
     return {
-      light: '#fca5a5', // red-300
-      saturated: '#ef4444', // red-500
+      light: '#fca5a5',
+      saturated: '#ef4444',
       glow: destructiveColor.value,
     };
   }
   if (pct >= targetPct.value) {
-    // Amber zone
     return {
-      light: '#fcd34d', // amber-300
-      saturated: '#f59e0b', // amber-500
+      light: '#fcd34d',
+      saturated: '#f59e0b',
       glow: '#f59e0b',
     };
   }
-  // Green zone
   return {
-    light: '#6ee7b7', // emerald-300
-    saturated: '#10b981', // emerald-500
+    light: '#6ee7b7',
+    saturated: '#10b981',
     glow: successColor.value,
   };
 });
 
-// --- ECharts thermometer option ---
-const thermometerOption = computed(() => {
+/** Sparkline data: usage % over time */
+const sparklineData = computed(() =>
+  historyData.value.map((h) => {
+    const total = h.totalCapacity > 0 ? h.totalCapacity : 1;
+    return [new Date(h.timestamp).getTime(), (h.usedCapacity / total) * 100];
+  }),
+);
+
+// --- ECharts dual-grid option ---
+const chartOption = computed(() => {
   const usage = Math.round(rawUsagePct.value * 10) / 10;
   const tgtPct = targetPct.value;
   const thrPct = thresholdPct.value;
@@ -178,9 +210,10 @@ const thermometerOption = computed(() => {
   const usedBytes = props.group.usedBytes;
   const totalBytes = effectiveTotalBytes.value;
   const forecast = forecastData.value;
+  const hasHistory = sparklineData.value.length > 0;
 
-  // Build tooltip content
-  const tooltipFormatter = () => {
+  // Build tooltip content for bar
+  const barTooltipFormatter = () => {
     let html = `<div style="font-size:12px">`;
     html += `<strong>${formatBytes(usedBytes)} / ${formatBytes(totalBytes)}</strong> · ${usage}%`;
     if (forecast) {
@@ -197,136 +230,172 @@ const thermometerOption = computed(() => {
     return html;
   };
 
+  const grids = hasHistory
+    ? [
+        { top: 4, height: 20, left: 16, right: 16 }, // Bar
+        { top: 36, bottom: 4, left: 16, right: 16 }, // Sparkline
+      ]
+    : [{ top: 10, bottom: 10, left: 16, right: 16 }]; // Bar only
+
+  const xAxes = hasHistory
+    ? [
+        { gridIndex: 0, type: 'value' as const, min: 0, max: 100, show: false },
+        { gridIndex: 1, type: 'time' as const, show: false },
+      ]
+    : [{ gridIndex: 0, type: 'value' as const, min: 0, max: 100, show: false }];
+
+  const yAxes = hasHistory
+    ? [
+        { gridIndex: 0, type: 'category' as const, data: ['usage'], show: false },
+        { gridIndex: 1, type: 'value' as const, min: 0, max: 100, show: false },
+      ]
+    : [{ gridIndex: 0, type: 'category' as const, data: ['usage'], show: false }];
+
+  // Bar series (always present)
+  const barSeries = [
+    // Zone backgrounds
+    {
+      name: 'zones',
+      type: 'bar',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      stack: 'bg',
+      barWidth: hasHistory ? 16 : 24,
+      silent: true,
+      barGap: '-100%',
+      z: 1,
+      data: [tgtPct],
+      itemStyle: { color: colorAlpha('#10b981', 0.08), borderRadius: [0, 0, 0, 0] },
+    },
+    {
+      name: 'zones-amber',
+      type: 'bar',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      stack: 'bg',
+      barWidth: hasHistory ? 16 : 24,
+      silent: true,
+      barGap: '-100%',
+      z: 1,
+      data: [thrPct - tgtPct],
+      itemStyle: { color: colorAlpha('#f59e0b', 0.08), borderRadius: [0, 0, 0, 0] },
+    },
+    {
+      name: 'zones-red',
+      type: 'bar',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      stack: 'bg',
+      barWidth: hasHistory ? 16 : 24,
+      silent: true,
+      barGap: '-100%',
+      z: 1,
+      data: [100 - thrPct],
+      itemStyle: { color: colorAlpha('#ef4444', 0.08), borderRadius: [0, 6, 6, 0] },
+    },
+    // Usage fill bar — no markLine (thresholds are on the sparkline now)
+    {
+      name: 'usage',
+      type: 'bar',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      barWidth: hasHistory ? 16 : 24,
+      z: 2,
+      data: [usage],
+      itemStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 1,
+          y2: 0,
+          colorStops: [
+            { offset: 0, color: grad.light },
+            { offset: 1, color: grad.saturated },
+          ],
+        },
+        borderRadius: [0, 6, 6, 0],
+        shadowBlur: 12,
+        shadowColor: colorAlpha(grad.glow, 0.5),
+        shadowOffsetX: 4,
+      },
+    },
+  ];
+
+  // Sparkline series (only when history data exists)
+  const sparklineSeries = hasHistory
+    ? [
+        {
+          name: 'usage-trend',
+          type: 'line',
+          xAxisIndex: 1,
+          yAxisIndex: 1,
+          smooth: true,
+          showSymbol: false,
+          lineStyle: {
+            ...glowLineStyle(grad.saturated),
+            width: 1.5,
+          },
+          areaStyle: gradientArea(grad.saturated),
+          data: sparklineData.value,
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [
+              {
+                yAxis: tgtPct,
+                lineStyle: { color: '#10b981', type: 'dashed', width: 1, opacity: 0.5 },
+                label: {
+                  show: true,
+                  formatter: `Target ${tgtPct}%`,
+                  fontSize: 8,
+                  color: '#10b981',
+                  position: 'insideEndTop',
+                },
+              },
+              {
+                yAxis: thrPct,
+                lineStyle: { color: '#ef4444', type: 'dashed', width: 1, opacity: 0.5 },
+                label: {
+                  show: true,
+                  formatter: `Threshold ${thrPct}%`,
+                  fontSize: 8,
+                  color: '#ef4444',
+                  position: 'insideEndTop',
+                },
+              },
+            ],
+          },
+        },
+      ]
+    : [];
+
   return {
     animation: true,
     animationDuration: 1500,
     animationEasing: 'elasticOut',
     animationDurationUpdate: 800,
     animationEasingUpdate: 'cubicOut',
-    tooltip: {
-      trigger: 'item' as const,
-      ...tooltipConfig(),
-      formatter: tooltipFormatter,
-    },
-    grid: {
-      top: 28,
-      right: 16,
-      bottom: 16,
-      left: 16,
-    },
-    xAxis: {
-      type: 'value' as const,
-      min: 0,
-      max: 100,
-      show: false,
-    },
-    yAxis: {
-      type: 'category' as const,
-      data: ['usage'],
-      show: false,
-    },
-    series: [
-      // Background zone segments (behind the fill bar)
+    tooltip: [
       {
-        name: 'zones',
-        type: 'bar',
-        stack: 'bg',
-        barWidth: 24,
-        silent: true,
-        barGap: '-100%',
-        z: 1,
-        data: [tgtPct],
-        itemStyle: {
-          color: colorAlpha('#10b981', 0.08),
-          borderRadius: [0, 0, 0, 0],
-        },
+        trigger: 'item' as const,
+        ...tooltipConfig(),
+        formatter: barTooltipFormatter,
       },
-      {
-        name: 'zones-amber',
-        type: 'bar',
-        stack: 'bg',
-        barWidth: 24,
-        silent: true,
-        barGap: '-100%',
-        z: 1,
-        data: [thrPct - tgtPct],
-        itemStyle: {
-          color: colorAlpha('#f59e0b', 0.08),
-          borderRadius: [0, 0, 0, 0],
-        },
-      },
-      {
-        name: 'zones-red',
-        type: 'bar',
-        stack: 'bg',
-        barWidth: 24,
-        silent: true,
-        barGap: '-100%',
-        z: 1,
-        data: [100 - thrPct],
-        itemStyle: {
-          color: colorAlpha('#ef4444', 0.08),
-          borderRadius: [0, 6, 6, 0],
-        },
-      },
-      // Usage fill bar
-      {
-        name: 'usage',
-        type: 'bar',
-        barWidth: 24,
-        z: 2,
-        data: [usage],
-        itemStyle: {
-          color: {
-            type: 'linear',
-            x: 0,
-            y: 0,
-            x2: 1,
-            y2: 0,
-            colorStops: [
-              { offset: 0, color: grad.light },
-              { offset: 1, color: grad.saturated },
-            ],
-          },
-          borderRadius: [0, 6, 6, 0],
-          shadowBlur: 12,
-          shadowColor: colorAlpha(grad.glow, 0.5),
-          shadowOffsetX: 4,
-        },
-        markLine: {
-          silent: true,
-          symbol: ['none', 'triangle'],
-          symbolSize: [8, 6],
-          animation: false,
-          data: [
+      ...(hasHistory
+        ? [
             {
-              xAxis: tgtPct,
-              lineStyle: { color: '#10b981', type: 'dashed', width: 1 },
-              label: {
-                show: true,
-                formatter: `${tgtPct}%`,
-                fontSize: 9,
-                color: '#10b981',
-                position: 'start',
-                offset: Math.abs(tgtPct - thrPct) < 8 ? [-12, 0] : [0, 0],
-              },
+              trigger: 'axis' as const,
+              ...tooltipConfig(),
+              axisPointer: { type: 'cross' as const, lineStyle: { opacity: 0.3 } },
             },
-            {
-              xAxis: thrPct,
-              lineStyle: { color: '#ef4444', type: 'dashed', width: 1 },
-              label: {
-                show: true,
-                formatter: `${thrPct}%`,
-                fontSize: 9,
-                color: '#ef4444',
-                position: 'start',
-                offset: Math.abs(tgtPct - thrPct) < 8 ? [12, 0] : [0, 0],
-              },
-            },
-          ],
-        },
-      },
+          ]
+        : []),
     ],
+    grid: grids,
+    xAxis: xAxes,
+    yAxis: yAxes,
+    series: [...barSeries, ...sparklineSeries],
   };
 });
 </script>

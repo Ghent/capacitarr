@@ -324,12 +324,11 @@
               </UiTableRow>
             </UiTableHeader>
             <UiTableBody>
-              <template v-for="(group, groupIdx) in renderedGroups" :key="group.key">
-                <!-- Deletion line: inserted before the first item that falls below the cutoff -->
-                <UiTableRow
-                  v-if="deletionLineIndex !== null && deletionLineIndex === groupIdx"
-                  class="pointer-events-none"
-                >
+              <!-- Top spacer for virtual scroll -->
+              <tr :style="{ height: `${previewVirtualRows[0]?.start ?? 0}px` }" />
+              <template v-for="vRow in previewVirtualRows" :key="vRow.index">
+                <!-- Deletion line row -->
+                <UiTableRow v-if="vRow.entry.type === 'deletion-line'" class="pointer-events-none">
                   <UiTableCell :colspan="5" class="!p-0">
                     <div
                       class="flex items-center gap-2 px-4 py-1.5 bg-destructive/10 border-y border-destructive/30"
@@ -342,44 +341,56 @@
                     </div>
                   </UiTableCell>
                 </UiTableRow>
+                <!-- Group header row -->
                 <UiTableRow
+                  v-else-if="vRow.entry.type === 'group'"
                   class="cursor-pointer"
                   :class="
-                    deletionLineIndex !== null && groupIdx >= deletionLineIndex ? 'opacity-40' : ''
+                    deletionLineIndex !== null && vRow.entry.groupIdx >= deletionLineIndex
+                      ? 'opacity-40'
+                      : ''
                   "
                   @click="
-                    selectPreviewItem(group.entry);
-                    group.seasons.length > 0 && togglePreviewGroup(group.key);
+                    selectPreviewItem(vRow.entry.group.entry);
+                    vRow.entry.group.seasons.length > 0 && togglePreviewGroup(vRow.entry.group.key);
                   "
                 >
                   <UiTableCell class="w-12 text-center">
                     <span class="text-xs font-mono tabular-nums text-muted-foreground">{{
-                      groupIdx + 1
+                      vRow.entry.groupIdx + 1
                     }}</span>
                   </UiTableCell>
                   <UiTableCell>
                     <span
                       class="text-xs font-mono tabular-nums font-semibold"
-                      :class="group.entry.isProtected ? 'text-emerald-500' : 'text-primary'"
+                      :class="
+                        vRow.entry.group.entry.isProtected ? 'text-emerald-500' : 'text-primary'
+                      "
                     >
-                      {{ group.entry.isProtected ? 'Protected' : group.entry.score.toFixed(2) }}
+                      {{
+                        vRow.entry.group.entry.isProtected
+                          ? 'Protected'
+                          : vRow.entry.group.entry.score.toFixed(2)
+                      }}
                     </span>
                   </UiTableCell>
                   <UiTableCell class="font-medium">
                     <div class="flex items-center gap-2">
-                      <span class="truncate">{{ group.entry.item.title }}</span>
+                      <span class="truncate">{{ vRow.entry.group.entry.item.title }}</span>
                       <button
-                        v-if="group.seasons.length > 0"
+                        v-if="vRow.entry.group.seasons.length > 0"
                         class="text-muted-foreground hover:text-foreground transition-colors shrink-0 inline-flex items-center gap-0.5"
-                        @click.stop="togglePreviewGroup(group.key)"
+                        @click.stop="togglePreviewGroup(vRow.entry.group.key)"
                       >
                         <ChevronRightIcon
                           class="w-3.5 h-3.5 transition-transform duration-200"
-                          :class="{ 'rotate-90': expandedPreviewGroups.has(group.key) }"
+                          :class="{
+                            'rotate-90': expandedPreviewGroups.has(vRow.entry.group.key),
+                          }"
                         />
                         <span class="text-xs text-muted-foreground font-normal whitespace-nowrap"
-                          >({{ group.seasons.length }} season{{
-                            group.seasons.length !== 1 ? 's' : ''
+                          >({{ vRow.entry.group.seasons.length }} season{{
+                            vRow.entry.group.seasons.length !== 1 ? 's' : ''
                           }})</span
                         >
                       </button>
@@ -387,64 +398,63 @@
                   </UiTableCell>
                   <UiTableCell>
                     <UiBadge variant="secondary" class="capitalize">
-                      {{ group.entry.item.type }}
+                      {{ vRow.entry.group.entry.item.type }}
                     </UiBadge>
                   </UiTableCell>
                   <UiTableCell class="text-right font-mono text-xs tabular-nums">
-                    {{ formatBytes(group.entry.item.sizeBytes) }}
+                    {{ formatBytes(vRow.entry.group.entry.item.sizeBytes) }}
                   </UiTableCell>
                 </UiTableRow>
-                <template v-if="expandedPreviewGroups.has(group.key)">
-                  <UiTableRow
-                    v-for="(season, sIdx) in group.seasons"
-                    :key="`${group.key}-s${sIdx}`"
-                    class="bg-muted/30 cursor-pointer"
-                    :class="
-                      deletionLineIndex !== null && groupIdx >= deletionLineIndex
-                        ? 'opacity-40'
-                        : ''
-                    "
-                    @click.stop="selectPreviewItem(season)"
-                  >
-                    <UiTableCell class="w-12" />
-                    <UiTableCell>
-                      <span
-                        class="text-xs font-mono tabular-nums font-semibold"
-                        :class="season.isProtected ? 'text-emerald-500' : 'text-primary'"
-                      >
-                        {{ season.isProtected ? 'Protected' : season.score.toFixed(2) }}
-                      </span>
-                    </UiTableCell>
-                    <UiTableCell class="text-muted-foreground pl-8">
-                      <span class="inline-flex items-center gap-1.5">
-                        <UiSeparator orientation="horizontal" class="w-3" />
-                        {{ extractPreviewSeasonLabel(season.item.title) }}
-                      </span>
-                    </UiTableCell>
-                    <UiTableCell>
-                      <UiBadge variant="secondary" class="capitalize">
-                        {{ season.item.type }}
-                      </UiBadge>
-                    </UiTableCell>
-                    <UiTableCell
-                      class="text-right font-mono text-xs tabular-nums text-muted-foreground"
+                <!-- Expanded season row -->
+                <UiTableRow
+                  v-else
+                  class="bg-muted/30 cursor-pointer"
+                  :class="
+                    deletionLineIndex !== null && vRow.entry.groupIdx >= deletionLineIndex
+                      ? 'opacity-40'
+                      : ''
+                  "
+                  @click.stop="selectPreviewItem(vRow.entry.season)"
+                >
+                  <UiTableCell class="w-12" />
+                  <UiTableCell>
+                    <span
+                      class="text-xs font-mono tabular-nums font-semibold"
+                      :class="vRow.entry.season.isProtected ? 'text-emerald-500' : 'text-primary'"
                     >
-                      {{ formatBytes(season.item.sizeBytes) }}
-                    </UiTableCell>
-                  </UiTableRow>
-                </template>
+                      {{
+                        vRow.entry.season.isProtected
+                          ? 'Protected'
+                          : vRow.entry.season.score.toFixed(2)
+                      }}
+                    </span>
+                  </UiTableCell>
+                  <UiTableCell class="text-muted-foreground pl-8">
+                    <span class="inline-flex items-center gap-1.5">
+                      <UiSeparator orientation="horizontal" class="w-3" />
+                      {{ extractPreviewSeasonLabel(vRow.entry.season.item.title) }}
+                    </span>
+                  </UiTableCell>
+                  <UiTableCell>
+                    <UiBadge variant="secondary" class="capitalize">
+                      {{ vRow.entry.season.item.type }}
+                    </UiBadge>
+                  </UiTableCell>
+                  <UiTableCell
+                    class="text-right font-mono text-xs tabular-nums text-muted-foreground"
+                  >
+                    {{ formatBytes(vRow.entry.season.item.sizeBytes) }}
+                  </UiTableCell>
+                </UiTableRow>
               </template>
+              <!-- Bottom spacer for virtual scroll -->
+              <tr
+                :style="{
+                  height: `${previewTableVirtualizer.getTotalSize() - (previewVirtualRows.at(-1)?.end ?? 0)}px`,
+                }"
+              />
             </UiTableBody>
           </UiTable>
-          <!-- Progressive rendering indicator -->
-          <div
-            v-if="renderedGroups.length < filteredGroupedPreview.length"
-            class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
-          >
-            <component :is="LoaderCircleIcon" class="w-3.5 h-3.5 animate-spin" />
-            Showing {{ renderedGroups.length }} of {{ filteredGroupedPreview.length }} — scroll for
-            more
-          </div>
         </div>
       </div>
     </UiCardContent>
@@ -466,6 +476,7 @@
 
 <script setup lang="ts">
 import { useInfiniteScroll } from '@vueuse/core';
+import { useVirtualizer } from '@tanstack/vue-virtual';
 import {
   RefreshCwIcon,
   LoaderCircleIcon,
@@ -728,23 +739,74 @@ const deletionLineIndex = computed<number | null>(() => {
   return null;
 });
 
-// Progressive rendering
+// ─── Virtual Scrolling (Table View) ──────────────────────────────────────────
 const tableScrollRef = ref<HTMLElement | null>(null);
-const gridScrollRef = ref<HTMLElement | null>(null);
-const visibleCount = ref(100);
-const renderedGroups = computed(() => filteredGroupedPreview.value.slice(0, visibleCount.value));
 
-function loadMore() {
-  if (visibleCount.value < filteredGroupedPreview.value.length) {
-    visibleCount.value = Math.min(visibleCount.value + 100, filteredGroupedPreview.value.length);
+/** Row types for the flattened virtual table */
+type PreviewFlatRow =
+  | { type: 'group'; group: PreviewGroup; groupIdx: number }
+  | { type: 'season'; season: EvaluatedItem; groupIdx: number }
+  | { type: 'deletion-line' };
+
+/** Flatten groups + expanded seasons + deletion line into a single row list */
+const previewFlatRows = computed<PreviewFlatRow[]>(() => {
+  const rows: PreviewFlatRow[] = [];
+  const groups = filteredGroupedPreview.value;
+  const delIdx = deletionLineIndex.value;
+
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i]!;
+    if (delIdx !== null && delIdx === i) {
+      rows.push({ type: 'deletion-line' });
+    }
+    rows.push({ type: 'group', group, groupIdx: i });
+    if (expandedPreviewGroups.value.has(group.key)) {
+      for (const season of group.seasons) {
+        rows.push({ type: 'season', season, groupIdx: i });
+      }
+    }
+  }
+  return rows;
+});
+
+const previewTableVirtualizer = useVirtualizer(
+  computed(() => ({
+    count: previewFlatRows.value.length,
+    getScrollElement: () => tableScrollRef.value,
+    estimateSize: () => 44,
+    overscan: 15,
+  })),
+);
+
+const previewVirtualRows = computed(() =>
+  previewTableVirtualizer.value.getVirtualItems().map((vRow) => ({
+    ...vRow,
+    entry: previewFlatRows.value[vRow.index]!,
+  })),
+);
+
+// ─── Progressive Rendering (Grid View) ──────────────────────────────────────
+const gridScrollRef = ref<HTMLElement | null>(null);
+const gridVisibleCount = ref(100);
+const renderedGroups = computed(() =>
+  filteredGroupedPreview.value.slice(0, gridVisibleCount.value),
+);
+
+function gridLoadMore() {
+  if (gridVisibleCount.value < filteredGroupedPreview.value.length) {
+    gridVisibleCount.value = Math.min(
+      gridVisibleCount.value + 100,
+      filteredGroupedPreview.value.length,
+    );
   }
 }
 
-const canLoadMore = () => visibleCount.value < filteredGroupedPreview.value.length;
+useInfiniteScroll(gridScrollRef, gridLoadMore, {
+  distance: 200,
+  canLoadMore: () => gridVisibleCount.value < filteredGroupedPreview.value.length,
+});
 
-useInfiniteScroll(tableScrollRef, loadMore, { distance: 200, canLoadMore });
-useInfiniteScroll(gridScrollRef, loadMore, { distance: 200, canLoadMore });
-
+// Reset scroll/visible count when filters change
 watch(
   [
     previewSearch,
@@ -757,7 +819,8 @@ watch(
     () => props.preview,
   ],
   () => {
-    visibleCount.value = 100;
+    gridVisibleCount.value = 100;
+    previewTableVirtualizer.value.scrollToIndex(0);
   },
 );
 

@@ -11,6 +11,7 @@ import { formatBytes } from '~/utils/format';
 import type { ApprovalGroup } from '~/composables/useApprovalQueue';
 
 const { t } = useI18n();
+const { listItem } = useMotionPresets();
 const { viewMode } = useDisplayPrefs();
 const {
   pendingItems,
@@ -411,7 +412,12 @@ onUnmounted(() => {
             </div>
             <!-- List view for pending items -->
             <div v-else class="space-y-1.5">
-              <div v-for="group in pendingItems" :key="group.key">
+              <div
+                v-for="(group, idx) in pendingItems"
+                :key="group.key"
+                v-motion
+                v-bind="listItem(idx * 30)"
+              >
                 <div
                   class="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2"
                   :class="

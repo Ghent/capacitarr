@@ -1,5 +1,7 @@
 <template>
   <footer
+    v-motion
+    v-bind="slideUpFromBottom"
     data-slot="bottom-toolbar"
     class="fixed bottom-0 inset-x-0 z-50 border-t border-border/50 backdrop-blur-xl bg-background/70 supports-[backdrop-filter]:bg-background/50"
     :style="{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }"
@@ -334,6 +336,8 @@ import {
   ExternalLinkIcon,
 } from 'lucide-vue-next';
 import type { ThemeMeta } from '~/composables/useTheme';
+
+const { slideUpFromBottom } = useMotionPresets();
 
 /** Randomly pick a Cat or Dog icon for the donation button (chosen once per mount) */
 const donateIcons = [CatIcon, DogIcon] as const;

@@ -23,7 +23,7 @@
       </UiButton>
     </UiPopoverTrigger>
     <UiPopoverContent align="center" :side="props.side" class="w-72">
-      <div class="space-y-4">
+      <div v-motion v-bind="scaleIn" class="space-y-4">
         <!-- Header -->
         <div class="flex items-center justify-between">
           <h4 class="font-semibold text-sm">
@@ -135,6 +135,8 @@
 
 <script setup lang="ts">
 import { ShieldIcon, HandIcon, ZapIcon, PlayIcon, LoaderCircleIcon } from 'lucide-vue-next';
+
+const { scaleIn } = useMotionPresets();
 
 const props = withDefaults(
   defineProps<{
