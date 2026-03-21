@@ -185,7 +185,6 @@ type ApprovalQueueItem struct {
 	ID            uint       `gorm:"primarykey" json:"id"`
 	MediaName     string     `gorm:"index;not null" json:"mediaName"`
 	MediaType     string     `gorm:"not null" json:"mediaType"`                          // movie, show, season, episode, artist, album, book
-	Reason        string     `gorm:"not null" json:"reason"`                             // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)"
 	ScoreDetails  string     `gorm:"type:text" json:"scoreDetails"`                      // JSON-encoded []ScoreFactor
 	SizeBytes     int64      `gorm:"not null;default:0" json:"sizeBytes"`                // File size in bytes
 	Score         float64    `gorm:"not null;default:0" json:"score"`                    // Numeric score from engine evaluation
@@ -194,6 +193,7 @@ type ApprovalQueueItem struct {
 	ExternalID    string     `gorm:"not null;default:''" json:"externalId"`              // External ID in the integration
 	DiskGroupID   *uint      `gorm:"index" json:"diskGroupId,omitempty"`                 // FK to DiskGroup (nullable — set by poller to scope queue per disk group)
 	Status        string     `gorm:"not null;default:'pending'" json:"status"`           // pending, approved, rejected
+	Trigger       string     `gorm:"not null;default:'engine'" json:"trigger"`           // "engine", "user"
 	UserInitiated bool       `gorm:"not null;default:false" json:"userInitiated"`        // True when queued by user via POST /delete (preserved on queue clear)
 	SnoozedUntil  *time.Time `gorm:"column:snoozed_until" json:"snoozedUntil,omitempty"` // When snooze expires (rejected items)
 	CreatedAt     time.Time  `json:"createdAt"`
@@ -212,17 +212,32 @@ const (
 	ActionCancelled = "cancelled"
 )
 
+// Trigger constants — used in AuditLogEntry.Trigger and ApprovalQueueItem.Trigger fields.
+const (
+	TriggerEngine   = "engine"
+	TriggerUser     = "user"
+	TriggerApproval = "approval"
+)
+
+// DryRunReason constants — used in AuditLogEntry.DryRunReason field.
+const (
+	DryRunReasonDeletionsDisabled = "deletions_disabled"
+	DryRunReasonExecutionMode     = "execution_mode"
+	DryRunReasonNone              = "" // Not a dry-run
+)
+
 // AuditLogEntry stores a permanent record of deletions and dry-runs.
 // This table is append-only — entries are never modified after creation.
 type AuditLogEntry struct {
 	ID            uint      `gorm:"primarykey" json:"id"`
 	MediaName     string    `gorm:"index;not null" json:"mediaName"`
 	MediaType     string    `gorm:"not null" json:"mediaType"`
-	Reason        string    `gorm:"not null" json:"reason"`        // e.g. "Score: 0.85 (WatchHistory: 1.0, Size: 0.5)"
 	ScoreDetails  string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
 	Action        string    `gorm:"not null" json:"action"`        // "deleted", "dry_delete", "cancelled"
 	SizeBytes     int64     `gorm:"not null;default:0" json:"sizeBytes"`
 	Score         float64   `gorm:"not null;default:0" json:"score"`                      // Numeric score from engine evaluation
+	Trigger       string    `gorm:"not null;default:'engine'" json:"trigger"`             // "engine", "user", "approval"
+	DryRunReason  string    `gorm:"not null;default:''" json:"dryRunReason"`              // "deletions_disabled", "execution_mode", "" (empty if not dry-run)
 	IntegrationID *uint     `json:"integrationId,omitempty" gorm:"column:integration_id"` // FK to IntegrationConfig (nullable — preserved on integration delete)
 	DiskGroupID   *uint     `gorm:"index" json:"diskGroupId,omitempty"`                   // FK to DiskGroup (nullable — set by poller to scope audit entries per disk group)
 	CreatedAt     time.Time `json:"createdAt"`

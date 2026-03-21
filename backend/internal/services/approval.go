@@ -167,7 +167,6 @@ func (s *ApprovalService) UpsertPending(item db.ApprovalQueueItem) (bool, error)
 	if result.Error == nil {
 		// Update existing pending entry
 		if err := s.db.Model(&existing).Updates(map[string]any{
-			"reason":         item.Reason,
 			"score_details":  item.ScoreDetails,
 			"size_bytes":     item.SizeBytes,
 			"score":          item.Score,
@@ -175,6 +174,7 @@ func (s *ApprovalService) UpsertPending(item db.ApprovalQueueItem) (bool, error)
 			"integration_id": item.IntegrationID,
 			"external_id":    item.ExternalID,
 			"disk_group_id":  item.DiskGroupID,
+			"trigger":        item.Trigger,
 			"updated_at":     now,
 		}).Error; err != nil {
 			return false, fmt.Errorf("failed to update pending entry: %w", err)
@@ -384,9 +384,9 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 	if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
 		Client:          client,
 		Item:            item,
-		Reason:          approved.Reason,
 		Score:           approved.Score,
 		Factors:         factors,
+		Trigger:         db.TriggerApproval,
 		RunStatsID:      runStatsID,
 		ForceDryRun:     deps.ForceDryRun,
 		ApprovalEntryID: approved.ID,
@@ -454,13 +454,13 @@ func (s *ApprovalService) ManualDelete(items []ManualDeleteItem, mode string, de
 			if _, err := s.UpsertPending(db.ApprovalQueueItem{
 				MediaName:     item.MediaName,
 				MediaType:     item.MediaType,
-				Reason:        fmt.Sprintf("Score: %.2f (user-initiated)", item.Score),
 				ScoreDetails:  item.ScoreDetails,
 				SizeBytes:     item.SizeBytes,
 				Score:         item.Score,
 				PosterURL:     item.PosterURL,
 				IntegrationID: item.IntegrationID,
 				ExternalID:    item.ExternalID,
+				Trigger:       db.TriggerUser,
 				UserInitiated: true,
 			}); err != nil {
 				slog.Error("Failed to upsert manual delete as pending", "component", "services",
@@ -512,9 +512,9 @@ func (s *ApprovalService) ManualDelete(items []ManualDeleteItem, mode string, de
 		if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
 			Client:      client,
 			Item:        mediaItem,
-			Reason:      fmt.Sprintf("Score: %.2f (user-initiated)", item.Score),
 			Score:       item.Score,
 			Factors:     factors,
+			Trigger:     db.TriggerUser,
 			RunStatsID:  runStatsID,
 			ForceDryRun: forceDryRun,
 		}); queueErr != nil {
@@ -671,7 +671,6 @@ func (s *ApprovalService) CreateSnoozedEntry(mediaName, mediaType string, integr
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		IntegrationID: integrationID,
-		Reason:        "Snoozed from deletion queue",
 		Status:        db.StatusRejected,
 		SnoozedUntil:  &snoozedUntil,
 	}

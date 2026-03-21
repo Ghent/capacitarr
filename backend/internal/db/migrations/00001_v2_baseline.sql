@@ -170,7 +170,6 @@ CREATE TABLE approval_queue (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     media_name     TEXT    NOT NULL,
     media_type     TEXT    NOT NULL CHECK(media_type IN ('movie','show','season','episode','artist','album','book')),
-    reason         TEXT    NOT NULL,
     score_details  TEXT,                                   -- JSON-encoded []ScoreFactor
     size_bytes     INTEGER NOT NULL DEFAULT 0,
     score          REAL    NOT NULL DEFAULT 0,
@@ -179,6 +178,7 @@ CREATE TABLE approval_queue (
     external_id    TEXT    NOT NULL DEFAULT '',
     disk_group_id  INTEGER REFERENCES disk_groups(id) ON DELETE SET NULL,
     status         TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+    trigger        TEXT    NOT NULL DEFAULT 'engine',       -- "engine", "user"
     user_initiated INTEGER NOT NULL DEFAULT 0,              -- True when queued by user via POST /delete (preserved on queue clear)
     snoozed_until  DATETIME,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -198,11 +198,12 @@ CREATE TABLE audit_log (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     media_name     TEXT    NOT NULL,
     media_type     TEXT    NOT NULL,
-    reason         TEXT    NOT NULL,
     score_details  TEXT,                                   -- JSON-encoded []ScoreFactor
     action         TEXT    NOT NULL CHECK(action IN ('deleted','dry_delete','cancelled')),
     size_bytes     INTEGER NOT NULL DEFAULT 0,
     score          REAL    NOT NULL DEFAULT 0,
+    trigger        TEXT    NOT NULL DEFAULT 'engine',       -- "engine", "user", "approval"
+    dry_run_reason TEXT    NOT NULL DEFAULT '',              -- "deletions_disabled", "execution_mode", "" (empty if not dry-run)
     integration_id INTEGER REFERENCES integration_configs(id) ON DELETE SET NULL,
     disk_group_id  INTEGER REFERENCES disk_groups(id) ON DELETE SET NULL,
     created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

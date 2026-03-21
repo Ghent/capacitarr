@@ -74,7 +74,6 @@ func seedPendingItem(t *testing.T, database *gorm.DB, integrationID uint) db.App
 	item := db.ApprovalQueueItem{
 		MediaName:     "Firefly",
 		MediaType:     "show",
-		Reason:        "Score: 0.85",
 		SizeBytes:     5069636198,
 		Score:         0.85,
 		IntegrationID: integrationID,
@@ -398,7 +397,6 @@ func TestApprovalService_UpsertPending_Create(t *testing.T) {
 	created, err := svc.UpsertPending(db.ApprovalQueueItem{
 		MediaName:     "New Movie",
 		MediaType:     "movie",
-		Reason:        "Score: 0.90",
 		SizeBytes:     1000000,
 		Score:         0.90,
 		IntegrationID: intID,
@@ -437,7 +435,6 @@ func TestApprovalService_UpsertPending_Update(t *testing.T) {
 	_, err := svc.UpsertPending(db.ApprovalQueueItem{
 		MediaName:     "Existing Movie",
 		MediaType:     "movie",
-		Reason:        "Score: 0.80",
 		SizeBytes:     1000000,
 		Score:         0.80,
 		IntegrationID: intID,
@@ -451,7 +448,6 @@ func TestApprovalService_UpsertPending_Update(t *testing.T) {
 	created, err := svc.UpsertPending(db.ApprovalQueueItem{
 		MediaName:     "Existing Movie",
 		MediaType:     "movie",
-		Reason:        "Score: 0.95",
 		SizeBytes:     2000000,
 		Score:         0.95,
 		IntegrationID: intID,
@@ -474,8 +470,8 @@ func TestApprovalService_UpsertPending_Update(t *testing.T) {
 	// Verify updated values
 	var item db.ApprovalQueueItem
 	database.First(&item)
-	if item.Reason != "Score: 0.95" {
-		t.Errorf("expected updated reason, got %q", item.Reason)
+	if item.Score != 0.95 {
+		t.Errorf("expected updated score, got %f", item.Score)
 	}
 	if item.SizeBytes != 2000000 {
 		t.Errorf("expected updated size, got %d", item.SizeBytes)
@@ -524,7 +520,7 @@ func TestApprovalService_BulkUnsnooze(t *testing.T) {
 	// Create 3 items, reject 2 of them
 	for i, name := range []string{"Movie A", "Movie B", "Movie C"} {
 		item := db.ApprovalQueueItem{
-			MediaName: name, MediaType: "movie", Reason: "Score: 0.50",
+			MediaName: name, MediaType: "movie",
 			SizeBytes: 1000, IntegrationID: intID, ExternalID: string(rune('1' + i)),
 			Status: db.StatusPending,
 		}
@@ -604,7 +600,7 @@ func TestApprovalService_CleanExpiredSnoozes(t *testing.T) {
 		{"Active Movie", &active},
 	} {
 		item := db.ApprovalQueueItem{
-			MediaName: tc.name, MediaType: "movie", Reason: "Score: 0.50",
+			MediaName: tc.name, MediaType: "movie",
 			SizeBytes: 1000, IntegrationID: intID, ExternalID: "x",
 			Status: db.StatusRejected, SnoozedUntil: tc.snz,
 		}
@@ -644,7 +640,7 @@ func TestApprovalService_RecoverOrphans(t *testing.T) {
 
 	// Create an approved item (orphaned — no deletion in progress)
 	item := db.ApprovalQueueItem{
-		MediaName: "Orphaned Movie", MediaType: "movie", Reason: "Score: 0.70",
+		MediaName: "Orphaned Movie", MediaType: "movie",
 		SizeBytes: 1000, IntegrationID: intID, ExternalID: "orphan",
 		Status: db.StatusApproved,
 	}
@@ -690,11 +686,11 @@ func TestApprovalService_ListQueue(t *testing.T) {
 
 	// Create items with different statuses
 	_, _ = svc.UpsertPending(db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.80",
+		MediaName: "Firefly", MediaType: "show",
 		IntegrationID: intID, ExternalID: "1",
 	})
 	_, _ = svc.UpsertPending(db.ApprovalQueueItem{
-		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.90",
+		MediaName: "Serenity", MediaType: "movie",
 		IntegrationID: intID, ExternalID: "2",
 	})
 
@@ -726,7 +722,7 @@ func TestApprovalService_ListQueue_Limit(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		_, _ = svc.UpsertPending(db.ApprovalQueueItem{
-			MediaName: "Firefly " + string(rune('A'+i)), MediaType: "show", Reason: "Score",
+			MediaName: "Firefly " + string(rune('A'+i)), MediaType: "show",
 			IntegrationID: intID, ExternalID: string(rune('1' + i)),
 		})
 	}
@@ -749,7 +745,7 @@ func TestApprovalService_ClearQueue(t *testing.T) {
 
 	// Create 3 items: 1 pending, 1 rejected, 1 approved
 	pending := db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 5000, IntegrationID: intID, ExternalID: "1",
 		Status: db.StatusPending,
 	}
@@ -759,7 +755,7 @@ func TestApprovalService_ClearQueue(t *testing.T) {
 
 	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
 	rejected := db.ApprovalQueueItem{
-		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.70",
+		MediaName: "Serenity", MediaType: "movie",
 		SizeBytes: 3000, IntegrationID: intID, ExternalID: "2",
 		Status: db.StatusRejected, SnoozedUntil: &snoozedUntil,
 	}
@@ -768,7 +764,7 @@ func TestApprovalService_ClearQueue(t *testing.T) {
 	}
 
 	approved := db.ApprovalQueueItem{
-		MediaName: "Firefly - Season 1", MediaType: "season", Reason: "Score: 0.90",
+		MediaName: "Firefly - Season 1", MediaType: "season",
 		SizeBytes: 8000, IntegrationID: intID, ExternalID: "3",
 		Status: db.StatusApproved,
 	}
@@ -820,7 +816,7 @@ func TestApprovalService_ClearQueue_PreservesApproved(t *testing.T) {
 
 	// Create only an approved item
 	approved := db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 5000, IntegrationID: intID, ExternalID: "1",
 		Status: db.StatusApproved,
 	}
@@ -879,7 +875,7 @@ func TestApprovalService_ClearQueue_PublishesEvent(t *testing.T) {
 	// Create multiple pending items
 	for i, name := range []string{"Firefly", "Serenity"} {
 		item := db.ApprovalQueueItem{
-			MediaName: name, MediaType: "show", Reason: "Score: 0.50",
+			MediaName: name, MediaType: "show",
 			SizeBytes: 1000, IntegrationID: intID, ExternalID: string(rune('1' + i)),
 			Status: db.StatusPending,
 		}

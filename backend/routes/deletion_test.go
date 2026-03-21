@@ -51,7 +51,6 @@ func TestDeletionQueue_GET_NonEmpty(t *testing.T) {
 			SizeBytes:     1024 * 1024 * 200,
 			IntegrationID: 1,
 		},
-		Reason: "low score",
 	})
 	_ = reg.Deletion.QueueDeletion(services.DeleteJob{
 		Client: &stubIntegration{},
@@ -61,7 +60,6 @@ func TestDeletionQueue_GET_NonEmpty(t *testing.T) {
 			SizeBytes:     1024 * 1024 * 100,
 			IntegrationID: 2,
 		},
-		Reason: "disk pressure",
 	})
 
 	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/deletion-queue", nil)
@@ -154,7 +152,6 @@ func TestDeletionQueue_DELETE_Success(t *testing.T) {
 			SizeBytes:     1024 * 1024 * 200,
 			IntegrationID: 1,
 		},
-		Reason: "test-cancel",
 	})
 
 	// Build a test echo from the same registry

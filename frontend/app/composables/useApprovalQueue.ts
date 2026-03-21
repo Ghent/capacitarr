@@ -38,14 +38,6 @@ export interface ApprovalGroup {
 let _approvalSseRegistered = false;
 
 /**
- * Extract a numeric score from the reason string (e.g., "Score: 0.85 (WatchHistory: 1.0)")
- */
-function parseScore(reason: string): number {
-  const match = reason.match(/Score:\s*([\d.]+)/);
-  return match && match[1] ? parseFloat(match[1]) : 0;
-}
-
-/**
  * Extract the show title from a season media name.
  * "Big Mouth - Season 1" → "Big Mouth"
  * "The Strain - Season 3" → "The Strain"
@@ -143,7 +135,7 @@ export function useApprovalQueue() {
 
         for (const item of group.items) {
           totalSize += item.sizeBytes;
-          const score = parseScore(item.reason);
+          const score = item.score ?? 0;
           if (score > bestScore) {
             bestScore = score;
             bestScoreDetails = item.scoreDetails;

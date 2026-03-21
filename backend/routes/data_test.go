@@ -27,7 +27,6 @@ func seedDataForReset(t *testing.T, database *gorm.DB) {
 		if err := database.Create(&db.AuditLogEntry{
 			MediaName: "Test Movie",
 			MediaType: "movie",
-			Reason:    "Score: 0.5",
 			Action:    "deleted",
 			SizeBytes: 1000000,
 		}).Error; err != nil {
@@ -270,7 +269,7 @@ func TestDataReset_PreservesCustomRules(t *testing.T) {
 
 	// Seed some data that should be cleared
 	if err := database.Create(&db.AuditLogEntry{
-		MediaName: "Test", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 100,
+		MediaName: "Test", MediaType: "movie", Action: "deleted", SizeBytes: 100,
 	}).Error; err != nil {
 		t.Fatalf("Failed to seed audit log: %v", err)
 	}

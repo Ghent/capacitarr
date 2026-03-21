@@ -82,10 +82,11 @@ func (s *AuditLogService) UpsertDryRun(entry db.AuditLogEntry) error {
 	if result.Error == nil {
 		// Update existing entry
 		return s.db.Model(&existing).Updates(map[string]any{
-			"reason":         entry.Reason,
 			"score_details":  entry.ScoreDetails,
 			"size_bytes":     entry.SizeBytes,
 			"score":          entry.Score,
+			"trigger":        entry.Trigger,
+			"dry_run_reason": entry.DryRunReason,
 			"integration_id": entry.IntegrationID,
 			"disk_group_id":  entry.DiskGroupID,
 			"created_at":     entry.CreatedAt,

@@ -223,7 +223,6 @@
                 </UiTableCell>
                 <UiTableCell>
                   <ScoreBreakdown
-                    :reason="group.entry.reason"
                     :score="group.entry.score"
                     :score-details="group.entry.scoreDetails || ''"
                   />
@@ -260,7 +259,6 @@
                   </UiTableCell>
                   <UiTableCell>
                     <ScoreBreakdown
-                      :reason="season.reason"
                       :score="season.score"
                       :score-details="season.scoreDetails || ''"
                       size="sm"
@@ -382,12 +380,7 @@ function toggleAuditSort(column: AuditSortColumn) {
 }
 
 function selectItem(entry: AuditLogEntry) {
-  // Prefer the dedicated score field; fall back to parsing reason for backward compat
-  let score = entry.score;
-  if (score === undefined || score === null) {
-    const scoreMatch = entry.reason?.match(/^Score:\s*([\d.]+)/);
-    score = scoreMatch ? parseFloat(scoreMatch[1] ?? '0') : 0;
-  }
+  const score = entry.score ?? 0;
   selectedItem.value = {
     mediaName: entry.mediaName,
     mediaType: entry.mediaType,

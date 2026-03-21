@@ -14,7 +14,6 @@ func TestAuditLogService_Create(t *testing.T) {
 	entry := db.AuditLogEntry{
 		MediaName: "Firefly",
 		MediaType: "show",
-		Reason:    "Score: 0.85 (WatchHistory: 1.0)",
 		Action:    db.ActionDeleted,
 		SizeBytes: 5069636198,
 		Score:     0.85,
@@ -50,7 +49,6 @@ func TestAuditLogService_UpsertDryRun_Create(t *testing.T) {
 	entry := db.AuditLogEntry{
 		MediaName: "Firefly",
 		MediaType: "show",
-		Reason:    "Score: 0.70",
 		Action:    db.ActionDryDelete,
 		SizeBytes: 3000000000,
 		Score:     0.70,
@@ -82,7 +80,6 @@ func TestAuditLogService_UpsertDryRun_Update(t *testing.T) {
 	entry := db.AuditLogEntry{
 		MediaName: "Firefly",
 		MediaType: "show",
-		Reason:    "Score: 0.70",
 		Action:    db.ActionDryDelete,
 		SizeBytes: 3000000000,
 		Score:     0.70,
@@ -92,7 +89,7 @@ func TestAuditLogService_UpsertDryRun_Update(t *testing.T) {
 	}
 
 	// Upsert same media with updated score
-	entry.Reason = "Score: 0.85"
+	entry.Score = 0.85
 	entry.SizeBytes = 3500000000
 	entry.Score = 0.85
 	if err := svc.UpsertDryRun(entry); err != nil {
@@ -109,8 +106,8 @@ func TestAuditLogService_UpsertDryRun_Update(t *testing.T) {
 	// Verify updated values
 	var saved db.AuditLogEntry
 	database.First(&saved)
-	if saved.Reason != "Score: 0.85" {
-		t.Errorf("expected updated reason, got %q", saved.Reason)
+	if saved.Score != 0.85 {
+		t.Errorf("expected updated score 0.85, got %f", saved.Score)
 	}
 	if saved.SizeBytes != 3500000000 {
 		t.Errorf("expected updated size, got %d", saved.SizeBytes)
@@ -127,12 +124,12 @@ func TestAuditLogService_PruneOlderThan(t *testing.T) {
 	// Create entries: one old, one recent
 	now := time.Now().UTC()
 	old := db.AuditLogEntry{
-		MediaName: "Old Movie", MediaType: "movie", Reason: "Score: 0.50",
+		MediaName: "Old Movie", MediaType: "movie",
 		Action: db.ActionDeleted, SizeBytes: 1000,
 		CreatedAt: now.AddDate(0, 0, -60),
 	}
 	recent := db.AuditLogEntry{
-		MediaName: "Recent Movie", MediaType: "movie", Reason: "Score: 0.90",
+		MediaName: "Recent Movie", MediaType: "movie",
 		Action: db.ActionDeleted, SizeBytes: 2000,
 		CreatedAt: now.AddDate(0, 0, -5),
 	}
@@ -166,7 +163,7 @@ func TestAuditLogService_ListRecent(t *testing.T) {
 	// Create 3 entries
 	for i := 0; i < 3; i++ {
 		_ = svc.Create(db.AuditLogEntry{
-			MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.50",
+			MediaName: "Firefly", MediaType: "show",
 			Action: db.ActionDeleted, SizeBytes: 1000,
 		})
 	}
@@ -186,11 +183,11 @@ func TestAuditLogService_ListGrouped(t *testing.T) {
 
 	// Create a show season entry and a movie
 	_ = svc.Create(db.AuditLogEntry{
-		MediaName: "Firefly - Season 1", MediaType: "season", Reason: "Score: 0.50",
+		MediaName: "Firefly - Season 1", MediaType: "season",
 		Action: db.ActionDeleted, SizeBytes: 5000,
 	})
 	_ = svc.Create(db.AuditLogEntry{
-		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.80",
+		MediaName: "Serenity", MediaType: "movie",
 		Action: db.ActionDeleted, SizeBytes: 3000,
 	})
 
@@ -228,7 +225,7 @@ func TestAuditLogService_ListPaginated(t *testing.T) {
 	// Create entries
 	for i := 0; i < 5; i++ {
 		_ = svc.Create(db.AuditLogEntry{
-			MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.50",
+			MediaName: "Firefly", MediaType: "show",
 			Action: db.ActionDeleted, SizeBytes: 1000,
 		})
 	}
@@ -251,8 +248,8 @@ func TestAuditLogService_ListPaginated_Search(t *testing.T) {
 	database := setupTestDB(t)
 	svc := NewAuditLogService(database)
 
-	_ = svc.Create(db.AuditLogEntry{MediaName: "Firefly", MediaType: "show", Action: db.ActionDeleted, Reason: "test"})
-	_ = svc.Create(db.AuditLogEntry{MediaName: "Serenity", MediaType: "movie", Action: db.ActionDeleted, Reason: "test"})
+	_ = svc.Create(db.AuditLogEntry{MediaName: "Firefly", MediaType: "show", Action: db.ActionDeleted})
+	_ = svc.Create(db.AuditLogEntry{MediaName: "Serenity", MediaType: "movie", Action: db.ActionDeleted})
 
 	result, err := svc.ListPaginated(AuditListParams{
 		Limit: 10, Search: "Serenity",
@@ -271,7 +268,7 @@ func TestAuditLogService_PruneOlderThan_ZeroKeepsForever(t *testing.T) {
 
 	// Create an old entry
 	old := db.AuditLogEntry{
-		MediaName: "Ancient Movie", MediaType: "movie", Reason: "Score: 0.10",
+		MediaName: "Ancient Movie", MediaType: "movie",
 		Action: db.ActionDeleted, SizeBytes: 1000,
 		CreatedAt: time.Now().UTC().AddDate(-1, 0, 0),
 	}

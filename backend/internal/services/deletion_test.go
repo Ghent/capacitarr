@@ -157,7 +157,6 @@ func TestDeletionService_BatchTracking_AllSuccess(t *testing.T) {
 				Type:      "movie",
 				SizeBytes: 1024 * 1024 * 100,
 			},
-			Reason: "test",
 		}
 		if err := svc.QueueDeletion(job); err != nil {
 			t.Fatalf("QueueDeletion returned error: %v", err)
@@ -203,7 +202,6 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 				Type:      "movie",
 				SizeBytes: 1024 * 1024 * 50,
 			},
-			Reason: "test",
 		}
 		if err := svc.QueueDeletion(job); err != nil {
 			t.Fatalf("QueueDeletion returned error: %v", err)
@@ -218,7 +216,6 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 			Type:      "show",
 			SizeBytes: 1024 * 1024 * 200,
 		},
-		Reason: "test",
 	}
 	if err := svc.QueueDeletion(failJob); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -262,7 +259,6 @@ func TestDeletionService_BatchTracking_CorrectCounts(t *testing.T) {
 				Type:      "movie",
 				SizeBytes: int64(i+1) * 1024 * 1024 * 10,
 			},
-			Reason: "test",
 		})
 	}
 	for i := 0; i < 2; i++ {
@@ -273,7 +269,6 @@ func TestDeletionService_BatchTracking_CorrectCounts(t *testing.T) {
 				Type:      "show",
 				SizeBytes: 1024 * 1024 * 5,
 			},
-			Reason: "test",
 		})
 	}
 
@@ -309,7 +304,6 @@ func TestDeletionService_GracefulShutdown_DrainsQueue(t *testing.T) {
 			Type:      "movie",
 			SizeBytes: 1024 * 1024 * 100,
 		},
-		Reason: "shutdown-test",
 	}
 	if err := svc.QueueDeletion(job); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -382,8 +376,7 @@ func TestDeletionService_ProgressEvent_DryRun(t *testing.T) {
 			Type:      "movie",
 			SizeBytes: 1024 * 1024 * 100,
 		},
-		Reason: "test-progress",
-		Score:  0.72,
+		Score: 0.72,
 	}
 	if err := svc.QueueDeletion(job); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -440,8 +433,7 @@ func TestDeletionService_ProgressEvent_ActualDeletion(t *testing.T) {
 			Type:      "movie",
 			SizeBytes: 1024 * 1024 * 50,
 		},
-		Reason: "test-progress",
-		Score:  0.91,
+		Score: 0.91,
 	}
 	if err := svc.QueueDeletion(job); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -495,7 +487,6 @@ func TestDeletionService_ForceDryRun_OverridesDeletionsEnabled(t *testing.T) {
 	job := DeleteJob{
 		Client:      &mockIntegration{deleteErr: nil},
 		Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
-		Reason:      "force-dry-run-test",
 		ForceDryRun: true,
 	}
 	if err := svc.QueueDeletion(job); err != nil {
@@ -549,7 +540,6 @@ func TestDeletionService_NoDryRun_WhenDeletionsDisabled(t *testing.T) {
 	job := DeleteJob{
 		Client:      &mockIntegration{deleteErr: nil},
 		Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
-		Reason:      "deletions-disabled-test",
 		ForceDryRun: false,
 	}
 	if err := svc.QueueDeletion(job); err != nil {
@@ -604,7 +594,6 @@ func TestDeletionService_CancelDeletion_ReturnsTrue_WhenItemInQueue(t *testing.T
 			SizeBytes:     1024 * 1024 * 200,
 			IntegrationID: 1,
 		},
-		Reason: "test-cancel",
 	}
 	if err := svc.QueueDeletion(job); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -659,7 +648,6 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 			SizeBytes:     1024 * 1024 * 200,
 			IntegrationID: 1,
 		},
-		Reason: "test-cancel-process",
 	}
 	if err := svc.QueueDeletion(job); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -714,12 +702,10 @@ func TestDeletionService_ListQueuedItems_ReturnsSnapshot(t *testing.T) {
 	_ = svc.QueueDeletion(DeleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100, IntegrationID: 1},
-		Reason: "reason-1",
 	})
 	_ = svc.QueueDeletion(DeleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 200, IntegrationID: 2},
-		Reason: "reason-2",
 	})
 
 	items = svc.ListQueuedItems()
@@ -750,7 +736,6 @@ func TestDeletionService_SignalBatchSize_ClearsCancelledSet(t *testing.T) {
 	_ = svc.QueueDeletion(DeleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100},
-		Reason: "test",
 	})
 	svc.CancelDeletion("Firefly", "show")
 
@@ -825,7 +810,6 @@ func TestDeletionService_ProgressEvent_Failure(t *testing.T) {
 			Type:      "show",
 			SizeBytes: 1024 * 1024 * 200,
 		},
-		Reason: "test-progress",
 	}
 	if err := svc.QueueDeletion(job); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -894,7 +878,6 @@ func TestDeletionService_UpsertAudit_UsesUpsertSemantics(t *testing.T) {
 		job := DeleteJob{
 			Client:      nil, // Dry-run with nil client
 			Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
-			Reason:      "upsert-test",
 			Score:       float64(i+1) * 0.5,
 			ForceDryRun: true,
 			UpsertAudit: true,
@@ -947,7 +930,6 @@ func TestDeletionService_UpsertAudit_False_AppendsMultiple(t *testing.T) {
 		job := DeleteJob{
 			Client:      nil,
 			Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
-			Reason:      "append-test",
 			Score:       float64(i+1) * 0.3,
 			ForceDryRun: true,
 			UpsertAudit: false,
@@ -992,7 +974,6 @@ func TestDeletionService_NilClient_DryRunSucceeds(t *testing.T) {
 	job := DeleteJob{
 		Client:      nil,
 		Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
-		Reason:      "nil-client-dry-run",
 		Score:       0.65,
 		ForceDryRun: true,
 	}
@@ -1056,7 +1037,6 @@ func TestDeletionService_NilClient_ActualDeletion_Fails(t *testing.T) {
 	job := DeleteJob{
 		Client:      nil,
 		Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
-		Reason:      "nil-client-actual",
 		ForceDryRun: false,
 	}
 	if err := svc.QueueDeletion(job); err != nil {
@@ -1104,7 +1084,6 @@ func TestDeletionService_QueueDeletion_PublishesDeletionQueuedEvent(t *testing.T
 			SizeBytes:     1024 * 1024 * 100,
 			IntegrationID: 7,
 		},
-		Reason: "test-queued-event",
 	}
 	if err := svc.QueueDeletion(job); err != nil {
 		t.Fatalf("QueueDeletion returned error: %v", err)
@@ -1155,7 +1134,6 @@ func TestDeletionService_GracePeriod_StartsOnQueue(t *testing.T) {
 	_ = svc.QueueDeletion(DeleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100},
-		Reason: "grace-test",
 	})
 
 	active, remaining, queueSize := svc.GracePeriodState()
@@ -1193,7 +1171,6 @@ func TestDeletionService_GracePeriod_ExpiresAndProcesses(t *testing.T) {
 	_ = svc.QueueDeletion(DeleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 100},
-		Reason: "grace-expire-test",
 	})
 
 	// Grace period is 1 second, then rate limiter takes 3s. Wait up to 15s
@@ -1219,7 +1196,6 @@ func TestDeletionService_ClearQueue_CancelsAll(t *testing.T) {
 		_ = svc.QueueDeletion(DeleteJob{
 			Client: &mockIntegration{},
 			Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100},
-			Reason: "clear-test",
 		})
 	}
 
@@ -1348,7 +1324,6 @@ func TestApprovalService_CreateSnoozedEntry_UpdatesExisting(t *testing.T) {
 		MediaName:     "Serenity",
 		MediaType:     "movie",
 		IntegrationID: integration.ID,
-		Reason:        "test",
 		Status:        db.StatusPending,
 	}
 	if err := database.Create(&entry).Error; err != nil {
@@ -1417,7 +1392,6 @@ func TestDeletionService_DryRun_ReturnsToPending_WhenApprovalEntrySet(t *testing
 	job := DeleteJob{
 		Client:          nil,
 		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
-		Reason:          "return-to-pending-test",
 		ForceDryRun:     true,
 		ApprovalEntryID: 42,
 	}
@@ -1462,7 +1436,6 @@ func TestDeletionService_DryRun_DoesNotReturn_WhenNoApprovalEntry(t *testing.T) 
 	job := DeleteJob{
 		Client:          nil,
 		Item:            integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
-		Reason:          "normal-dry-run-test",
 		ForceDryRun:     true,
 		ApprovalEntryID: 0, // Not from approval queue
 	}
@@ -1503,7 +1476,6 @@ func TestDeletionService_ActualDelete_DoesNotReturn_WhenApprovalEntrySet(t *test
 	job := DeleteJob{
 		Client:          &mockIntegration{deleteErr: nil},
 		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
-		Reason:          "actual-delete-approval-test",
 		ApprovalEntryID: 42,
 	}
 	if err := svc.QueueDeletion(job); err != nil {
@@ -1557,7 +1529,6 @@ func TestDeletionService_DryRunLoop_ApproveAndReturn(t *testing.T) {
 	if queueErr := deletionSvc.QueueDeletion(DeleteJob{
 		Client:          nil,
 		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 5069636198},
-		Reason:          "Score: 0.85",
 		Score:           0.85,
 		ForceDryRun:     true,
 		ApprovalEntryID: item.ID,

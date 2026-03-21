@@ -102,7 +102,6 @@ func TestConcurrentAccess(t *testing.T) {
 			log := AuditLogEntry{
 				MediaName: fmt.Sprintf("concurrent-test-%d", idx),
 				MediaType: "movie",
-				Reason:    "test",
 				Action:    "deleted",
 				SizeBytes: int64(idx * 1000),
 			}
@@ -129,7 +128,7 @@ func TestConcurrentAccess(t *testing.T) {
 
 	// Verify all writes landed
 	var count int64
-	database.Model(&AuditLogEntry{}).Where("reason = ?", "test").Count(&count)
+	database.Model(&AuditLogEntry{}).Where("media_name LIKE ?", "concurrent-test-%").Count(&count)
 	if count != goroutines {
 		t.Errorf("Expected %d audit logs, got %d", goroutines, count)
 	}
@@ -185,7 +184,6 @@ func TestDataTypeRoundTrip(t *testing.T) {
 	log := AuditLogEntry{
 		MediaName: "type-test",
 		MediaType: "series",
-		Reason:    "round-trip-test",
 		Action:    "deleted",
 		SizeBytes: 9876543210, // large INTEGER
 		CreatedAt: now,
@@ -242,7 +240,6 @@ func TestDataTypeRoundTrip(t *testing.T) {
 	logWithNull := AuditLogEntry{
 		MediaName: "null-test",
 		MediaType: "movie",
-		Reason:    "null-round-trip",
 		Action:    "dry_delete",
 	}
 	if err := database.Create(&logWithNull).Error; err != nil {
@@ -264,7 +261,6 @@ func TestDataTypeRoundTrip(t *testing.T) {
 	logZero := AuditLogEntry{
 		MediaName: "zero-time-test",
 		MediaType: "movie",
-		Reason:    "zero-time",
 		Action:    "deleted",
 		CreatedAt: zeroTime,
 	}

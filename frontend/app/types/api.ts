@@ -105,11 +105,12 @@ export interface AuditLogEntry {
   id: number;
   mediaName: string;
   mediaType: string;
-  reason: string;
   scoreDetails: string;
   action: AuditAction;
   sizeBytes: number;
   score: number;
+  trigger: string;
+  dryRunReason: string;
   integrationId?: number;
   createdAt: string;
 }
@@ -125,7 +126,6 @@ export interface ApprovalQueueItem {
   id: number;
   mediaName: string;
   mediaType: string;
-  reason: string;
   scoreDetails: string;
   sizeBytes: number;
   score: number;
@@ -133,6 +133,7 @@ export interface ApprovalQueueItem {
   integrationId: number;
   externalId: string;
   status: 'pending' | 'approved' | 'rejected';
+  trigger: string;
   userInitiated?: boolean;
   snoozedUntil?: string;
   createdAt: string;
@@ -482,7 +483,7 @@ export interface DeletionQueueItem {
   mediaType: string;
   sizeBytes: number;
   integrationId: number;
-  reason: string;
+  score: number;
 }
 
 export interface DeletionCompletedItem {

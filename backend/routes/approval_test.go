@@ -30,7 +30,7 @@ func TestListApprovalQueue(t *testing.T) {
 
 	for i, name := range []string{"Movie A", "Movie B", "Movie C"} {
 		item := db.ApprovalQueueItem{
-			MediaName: name, MediaType: "movie", Reason: "Score: 0.80",
+			MediaName: name, MediaType: "movie",
 			SizeBytes: 1000000 * int64(i+1), IntegrationID: ic.ID,
 			ExternalID: fmt.Sprintf("%d", i+1), Status: db.StatusPending,
 		}
@@ -68,12 +68,12 @@ func TestListApprovalQueue_FilterByStatus(t *testing.T) {
 
 	// Create one pending and one rejected
 	database.Create(&db.ApprovalQueueItem{
-		MediaName: "Pending Movie", MediaType: "movie", Reason: "Score: 0.80",
+		MediaName: "Pending Movie", MediaType: "movie",
 		SizeBytes: 1000, IntegrationID: ic.ID, ExternalID: "1", Status: db.StatusPending,
 	})
 	snoozed := time.Now().Add(24 * time.Hour)
 	database.Create(&db.ApprovalQueueItem{
-		MediaName: "Rejected Movie", MediaType: "movie", Reason: "Score: 0.50",
+		MediaName: "Rejected Movie", MediaType: "movie",
 		SizeBytes: 2000, IntegrationID: ic.ID, ExternalID: "2",
 		Status: db.StatusRejected, SnoozedUntil: &snoozed,
 	})
@@ -112,7 +112,7 @@ func TestApproveQueueItem(t *testing.T) {
 	database.Create(&ic)
 
 	item := db.ApprovalQueueItem{
-		MediaName: "Movie to Approve", MediaType: "movie", Reason: "Score: 0.90",
+		MediaName: "Movie to Approve", MediaType: "movie",
 		SizeBytes: 5000000, IntegrationID: ic.ID, ExternalID: "42", Status: db.StatusPending,
 	}
 	database.Create(&item)
@@ -151,7 +151,7 @@ func TestApproveQueueItem_DeletionsDisabled(t *testing.T) {
 	database.Create(&ic)
 
 	item := db.ApprovalQueueItem{
-		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.90",
+		MediaName: "Serenity", MediaType: "movie",
 		SizeBytes: 1000, IntegrationID: ic.ID, ExternalID: "1", Status: db.StatusPending,
 	}
 	database.Create(&item)
@@ -222,7 +222,7 @@ func TestRejectQueueItem(t *testing.T) {
 	database.Create(&ic)
 
 	item := db.ApprovalQueueItem{
-		MediaName: "Movie to Reject", MediaType: "movie", Reason: "Score: 0.30",
+		MediaName: "Movie to Reject", MediaType: "movie",
 		SizeBytes: 3000000, IntegrationID: ic.ID, ExternalID: "10", Status: db.StatusPending,
 	}
 	database.Create(&item)
@@ -261,7 +261,7 @@ func TestUnsnoozeQueueItem(t *testing.T) {
 
 	snoozed := time.Now().Add(24 * time.Hour)
 	item := db.ApprovalQueueItem{
-		MediaName: "Snoozed Movie", MediaType: "movie", Reason: "Score: 0.40",
+		MediaName: "Snoozed Movie", MediaType: "movie",
 		SizeBytes: 2000000, IntegrationID: ic.ID, ExternalID: "20",
 		Status: db.StatusRejected, SnoozedUntil: &snoozed,
 	}
@@ -297,7 +297,7 @@ func TestUnsnoozeQueueItem_NotRejected(t *testing.T) {
 	database.Create(&ic)
 
 	item := db.ApprovalQueueItem{
-		MediaName: "Pending Movie", MediaType: "movie", Reason: "Score: 0.80",
+		MediaName: "Pending Movie", MediaType: "movie",
 		SizeBytes: 1000, IntegrationID: ic.ID, ExternalID: "1", Status: db.StatusPending,
 	}
 	database.Create(&item)
@@ -325,7 +325,7 @@ func TestDismissQueueItem_Pending(t *testing.T) {
 	database.Create(&ic)
 
 	item := db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 5000000, IntegrationID: ic.ID, ExternalID: "1", Status: db.StatusPending,
 	}
 	database.Create(&item)
@@ -361,7 +361,7 @@ func TestDismissQueueItem_Rejected(t *testing.T) {
 
 	snoozed := time.Now().Add(24 * time.Hour)
 	item := db.ApprovalQueueItem{
-		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.40",
+		MediaName: "Serenity", MediaType: "movie",
 		SizeBytes: 3000000, IntegrationID: ic.ID, ExternalID: "2",
 		Status: db.StatusRejected, SnoozedUntil: &snoozed,
 	}
@@ -397,7 +397,7 @@ func TestDismissQueueItem_Approved(t *testing.T) {
 	database.Create(&ic)
 
 	item := db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.90",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 5000000, IntegrationID: ic.ID, ExternalID: "1", Status: db.StatusApproved,
 	}
 	database.Create(&item)
@@ -443,16 +443,16 @@ func TestClearQueue(t *testing.T) {
 
 	// Create 2 pending + 1 rejected items
 	database.Create(&db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.80",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 1000, IntegrationID: ic.ID, ExternalID: "1", Status: db.StatusPending,
 	})
 	database.Create(&db.ApprovalQueueItem{
-		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.70",
+		MediaName: "Serenity", MediaType: "movie",
 		SizeBytes: 2000, IntegrationID: ic.ID, ExternalID: "2", Status: db.StatusPending,
 	})
 	snoozed := time.Now().Add(24 * time.Hour)
 	database.Create(&db.ApprovalQueueItem{
-		MediaName: "Firefly - Season 1", MediaType: "season", Reason: "Score: 0.50",
+		MediaName: "Firefly - Season 1", MediaType: "season",
 		SizeBytes: 3000, IntegrationID: ic.ID, ExternalID: "3",
 		Status: db.StatusRejected, SnoozedUntil: &snoozed,
 	})
@@ -615,7 +615,7 @@ func TestApproveQueueItem_DryRunMode(t *testing.T) {
 	database.Create(&ic)
 
 	item := db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 5000000, IntegrationID: ic.ID, ExternalID: "1", Status: db.StatusPending,
 	}
 	database.Create(&item)

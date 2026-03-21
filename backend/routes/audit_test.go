@@ -27,7 +27,6 @@ func seedAuditLogs(t *testing.T, database *gorm.DB, n int) {
 		log := db.AuditLogEntry{
 			MediaName: fmt.Sprintf("Test Media %d", i),
 			MediaType: "movie",
-			Reason:    "Score: 0.85",
 			Action:    action,
 			SizeBytes: int64(1000000 * (i + 1)),
 			Score:     0.85,
@@ -237,9 +236,9 @@ func TestGetAuditLogs_SearchFilter(t *testing.T) {
 
 	// Seed specific named items
 	logs := []db.AuditLogEntry{
-		{MediaName: "Serenity", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 1000},
-		{MediaName: "Serenity 2", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 2000},
-		{MediaName: "Serenity 3", MediaType: "movie", Reason: "test", Action: "dry_delete", SizeBytes: 3000},
+		{MediaName: "Serenity", MediaType: "movie", Action: "deleted", SizeBytes: 1000},
+		{MediaName: "Serenity 2", MediaType: "movie", Action: "deleted", SizeBytes: 2000},
+		{MediaName: "Serenity 3", MediaType: "movie", Action: "dry_delete", SizeBytes: 3000},
 	}
 	for _, log := range logs {
 		if err := database.Create(&log).Error; err != nil {
@@ -277,9 +276,9 @@ func TestGetAuditLogs_Sorting(t *testing.T) {
 
 	// Seed items with distinct sizes
 	logs := []db.AuditLogEntry{
-		{MediaName: "Small", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 100},
-		{MediaName: "Large", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 9000},
-		{MediaName: "Medium", MediaType: "movie", Reason: "test", Action: "deleted", SizeBytes: 5000},
+		{MediaName: "Small", MediaType: "movie", Action: "deleted", SizeBytes: 100},
+		{MediaName: "Large", MediaType: "movie", Action: "deleted", SizeBytes: 9000},
+		{MediaName: "Medium", MediaType: "movie", Action: "deleted", SizeBytes: 5000},
 	}
 	for _, log := range logs {
 		if err := database.Create(&log).Error; err != nil {
@@ -369,7 +368,6 @@ func seedApprovalEntry(t *testing.T, database *gorm.DB) (itemID uint) {
 	entry := db.ApprovalQueueItem{
 		MediaName:     "Approval Test Movie",
 		MediaType:     "movie",
-		Reason:        "Score: 0.75 (WatchHistory: 0.5, Size: 0.8)",
 		ScoreDetails:  `[{"name":"WatchHistory","rawScore":0.5,"weight":10},{"name":"Size","rawScore":0.8,"weight":6}]`,
 		Status:        "pending",
 		SizeBytes:     5000000,
@@ -452,7 +450,6 @@ func TestApproveEntry_NotPending(t *testing.T) {
 	entry := db.ApprovalQueueItem{
 		MediaName:     "Not Pending Movie",
 		MediaType:     "movie",
-		Reason:        "Score: 0.50",
 		Status:        "approved",
 		SizeBytes:     1000000,
 		IntegrationID: integration.ID,

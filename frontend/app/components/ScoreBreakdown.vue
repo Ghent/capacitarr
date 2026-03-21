@@ -115,13 +115,14 @@
 import type { ScoreFactor } from '~/types/api';
 
 interface Props {
-  reason: string;
+  reason?: string;
   score?: number;
   scoreDetails?: string;
   factors?: ScoreFactor[];
   size?: string;
 }
 const props = withDefaults(defineProps<Props>(), {
+  reason: '',
   size: 'md',
   score: undefined,
   scoreDetails: '',

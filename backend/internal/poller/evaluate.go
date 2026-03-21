@@ -169,9 +169,9 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
 				Client:      deleter,
 				Item:        ev.Item,
-				Reason:      ev.Reason,
 				Score:       ev.Score,
 				Factors:     ev.Factors,
+				Trigger:     db.TriggerEngine,
 				RunStatsID:  runStatsID,
 				DiskGroupID: &diskGroupID,
 			}); err != nil {
@@ -192,7 +192,6 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			if _, err := p.reg.Approval.UpsertPending(db.ApprovalQueueItem{
 				MediaName:     ev.Item.Title,
 				MediaType:     string(ev.Item.Type),
-				Reason:        fmt.Sprintf("Score: %.2f (%s)", ev.Score, ev.Reason),
 				ScoreDetails:  string(factorsJSON),
 				SizeBytes:     ev.Item.SizeBytes,
 				Score:         ev.Score,
@@ -200,6 +199,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 				IntegrationID: ev.Item.IntegrationID,
 				ExternalID:    ev.Item.ExternalID,
 				DiskGroupID:   &diskGroupID,
+				Trigger:       db.TriggerEngine,
 			}); err != nil {
 				slog.Error("Failed to upsert approval queue item", "component", "poller", "media", ev.Item.Title, "error", err)
 				continue
@@ -221,9 +221,9 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
 			Client:      nil, // Dry-run never calls DeleteMediaItem; nil-safe in processJob()
 			Item:        ev.Item,
-			Reason:      ev.Reason,
 			Score:       ev.Score,
 			Factors:     ev.Factors,
+			Trigger:     db.TriggerEngine,
 			RunStatsID:  runStatsID,
 			DiskGroupID: &diskGroupID,
 			ForceDryRun: true,

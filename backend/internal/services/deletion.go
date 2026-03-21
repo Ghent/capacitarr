@@ -21,25 +21,25 @@ import (
 type DeleteJob struct {
 	Client          integrations.MediaDeleter
 	Item            integrations.MediaItem
-	Reason          string
 	Score           float64
 	Factors         []engine.ScoreFactor
-	RunStatsID      uint  // Engine run stats row to increment Deleted counter
-	DiskGroupID     *uint // Disk group that triggered this deletion (nil for user-initiated deletes)
-	ForceDryRun     bool  // When true, skip actual deletion even if DeletionsEnabled=true
-	UpsertAudit     bool  // When true, use AuditLog.UpsertDryRun() (idempotent poller dry-runs); when false, use AuditLog.Create() (append-only)
-	ApprovalEntryID uint  // Non-zero if this job originated from an approval queue item
+	Trigger         string // "engine", "user", "approval"
+	RunStatsID      uint   // Engine run stats row to increment Deleted counter
+	DiskGroupID     *uint  // Disk group that triggered this deletion (nil for user-initiated deletes)
+	ForceDryRun     bool   // When true, skip actual deletion even if DeletionsEnabled=true
+	UpsertAudit     bool   // When true, use AuditLog.UpsertDryRun() (idempotent poller dry-runs); when false, use AuditLog.Create() (append-only)
+	ApprovalEntryID uint   // Non-zero if this job originated from an approval queue item
 }
 
 // DeleteJobSummary is a serialisable snapshot of a queued deletion job,
 // suitable for API responses. It deliberately excludes the Integration
 // client to avoid exposing internal state.
 type DeleteJobSummary struct {
-	MediaName     string `json:"mediaName"`
-	MediaType     string `json:"mediaType"`
-	SizeBytes     int64  `json:"sizeBytes"`
-	IntegrationID uint   `json:"integrationId"`
-	Reason        string `json:"reason"`
+	MediaName     string  `json:"mediaName"`
+	MediaType     string  `json:"mediaType"`
+	SizeBytes     int64   `json:"sizeBytes"`
+	IntegrationID uint    `json:"integrationId"`
+	Score         float64 `json:"score"`
 }
 
 // DeletionService manages the background deletion worker and queue.
@@ -393,9 +393,9 @@ func (s *DeletionService) processJob(job DeleteJob) {
 		logEntry := db.AuditLogEntry{
 			MediaName:   job.Item.Title,
 			MediaType:   string(job.Item.Type),
-			Reason:      "Cancelled by user",
 			Action:      db.ActionCancelled,
 			SizeBytes:   job.Item.SizeBytes,
+			Trigger:     job.Trigger,
 			DiskGroupID: job.DiskGroupID,
 		}
 		if err := s.auditLog.Create(logEntry); err != nil {
@@ -433,11 +433,12 @@ func (s *DeletionService) processJob(job DeleteJob) {
 		logEntry := db.AuditLogEntry{
 			MediaName:    job.Item.Title,
 			MediaType:    string(job.Item.Type),
-			Reason:       fmt.Sprintf("Score: %.2f (%s)", job.Score, job.Reason),
 			ScoreDetails: string(factorsJSON),
 			Action:       db.ActionDryDelete,
 			SizeBytes:    job.Item.SizeBytes,
 			Score:        job.Score,
+			Trigger:      job.Trigger,
+			DryRunReason: determineDryRunReason(deletionsEnabled, job.ForceDryRun),
 			DiskGroupID:  job.DiskGroupID,
 		}
 		if job.UpsertAudit {
@@ -509,11 +510,11 @@ func (s *DeletionService) processJob(job DeleteJob) {
 	logEntry := db.AuditLogEntry{
 		MediaName:    job.Item.Title,
 		MediaType:    string(job.Item.Type),
-		Reason:       fmt.Sprintf("Score: %.2f (%s)", job.Score, job.Reason),
 		ScoreDetails: string(factorsJSON),
 		Action:       db.ActionDeleted,
 		SizeBytes:    job.Item.SizeBytes,
 		Score:        job.Score,
+		Trigger:      job.Trigger,
 		DiskGroupID:  job.DiskGroupID,
 	}
 	if err := s.auditLog.Create(logEntry); err != nil {
@@ -530,6 +531,20 @@ func (s *DeletionService) processJob(job DeleteJob) {
 
 	slog.Info("Deletion completed", "component", "services",
 		"media", job.Item.Title, "action", "Deleted", "freed", job.Item.SizeBytes)
+}
+
+// determineDryRunReason returns the structured reason for a dry-run.
+// Returns "deletions_disabled" if deletions are globally disabled,
+// "execution_mode" if the job was forced to dry-run by the execution mode,
+// or "" if the job is not a dry-run.
+func determineDryRunReason(deletionsEnabled, forceDryRun bool) string {
+	if !deletionsEnabled {
+		return db.DryRunReasonDeletionsDisabled
+	}
+	if forceDryRun {
+		return db.DryRunReasonExecutionMode
+	}
+	return db.DryRunReasonNone
 }
 
 // publishProgress publishes a DeletionProgressEvent with the current batch
@@ -670,7 +685,7 @@ func (s *DeletionService) FindQueuedItem(mediaName, mediaType string) *DeleteJob
 				MediaType:     string(job.Item.Type),
 				SizeBytes:     job.Item.SizeBytes,
 				IntegrationID: job.Item.IntegrationID,
-				Reason:        job.Reason,
+				Score:         job.Score,
 			}
 		}
 	}
@@ -690,7 +705,7 @@ func (s *DeletionService) ListQueuedItems() []DeleteJobSummary {
 			MediaType:     string(job.Item.Type),
 			SizeBytes:     job.Item.SizeBytes,
 			IntegrationID: job.Item.IntegrationID,
-			Reason:        job.Reason,
+			Score:         job.Score,
 		})
 	}
 	return out

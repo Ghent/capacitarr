@@ -85,7 +85,6 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	firstEntry := db.ApprovalQueueItem{
 		MediaName:     mediaName,
 		MediaType:     mediaType,
-		Reason:        "Score: 5.50 (high score)",
 		ScoreDetails:  `[{"name":"size","contribution":3.0},{"name":"age","contribution":2.5}]`,
 		Status:        "pending",
 		SizeBytes:     1000000000,
@@ -104,7 +103,6 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	).First(&existing)
 	if result.Error == nil {
 		reg.DB.Model(&existing).Updates(map[string]any{
-			"reason":         firstEntry.Reason,
 			"score_details":  firstEntry.ScoreDetails,
 			"size_bytes":     firstEntry.SizeBytes,
 			"score":          firstEntry.Score,
@@ -126,7 +124,6 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	secondEntry := db.ApprovalQueueItem{
 		MediaName:     mediaName,
 		MediaType:     mediaType,
-		Reason:        "Score: 6.20 (higher score)",
 		ScoreDetails:  `[{"name":"size","contribution":3.5},{"name":"age","contribution":2.7}]`,
 		Status:        "pending",
 		SizeBytes:     1100000000,
@@ -145,7 +142,6 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	).First(&existing2)
 	if result2.Error == nil {
 		reg.DB.Model(&existing2).Updates(map[string]any{
-			"reason":         secondEntry.Reason,
 			"score_details":  secondEntry.ScoreDetails,
 			"size_bytes":     secondEntry.SizeBytes,
 			"score":          secondEntry.Score,
@@ -165,8 +161,8 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	// Verify: the entry was updated with the new values
 	var updated db.ApprovalQueueItem
 	database.Where("media_name = ? AND status = ?", mediaName, "pending").First(&updated)
-	if updated.Reason != "Score: 6.20 (higher score)" {
-		t.Errorf("Expected updated reason, got %q", updated.Reason)
+	if updated.Score != 6.20 {
+		t.Errorf("Expected updated score=6.20, got %f", updated.Score)
 	}
 	if updated.SizeBytes != 1100000000 {
 		t.Errorf("Expected updated sizeBytes=1100000000, got %d", updated.SizeBytes)
@@ -190,7 +186,7 @@ func TestBelowThreshold_ClearsQueue(t *testing.T) {
 
 	// Seed approval queue items in all three states
 	pending := db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 5000, IntegrationID: integrationID, ExternalID: "1",
 		Status: db.StatusPending,
 	}
@@ -200,7 +196,7 @@ func TestBelowThreshold_ClearsQueue(t *testing.T) {
 
 	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
 	rejected := db.ApprovalQueueItem{
-		MediaName: "Serenity", MediaType: "movie", Reason: "Score: 0.70",
+		MediaName: "Serenity", MediaType: "movie",
 		SizeBytes: 3000, IntegrationID: integrationID, ExternalID: "2",
 		Status: db.StatusRejected, SnoozedUntil: &snoozedUntil,
 	}
@@ -209,7 +205,7 @@ func TestBelowThreshold_ClearsQueue(t *testing.T) {
 	}
 
 	approved := db.ApprovalQueueItem{
-		MediaName: "Firefly - Season 1", MediaType: "season", Reason: "Score: 0.90",
+		MediaName: "Firefly - Season 1", MediaType: "season",
 		SizeBytes: 8000, IntegrationID: integrationID, ExternalID: "3",
 		Status: db.StatusApproved,
 	}
@@ -254,7 +250,7 @@ func TestEvaluateAndCleanDisk_BelowThreshold_NoLongerClearsQueue(t *testing.T) {
 
 	// Seed a pending approval queue item
 	pending := db.ApprovalQueueItem{
-		MediaName: "Firefly", MediaType: "show", Reason: "Score: 0.85",
+		MediaName: "Firefly", MediaType: "show",
 		SizeBytes: 5000, IntegrationID: integrationID, ExternalID: "1",
 		Status: db.StatusPending,
 	}
@@ -354,7 +350,6 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	approvedEntry := db.ApprovalQueueItem{
 		MediaName:     mediaName,
 		MediaType:     mediaType,
-		Reason:        "Score: 4.00 (approved)",
 		ScoreDetails:  `[]`,
 		Status:        "approved",
 		SizeBytes:     500000000,
@@ -370,7 +365,6 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	newEntry := db.ApprovalQueueItem{
 		MediaName:     mediaName,
 		MediaType:     mediaType,
-		Reason:        "Score: 4.50 (re-evaluated)",
 		ScoreDetails:  `[{"name":"size","contribution":4.5}]`,
 		Status:        "pending",
 		SizeBytes:     550000000,
@@ -389,7 +383,6 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	).First(&existing)
 	if result.Error == nil {
 		reg.DB.Model(&existing).Updates(map[string]any{
-			"reason":         newEntry.Reason,
 			"score_details":  newEntry.ScoreDetails,
 			"size_bytes":     newEntry.SizeBytes,
 			"score":          newEntry.Score,
@@ -407,8 +400,8 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	if approved.ID == 0 {
 		t.Fatal("Expected approved entry to still exist")
 	}
-	if approved.Reason != "Score: 4.00 (approved)" {
-		t.Errorf("Expected approved entry reason untouched, got %q", approved.Reason)
+	if approved.Score != 4.00 {
+		t.Errorf("Expected approved entry score untouched, got %f", approved.Score)
 	}
 	if approved.SizeBytes != 500000000 {
 		t.Errorf("Expected approved entry sizeBytes untouched, got %d", approved.SizeBytes)
@@ -420,8 +413,8 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	if queued.ID == 0 {
 		t.Fatal("Expected new 'pending' entry to be created")
 	}
-	if queued.Reason != "Score: 4.50 (re-evaluated)" {
-		t.Errorf("Expected new pending entry reason, got %q", queued.Reason)
+	if queued.Score != 4.50 {
+		t.Errorf("Expected new pending entry score, got %f", queued.Score)
 	}
 
 	// Verify: total entries = 2 (one approved, one pending)
@@ -460,7 +453,6 @@ func TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems(t *testing.T) {
 	staleItem := db.ApprovalQueueItem{
 		MediaName:     "Serenity",
 		MediaType:     "movie",
-		Reason:        "Score: 0.50 (stale from previous cycle)",
 		SizeBytes:     4000000000,
 		Score:         0.50,
 		Status:        db.StatusPending,
@@ -477,7 +469,6 @@ func TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems(t *testing.T) {
 	snoozedItem := db.ApprovalQueueItem{
 		MediaName:     "Firefly",
 		MediaType:     "show",
-		Reason:        "Score: 0.80 (snoozed)",
 		SizeBytes:     6000000000,
 		Score:         0.80,
 		Status:        db.StatusRejected,
@@ -543,7 +534,6 @@ func TestEvaluateAndCleanDisk_ReconcileNoopInDryRun(t *testing.T) {
 	staleItem := db.ApprovalQueueItem{
 		MediaName:     "Serenity",
 		MediaType:     "movie",
-		Reason:        "Score: 0.50",
 		SizeBytes:     4000000000,
 		Score:         0.50,
 		Status:        db.StatusPending,
@@ -596,7 +586,6 @@ func TestEvaluateAndCleanDisk_IsSnoozed_AutoMode(t *testing.T) {
 	snoozedItem := db.ApprovalQueueItem{
 		MediaName:     "Serenity",
 		MediaType:     "movie",
-		Reason:        "Score: 0.90 (snoozed)",
 		SizeBytes:     50000000,
 		Score:         0.90,
 		Status:        db.StatusRejected,
@@ -666,7 +655,6 @@ func TestEvaluateAndCleanDisk_IsSnoozed_DryRunMode(t *testing.T) {
 	snoozedItem := db.ApprovalQueueItem{
 		MediaName:     "Firefly",
 		MediaType:     "show",
-		Reason:        "Score: 0.85 (snoozed)",
 		SizeBytes:     60000000,
 		Score:         0.85,
 		Status:        db.StatusRejected,
