@@ -54,19 +54,25 @@ func (s *RulesService) GetEnabledRules() ([]db.CustomRule, error) {
 	return rules, nil
 }
 
-// Create validates and persists a new custom rule.
-func (s *RulesService) Create(rule db.CustomRule) (*db.CustomRule, error) {
-	// Validate required fields
+// validateRule checks required fields and effect validity.
+// Called by both Create() and Update() to maintain invariants.
+func (s *RulesService) validateRule(rule db.CustomRule) error {
 	if rule.Field == "" || rule.Operator == "" || rule.Value == "" {
-		return nil, fmt.Errorf("%w: field, operator, and value are required", ErrRuleValidation)
+		return fmt.Errorf("%w: field, operator, and value are required", ErrRuleValidation)
 	}
-
-	// Validate effect
 	if rule.Effect == "" {
-		return nil, fmt.Errorf("%w: effect field is required", ErrRuleValidation)
+		return fmt.Errorf("%w: effect field is required", ErrRuleValidation)
 	}
 	if !db.ValidEffects[rule.Effect] {
-		return nil, fmt.Errorf("%w: effect must be one of: always_keep, prefer_keep, lean_keep, lean_remove, prefer_remove, always_remove", ErrRuleValidation)
+		return fmt.Errorf("%w: effect must be one of: always_keep, prefer_keep, lean_keep, lean_remove, prefer_remove, always_remove", ErrRuleValidation)
+	}
+	return nil
+}
+
+// Create validates and persists a new custom rule.
+func (s *RulesService) Create(rule db.CustomRule) (*db.CustomRule, error) {
+	if err := s.validateRule(rule); err != nil {
+		return nil, err
 	}
 
 	// Ensure new rules are enabled by default
@@ -93,8 +99,16 @@ func (s *RulesService) Update(id uint, rule db.CustomRule) (*db.CustomRule, erro
 		return nil, fmt.Errorf("%w: %v", ErrRuleNotFound, err)
 	}
 
-	// Preserve the ID from the existing record
+	if err := s.validateRule(rule); err != nil {
+		return nil, err
+	}
+
+	// Preserve the ID and sort order from the existing record
 	rule.ID = existing.ID
+	if rule.SortOrder == 0 {
+		rule.SortOrder = existing.SortOrder
+	}
+
 	if err := s.db.Save(&rule).Error; err != nil {
 		slog.Error("Failed to update custom rule", "component", "services", "id", id, "error", err)
 		return nil, fmt.Errorf("failed to update rule: %w", err)

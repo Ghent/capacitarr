@@ -80,6 +80,9 @@ func RegisterRuleRoutes(protected *echo.Group, reg *services.Registry) {
 			if errors.Is(err, services.ErrRuleNotFound) {
 				return apiError(c, http.StatusNotFound, "Rule not found")
 			}
+			if errors.Is(err, services.ErrRuleValidation) {
+				return apiError(c, http.StatusBadRequest, err.Error())
+			}
 			slog.Error("Failed to update custom rule", "component", "api", "operation", "update_rule", "id", id, "error", err)
 			return apiError(c, http.StatusInternalServerError, "Failed to update rule")
 		}

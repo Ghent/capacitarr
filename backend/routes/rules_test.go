@@ -300,6 +300,31 @@ func TestUpdateProtection_NotFound(t *testing.T) {
 	}
 }
 
+func TestUpdateProtection_ValidationError(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	rule := seedRule(t, database, "title", "contains", "Firefly", "always_keep", 0)
+
+	// Send an update with an invalid effect — should get 400 not 500
+	body := `{"field":"title","operator":"contains","value":"Serenity","effect":"banana","enabled":true}`
+	path := fmt.Sprintf("/api/custom-rules/%d", rule.ID)
+	req := testutil.AuthenticatedRequest(t, http.MethodPut, path, strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 for invalid effect, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Verify the original rule was not modified
+	var original db.CustomRule
+	database.First(&original, rule.ID)
+	if original.Value != "Firefly" {
+		t.Errorf("Expected original value 'Firefly' preserved, got %q", original.Value)
+	}
+}
+
 // ---------- DELETE /api/custom-rules/:id ----------
 
 func TestDeleteProtection_Existing(t *testing.T) {

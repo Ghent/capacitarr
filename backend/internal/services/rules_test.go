@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"testing"
 
 	"capacitarr/internal/db"
@@ -335,5 +336,79 @@ func TestRulesService_GetEnabledRules_FiltersDisabled(t *testing.T) {
 		if !rule.Enabled {
 			t.Errorf("GetEnabledRules returned disabled rule: %v", rule)
 		}
+	}
+}
+
+// ---------- Update Validation ----------
+
+func TestRulesService_Update_ValidationErrors(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewRulesService(database, bus)
+
+	// Create a valid rule first
+	original := db.CustomRule{Field: "title", Operator: "contains", Value: "Firefly", Effect: "always_keep", Enabled: true, SortOrder: 5}
+	database.Create(&original)
+
+	tests := []struct {
+		name string
+		rule db.CustomRule
+	}{
+		{"empty field", db.CustomRule{Field: "", Operator: "==", Value: "Serenity", Effect: "always_keep", Enabled: true}},
+		{"empty operator", db.CustomRule{Field: "title", Operator: "", Value: "Serenity", Effect: "always_keep", Enabled: true}},
+		{"empty value", db.CustomRule{Field: "title", Operator: "==", Value: "", Effect: "always_keep", Enabled: true}},
+		{"empty effect", db.CustomRule{Field: "title", Operator: "==", Value: "Serenity", Effect: "", Enabled: true}},
+		{"invalid effect", db.CustomRule{Field: "title", Operator: "==", Value: "Serenity", Effect: "banana", Enabled: true}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := svc.Update(original.ID, tt.rule)
+			if err == nil {
+				t.Errorf("Expected validation error for %s", tt.name)
+			}
+			if !errors.Is(err, ErrRuleValidation) {
+				t.Errorf("Expected ErrRuleValidation, got: %v", err)
+			}
+		})
+	}
+
+	// Verify the original rule was not modified
+	rules, _ := svc.List()
+	if len(rules) != 1 {
+		t.Fatalf("Expected 1 rule, got %d", len(rules))
+	}
+	if rules[0].Value != "Firefly" {
+		t.Errorf("Expected original value 'Firefly' preserved, got %q", rules[0].Value)
+	}
+}
+
+func TestRulesService_Update_PreservesSortOrder(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewRulesService(database, bus)
+
+	// Create a rule with an explicit sort order
+	original := db.CustomRule{Field: "title", Operator: "contains", Value: "Firefly", Effect: "always_keep", Enabled: true, SortOrder: 7}
+	database.Create(&original)
+
+	// Update without providing sort order (simulates the edit form which doesn't set it)
+	updated := db.CustomRule{
+		Field:    "title",
+		Operator: "contains",
+		Value:    "Serenity",
+		Effect:   "prefer_keep",
+		Enabled:  true,
+		// SortOrder intentionally 0 (zero value)
+	}
+	result, err := svc.Update(original.ID, updated)
+	if err != nil {
+		t.Fatalf("Update returned error: %v", err)
+	}
+	if result.SortOrder != 7 {
+		t.Errorf("Expected sort order 7 preserved, got %d", result.SortOrder)
+	}
+	if result.Value != "Serenity" {
+		t.Errorf("Expected value 'Serenity', got %q", result.Value)
 	}
 }
