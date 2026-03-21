@@ -1,7 +1,7 @@
 # Deletion Pipeline Unification
 
 **Created:** 2026-03-20T20:34Z
-**Status:** 🔄 In Progress (Phase 6 complete)
+**Status:** ✅ Complete
 **Base Branch:** `feature/2.0`
 **Breaking:** Yes — no backward compatibility required (2.0 baseline migration)
 
@@ -459,6 +459,8 @@ Added 9 new tests:
 Updated all 22 existing `SetDependencies()` calls (19 in deletion_test.go, 3 in metrics_test.go) to include the new `nil` ApprovalReturner parameter.
 
 ## Phase 7: Drop `Reason` Field, Add Structured Fields
+
+**Status:** ✅ Complete
 
 ### Step 7.1: Add structured fields to `AuditLogEntry`
 
