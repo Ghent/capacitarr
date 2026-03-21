@@ -454,7 +454,7 @@ func (s *BackupService) importPreferences(tx *gorm.DB, p *PreferencesExport) err
 // Match strategy (in order):
 //  1. Exact match: type + name
 //  2. Type-only fallback: type alone, only if exactly one integration of that type exists
-//  3. No match: import as global rule (integrationID = nil)
+//  3. No match: skip the rule and count as unmatched
 func (s *BackupService) importRules(tx *gorm.DB, rules []RuleExport) (int, int, error) {
 	// Validate all rules before importing any
 	for i, r := range rules {
@@ -480,10 +480,16 @@ func (s *BackupService) importRules(tx *gorm.DB, rules []RuleExport) (int, int, 
 	unmatched := 0
 
 	for _, r := range rules {
-		// Rule has no integration reference
+		// Rule has no integration reference — skip it (every rule must belong to an integration)
 		if (r.IntegrationName == nil || *r.IntegrationName == "") &&
 			(r.IntegrationType == nil || *r.IntegrationType == "") {
-			resolved = append(resolved, resolvedRule{rule: r, integrationID: nil})
+			unmatched++
+			slog.Warn("Rule has no integration reference, skipping",
+				"component", "services",
+				"field", r.Field,
+				"operator", r.Operator,
+				"value", r.Value,
+			)
 			continue
 		}
 
@@ -546,15 +552,17 @@ func (s *BackupService) importRules(tx *gorm.DB, rules []RuleExport) (int, int, 
 			autoMatchCache[typeKey] = nil
 		}
 
-		// No match found — import rule without integration binding
+		// No match found — skip this rule (every rule must belong to an integration)
 		autoMatchCache[lookupKey] = nil
 		unmatched++
-		slog.Warn("Rule integration match failed, importing as global",
+		slog.Warn("Rule integration match failed, skipping rule",
 			"component", "services",
 			"integrationName", intName,
 			"integrationType", intType,
+			"field", r.Field,
+			"operator", r.Operator,
+			"value", r.Value,
 		)
-		resolved = append(resolved, resolvedRule{rule: r, integrationID: nil})
 	}
 
 	// Determine the starting sort_order
@@ -786,10 +794,10 @@ func (s *BackupService) PreviewImport(envelope SettingsExportEnvelope) (*ImportP
 			Rule:  r,
 		}
 
-		// Rule has no integration reference
+		// Rule has no integration reference — mark as unmatched (every rule must belong to an integration)
 		if (r.IntegrationName == nil || *r.IntegrationName == "") &&
 			(r.IntegrationType == nil || *r.IntegrationType == "") {
-			res.Resolution = "matched" // global rule — always matches
+			res.Resolution = "unmatched"
 			preview.Rules = append(preview.Rules, res)
 			continue
 		}
@@ -1031,7 +1039,20 @@ func (s *BackupService) importRulesWithOverrides(tx *gorm.DB, rules []RuleExport
 			}
 			if integrationID == nil {
 				unmatched++
+				slog.Warn("Rule integration match failed in override path, skipping rule",
+					"component", "services",
+					"field", r.Field,
+					"operator", r.Operator,
+					"value", r.Value,
+				)
+				continue
 			}
+		}
+
+		// Every rule must have an integration — skip if still nil
+		if integrationID == nil {
+			unmatched++
+			continue
 		}
 
 		newRule := db.CustomRule{

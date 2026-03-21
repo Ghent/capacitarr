@@ -72,7 +72,7 @@
             editingRule
               ? {
                   id: editingRule.id,
-                  integrationId: editingRule.integrationId ?? 0,
+                  integrationId: editingRule.integrationId,
                   field: editingRule.field,
                   operator: editingRule.operator,
                   value: editingRule.value,
@@ -336,7 +336,7 @@ const conflictsMap = computed(() => computeAllRuleConflicts(props.rules));
 const groupedRules = computed<RuleGroup[]>(() => {
   const map = new Map<number, CustomRule[]>();
   for (const rule of props.rules) {
-    const id = rule.integrationId ?? 0;
+    const id = rule.integrationId;
     if (!map.has(id)) map.set(id, []);
     map.get(id)!.push(rule);
   }

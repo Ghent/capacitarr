@@ -148,8 +148,8 @@ func (p PreferenceSet) GetFactorWeight(key string) int {
 // CustomRule stores custom rules that influence media scoring via keep/remove effects.
 type CustomRule struct {
 	ID            uint      `gorm:"primarykey" json:"id"`
-	IntegrationID *uint     `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; nil = global rule
-	LibraryID     *uint     `gorm:"index" json:"libraryId"`     // FK to Library; nil = global rule (NEW in 2.0: per-library scoping)
+	IntegrationID *uint     `gorm:"index" json:"integrationId"` // FK to IntegrationConfig; required — every rule must belong to an integration
+	LibraryID     *uint     `gorm:"index" json:"libraryId"`     // FK to Library; nil = applies to all libraries in the integration
 	Field         string    `gorm:"not null" json:"field"`      // e.g. "quality", "tag", "rating"
 	Operator      string    `gorm:"not null" json:"operator"`   // e.g. "==", "contains", ">"
 	Value         string    `gorm:"not null" json:"value"`      // e.g. "4K", "anime", "7.5"

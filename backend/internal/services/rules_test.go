@@ -27,11 +27,12 @@ func TestRulesService_List_WithSeededRules(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Seed rules with different sort orders
-	database.Create(&db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true, SortOrder: 2})
-	database.Create(&db.CustomRule{Field: "tag", Operator: "contains", Value: "anime", Effect: "prefer_keep", Enabled: true, SortOrder: 1})
-	database.Create(&db.CustomRule{Field: "rating", Operator: ">", Value: "7.5", Effect: "lean_remove", Enabled: true, SortOrder: 0})
+	database.Create(&db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true, SortOrder: 2, IntegrationID: intID})
+	database.Create(&db.CustomRule{Field: "tag", Operator: "contains", Value: "anime", Effect: "prefer_keep", Enabled: true, SortOrder: 1, IntegrationID: intID})
+	database.Create(&db.CustomRule{Field: "rating", Operator: ">", Value: "7.5", Effect: "lean_remove", Enabled: true, SortOrder: 0, IntegrationID: intID})
 
 	rules, err := svc.List()
 	if err != nil {
@@ -57,10 +58,11 @@ func TestRulesService_List_OrderingTiebreakByID(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Two rules with the same sort_order — should tiebreak by ID ASC
-	database.Create(&db.CustomRule{Field: "first", Operator: "==", Value: "a", Effect: "always_keep", Enabled: true, SortOrder: 0})
-	database.Create(&db.CustomRule{Field: "second", Operator: "==", Value: "b", Effect: "always_keep", Enabled: true, SortOrder: 0})
+	database.Create(&db.CustomRule{Field: "first", Operator: "==", Value: "a", Effect: "always_keep", Enabled: true, SortOrder: 0, IntegrationID: intID})
+	database.Create(&db.CustomRule{Field: "second", Operator: "==", Value: "b", Effect: "always_keep", Enabled: true, SortOrder: 0, IntegrationID: intID})
 
 	rules, err := svc.List()
 	if err != nil {
@@ -80,12 +82,14 @@ func TestRulesService_Create_Valid(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	rule := db.CustomRule{
-		Field:    "quality",
-		Operator: "==",
-		Value:    "4K",
-		Effect:   "always_keep",
+		Field:         "quality",
+		Operator:      "==",
+		Value:         "4K",
+		Effect:        "always_keep",
+		IntegrationID: intID,
 	}
 
 	created, err := svc.Create(rule)
@@ -113,14 +117,15 @@ func TestRulesService_Create_MissingFields(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	tests := []struct {
 		name string
 		rule db.CustomRule
 	}{
-		{"missing field", db.CustomRule{Operator: "==", Value: "4K", Effect: "always_keep"}},
-		{"missing operator", db.CustomRule{Field: "quality", Value: "4K", Effect: "always_keep"}},
-		{"missing value", db.CustomRule{Field: "quality", Operator: "==", Effect: "always_keep"}},
+		{"missing field", db.CustomRule{Operator: "==", Value: "4K", Effect: "always_keep", IntegrationID: intID}},
+		{"missing operator", db.CustomRule{Field: "quality", Value: "4K", Effect: "always_keep", IntegrationID: intID}},
+		{"missing value", db.CustomRule{Field: "quality", Operator: "==", Effect: "always_keep", IntegrationID: intID}},
 	}
 
 	for _, tt := range tests {
@@ -137,6 +142,7 @@ func TestRulesService_Create_InvalidEffect(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	tests := []struct {
 		name   string
@@ -150,10 +156,11 @@ func TestRulesService_Create_InvalidEffect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rule := db.CustomRule{
-				Field:    "quality",
-				Operator: "==",
-				Value:    "4K",
-				Effect:   tt.effect,
+				Field:         "quality",
+				Operator:      "==",
+				Value:         "4K",
+				Effect:        tt.effect,
+				IntegrationID: intID,
 			}
 			_, err := svc.Create(rule)
 			if err == nil {
@@ -169,18 +176,20 @@ func TestRulesService_Update_Existing(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Create a rule first
-	original := db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true}
+	original := db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true, IntegrationID: intID}
 	database.Create(&original)
 
 	// Update it
 	updated := db.CustomRule{
-		Field:    "quality",
-		Operator: "==",
-		Value:    "1080p",
-		Effect:   "prefer_keep",
-		Enabled:  true,
+		Field:         "quality",
+		Operator:      "==",
+		Value:         "1080p",
+		Effect:        "prefer_keep",
+		Enabled:       true,
+		IntegrationID: intID,
 	}
 	result, err := svc.Update(original.ID, updated)
 	if err != nil {
@@ -201,8 +210,9 @@ func TestRulesService_Update_NotFound(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
-	rule := db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep"}
+	rule := db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", IntegrationID: intID}
 	_, err := svc.Update(99999, rule)
 	if err == nil {
 		t.Error("Expected error when updating non-existent rule")
@@ -215,9 +225,10 @@ func TestRulesService_Delete_Existing(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Create a rule first
-	rule := db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true}
+	rule := db.CustomRule{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true, IntegrationID: intID}
 	database.Create(&rule)
 
 	err := svc.Delete(rule.ID)
@@ -249,11 +260,12 @@ func TestRulesService_Reorder_Valid(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Create rules in default order
-	r1 := db.CustomRule{Field: "first", Operator: "==", Value: "a", Effect: "always_keep", Enabled: true, SortOrder: 0}
-	r2 := db.CustomRule{Field: "second", Operator: "==", Value: "b", Effect: "always_keep", Enabled: true, SortOrder: 1}
-	r3 := db.CustomRule{Field: "third", Operator: "==", Value: "c", Effect: "always_keep", Enabled: true, SortOrder: 2}
+	r1 := db.CustomRule{Field: "first", Operator: "==", Value: "a", Effect: "always_keep", Enabled: true, SortOrder: 0, IntegrationID: intID}
+	r2 := db.CustomRule{Field: "second", Operator: "==", Value: "b", Effect: "always_keep", Enabled: true, SortOrder: 1, IntegrationID: intID}
+	r3 := db.CustomRule{Field: "third", Operator: "==", Value: "c", Effect: "always_keep", Enabled: true, SortOrder: 2, IntegrationID: intID}
 	database.Create(&r1)
 	database.Create(&r2)
 	database.Create(&r3)
@@ -312,14 +324,15 @@ func TestRulesService_GetEnabledRules_FiltersDisabled(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Seed enabled rules via Create
-	database.Create(&db.CustomRule{Field: "title", Operator: "equals", Value: "Firefly", Effect: "always_keep", Enabled: true})
-	database.Create(&db.CustomRule{Field: "genre", Operator: "equals", Value: "Sci-Fi", Effect: "prefer_keep", Enabled: true})
+	database.Create(&db.CustomRule{Field: "title", Operator: "equals", Value: "Firefly", Effect: "always_keep", Enabled: true, IntegrationID: intID})
+	database.Create(&db.CustomRule{Field: "genre", Operator: "equals", Value: "Sci-Fi", Effect: "prefer_keep", Enabled: true, IntegrationID: intID})
 
 	// Create a rule then disable it via raw SQL: GORM's default:true prevents
 	// inserting false directly, and Model().Update() may also skip zero-value bools.
-	disabledRule := db.CustomRule{Field: "title", Operator: "equals", Value: "Serenity", Effect: "always_keep", Enabled: true}
+	disabledRule := db.CustomRule{Field: "title", Operator: "equals", Value: "Serenity", Effect: "always_keep", Enabled: true, IntegrationID: intID}
 	database.Create(&disabledRule)
 	database.Exec("UPDATE custom_rules SET enabled = 0 WHERE id = ?", disabledRule.ID)
 
@@ -345,20 +358,21 @@ func TestRulesService_Update_ValidationErrors(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Create a valid rule first
-	original := db.CustomRule{Field: "title", Operator: "contains", Value: "Firefly", Effect: "always_keep", Enabled: true, SortOrder: 5}
+	original := db.CustomRule{Field: "title", Operator: "contains", Value: "Firefly", Effect: "always_keep", Enabled: true, SortOrder: 5, IntegrationID: intID}
 	database.Create(&original)
 
 	tests := []struct {
 		name string
 		rule db.CustomRule
 	}{
-		{"empty field", db.CustomRule{Field: "", Operator: "==", Value: "Serenity", Effect: "always_keep", Enabled: true}},
-		{"empty operator", db.CustomRule{Field: "title", Operator: "", Value: "Serenity", Effect: "always_keep", Enabled: true}},
-		{"empty value", db.CustomRule{Field: "title", Operator: "==", Value: "", Effect: "always_keep", Enabled: true}},
-		{"empty effect", db.CustomRule{Field: "title", Operator: "==", Value: "Serenity", Effect: "", Enabled: true}},
-		{"invalid effect", db.CustomRule{Field: "title", Operator: "==", Value: "Serenity", Effect: "banana", Enabled: true}},
+		{"empty field", db.CustomRule{Field: "", Operator: "==", Value: "Serenity", Effect: "always_keep", Enabled: true, IntegrationID: intID}},
+		{"empty operator", db.CustomRule{Field: "title", Operator: "", Value: "Serenity", Effect: "always_keep", Enabled: true, IntegrationID: intID}},
+		{"empty value", db.CustomRule{Field: "title", Operator: "==", Value: "", Effect: "always_keep", Enabled: true, IntegrationID: intID}},
+		{"empty effect", db.CustomRule{Field: "title", Operator: "==", Value: "Serenity", Effect: "", Enabled: true, IntegrationID: intID}},
+		{"invalid effect", db.CustomRule{Field: "title", Operator: "==", Value: "Serenity", Effect: "banana", Enabled: true, IntegrationID: intID}},
 	}
 
 	for _, tt := range tests {
@@ -387,18 +401,20 @@ func TestRulesService_Update_PreservesSortOrder(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewRulesService(database, bus)
+	intID := seedTestIntegration(t, database)
 
 	// Create a rule with an explicit sort order
-	original := db.CustomRule{Field: "title", Operator: "contains", Value: "Firefly", Effect: "always_keep", Enabled: true, SortOrder: 7}
+	original := db.CustomRule{Field: "title", Operator: "contains", Value: "Firefly", Effect: "always_keep", Enabled: true, SortOrder: 7, IntegrationID: intID}
 	database.Create(&original)
 
 	// Update without providing sort order (simulates the edit form which doesn't set it)
 	updated := db.CustomRule{
-		Field:    "title",
-		Operator: "contains",
-		Value:    "Serenity",
-		Effect:   "prefer_keep",
-		Enabled:  true,
+		Field:         "title",
+		Operator:      "contains",
+		Value:         "Serenity",
+		Effect:        "prefer_keep",
+		Enabled:       true,
+		IntegrationID: intID,
 		// SortOrder intentionally 0 (zero value)
 	}
 	result, err := svc.Update(original.ID, updated)

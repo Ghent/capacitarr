@@ -37,8 +37,13 @@ func applyRules(item integrations.MediaItem, rules []db.CustomRule) (bool, float
 		if !rule.Enabled {
 			continue
 		}
+		// Every rule must belong to an integration — skip rules with missing integration_id
+		// (defensive: should not occur since validation prevents nil IntegrationID)
+		if rule.IntegrationID == nil {
+			continue
+		}
 		// Skip rules scoped to a different integration
-		if rule.IntegrationID != nil && *rule.IntegrationID != item.IntegrationID {
+		if *rule.IntegrationID != item.IntegrationID {
 			continue
 		}
 

@@ -17,16 +17,33 @@ import (
 
 // ---------- helpers ----------
 
+// seedRouteTestIntegration creates a test integration and returns a pointer to its ID.
+func seedRouteTestIntegration(t *testing.T, database *gorm.DB) *uint {
+	t.Helper()
+	ic := db.IntegrationConfig{
+		Name:    "my-sonarr",
+		Type:    "sonarr",
+		URL:     "http://localhost:8989",
+		APIKey:  "test-api-key",
+		Enabled: true,
+	}
+	if err := database.Create(&ic).Error; err != nil {
+		t.Fatalf("Failed to seed test integration: %v", err)
+	}
+	return &ic.ID
+}
+
 // seedRule creates a single CustomRule in the database and returns it.
-func seedRule(t *testing.T, database *gorm.DB, field, operator, value, effect string, sortOrder int) db.CustomRule {
+func seedRule(t *testing.T, database *gorm.DB, field, operator, value, effect string, sortOrder int, integrationID *uint) db.CustomRule {
 	t.Helper()
 	rule := db.CustomRule{
-		Field:     field,
-		Operator:  operator,
-		Value:     value,
-		Effect:    effect,
-		Enabled:   true,
-		SortOrder: sortOrder,
+		Field:         field,
+		Operator:      operator,
+		Value:         value,
+		Effect:        effect,
+		Enabled:       true,
+		SortOrder:     sortOrder,
+		IntegrationID: integrationID,
 	}
 	if err := database.Create(&rule).Error; err != nil {
 		t.Fatalf("Failed to seed rule: %v", err)
@@ -35,11 +52,11 @@ func seedRule(t *testing.T, database *gorm.DB, field, operator, value, effect st
 }
 
 // seedRules inserts n protection rules with sequential sort orders.
-func seedRules(t *testing.T, database *gorm.DB, n int) []db.CustomRule {
+func seedRules(t *testing.T, database *gorm.DB, n int, integrationID *uint) []db.CustomRule {
 	t.Helper()
 	rules := make([]db.CustomRule, 0, n)
 	for i := 0; i < n; i++ {
-		r := seedRule(t, database, "title", "contains", fmt.Sprintf("value_%d", i), "always_keep", i)
+		r := seedRule(t, database, "title", "contains", fmt.Sprintf("value_%d", i), "always_keep", i, integrationID)
 		rules = append(rules, r)
 	}
 	return rules
@@ -71,8 +88,9 @@ func TestGetProtections_Empty(t *testing.T) {
 func TestGetProtections_WithSeededRules(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	seedRules(t, database, 3)
+	seedRules(t, database, 3, intID)
 
 	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/custom-rules", nil)
 	rec := httptest.NewRecorder()
@@ -94,11 +112,12 @@ func TestGetProtections_WithSeededRules(t *testing.T) {
 func TestGetProtections_OrderedBySortOrder(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
 	// Insert rules out of sort order
-	seedRule(t, database, "rating", ">", "8", "always_keep", 2)
-	seedRule(t, database, "title", "contains", "Star", "prefer_keep", 0)
-	seedRule(t, database, "genre", "==", "Horror", "prefer_remove", 1)
+	seedRule(t, database, "rating", ">", "8", "always_keep", 2, intID)
+	seedRule(t, database, "title", "contains", "Star", "prefer_keep", 0, intID)
+	seedRule(t, database, "genre", "==", "Horror", "prefer_remove", 1, intID)
 
 	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/custom-rules", nil)
 	rec := httptest.NewRecorder()
@@ -148,8 +167,9 @@ func TestGetProtections_Unauthenticated(t *testing.T) {
 func TestCreateProtection_ValidWithEffect(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	body := `{"field":"title","operator":"contains","value":"Serenity","effect":"always_keep"}`
+	body := fmt.Sprintf(`{"field":"title","operator":"contains","value":"Serenity","effect":"always_keep","integrationId":%d}`, *intID)
 	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -180,15 +200,16 @@ func TestCreateProtection_ValidWithEffect(t *testing.T) {
 func TestCreateProtection_MissingRequiredFields(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
 	tests := []struct {
 		name string
 		body string
 	}{
-		{"missing field", `{"operator":"==","value":"test","effect":"always_keep"}`},
-		{"missing operator", `{"field":"title","value":"test","effect":"always_keep"}`},
-		{"missing value", `{"field":"title","operator":"==","effect":"always_keep"}`},
-		{"empty field", `{"field":"","operator":"==","value":"test","effect":"always_keep"}`},
+		{"missing field", fmt.Sprintf(`{"operator":"==","value":"test","effect":"always_keep","integrationId":%d}`, *intID)},
+		{"missing operator", fmt.Sprintf(`{"field":"title","value":"test","effect":"always_keep","integrationId":%d}`, *intID)},
+		{"missing value", fmt.Sprintf(`{"field":"title","operator":"==","effect":"always_keep","integrationId":%d}`, *intID)},
+		{"empty field", fmt.Sprintf(`{"field":"","operator":"==","value":"test","effect":"always_keep","integrationId":%d}`, *intID)},
 	}
 
 	for _, tc := range tests {
@@ -207,9 +228,10 @@ func TestCreateProtection_MissingRequiredFields(t *testing.T) {
 func TestCreateProtection_MissingEffectAndTypeIntensity(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
 	// Has field/operator/value but no effect and no type+intensity
-	body := `{"field":"title","operator":"contains","value":"test"}`
+	body := fmt.Sprintf(`{"field":"title","operator":"contains","value":"test","integrationId":%d}`, *intID)
 	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -222,8 +244,9 @@ func TestCreateProtection_MissingEffectAndTypeIntensity(t *testing.T) {
 func TestCreateProtection_InvalidEffect(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	body := `{"field":"title","operator":"==","value":"test","effect":"invalid_effect"}`
+	body := fmt.Sprintf(`{"field":"title","operator":"==","value":"test","effect":"invalid_effect","integrationId":%d}`, *intID)
 	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -236,12 +259,13 @@ func TestCreateProtection_InvalidEffect(t *testing.T) {
 func TestCreateProtection_AllValidEffects(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
 	effects := []string{"always_keep", "prefer_keep", "lean_keep", "lean_remove", "prefer_remove", "always_remove"}
 
 	for _, effect := range effects {
 		t.Run(effect, func(t *testing.T) {
-			body := fmt.Sprintf(`{"field":"title","operator":"contains","value":"test-%s","effect":"%s"}`, effect, effect)
+			body := fmt.Sprintf(`{"field":"title","operator":"contains","value":"test-%s","effect":"%s","integrationId":%d}`, effect, effect, *intID)
 			req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/custom-rules", strings.NewReader(body))
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)
@@ -258,10 +282,11 @@ func TestCreateProtection_AllValidEffects(t *testing.T) {
 func TestUpdateProtection_Existing(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	rule := seedRule(t, database, "title", "contains", "Old Value", "always_keep", 0)
+	rule := seedRule(t, database, "title", "contains", "Old Value", "always_keep", 0, intID)
 
-	body := `{"field":"genre","operator":"==","value":"Comedy","effect":"prefer_remove","enabled":true}`
+	body := fmt.Sprintf(`{"field":"genre","operator":"==","value":"Comedy","effect":"prefer_remove","enabled":true,"integrationId":%d}`, *intID)
 	path := fmt.Sprintf("/api/custom-rules/%d", rule.ID)
 	req := testutil.AuthenticatedRequest(t, http.MethodPut, path, strings.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -289,8 +314,9 @@ func TestUpdateProtection_Existing(t *testing.T) {
 func TestUpdateProtection_NotFound(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	body := `{"field":"title","operator":"==","value":"test","effect":"always_keep"}`
+	body := fmt.Sprintf(`{"field":"title","operator":"==","value":"test","effect":"always_keep","integrationId":%d}`, *intID)
 	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/custom-rules/99999", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
@@ -303,11 +329,12 @@ func TestUpdateProtection_NotFound(t *testing.T) {
 func TestUpdateProtection_ValidationError(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	rule := seedRule(t, database, "title", "contains", "Firefly", "always_keep", 0)
+	rule := seedRule(t, database, "title", "contains", "Firefly", "always_keep", 0, intID)
 
 	// Send an update with an invalid effect — should get 400 not 500
-	body := `{"field":"title","operator":"contains","value":"Serenity","effect":"banana","enabled":true}`
+	body := fmt.Sprintf(`{"field":"title","operator":"contains","value":"Serenity","effect":"banana","enabled":true,"integrationId":%d}`, *intID)
 	path := fmt.Sprintf("/api/custom-rules/%d", rule.ID)
 	req := testutil.AuthenticatedRequest(t, http.MethodPut, path, strings.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -330,8 +357,9 @@ func TestUpdateProtection_ValidationError(t *testing.T) {
 func TestGetRuleContext_Success(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	rule := seedRule(t, database, "title", "contains", "Firefly", "always_keep", 0)
+	rule := seedRule(t, database, "title", "contains", "Firefly", "always_keep", 0, intID)
 
 	path := fmt.Sprintf("/api/custom-rules/%d/context", rule.ID)
 	req := testutil.AuthenticatedRequest(t, http.MethodGet, path, nil)
@@ -380,8 +408,9 @@ func TestGetRuleContext_NotFound(t *testing.T) {
 func TestDeleteProtection_Existing(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	rule := seedRule(t, database, "title", "contains", "Delete Me", "always_keep", 0)
+	rule := seedRule(t, database, "title", "contains", "Delete Me", "always_keep", 0, intID)
 
 	path := fmt.Sprintf("/api/custom-rules/%d", rule.ID)
 	req := testutil.AuthenticatedRequest(t, http.MethodDelete, path, nil)
@@ -420,8 +449,9 @@ func TestDeleteProtection_NonExistentID(t *testing.T) {
 func TestReorderProtections_Valid(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
+	intID := seedRouteTestIntegration(t, database)
 
-	rules := seedRules(t, database, 3)
+	rules := seedRules(t, database, 3, intID)
 
 	// Reverse the order
 	body := fmt.Sprintf(`{"order":[%d,%d,%d]}`, rules[2].ID, rules[1].ID, rules[0].ID)

@@ -92,8 +92,9 @@ func TestWatchAnalyticsService_GetDeadContent(t *testing.T) {
 }
 
 func TestWatchAnalyticsService_GetDeadContentExcludesProtected(t *testing.T) {
+	intID := uint(1)
 	rules := []db.CustomRule{
-		{ID: 1, Field: "title", Operator: "==", Value: "firefly", Effect: "always_keep", Enabled: true},
+		{ID: 1, Field: "title", Operator: "==", Value: "firefly", Effect: "always_keep", Enabled: true, IntegrationID: &intID},
 	}
 
 	svc := NewWatchAnalyticsService(&mockPreviewSource{items: sampleItems()})
@@ -128,8 +129,9 @@ func TestWatchAnalyticsService_GetDeadContentIncludesNonAbsoluteProtection(t *te
 		},
 	}
 
+	intID := uint(1)
 	rules := []db.CustomRule{
-		{ID: 1, Field: "title", Operator: "==", Value: "firefly", Effect: "prefer_keep", Enabled: true},
+		{ID: 1, Field: "title", Operator: "==", Value: "firefly", Effect: "prefer_keep", Enabled: true, IntegrationID: &intID},
 	}
 
 	svc := NewWatchAnalyticsService(&mockPreviewSource{items: items})
@@ -182,8 +184,9 @@ func TestWatchAnalyticsService_GetStaleContent(t *testing.T) {
 }
 
 func TestWatchAnalyticsService_GetStaleContentExcludesProtected(t *testing.T) {
+	intID := uint(1)
 	rules := []db.CustomRule{
-		{ID: 1, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep", Enabled: true},
+		{ID: 1, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep", Enabled: true, IntegrationID: &intID},
 	}
 
 	svc := NewWatchAnalyticsService(&mockPreviewSource{items: sampleItems()})
@@ -208,17 +211,18 @@ func TestWatchAnalyticsService_GetStaleContentIncludesNonAbsoluteProtection(t *t
 	sixMonthsAgo := now.Add(-180 * 24 * time.Hour)
 	oneYearAgo := now.Add(-365 * 24 * time.Hour)
 
+	intID := uint(1)
 	items := []integrations.MediaItem{
 		{
 			Title: "Serenity", Type: integrations.MediaTypeMovie,
 			SizeBytes: 15 * 1024 * 1024 * 1024,
 			PlayCount: 5, LastPlayed: &sixMonthsAgo,
-			AddedAt: &oneYearAgo,
+			AddedAt: &oneYearAgo, IntegrationID: 1,
 		},
 	}
 
 	rules := []db.CustomRule{
-		{ID: 1, Field: "title", Operator: "==", Value: "serenity", Effect: "prefer_keep", Enabled: true},
+		{ID: 1, Field: "title", Operator: "==", Value: "serenity", Effect: "prefer_keep", Enabled: true, IntegrationID: &intID},
 	}
 
 	svc := NewWatchAnalyticsService(&mockPreviewSource{items: items})
