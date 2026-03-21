@@ -72,7 +72,6 @@ const { t } = useI18n();
 
 const navLinks = computed(() => [
   { to: '/', label: t('nav.dashboard') },
-  { to: '/insights', label: t('nav.insights') },
   { to: '/library', label: t('nav.library') },
   { to: '/rules', label: t('nav.rules') },
   { to: '/settings', label: t('nav.settings') },

@@ -392,7 +392,7 @@ flowchart LR
 | Page | Route | Purpose |
 |------|-------|---------|
 | Dashboard | `/` | Disk groups, approval queue, activity feed, engine controls, sparklines |
-| Insights | `/insights` | Library analytics: capacity gauges, quality, bloat, watch intelligence, storage breakdown |
+
 | Library | `/library` | Browse (smart filters, virtual scrolling) + History (audit log) — 2 tabs |
 | Rules | `/rules` | Cascading rule builder, drag-and-drop sort, rule impact badges |
 | Settings | `/settings` | Preferences, integrations (per-integration thresholds), notifications, auth |

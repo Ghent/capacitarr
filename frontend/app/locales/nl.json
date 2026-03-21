@@ -3,7 +3,7 @@
   "common.cancel": "Annuleren",
   "common.delete": "Verwijderen",
   "common.create": "Create",
-  "common.noResults": "No results",
+  "common.noResults": "Geen resultaten gevonden",
   "common.edit": "Bewerken",
   "common.test": "Testen",
   "common.loading": "Laden…",
@@ -15,7 +15,6 @@
   "common.confirm": "Bevestigen",
   "common.add": "Toevoegen",
   "common.search": "Zoeken…",
-  "common.noResults": "Geen resultaten gevonden",
   "common.error": "Fout",
   "common.success": "Succes",
   "common.warning": "Waarschuwing",
@@ -448,9 +447,7 @@
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
   "preview.lastUpdated": "Last updated {time}",
-
   "nav.rules": "Rules",
-
   "library.tabBrowse": "Browse",
   "library.tabHistory": "History",
   "library.quickFilters": "Quick Filters",
@@ -460,10 +457,8 @@
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
-
   "audit.movedToLibrary": "The audit log has moved to Library → History",
   "audit.goToLibraryHistory": "Go to Library → History",
-
   "settings.overrideThresholds": "Override Thresholds",
   "settings.thresholdPct": "Cleanup Threshold",
   "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",

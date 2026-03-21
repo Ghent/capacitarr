@@ -55,9 +55,6 @@ importers:
       echarts:
         specifier: ^6.0.0
         version: 6.0.0
-      echarts-liquidfill:
-        specifier: ^3.1.0
-        version: 3.1.0(echarts@6.0.0)
       lucide-vue-next:
         specifier: ^0.511.0
         version: 0.511.0(vue@3.5.29(typescript@5.9.3))
@@ -3408,11 +3405,6 @@ packages:
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
-
-  echarts-liquidfill@3.1.0:
-    resolution: {integrity: sha512-5Dlqs/jTsdTUAsd+K5LPLLTgrbbNORUSBQyk8PSy1Mg2zgHDWm83FmvA4s0ooNepCJojFYRITTQ4GU1UUSKYLw==}
-    peerDependencies:
-      echarts: ^5.0.1
 
   echarts@6.0.0:
     resolution: {integrity: sha512-Tte/grDQRiETQP4xz3iZWSvoHrkCQtwqd6hs+mifXcjrCuo2iKWbajFObuLJVBlDIJlOzgQPd1hsaKt/3+OMkQ==}
@@ -9641,10 +9633,6 @@ snapshots:
   duplexer@0.1.2: {}
 
   eastasianwidth@0.2.0: {}
-
-  echarts-liquidfill@3.1.0(echarts@6.0.0):
-    dependencies:
-      echarts: 6.0.0
 
   echarts@6.0.0:
     dependencies:

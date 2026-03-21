@@ -3,7 +3,7 @@
   "common.cancel": "Cancel",
   "common.delete": "Delete",
   "common.create": "Create",
-  "common.noResults": "No results",
+  "common.noResults": "No results found",
   "common.edit": "Edit",
   "common.test": "Test",
   "common.loading": "Loading…",
@@ -15,7 +15,6 @@
   "common.confirm": "Confirm",
   "common.add": "Add",
   "common.search": "Search…",
-  "common.noResults": "No results found",
   "common.error": "Error",
   "common.success": "Success",
   "common.warning": "Warning",
@@ -28,10 +27,8 @@
   "common.settings": "Settings",
   "common.viewList": "List view",
   "common.viewGrid": "Grid view",
-
   "nav.dashboard": "Dashboard",
   "nav.scoringEngine": "Scoring Engine",
-  "nav.insights": "Insights",
   "nav.auditLog": "Audit Log",
   "nav.settings": "Settings",
   "nav.help": "Help",
@@ -54,7 +51,6 @@
   "nav.changeTheme": "Change theme",
   "nav.darkMode": "Switch to dark mode",
   "nav.lightMode": "Switch to light mode",
-
   "donate.title": "Support Animal Rescue",
   "donate.message": "Capacitarr is free software. If it saves you time, we'd love for you to donate to animal rescue instead of supporting us directly.",
   "donate.uanimalsName": "UAnimals",
@@ -66,7 +62,6 @@
   "donate.kofi": "Ko-fi",
   "donate.buyMeACoffee": "Buy Me a Coffee",
   "donate.ariaLabel": "Support & Donate",
-
   "login.title": "Welcome Back",
   "login.subtitle": "Sign in to Capacitarr",
   "login.username": "Username",
@@ -81,37 +76,6 @@
   "login.setupSubtitle": "Create your admin account to get started",
   "login.createAccount": "Create Account",
   "login.setupHint": "Choose a username and password — this will be your admin account",
-
-  "insights.title": "Insights",
-  "insights.growthOverTime": "Growth Over Time",
-  "insights.noGrowthData": "No growth data available yet — metrics are recorded after each engine cycle.",
-  "insights.sizeAnomalies": "Size Anomalies",
-  "insights.bloatTitle": "Title",
-  "insights.bloatQuality": "Quality",
-  "insights.bloatSize": "Size",
-  "insights.bloatMedian": "Median",
-  "insights.bloatRatio": "Ratio",
-  "insights.noBloat": "No size anomalies detected — all items are within normal range for their quality profile.",
-  "insights.deadContent": "Dead Content",
-  "insights.deadContentItems": "never-watched items",
-  "insights.staleContent": "Stale Content",
-  "insights.staleContentItems": "items not watched recently",
-  "insights.viewInLibrary": "View in Library",
-  "insights.noWatchProviders": "No Media Server Configured",
-  "insights.noWatchProvidersDesc": "Watch intelligence requires a media server integration (Plex, Jellyfin, Emby, or Tautulli) to provide watch history data.",
-  "insights.configureMediaServer": "Configure Media Server",
-  "insights.capacityGauge": "Capacity Usage",
-  "insights.capacityForecast": "Capacity Forecast",
-  "insights.capacityDecreasing": "Capacity is decreasing",
-  "insights.growthRate": "Growth Rate",
-  "insights.daysUntilThreshold": "Days Until Threshold",
-  "insights.daysUntilFull": "Days Until Full",
-  "insights.days": "days",
-  "insights.deadContentDesc": "Never watched by anyone",
-  "insights.storageBreakdown": "Storage Breakdown",
-  "insights.noStorageData": "No storage data available — run an engine cycle to populate.",
-  "insights.bloatType": "Type",
-  "insights.bloatMedianForType": "Median for Type",
   "dashboard.title": "Dashboard",
   "dashboard.subtitle": "Capacity overview across your media storage.",
   "dashboard.updated": "Updated {time}",
@@ -179,8 +143,6 @@
   "dashboard.deletionProgressCount": "{processed} of {total}",
   "dashboard.deletionProgressFailed": "{failed} failed",
   "dashboard.last7Days": "Last 7 days",
-  "dashboard.viewCapacityDetails": "View capacity details →",
-
   "audit.title": "Audit History",
   "audit.subtitle": "Historical log of all scoring engine decisions and space reclaimed.",
   "audit.searchPlaceholder": "Search by media name…",
@@ -194,7 +156,6 @@
   "audit.showingOf": "Showing {rendered} of {total} — scroll for more",
   "audit.loadingMore": "Loading more…",
   "audit.groups": "{count} groups from {entries} of {total} entries",
-
   "rules.title": "Scoring Engine",
   "rules.subtitle": "Adjust preference weights and set custom rules.",
   "rules.diskThresholds": "Disk Thresholds",
@@ -223,7 +184,6 @@
   "rules.filterModeAny": "Any",
   "rules.filterModeAll": "All",
   "rules.clearRuleFilter": "Clear rule filter",
-
   "rules.backupRestore": "Backup & Restore",
   "approval.title": "Approval Queue",
   "approval.subtitle": "Items flagged by the engine awaiting your review",
@@ -241,7 +201,6 @@
   "approval.snoozed": "Snoozed",
   "approval.inProgress": "In Progress",
   "approval.awaitingEngine": "Awaiting engine",
-
   "deletion.title": "Deletion Queue",
   "deletion.subtitle": "Items queued for deletion and recent results",
   "deletion.queued": "Queued",
@@ -259,15 +218,12 @@
   "deletion.deletionQueueDelay": "Deletion Queue Delay",
   "deletion.deletionQueueDelayDesc": "Time to wait before processing queued deletions",
   "deletion.deletionQueueDelayHint": "Resets when items are added or removed from the queue.",
-
   "snoozed.title": "Snoozed Items",
   "snoozed.subtitle": "Items temporarily excluded from engine evaluation",
   "snoozed.expiresIn": "Expires in {time}",
   "snoozed.unsnooze": "Unsnooze",
   "snoozed.count": "{count} snoozed",
-
   "nav.changeLanguage": "Change language",
-
   "settings.title": "Settings",
   "settings.subtitle": "Manage integrations, general preferences, and authentication.",
   "settings.general": "General",
@@ -349,7 +305,6 @@
   "settings.typeDeleteToConfirm": "Type DELETE to confirm",
   "settings.checkForUpdates": "Check for Updates",
   "settings.checkForUpdatesDesc": "Periodically check for new Capacitarr releases. No data is sent — only a public API is queried.",
-
   "settings.backupRestore": "Backup & Restore",
   "settings.backupRestoreDesc": "Export your settings to a file or import from a previous backup.",
   "settings.export": "Export Settings",
@@ -404,7 +359,6 @@
   "settings.noSectionsSelected": "Select at least one section",
   "settings.sectionsToExport": "Sections to include",
   "settings.sectionsToImport": "Sections to import",
-
   "engine.control": "Engine Control",
   "engine.executionMode": "Execution Mode",
   "engine.lastRun": "Last Run",
@@ -419,10 +373,8 @@
   "engine.modeLabels.dryRun": "Dry-Run",
   "engine.modeLabels.approval": "Approval",
   "engine.modeLabels.auto": "Auto",
-
   "help.title": "Help",
   "help.subtitle": "Learn how Capacitarr works and how to configure it effectively.",
-
   "help.whatsNew": "What's New",
   "help.whatsNew.notifications": "Notifications",
   "help.whatsNew.notificationsDesc": "Get alerts via Discord, Apprise, or in-app when the engine runs, deletes media, or encounters errors. Configure channels in Settings → Notifications.",
@@ -432,14 +384,11 @@
   "help.whatsNew.plexOAuthDesc": "When adding a Plex integration, you can sign in with your Plex account directly — no need to manually find your token.",
   "help.whatsNew.cascadingRules": "Cascading Rule Builder",
   "help.whatsNew.cascadingRulesDesc": "Rules now use a six-level keep/remove spectrum instead of the old protect/target system — with optional service scoping so rules can apply to a specific integration.",
-
   "help.howScoringWorks": "How Scoring Works",
   "help.howScoringWorks.intro": "Capacitarr scores each media item from 0 to 1 based on weighted factors. Higher scores mean the item is a better candidate for removal.",
   "help.howScoringWorks.behavior": "When disk usage exceeds your threshold, items are evaluated and the highest-scoring ones are removed first — freeing space efficiently while preserving the content you care about most.",
-
   "help.understandingSliders": "Understanding the Sliders",
   "help.understandingSliders.intro": "Each factor has a weight from 0–10. Higher weight means more influence on the final score. The six factors are:",
-
   "help.factor.watchHistory": "Watch History",
   "help.factor.watchHistoryDesc": "Has anyone watched this? Unwatched content scores higher (more likely to be removed).",
   "help.factor.lastWatched": "Last Watched",
@@ -452,7 +401,6 @@
   "help.factor.timeInLibraryDesc": "Older library items score higher.",
   "help.factor.seriesStatus": "Series Status",
   "help.factor.seriesStatusDesc": "For TV shows: ended series score higher than continuing ones. Movies and other types use a neutral default.",
-
   "help.readingScoreDetail": "Reading a Score Detail",
   "help.readingScoreDetail.intro": "Click any row in the Audit History to open its Score Detail modal. It breaks down exactly how the final score was calculated using three columns: Raw, Weight, and Contribution.",
   "help.readingScoreDetail.rawTitle": "Raw Score (0.0 – 1.0)",
@@ -468,11 +416,9 @@
   "help.readingScoreDetail.weightExample": "Example: If Watch History has weight 7 and raw score 1.0, and total weights sum to 30, its contribution = 7 / 30 = 0.23.",
   "help.readingScoreDetail.contributionTitle": "Contribution",
   "help.readingScoreDetail.contributionDesc": "The actual portion of the final score this factor is responsible for. All contributions sum to the total score. These are shown as the colored segments in the stacked bar at the top of the modal.",
-
   "help.thresholdAndTarget": "Threshold & Target",
   "help.thresholdAndTarget.desc": "The threshold is the disk usage percentage that triggers cleanup. The target is where cleanup stops.",
   "help.thresholdAndTarget.example": "Example: threshold 85%, target 75% means cleanup starts at 85% full and continues removing items until usage drops to 75%.",
-
   "help.customRulesHelp": "Custom Rules",
   "help.customRules.intro": "Custom rules let you influence which content gets kept or removed beyond the weighted scoring factors. Each rule matches media by a field (title, genre, tag, rating, etc.) and applies an effect that adjusts the item's deletion score.",
   "help.customRules.effectLevels": "Effect Levels",
@@ -491,7 +437,6 @@
   "help.customRules.conflictTitle": "Conflict Resolution",
   "help.customRules.conflictDesc": "When multiple rules match the same item, their effects multiply together. However, \"Always keep\" always wins — if any matching rule uses \"Always keep\", the item is immune to deletion no matter what other rules say.",
   "help.customRules.scopingDesc": "Rules can optionally be scoped to a specific integration (e.g., only your Sonarr instance), so different services can have different rule sets.",
-
   "help.scoreTiebreaker": "Score Tiebreaker",
   "help.tiebreaker.intro": "When two or more items have the same score, the tiebreaker determines which is removed first. Configure this in Settings → Engine Behavior.",
   "help.tiebreaker.largestFirst": "Largest first",
@@ -504,7 +449,6 @@
   "help.tiebreaker.oldestFirstDesc": "Items added to the library longest ago are removed first",
   "help.tiebreaker.newestFirst": "Newest in library",
   "help.tiebreaker.newestFirstDesc": "Most recently added items are removed first",
-
   "help.readingAuditLog": "Reading the Audit Log",
   "help.auditLog.intro": "The audit log shows every item the engine evaluated. Each entry shows the score breakdown — hover over the colored bar to see individual factor contributions.",
   "help.auditLog.actionsTitle": "Actions:",
@@ -514,7 +458,6 @@
   "help.auditLog.queuedDesc": "Flagged for manual review before deletion",
   "help.auditLog.deleted": "Deleted",
   "help.auditLog.deletedDesc": "Actually removed from disk",
-
   "help.executionModes": "Execution Modes",
   "help.executionModes.dryRun": "Dry-Run",
   "help.executionModes.dryRunDesc": "No files are deleted; the engine only logs what it would do. Safe for testing and tuning your weights.",
@@ -524,7 +467,6 @@
   "help.executionModes.autoDesc": "Items are automatically deleted when thresholds are breached. Use with caution.",
   "help.executionModes.safetyGuardTitle": "Deletion Safety Guard",
   "help.executionModes.safetyGuardDesc": "Even in Auto or Approval mode, actual file deletion only happens when the \"Enable Actual Deletions\" toggle is turned on in Settings → Advanced. When disabled, all deletions are simulated (Dry-Delete) regardless of execution mode.",
-
   "help.faq": "Frequently Asked Questions",
   "help.faq.engineFrequencyQ": "How often does the engine run?",
   "help.faq.engineFrequencyA": "The engine runs on the poll interval you configure in Settings (default: every 5 minutes). It checks disk usage, syncs media from your integrations, scores everything, and acts based on your execution mode. You can also trigger a manual run from the Dashboard.",
@@ -538,13 +480,10 @@
   "help.faq.languageA": "Click the globe icon in the navigation bar to switch languages, or go to Settings → Display. Capacitarr supports 22 languages. The setting is saved in your browser.",
   "help.faq.safeToTestQ": "Is it safe to test without deleting anything?",
   "help.faq.safeToTestA": "Yes. New installations default to Dry-Run mode and the deletion safety guard is a separate toggle. In Dry-Run mode, the engine evaluates and scores everything but never deletes. You can review results in the Audit Log before switching to a live mode.",
-
   "help.aboutCapacitarr": "About Capacitarr",
-
   "connection.lost": "Connection to server lost — retrying…",
   "connection.reconnecting": "Reconnecting to server…",
   "connection.restored": "Connection restored",
-
   "update.title": "Update Available",
   "update.available": "A new version of Capacitarr is available.",
   "update.currentVersion": "Current Version",
@@ -554,7 +493,6 @@
   "update.upToDateDesc": "You're running the latest version of Capacitarr.",
   "update.checkNow": "Check Now",
   "update.checking": "Checking…",
-
   "settings.customScoringWeights": "Custom scoring weights",
   "settings.customScoringWeightsDesc": "Override global scoring weights for this integration",
   "settings.customWeightsBadge": "Custom Weights",
@@ -572,7 +510,6 @@
   "settings.weightTimeInLibraryDesc": "Older content may be less valuable.",
   "settings.weightSeriesStatus": "Series Status",
   "settings.weightSeriesStatusDesc": "Ended or canceled shows score higher.",
-
   "dashboard.emptySetup.title": "Get started by adding an integration",
   "dashboard.emptySetup.description": "Connect Sonarr, Radarr, or another *arr service to begin monitoring disk usage.",
   "dashboard.emptySetup.action": "Go to Settings",
@@ -583,9 +520,7 @@
   "dashboard.errorBanner.description": "Some integrations failed to connect. Disk data from these sources may be missing.",
   "dashboard.errorBanner.action": "View in Settings",
   "rules.diskThresholdsEmpty": "Threshold settings will appear here once disk groups are detected from your *arr services.",
-
   "rules.ratingTooltip": "Rating sources by integration: Sonarr uses TheTVDB community rating, Radarr uses IMDb (TMDb fallback), Lidarr uses MusicBrainz, and Readarr uses GoodReads. All ratings are normalized to a 0–10 scale.",
-
   "help.dataSources": "Data Sources",
   "help.dataSources.intro": "Capacitarr pulls metadata from each connected *arr integration. The data used for scoring comes from the following sources:",
   "help.dataSources.ratingsTitle": "Ratings",
@@ -645,9 +580,7 @@
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
   "preview.lastUpdated": "Last updated {time}",
-
   "nav.rules": "Rules",
-
   "library.tabBrowse": "Browse",
   "library.tabHistory": "History",
   "library.quickFilters": "Quick Filters",
@@ -657,10 +590,8 @@
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
-
   "audit.movedToLibrary": "The audit log has moved to Library → History",
   "audit.goToLibraryHistory": "Go to Library → History",
-
   "settings.overrideThresholds": "Override Thresholds",
   "settings.thresholdPct": "Cleanup Threshold",
   "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",
@@ -681,7 +612,6 @@
   "migration.importButton": "Import from 1.x",
   "migration.importing": "Importing…",
   "migration.startFresh": "Start Fresh",
-
   "migration.completeTitle": "Migration Complete",
   "migration.completeSubtitle": "Your 1.x configuration has been imported successfully.",
   "migration.resultIntegrations": "Integrations",

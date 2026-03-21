@@ -3,7 +3,7 @@
   "common.cancel": "Annulla",
   "common.delete": "Elimina",
   "common.create": "Create",
-  "common.noResults": "No results",
+  "common.noResults": "Nessun risultato trovato",
   "common.edit": "Modifica",
   "common.test": "Testa",
   "common.loading": "Caricamento…",
@@ -15,7 +15,6 @@
   "common.confirm": "Conferma",
   "common.add": "Aggiungi",
   "common.search": "Cerca…",
-  "common.noResults": "Nessun risultato trovato",
   "common.error": "Errore",
   "common.success": "Successo",
   "common.warning": "Avviso",
@@ -448,9 +447,7 @@
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
   "preview.lastUpdated": "Last updated {time}",
-
   "nav.rules": "Rules",
-
   "library.tabBrowse": "Browse",
   "library.tabHistory": "History",
   "library.quickFilters": "Quick Filters",
@@ -460,10 +457,8 @@
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
-
   "audit.movedToLibrary": "The audit log has moved to Library → History",
   "audit.goToLibraryHistory": "Go to Library → History",
-
   "settings.overrideThresholds": "Override Thresholds",
   "settings.thresholdPct": "Cleanup Threshold",
   "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",

@@ -73,30 +73,6 @@ func seedPreviewCache(t *testing.T, reg *services.Registry, items []integrations
 	reg.Preview.SetPreviewCache(items, prefs, nil)
 }
 
-func TestAnalyticsE2E_QualityEndpoint(t *testing.T) {
-	database := testutil.SetupTestDB(t)
-	e, reg := testutil.SetupTestServerWithRegistry(t, database)
-
-	seedPreviewCache(t, reg, sampleMediaItems())
-
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/quality", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var data services.QualityDistribution
-	if err := json.NewDecoder(rec.Body).Decode(&data); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-
-	if len(data.Profiles) == 0 {
-		t.Error("expected non-empty quality profiles")
-	}
-}
-
 func TestAnalyticsE2E_BloatEndpoint(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e, reg := testutil.SetupTestServerWithRegistry(t, database)
@@ -252,30 +228,6 @@ func TestAnalyticsE2E_ForecastEndpointWithDiskGroup(t *testing.T) {
 	}
 }
 
-func TestAnalyticsE2E_StorageBreakdownEndpoint(t *testing.T) {
-	database := testutil.SetupTestDB(t)
-	e, reg := testutil.SetupTestServerWithRegistry(t, database)
-
-	seedPreviewCache(t, reg, sampleMediaItems())
-
-	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/analytics/storage-breakdown", nil)
-	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
-	}
-
-	var nodes []services.SunburstNode
-	if err := json.NewDecoder(rec.Body).Decode(&nodes); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-
-	if len(nodes) == 0 {
-		t.Error("expected non-empty storage breakdown")
-	}
-}
-
 // TestAnalyticsE2E_EmptyCacheReturnsDefaults verifies all analytics endpoints
 // return valid (empty) responses when the preview cache has no items.
 func TestAnalyticsE2E_EmptyCacheReturnsDefaults(t *testing.T) {
@@ -284,12 +236,10 @@ func TestAnalyticsE2E_EmptyCacheReturnsDefaults(t *testing.T) {
 
 	// Preview cache is empty by default — no items seeded
 	endpoints := []string{
-		"/api/analytics/quality",
 		"/api/analytics/bloat",
 		"/api/analytics/dead-content",
 		"/api/analytics/stale-content",
 		"/api/analytics/forecast",
-		"/api/analytics/storage-breakdown",
 	}
 
 	for _, ep := range endpoints {
@@ -312,12 +262,10 @@ func TestAnalyticsE2E_UnauthenticatedReturns401(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	endpoints := []string{
-		"/api/analytics/quality",
 		"/api/analytics/bloat",
 		"/api/analytics/dead-content",
 		"/api/analytics/stale-content",
 		"/api/analytics/forecast",
-		"/api/analytics/storage-breakdown",
 	}
 
 	for _, ep := range endpoints {

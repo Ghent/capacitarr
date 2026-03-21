@@ -72,18 +72,6 @@ func generateLargeDataset(n int) []integrations.MediaItem {
 	return items
 }
 
-// BenchmarkAnalyticsService_GetQualityDistribution_10K benchmarks quality analytics
-// with 10,000 media items.
-func BenchmarkAnalyticsService_GetQualityDistribution_10K(b *testing.B) {
-	items := generateLargeDataset(10_000)
-	svc := NewAnalyticsService(&mockPreviewSource{items: items})
-
-	b.ResetTimer()
-	for range b.N {
-		svc.GetQualityDistribution(nil)
-	}
-}
-
 // BenchmarkAnalyticsService_GetSizeAnomalies_10K benchmarks bloat detection
 // with 10,000 media items.
 func BenchmarkAnalyticsService_GetSizeAnomalies_10K(b *testing.B) {
@@ -129,7 +117,6 @@ func BenchmarkAnalytics_AllEndpoints_10K(b *testing.B) {
 
 	b.ResetTimer()
 	for range b.N {
-		analytics.GetQualityDistribution(nil)
 		analytics.GetSizeAnomalies(nil)
 		watchAnalytics.GetDeadContent(90, nil)
 		watchAnalytics.GetStaleContent(180, nil)
@@ -145,7 +132,6 @@ func TestAnalytics_Performance_10K(t *testing.T) {
 
 	start := time.Now()
 
-	analytics.GetQualityDistribution(nil)
 	analytics.GetSizeAnomalies(nil)
 	watchAnalytics.GetDeadContent(90, nil)
 	watchAnalytics.GetStaleContent(180, nil)
@@ -165,7 +151,6 @@ func TestAnalytics_Performance_1K(t *testing.T) {
 
 	start := time.Now()
 
-	analytics.GetQualityDistribution(nil)
 	analytics.GetSizeAnomalies(nil)
 	watchAnalytics.GetDeadContent(90, nil)
 	watchAnalytics.GetStaleContent(180, nil)

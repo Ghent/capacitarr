@@ -3,7 +3,7 @@
   "common.cancel": "Anulează",
   "common.delete": "Șterge",
   "common.create": "Create",
-  "common.noResults": "No results",
+  "common.noResults": "Nu s-au găsit rezultate",
   "common.edit": "Editează",
   "common.test": "Testează",
   "common.loading": "Se încarcă…",
@@ -15,7 +15,6 @@
   "common.confirm": "Confirmă",
   "common.add": "Adaugă",
   "common.search": "Caută…",
-  "common.noResults": "Nu s-au găsit rezultate",
   "common.error": "Eroare",
   "common.success": "Succes",
   "common.warning": "Avertisment",
@@ -448,9 +447,7 @@
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
   "preview.lastUpdated": "Last updated {time}",
-
   "nav.rules": "Rules",
-
   "library.tabBrowse": "Browse",
   "library.tabHistory": "History",
   "library.quickFilters": "Quick Filters",
@@ -460,10 +457,8 @@
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
-
   "audit.movedToLibrary": "The audit log has moved to Library → History",
   "audit.goToLibraryHistory": "Go to Library → History",
-
   "settings.overrideThresholds": "Override Thresholds",
   "settings.thresholdPct": "Cleanup Threshold",
   "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",

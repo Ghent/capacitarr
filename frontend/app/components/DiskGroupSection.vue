@@ -67,12 +67,6 @@
             (detected: {{ formatBytes(group.totalBytes) }})
           </span>
         </span>
-        <NuxtLink
-          to="/insights"
-          class="text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          {{ $t('dashboard.viewCapacityDetails') }}
-        </NuxtLink>
       </div>
     </UiCardContent>
   </UiCard>

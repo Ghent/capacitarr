@@ -3,7 +3,7 @@
   "common.cancel": "取消",
   "common.delete": "删除",
   "common.create": "Create",
-  "common.noResults": "No results",
+  "common.noResults": "未找到结果",
   "common.edit": "编辑",
   "common.test": "测试",
   "common.loading": "加载中…",
@@ -15,7 +15,6 @@
   "common.confirm": "确认",
   "common.add": "添加",
   "common.search": "搜索…",
-  "common.noResults": "未找到结果",
   "common.error": "错误",
   "common.success": "成功",
   "common.warning": "警告",
@@ -448,9 +447,7 @@
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
   "preview.lastUpdated": "Last updated {time}",
-
   "nav.rules": "Rules",
-
   "library.tabBrowse": "Browse",
   "library.tabHistory": "History",
   "library.quickFilters": "Quick Filters",
@@ -460,10 +457,8 @@
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
-
   "audit.movedToLibrary": "The audit log has moved to Library → History",
   "audit.goToLibraryHistory": "Go to Library → History",
-
   "settings.overrideThresholds": "Override Thresholds",
   "settings.thresholdPct": "Cleanup Threshold",
   "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",

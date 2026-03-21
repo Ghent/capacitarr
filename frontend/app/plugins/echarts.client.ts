@@ -1,10 +1,10 @@
 /**
  * ECharts Nuxt plugin — registers vue-echarts globally with tree-shaken modules.
- * Only imports the chart types and components actually used by the analytics dashboards.
+ * Only imports the chart types and components actually used by the dashboard.
  */
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { BarChart, LineChart, TreemapChart } from 'echarts/charts';
+import { BarChart, LineChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
@@ -13,7 +13,6 @@ import {
   VisualMapComponent,
   MarkLineComponent,
 } from 'echarts/components';
-import 'echarts-liquidfill';
 import VChart from 'vue-echarts';
 
 // Register only the modules we use (tree-shaking)
@@ -21,7 +20,6 @@ use([
   CanvasRenderer,
   BarChart,
   LineChart,
-  TreemapChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,

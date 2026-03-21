@@ -3,7 +3,7 @@
   "common.cancel": "キャンセル",
   "common.delete": "削除",
   "common.create": "Create",
-  "common.noResults": "No results",
+  "common.noResults": "結果が見つかりません",
   "common.edit": "編集",
   "common.test": "テスト",
   "common.loading": "読み込み中…",
@@ -15,7 +15,6 @@
   "common.confirm": "確認",
   "common.add": "追加",
   "common.search": "検索…",
-  "common.noResults": "結果が見つかりません",
   "common.error": "エラー",
   "common.success": "成功",
   "common.warning": "警告",
@@ -448,9 +447,7 @@
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
   "preview.lastUpdated": "Last updated {time}",
-
   "nav.rules": "Rules",
-
   "library.tabBrowse": "Browse",
   "library.tabHistory": "History",
   "library.quickFilters": "Quick Filters",
@@ -460,10 +457,8 @@
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
-
   "audit.movedToLibrary": "The audit log has moved to Library → History",
   "audit.goToLibraryHistory": "Go to Library → History",
-
   "settings.overrideThresholds": "Override Thresholds",
   "settings.thresholdPct": "Cleanup Threshold",
   "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",

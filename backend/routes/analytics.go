@@ -23,20 +23,10 @@ func parseDiskGroupID(c echo.Context) *uint {
 
 // RegisterAnalyticsRoutes registers all analytics-related endpoints.
 func RegisterAnalyticsRoutes(g *echo.Group, reg *services.Registry) {
-	g.GET("/analytics/quality", analyticsQualityHandler(reg))
 	g.GET("/analytics/bloat", analyticsBloatHandler(reg))
 	g.GET("/analytics/dead-content", analyticsDeadContentHandler(reg))
 	g.GET("/analytics/stale-content", analyticsStaleContentHandler(reg))
 	g.GET("/analytics/forecast", analyticsForecastHandler(reg))
-	g.GET("/analytics/storage-breakdown", analyticsStorageBreakdownHandler(reg))
-	g.GET("/analytics/status-breakdown", analyticsStatusBreakdownHandler(reg))
-}
-
-func analyticsQualityHandler(reg *services.Registry) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		data := reg.Analytics.GetQualityDistribution(parseDiskGroupID(c))
-		return c.JSON(http.StatusOK, data)
-	}
 }
 
 func analyticsBloatHandler(reg *services.Registry) echo.HandlerFunc {
@@ -138,23 +128,5 @@ func analyticsForecastHandler(reg *services.Registry) echo.HandlerFunc {
 		}
 
 		return c.JSON(http.StatusOK, forecast)
-	}
-}
-
-// analyticsStorageBreakdownHandler returns hierarchical storage data for the
-// sunburst chart: media type → quality profile → size.
-func analyticsStorageBreakdownHandler(reg *services.Registry) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		data := reg.Analytics.GetStorageSunburst(parseDiskGroupID(c))
-		return c.JSON(http.StatusOK, data)
-	}
-}
-
-// analyticsStatusBreakdownHandler returns library items classified by lifecycle
-// status (dead, stale, protected, active), grouped by media type within each bucket.
-func analyticsStatusBreakdownHandler(reg *services.Registry) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		data := reg.WatchAnalytics.GetLibraryStatusBreakdown(parseDiskGroupID(c))
-		return c.JSON(http.StatusOK, data)
 	}
 }

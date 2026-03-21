@@ -3,7 +3,7 @@
   "common.cancel": "취소",
   "common.delete": "삭제",
   "common.create": "Create",
-  "common.noResults": "No results",
+  "common.noResults": "결과를 찾을 수 없습니다",
   "common.edit": "편집",
   "common.test": "테스트",
   "common.loading": "로딩 중…",
@@ -15,7 +15,6 @@
   "common.confirm": "확인",
   "common.add": "추가",
   "common.search": "검색…",
-  "common.noResults": "결과를 찾을 수 없습니다",
   "common.error": "오류",
   "common.success": "성공",
   "common.warning": "경고",
@@ -448,9 +447,7 @@
   "preview.stale": "Data may be stale — refreshing…",
   "preview.refreshing": "Refreshing preview data…",
   "preview.lastUpdated": "Last updated {time}",
-
   "nav.rules": "Rules",
-
   "library.tabBrowse": "Browse",
   "library.tabHistory": "History",
   "library.quickFilters": "Quick Filters",
@@ -460,10 +457,8 @@
   "library.filterRequested": "Requested",
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
-
   "audit.movedToLibrary": "The audit log has moved to Library → History",
   "audit.goToLibraryHistory": "Go to Library → History",
-
   "settings.overrideThresholds": "Override Thresholds",
   "settings.thresholdPct": "Cleanup Threshold",
   "settings.thresholdPctDesc": "Begin cleanup when disk usage exceeds this %",
