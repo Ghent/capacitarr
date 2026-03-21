@@ -79,7 +79,7 @@ export interface PreferenceSet {
 
 export interface CustomRule {
   id: number;
-  integrationId?: number | null;
+  integrationId: number;
   field: string;
   operator: string;
   value: string;

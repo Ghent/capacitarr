@@ -72,9 +72,6 @@
                 >
                   {{ c.name }}
                 </UiSelectItem>
-                <UiSelectItem value="global">
-                  {{ $t('settings.importResolveGlobal') }}
-                </UiSelectItem>
                 <UiSelectItem value="skip">
                   {{ $t('settings.importResolveSkip') }}
                 </UiSelectItem>
@@ -125,7 +122,7 @@ watch(
         decisions[r.index] = String(r.matchedIntegrationId);
       } else {
         decisions[r.index] =
-          r.candidates.length === 1 ? String(r.candidates[0]?.id ?? 'global') : 'global';
+          r.candidates.length === 1 ? String(r.candidates[0]?.id ?? 'skip') : 'skip';
       }
     }
   },
@@ -133,7 +130,7 @@ watch(
 );
 
 function getOverrideValue(index: number): string {
-  return decisions[index] ?? 'global';
+  return decisions[index] ?? 'skip';
 }
 
 function setOverride(index: number, value: string) {
@@ -169,10 +166,9 @@ function confirm() {
       continue;
     }
 
-    if (decision === 'skip') {
+    if (decision === 'skip' || decision === 'global') {
+      // Every rule must belong to an integration — skip rules without one
       overrides.push({ index: r.index, integrationId: null, skip: true });
-    } else if (decision === 'global') {
-      overrides.push({ index: r.index, integrationId: null, skip: false });
     } else {
       overrides.push({ index: r.index, integrationId: Number(decision), skip: false });
     }

@@ -45,6 +45,23 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	return database
 }
 
+// seedTestIntegration creates a test integration and returns a pointer to its ID.
+// Used by rule tests that require IntegrationID (every rule must belong to an integration).
+func seedTestIntegration(t *testing.T, database *gorm.DB) *uint {
+	t.Helper()
+	ic := db.IntegrationConfig{
+		Name:    "my-sonarr",
+		Type:    "sonarr",
+		URL:     "http://localhost:8989",
+		APIKey:  "test-api-key",
+		Enabled: true,
+	}
+	if err := database.Create(&ic).Error; err != nil {
+		t.Fatalf("Failed to seed test integration: %v", err)
+	}
+	return &ic.ID
+}
+
 // newTestBus creates a new EventBus and registers a cleanup to close it.
 func newTestBus(t *testing.T) *events.EventBus {
 	t.Helper()

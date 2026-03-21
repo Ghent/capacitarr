@@ -197,6 +197,9 @@ func TestBackupService_Import_AllSections(t *testing.T) {
 	svc := NewBackupService(database, bus)
 	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
+	sonarrType := "sonarr"
+	sonarrName := "Firefly Sonarr"
+
 	envelope := SettingsExportEnvelope{
 		Version:    1,
 		ExportedAt: "2026-03-09T12:00:00Z",
@@ -218,8 +221,8 @@ func TestBackupService_Import_AllSections(t *testing.T) {
 			CheckForUpdates:       false,
 		},
 		Rules: []RuleExport{
-			{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true},
-			{Field: "tag", Operator: "contains", Value: "anime", Effect: "prefer_keep", Enabled: false},
+			{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true, IntegrationType: &sonarrType, IntegrationName: &sonarrName},
+			{Field: "tag", Operator: "contains", Value: "anime", Effect: "prefer_keep", Enabled: false, IntegrationType: &sonarrType, IntegrationName: &sonarrName},
 		},
 		Integrations: []IntegrationExport{
 			{Name: "Firefly Sonarr", Type: "sonarr", URL: "http://sonarr:8989", Enabled: true},
@@ -692,14 +695,11 @@ func TestBackupService_Import_RulesTypeOnlyFallback_AmbiguousSkips(t *testing.T)
 		t.Errorf("expected 1 unmatched rule (ambiguous), got %d", result.RulesUnmatched)
 	}
 
-	// Verify rule was imported as global (no integration)
+	// Unmatched rules are skipped — every rule must belong to an integration
 	var rules []db.CustomRule
 	database.Find(&rules)
-	if len(rules) != 1 {
-		t.Fatalf("expected 1 rule in DB, got %d", len(rules))
-	}
-	if rules[0].IntegrationID != nil {
-		t.Error("expected rule to have nil integration ID (ambiguous type match)")
+	if len(rules) != 0 {
+		t.Fatalf("expected 0 rules in DB (ambiguous match skipped), got %d", len(rules))
 	}
 }
 
@@ -818,6 +818,12 @@ func TestBackupService_Import_ReplaceMode_Rules(t *testing.T) {
 	svc := NewBackupService(database, bus)
 	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
 
+	// Seed an integration for rule matching
+	database.Create(&db.IntegrationConfig{
+		Type: "sonarr", Name: "Firefly Sonarr", URL: "http://sonarr:8989",
+		APIKey: "test-key", Enabled: true,
+	})
+
 	// Seed existing rules
 	database.Create(&db.CustomRule{
 		Field: "tag", Operator: "contains", Value: "anime", Effect: "prefer_keep", Enabled: true,
@@ -826,10 +832,13 @@ func TestBackupService_Import_ReplaceMode_Rules(t *testing.T) {
 		Field: "rating", Operator: ">", Value: "8.0", Effect: "always_keep", Enabled: true,
 	})
 
+	sonarrType := "sonarr"
+	sonarrName := "Firefly Sonarr"
+
 	envelope := SettingsExportEnvelope{
 		Version: 1,
 		Rules: []RuleExport{
-			{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true},
+			{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true, IntegrationType: &sonarrType, IntegrationName: &sonarrName},
 		},
 	}
 
@@ -917,9 +926,9 @@ func TestBackupService_PreviewImport_MatchedAndUnmatched(t *testing.T) {
 		t.Error("rule 1: expected nil matched integration ID")
 	}
 
-	// Rule 2: global (no integration reference)
-	if preview.Rules[2].Resolution != "matched" {
-		t.Errorf("rule 2: expected resolution 'matched' (global), got %q", preview.Rules[2].Resolution)
+	// Rule 2: global (no integration reference) — unmatched since every rule must belong to an integration
+	if preview.Rules[2].Resolution != "unmatched" {
+		t.Errorf("rule 2: expected resolution 'unmatched' (global), got %q", preview.Rules[2].Resolution)
 	}
 }
 

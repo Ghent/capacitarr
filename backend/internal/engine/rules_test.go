@@ -8,6 +8,9 @@ import (
 	"capacitarr/internal/integrations"
 )
 
+// intIDPtr returns a pointer to a uint for use in test rule IntegrationID fields.
+func intIDPtr(id uint) *uint { return &id }
+
 func TestStringMatch(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -265,7 +268,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Always keep by title (new effect field)",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 			},
 			isAbs:    true,
 			modifier: 0.0,
@@ -274,7 +277,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Prefer keep by rating",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},
 			},
 			isAbs:    false,
 			modifier: 0.2,
@@ -283,7 +286,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Lean keep modifier",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},
 			},
 			isAbs:    false,
 			modifier: 0.5,
@@ -292,7 +295,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Lean remove modifier",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "lean_remove"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "lean_remove"},
 			},
 			isAbs:    false,
 			modifier: 1.5,
@@ -301,7 +304,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Prefer remove modifier",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "prefer_remove"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "prefer_remove"},
 			},
 			isAbs:    false,
 			modifier: 3.0,
@@ -310,7 +313,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Always remove by seriesstatus",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "always_remove"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "always_remove"},
 			},
 			isAbs:    false,
 			modifier: 100.0,
@@ -319,8 +322,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Multiple cascading modifiers multiply",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},       // ×0.2
-				{Enabled: true, Field: "title", Operator: "contains", Value: "seren", Effect: "lean_keep"}, // ×0.5
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},       // ×0.2
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "contains", Value: "seren", Effect: "lean_keep"}, // ×0.5
 			},
 			isAbs:    false,
 			modifier: 0.1, // 0.2 × 0.5
@@ -329,8 +332,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Lean keep + lean remove partially cancel",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},            // ×0.5
-				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "lean_remove"}, // ×1.5
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},            // ×0.5
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "lean_remove"}, // ×1.5
 			},
 			isAbs:    false,
 			modifier: 0.75, // 0.5 × 1.5
@@ -339,8 +342,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Always keep wins over always remove",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
-				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "always_remove"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "always_remove"},
 			},
 			isAbs:    true,
 			modifier: 0.0,
@@ -349,8 +352,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Always keep wins over prefer remove",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
-				{Enabled: true, Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},
 			},
 			isAbs:    true,
 			modifier: 0.0,
@@ -359,8 +362,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Prefer keep + prefer remove = net protection",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},            // ×0.2
-				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "prefer_remove"}, // ×3.0
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},            // ×0.2
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "prefer_remove"}, // ×3.0
 			},
 			isAbs:    false,
 			modifier: 0.6, // 0.2 × 3.0
@@ -369,8 +372,8 @@ func TestApplyRules(t *testing.T) {
 			name: "Stacked prefer remove",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},          // ×3.0
-				{Enabled: true, Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "prefer_remove"}, // ×3.0
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},          // ×3.0
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "seriesstatus", Operator: "==", Value: "ended", Effect: "prefer_remove"}, // ×3.0
 			},
 			isAbs:    false,
 			modifier: 9.0, // 3.0 × 3.0
@@ -379,7 +382,7 @@ func TestApplyRules(t *testing.T) {
 			name: "Non-matching rule has no effect",
 			item: baseItem,
 			rules: []db.CustomRule{
-				{Enabled: true, Field: "title", Operator: "==", Value: "other", Effect: "always_keep"},
+				{Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "==", Value: "other", Effect: "always_keep"},
 			},
 			isAbs:    false,
 			modifier: 1.0,
@@ -434,21 +437,21 @@ func TestApplyRules_IntegrationIDFiltering(t *testing.T) {
 			modifier: 1.0,
 		},
 		{
-			name: "Global rule (nil integration_id) applies to all items",
+			name: "Nil integration_id rule is skipped (no global rules)",
 			rules: []db.CustomRule{
 				{Enabled: true, IntegrationID: nil, Field: "title", Operator: "==", Value: "serenity", Effect: "prefer_keep"},
 			},
 			isAbs:    false,
-			modifier: 0.2,
+			modifier: 1.0,
 		},
 		{
-			name: "Mixed: global rule applies, scoped rule skipped",
+			name: "Mixed: nil integration rule skipped, scoped rule skipped",
 			rules: []db.CustomRule{
-				{Enabled: true, IntegrationID: nil, Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},                    // ×0.5 (applies)
-				{Enabled: true, IntegrationID: &integrationID2, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"}, // skipped
+				{Enabled: true, IntegrationID: nil, Field: "rating", Operator: ">", Value: "8.0", Effect: "lean_keep"},                    // skipped (nil)
+				{Enabled: true, IntegrationID: &integrationID2, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"}, // skipped (wrong integration)
 			},
 			isAbs:    false,
-			modifier: 0.5,
+			modifier: 1.0,
 		},
 	}
 
@@ -475,7 +478,7 @@ func TestApplyRules_ReturnsFactors(t *testing.T) {
 	}
 
 	rules := []db.CustomRule{
-		{Enabled: true, Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},
+		{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "8.0", Effect: "prefer_keep"},
 	}
 
 	_, _, _, factors := applyRules(item, rules)
@@ -498,8 +501,8 @@ func TestApplyRules_AlwaysKeepReturnsImmediately(t *testing.T) {
 
 	// always_keep is first followed by modifiers that would change things
 	rules := []db.CustomRule{
-		{Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
-		{Enabled: true, Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},
+		{Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
+		{Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: ">", Value: "5.0", Effect: "prefer_remove"},
 	}
 
 	isAbs, modifier, reason, factors := applyRules(item, rules)
@@ -527,8 +530,8 @@ func TestApplyRules_RuleIDPropagation(t *testing.T) {
 	}
 
 	rules := []db.CustomRule{
-		{ID: 42, Enabled: true, Field: "rating", Operator: "<", Value: "5.0", Effect: "prefer_remove"},
-		{ID: 99, Enabled: true, Field: "title", Operator: "contains", Value: "seren", Effect: "lean_remove"},
+		{ID: 42, Enabled: true, IntegrationID: intIDPtr(1), Field: "rating", Operator: "<", Value: "5.0", Effect: "prefer_remove"},
+		{ID: 99, Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "contains", Value: "seren", Effect: "lean_remove"},
 	}
 
 	_, _, _, factors := applyRules(item, rules)
@@ -563,7 +566,7 @@ func TestApplyRules_AlwaysKeepRuleID(t *testing.T) {
 	}
 
 	rules := []db.CustomRule{
-		{ID: 7, Enabled: true, Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
+		{ID: 7, Enabled: true, IntegrationID: intIDPtr(1), Field: "title", Operator: "==", Value: "serenity", Effect: "always_keep"},
 	}
 
 	isAbs, _, _, factors := applyRules(item, rules)

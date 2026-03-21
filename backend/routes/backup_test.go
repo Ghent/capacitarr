@@ -20,12 +20,14 @@ func TestExportSettings_AllSections(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	// Seed test data
-	database.Create(&db.IntegrationConfig{
+	ic := db.IntegrationConfig{
 		Type: "sonarr", Name: "Firefly Sonarr", URL: "http://sonarr:8989",
 		APIKey: "secret-key", Enabled: true,
-	})
+	}
+	database.Create(&ic)
 	database.Create(&db.CustomRule{
 		Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true,
+		IntegrationID: &ic.ID,
 	})
 	database.Create(&db.DiskGroup{
 		MountPath: "/mnt/media", TotalBytes: 1000000, UsedBytes: 500000,
@@ -83,8 +85,14 @@ func TestExportSettings_SelectedSections(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
+	ic := db.IntegrationConfig{
+		Type: "sonarr", Name: "Firefly Sonarr", URL: "http://sonarr:8989",
+		APIKey: "secret-key", Enabled: true,
+	}
+	database.Create(&ic)
 	database.Create(&db.CustomRule{
 		Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep", Enabled: true,
+		IntegrationID: &ic.ID,
 	})
 
 	req := testutil.AuthenticatedRequest(t, http.MethodGet, "/api/settings/export?sections=rules", nil)
@@ -152,7 +160,7 @@ func TestImportSettings_AllSections(t *testing.T) {
 				"checkForUpdates": false
 			},
 			"rules": [
-				{"field": "quality", "operator": "==", "value": "4K", "effect": "always_keep", "enabled": true}
+				{"field": "quality", "operator": "==", "value": "4K", "effect": "always_keep", "enabled": true, "integrationName": "Firefly Sonarr", "integrationType": "sonarr"}
 			],
 			"integrations": [
 				{"name": "Firefly Sonarr", "type": "sonarr", "url": "http://sonarr:8989", "enabled": true}

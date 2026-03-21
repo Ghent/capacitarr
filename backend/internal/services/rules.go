@@ -87,6 +87,9 @@ func (s *RulesService) GetEnabledRules() ([]db.CustomRule, error) {
 // validateRule checks required fields and effect validity.
 // Called by both Create() and Update() to maintain invariants.
 func (s *RulesService) validateRule(rule db.CustomRule) error {
+	if rule.IntegrationID == nil {
+		return fmt.Errorf("%w: integration_id is required — every rule must belong to an integration", ErrRuleValidation)
+	}
 	if rule.Field == "" || rule.Operator == "" || rule.Value == "" {
 		return fmt.Errorf("%w: field, operator, and value are required", ErrRuleValidation)
 	}
@@ -342,8 +345,14 @@ func (s *RulesService) GetRuleContext(id uint) (*RuleContext, error) {
 		return nil, fmt.Errorf("%w: %v", ErrRuleNotFound, err)
 	}
 
-	if s.integrations == nil || rule.IntegrationID == nil {
-		// No integration provider wired or rule has no integration — return rule with empty fields/values
+	if s.integrations == nil {
+		// No integration provider wired — return rule with empty fields/values
+		return &RuleContext{Rule: rule}, nil
+	}
+
+	if rule.IntegrationID == nil {
+		// Every rule must have an integration — return rule with empty context as a defensive fallback
+		slog.Warn("Rule missing integration_id", "component", "services", "ruleId", id)
 		return &RuleContext{Rule: rule}, nil
 	}
 

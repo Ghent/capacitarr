@@ -54,14 +54,15 @@ func TestEvaluator_Evaluate(t *testing.T) {
 func TestEvaluator_EvaluateWithProtection(t *testing.T) {
 	eval := NewEvaluator()
 
+	intID := uint(1)
 	items := []integrations.MediaItem{
-		{Title: "Serenity", SizeBytes: 10 * 1024 * 1024 * 1024, PlayCount: 0, Rating: 5.0},
-		{Title: "Firefly", Type: integrations.MediaTypeShow, SizeBytes: 5 * 1024 * 1024 * 1024, PlayCount: 3, Rating: 9.0},
+		{Title: "Serenity", SizeBytes: 10 * 1024 * 1024 * 1024, PlayCount: 0, Rating: 5.0, IntegrationID: 1},
+		{Title: "Firefly", Type: integrations.MediaTypeShow, SizeBytes: 5 * 1024 * 1024 * 1024, PlayCount: 3, Rating: 9.0, IntegrationID: 1},
 	}
 
 	prefs := defaultPrefs()
 	rules := []db.CustomRule{
-		{ID: 1, Field: "title", Operator: "==", Value: "Firefly", Effect: "always_keep", Enabled: true},
+		{ID: 1, IntegrationID: &intID, Field: "title", Operator: "==", Value: "Firefly", Effect: "always_keep", Enabled: true},
 	}
 
 	result := eval.Evaluate(items, prefs, rules, "size_desc")
