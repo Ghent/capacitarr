@@ -105,6 +105,17 @@ type WatchlistProvider interface {
 	GetWatchlistItems() (map[int]bool, error)
 }
 
+// CollectionResolver is implemented by integrations that can resolve which
+// other items share a collection with a given item. When collection deletion
+// is enabled on an integration, the poller calls this to expand a single
+// deletion candidate into all members of its collection.
+type CollectionResolver interface {
+	// ResolveCollectionMembers returns all items in the same collection(s) as
+	// the given item, INCLUDING the item itself. Returns nil/empty if the item
+	// has no collection membership or collection deletion is not applicable.
+	ResolveCollectionMembers(item MediaItem) ([]MediaItem, error)
+}
+
 // DiskSpace represents disk usage reported by a service
 type DiskSpace struct {
 	Path       string `json:"path"`

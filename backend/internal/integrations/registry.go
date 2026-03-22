@@ -12,14 +12,15 @@ import (
 type IntegrationRegistry struct {
 	mu sync.RWMutex
 
-	connectors         map[uint]Connectable
-	mediaSources       map[uint]MediaSource
-	diskReporters      map[uint]DiskReporter
-	deleters           map[uint]MediaDeleter
-	watchProviders     map[uint]WatchDataProvider
-	requestProviders   map[uint]RequestProvider
-	watchlistProviders map[uint]WatchlistProvider
-	ruleValueFetchers  map[uint]RuleValueFetcher
+	connectors          map[uint]Connectable
+	mediaSources        map[uint]MediaSource
+	diskReporters       map[uint]DiskReporter
+	deleters            map[uint]MediaDeleter
+	watchProviders      map[uint]WatchDataProvider
+	requestProviders    map[uint]RequestProvider
+	watchlistProviders  map[uint]WatchlistProvider
+	ruleValueFetchers   map[uint]RuleValueFetcher
+	collectionResolvers map[uint]CollectionResolver
 }
 
 // NewIntegrationRegistry creates an empty registry.
@@ -32,7 +33,8 @@ func NewIntegrationRegistry() *IntegrationRegistry {
 		watchProviders:     make(map[uint]WatchDataProvider),
 		requestProviders:   make(map[uint]RequestProvider),
 		watchlistProviders: make(map[uint]WatchlistProvider),
-		ruleValueFetchers:  make(map[uint]RuleValueFetcher),
+		ruleValueFetchers:   make(map[uint]RuleValueFetcher),
+		collectionResolvers: make(map[uint]CollectionResolver),
 	}
 }
 
@@ -86,6 +88,10 @@ func (r *IntegrationRegistry) Register(integrationID uint, client interface{}) {
 		r.ruleValueFetchers[integrationID] = c
 		registered++
 	}
+	if c, ok := client.(CollectionResolver); ok {
+		r.collectionResolvers[integrationID] = c
+		registered++
+	}
 
 	slog.Debug("Registered integration", "component", "registry",
 		"integrationID", integrationID, "capabilities", registered)
@@ -104,6 +110,7 @@ func (r *IntegrationRegistry) Unregister(integrationID uint) {
 	delete(r.requestProviders, integrationID)
 	delete(r.watchlistProviders, integrationID)
 	delete(r.ruleValueFetchers, integrationID)
+	delete(r.collectionResolvers, integrationID)
 }
 
 // Clear removes all registrations.
@@ -119,6 +126,7 @@ func (r *IntegrationRegistry) Clear() {
 	r.requestProviders = make(map[uint]RequestProvider)
 	r.watchlistProviders = make(map[uint]WatchlistProvider)
 	r.ruleValueFetchers = make(map[uint]RuleValueFetcher)
+	r.collectionResolvers = make(map[uint]CollectionResolver)
 }
 
 // ─── Accessor methods ───────────────────────────────────────────────────────
@@ -206,6 +214,25 @@ func (r *IntegrationRegistry) RuleValueFetcherFor(id uint) (RuleValueFetcher, er
 		return c, nil
 	}
 	return nil, fmt.Errorf("integration %d not registered as RuleValueFetcher", id)
+}
+
+// CollectionResolver returns the CollectionResolver for the given integration, or false if not registered.
+func (r *IntegrationRegistry) CollectionResolver(id uint) (CollectionResolver, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	c, ok := r.collectionResolvers[id]
+	return c, ok
+}
+
+// CollectionResolvers returns all registered CollectionResolver implementations with their IDs.
+func (r *IntegrationRegistry) CollectionResolvers() map[uint]CollectionResolver {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make(map[uint]CollectionResolver, len(r.collectionResolvers))
+	for k, v := range r.collectionResolvers {
+		out[k] = v
+	}
+	return out
 }
 
 // Connectors returns all registered Connectable implementations with their IDs.

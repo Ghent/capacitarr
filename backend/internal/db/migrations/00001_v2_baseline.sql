@@ -70,9 +70,10 @@ CREATE TABLE integration_configs (
     media_size_bytes INTEGER NOT NULL DEFAULT 0,
     media_count      INTEGER NOT NULL DEFAULT 0,
     last_sync        DATETIME,
-    last_error       TEXT,
-    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    last_error           TEXT,
+    collection_deletion  INTEGER NOT NULL DEFAULT 0,          -- When enabled, deleting one collection member deletes all
+    created_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_integration_configs_type ON integration_configs(type);
 CREATE INDEX idx_integration_configs_library_id ON integration_configs(library_id);
@@ -182,14 +183,17 @@ CREATE TABLE approval_queue (
     disk_group_id  INTEGER REFERENCES disk_groups(id) ON DELETE SET NULL,
     status         TEXT    NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
     trigger        TEXT    NOT NULL DEFAULT 'engine',       -- "engine", "user"
-    user_initiated INTEGER NOT NULL DEFAULT 0,              -- True when queued by user via POST /delete (preserved on queue clear)
-    snoozed_until  DATETIME,
-    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    user_initiated   INTEGER NOT NULL DEFAULT 0,              -- True when queued by user via POST /delete (preserved on queue clear)
+    collection_group TEXT    NOT NULL DEFAULT '',              -- Groups collection members (e.g., "Sonic the Hedgehog Collection")
+    snoozed_until    DATETIME,
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_approval_queue_status ON approval_queue(status);
 CREATE INDEX idx_approval_queue_media ON approval_queue(media_name, media_type);
 CREATE INDEX idx_approval_queue_disk_group_id ON approval_queue(disk_group_id);
+CREATE INDEX idx_approval_queue_collection_group ON approval_queue(collection_group)
+    WHERE collection_group != '';
 CREATE INDEX idx_approval_queue_snoozed ON approval_queue(snoozed_until)
     WHERE snoozed_until IS NOT NULL;
 
@@ -207,9 +211,10 @@ CREATE TABLE audit_log (
     score          REAL    NOT NULL DEFAULT 0,
     trigger        TEXT    NOT NULL DEFAULT 'engine',       -- "engine", "user", "approval"
     dry_run_reason TEXT    NOT NULL DEFAULT '',              -- "deletions_disabled", "execution_mode", "" (empty if not dry-run)
-    integration_id INTEGER REFERENCES integration_configs(id) ON DELETE SET NULL,
-    disk_group_id  INTEGER REFERENCES disk_groups(id) ON DELETE SET NULL,
-    created_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    integration_id   INTEGER REFERENCES integration_configs(id) ON DELETE SET NULL,
+    disk_group_id    INTEGER REFERENCES disk_groups(id) ON DELETE SET NULL,
+    collection_group TEXT    NOT NULL DEFAULT '',              -- Groups collection deletions (e.g., "Sonic the Hedgehog Collection")
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_audit_log_media_name ON audit_log(media_name);
 CREATE INDEX idx_audit_log_action ON audit_log(action);

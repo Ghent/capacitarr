@@ -71,9 +71,10 @@ type IntegrationConfig struct {
 	MediaSizeBytes int64      `json:"mediaSizeBytes"`                   // Total media file size
 	MediaCount     int        `json:"mediaCount"`                       // Number of media items
 	LastSync       *time.Time `json:"lastSync,omitempty"`
-	LastError      string     `json:"lastError,omitempty"`
-	CreatedAt      time.Time  `json:"createdAt"`
-	UpdatedAt      time.Time  `json:"updatedAt"`
+	LastError           string     `json:"lastError,omitempty"`
+	CollectionDeletion  bool       `gorm:"default:false" json:"collectionDeletion"`  // When enabled, deleting one collection member deletes all
+	CreatedAt           time.Time  `json:"createdAt"`
+	UpdatedAt           time.Time  `json:"updatedAt"`
 }
 
 // DiskGroupIntegration tracks which integrations reported each disk group.
@@ -175,9 +176,10 @@ type ApprovalQueueItem struct {
 	ExternalID    string     `gorm:"not null;default:''" json:"externalId"`              // External ID in the integration
 	DiskGroupID   *uint      `gorm:"index" json:"diskGroupId,omitempty"`                 // FK to DiskGroup (nullable — set by poller to scope queue per disk group)
 	Status        string     `gorm:"not null;default:'pending'" json:"status"`           // pending, approved, rejected
-	Trigger       string     `gorm:"not null;default:'engine'" json:"trigger"`           // "engine", "user"
-	UserInitiated bool       `gorm:"not null;default:false" json:"userInitiated"`        // True when queued by user via POST /delete (preserved on queue clear)
-	SnoozedUntil  *time.Time `gorm:"column:snoozed_until" json:"snoozedUntil,omitempty"` // When snooze expires (rejected items)
+	Trigger         string     `gorm:"not null;default:'engine'" json:"trigger"`              // "engine", "user"
+	UserInitiated   bool       `gorm:"not null;default:false" json:"userInitiated"`          // True when queued by user via POST /delete (preserved on queue clear)
+	CollectionGroup string     `gorm:"not null;default:''" json:"collectionGroup,omitempty"` // Groups collection members (e.g., "Sonic the Hedgehog Collection")
+	SnoozedUntil    *time.Time `gorm:"column:snoozed_until" json:"snoozedUntil,omitempty"`   // When snooze expires (rejected items)
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`
 }
@@ -220,9 +222,10 @@ type AuditLogEntry struct {
 	Score         float64   `gorm:"not null;default:0" json:"score"`                      // Numeric score from engine evaluation
 	Trigger       string    `gorm:"not null;default:'engine'" json:"trigger"`             // "engine", "user", "approval"
 	DryRunReason  string    `gorm:"not null;default:''" json:"dryRunReason"`              // "deletions_disabled", "execution_mode", "" (empty if not dry-run)
-	IntegrationID *uint     `json:"integrationId,omitempty" gorm:"column:integration_id"` // FK to IntegrationConfig (nullable — preserved on integration delete)
-	DiskGroupID   *uint     `gorm:"index" json:"diskGroupId,omitempty"`                   // FK to DiskGroup (nullable — set by poller to scope audit entries per disk group)
-	CreatedAt     time.Time `json:"createdAt"`
+	IntegrationID   *uint     `json:"integrationId,omitempty" gorm:"column:integration_id"` // FK to IntegrationConfig (nullable — preserved on integration delete)
+	DiskGroupID     *uint     `gorm:"index" json:"diskGroupId,omitempty"`                   // FK to DiskGroup (nullable — set by poller to scope audit entries per disk group)
+	CollectionGroup string    `gorm:"not null;default:''" json:"collectionGroup,omitempty"` // Groups collection deletions (e.g., "Sonic the Hedgehog Collection")
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 // TableName returns the database table name for AuditLogEntry.
