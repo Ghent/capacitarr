@@ -196,24 +196,44 @@ func importPreferences(src, dest *gorm.DB) error {
 		return fmt.Errorf("failed to read preferences: %w", err)
 	}
 
-	// Update the 2.0 preferences (row already exists from db.Init seed)
-	return dest.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]interface{}{
+	// Update the 2.0 preferences (row already exists from db.Init seed).
+	// Note: scoring factor weights are stored in the separate scoring_factor_weights
+	// table in 2.0, so they are NOT included here — they are persisted below.
+	if err := dest.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]interface{}{
 		"log_level":                source.LogLevel,
 		"audit_log_retention_days": source.AuditLogRetentionDays,
 		"poll_interval_seconds":    source.PollIntervalSeconds,
-		"watch_history_weight":     source.WatchHistoryWeight,
-		"last_watched_weight":      source.LastWatchedWeight,
-		"file_size_weight":         source.FileSizeWeight,
-		"rating_weight":            source.RatingWeight,
-		"time_in_library_weight":   source.TimeInLibraryWeight,
-		"series_status_weight":     source.SeriesStatusWeight,
 		"execution_mode":           source.ExecutionMode,
 		"tiebreaker_method":        source.TiebreakerMethod,
 		"deletions_enabled":        source.DeletionsEnabled,
 		"snooze_duration_hours":    source.SnoozeDurationHours,
 		"check_for_updates":        source.CheckForUpdates,
 		// New 2.0 fields keep their defaults (already seeded)
-	}).Error
+	}).Error; err != nil {
+		return fmt.Errorf("failed to update preferences: %w", err)
+	}
+
+	// Persist 1.x scoring factor weights into the 2.0 scoring_factor_weights table.
+	// The rows are already seeded by db.Init with default weight=5; we update them
+	// to carry over the user's 1.x customizations.
+	weightMap := map[string]int{
+		"watch_history":   source.WatchHistoryWeight,
+		"last_watched":    source.LastWatchedWeight,
+		"file_size":       source.FileSizeWeight,
+		"rating":          source.RatingWeight,
+		"time_in_library": source.TimeInLibraryWeight,
+		"series_status":   source.SeriesStatusWeight,
+	}
+	for factorKey, weight := range weightMap {
+		if err := dest.Model(&db.ScoringFactorWeight{}).
+			Where("factor_key = ?", factorKey).
+			Update("weight", weight).Error; err != nil {
+			slog.Warn("Failed to import scoring factor weight",
+				"component", "migration", "factor_key", factorKey, "error", err)
+		}
+	}
+
+	return nil
 }
 
 func importRules(src, dest *gorm.DB) (int, error) {
