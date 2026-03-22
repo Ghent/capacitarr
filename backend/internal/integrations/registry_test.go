@@ -23,13 +23,13 @@ func (m *mockFullClient) GetLanguages() ([]NameValue, error)       { return nil,
 type mockWatchClient struct{}
 
 func (m *mockWatchClient) TestConnection() error { return nil }
-func (m *mockWatchClient) GetBulkWatchData() (map[string]*WatchData, error) {
-	return map[string]*WatchData{
-		"serenity": {PlayCount: 3, LastPlayed: timePtr(time.Now())},
+func (m *mockWatchClient) GetBulkWatchData() (map[int]*WatchData, error) {
+	return map[int]*WatchData{
+		16320: {PlayCount: 3, LastPlayed: timePtr(time.Now())},
 	}, nil
 }
-func (m *mockWatchClient) GetWatchlistItems() (map[string]bool, error) {
-	return map[string]bool{"firefly": true}, nil
+func (m *mockWatchClient) GetWatchlistItems() (map[int]bool, error) {
+	return map[int]bool{1437: true}, nil
 }
 
 // mockRequestClient implements Connectable + RequestProvider (like Seerr).

@@ -84,7 +84,7 @@ func TestEmbyClient_TestConnection_MalformedJSON(t *testing.T) {
 	}
 }
 
-func TestEmbyClient_GetBulkWatchData(t *testing.T) {
+func TestEmbyClient_GetBulkWatchDataForUser(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		// The endpoint should be /Users/{userID}/Items with query params
@@ -95,6 +95,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 			"Items": [
 				{
 					"Name": "Serenity",
+					"ProviderIds": {"Tmdb": "16320"},
 					"UserData": {
 						"PlayCount": 5,
 						"LastPlayedDate": "2024-11-01T20:00:00Z",
@@ -103,6 +104,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 				},
 				{
 					"Name": "Serenity 2",
+					"ProviderIds": {"Tmdb": "99999"},
 					"UserData": {
 						"PlayCount": 2,
 						"LastPlayedDate": "2024-10-15T14:00:00Z",
@@ -111,6 +113,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 				},
 				{
 					"Name": "Unwatched Movie",
+					"ProviderIds": {"Tmdb": "55555"},
 					"UserData": {
 						"PlayCount": 0,
 						"LastPlayedDate": "",
@@ -124,33 +127,34 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchDataForUser("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1", "AdminUser")
 	if err != nil {
-		t.Fatalf("GetBulkWatchData should succeed: %v", err)
+		t.Fatalf("GetBulkWatchDataForUser should succeed: %v", err)
 	}
 	if len(data) != 3 {
 		t.Fatalf("Expected 3 entries, got %d", len(data))
 	}
 
-	// Check Serenity (normalized to lowercase)
-	movie, ok := data["serenity"]
+	// Check Serenity (keyed by TMDb ID)
+	movie, ok := data[16320]
 	if !ok {
-		t.Fatal("Expected 'serenity' key in result")
+		t.Fatal("Expected TMDb ID 16320 in result")
 	}
 	if movie.PlayCount != 5 {
 		t.Errorf("Expected PlayCount 5 for Serenity, got %d", movie.PlayCount)
 	}
-	if movie.PlayCount == 0 {
-		t.Error("Expected Serenity to be marked as Played")
-	}
 	if movie.LastPlayed == nil {
 		t.Error("Expected non-nil LastPlayed for Serenity")
 	}
+	// Watched item should track the user
+	if len(movie.Users) != 1 || movie.Users[0] != "AdminUser" {
+		t.Errorf("Expected Users=[AdminUser], got %v", movie.Users)
+	}
 
 	// Check unwatched movie
-	unwatched, ok := data["unwatched movie"]
+	unwatched, ok := data[55555]
 	if !ok {
-		t.Fatal("Expected 'unwatched movie' key in result")
+		t.Fatal("Expected TMDb ID 55555 in result")
 	}
 	if unwatched.PlayCount != 0 {
 		t.Errorf("Expected PlayCount 0 for unwatched, got %d", unwatched.PlayCount)
@@ -160,7 +164,7 @@ func TestEmbyClient_GetBulkWatchData(t *testing.T) {
 	}
 }
 
-func TestEmbyClient_GetBulkWatchData_Pagination(t *testing.T) {
+func TestEmbyClient_GetBulkWatchDataForUser_Pagination(t *testing.T) {
 	callCount := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -169,8 +173,8 @@ func TestEmbyClient_GetBulkWatchData_Pagination(t *testing.T) {
 			// First page: return 2 items with TotalRecordCount=3 to trigger pagination
 			_, _ = w.Write([]byte(`{
 				"Items": [
-					{"Name": "Movie A", "UserData": {"PlayCount": 1, "Played": true}},
-					{"Name": "Movie B", "UserData": {"PlayCount": 2, "Played": true}}
+					{"Name": "Movie A", "ProviderIds": {"Tmdb": "111"}, "UserData": {"PlayCount": 1, "Played": true}},
+					{"Name": "Movie B", "ProviderIds": {"Tmdb": "222"}, "UserData": {"PlayCount": 2, "Played": true}}
 				],
 				"TotalRecordCount": 3
 			}`))
@@ -178,7 +182,7 @@ func TestEmbyClient_GetBulkWatchData_Pagination(t *testing.T) {
 			// Second page: final item
 			_, _ = w.Write([]byte(`{
 				"Items": [
-					{"Name": "Movie C", "UserData": {"PlayCount": 0, "Played": false}}
+					{"Name": "Movie C", "ProviderIds": {"Tmdb": "333"}, "UserData": {"PlayCount": 0, "Played": false}}
 				],
 				"TotalRecordCount": 3
 			}`))
@@ -187,28 +191,28 @@ func TestEmbyClient_GetBulkWatchData_Pagination(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchDataForUser("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1", "AdminUser")
 	if err != nil {
-		t.Fatalf("GetBulkWatchData should succeed: %v", err)
+		t.Fatalf("GetBulkWatchDataForUser should succeed: %v", err)
 	}
 	if len(data) != 3 {
 		t.Fatalf("Expected 3 entries after pagination, got %d", len(data))
 	}
-	if _, ok := data["movie a"]; !ok {
-		t.Error("Expected 'movie a' key")
+	if _, ok := data[111]; !ok {
+		t.Error("Expected TMDb ID 111 key")
 	}
-	if _, ok := data["movie c"]; !ok {
-		t.Error("Expected 'movie c' key")
+	if _, ok := data[333]; !ok {
+		t.Error("Expected TMDb ID 333 key")
 	}
 }
 
-func TestEmbyClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testing.T) {
+func TestEmbyClient_GetBulkWatchDataForUser_DuplicateTMDbKeepsHigherPlayCount(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"Items": [
-				{"Name": "Serenity", "UserData": {"PlayCount": 1, "Played": true}},
-				{"Name": "Serenity", "UserData": {"PlayCount": 5, "Played": true}}
+				{"Name": "Serenity", "ProviderIds": {"Tmdb": "16320"}, "UserData": {"PlayCount": 1, "Played": true}},
+				{"Name": "Serenity (Special Edition)", "ProviderIds": {"Tmdb": "16320"}, "UserData": {"PlayCount": 5, "Played": true}}
 			],
 			"TotalRecordCount": 2
 		}`))
@@ -216,20 +220,20 @@ func TestEmbyClient_GetBulkWatchData_DuplicateKeepsHigherPlayCount(t *testing.T)
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchDataForUser("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1", "AdminUser")
 	if err != nil {
-		t.Fatalf("GetBulkWatchData should succeed: %v", err)
+		t.Fatalf("GetBulkWatchDataForUser should succeed: %v", err)
 	}
-	movie, ok := data["serenity"]
+	movie, ok := data[16320]
 	if !ok {
-		t.Fatal("Expected 'serenity' key")
+		t.Fatal("Expected TMDb ID 16320 key")
 	}
 	if movie.PlayCount != 5 {
 		t.Errorf("Expected higher PlayCount 5 to be kept, got %d", movie.PlayCount)
 	}
 }
 
-func TestEmbyClient_GetBulkWatchData_EmptyItems(t *testing.T) {
+func TestEmbyClient_GetBulkWatchDataForUser_EmptyItems(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"Items": [], "TotalRecordCount": 0}`))
@@ -237,23 +241,23 @@ func TestEmbyClient_GetBulkWatchData_EmptyItems(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchDataForUser("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1", "AdminUser")
 	if err != nil {
-		t.Fatalf("GetBulkWatchData should succeed: %v", err)
+		t.Fatalf("GetBulkWatchDataForUser should succeed: %v", err)
 	}
 	if len(data) != 0 {
 		t.Errorf("Expected 0 entries, got %d", len(data))
 	}
 }
 
-func TestEmbyClient_GetBulkWatchData_SkipsEmptyNames(t *testing.T) {
+func TestEmbyClient_GetBulkWatchDataForUser_SkipsMissingTMDbID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"Items": [
-				{"Name": "", "UserData": {"PlayCount": 1, "Played": true}},
-				{"Name": "  ", "UserData": {"PlayCount": 2, "Played": true}},
-				{"Name": "Valid Movie", "UserData": {"PlayCount": 3, "Played": true}}
+				{"Name": "No Provider IDs", "UserData": {"PlayCount": 1, "Played": true}},
+				{"Name": "Only IMDB", "ProviderIds": {"Imdb": "tt1234567"}, "UserData": {"PlayCount": 2, "Played": true}},
+				{"Name": "Serenity", "ProviderIds": {"Tmdb": "16320"}, "UserData": {"PlayCount": 3, "Played": true}}
 			],
 			"TotalRecordCount": 3
 		}`))
@@ -261,16 +265,16 @@ func TestEmbyClient_GetBulkWatchData_SkipsEmptyNames(t *testing.T) {
 	defer srv.Close()
 
 	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
-	data, err := client.GetBulkWatchDataForUser("admin1")
+	data, err := client.GetBulkWatchDataForUser("admin1", "AdminUser")
 	if err != nil {
-		t.Fatalf("GetBulkWatchData should succeed: %v", err)
+		t.Fatalf("GetBulkWatchDataForUser should succeed: %v", err)
 	}
-	// Empty and whitespace-only names should be skipped
+	// Items without TMDb IDs should be skipped
 	if len(data) != 1 {
-		t.Fatalf("Expected 1 entry (empty names skipped), got %d", len(data))
+		t.Fatalf("Expected 1 entry (missing TMDb IDs skipped), got %d", len(data))
 	}
-	if _, ok := data["valid movie"]; !ok {
-		t.Error("Expected 'valid movie' key")
+	if _, ok := data[16320]; !ok {
+		t.Error("Expected TMDb ID 16320 key")
 	}
 }
 
@@ -383,8 +387,8 @@ func TestEmbyClient_GetFavoritedItems(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{
 				"Items": [
-					{"Name": "Serenity"},
-					{"Name": "Firefly"}
+					{"Name": "Serenity", "ProviderIds": {"Tmdb": "16320"}},
+					{"Name": "Firefly", "ProviderIds": {"Tmdb": "1437"}}
 				],
 				"TotalRecordCount": 2
 			}`))
@@ -402,11 +406,11 @@ func TestEmbyClient_GetFavoritedItems(t *testing.T) {
 	if len(favs) != 2 {
 		t.Fatalf("Expected 2 favorited items, got %d", len(favs))
 	}
-	if !favs["serenity"] {
-		t.Error("Expected 'serenity' in favorites map")
+	if !favs[16320] {
+		t.Error("Expected TMDb ID 16320 (Serenity) in favorites map")
 	}
-	if !favs["firefly"] {
-		t.Error("Expected 'firefly' in favorites map")
+	if !favs[1437] {
+		t.Error("Expected TMDb ID 1437 (Firefly) in favorites map")
 	}
 }
 
@@ -431,15 +435,15 @@ func TestEmbyClient_GetFavoritedItems_Empty(t *testing.T) {
 	}
 }
 
-func TestEmbyClient_GetFavoritedItems_SkipsEmptyNames(t *testing.T) {
+func TestEmbyClient_GetFavoritedItems_SkipsMissingTMDbID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/Users/admin1/Items" {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{
 				"Items": [
-					{"Name": ""},
-					{"Name": "  "},
-					{"Name": "Serenity"}
+					{"Name": "No IDs"},
+					{"Name": "Only IMDB", "ProviderIds": {"Imdb": "tt1234567"}},
+					{"Name": "Serenity", "ProviderIds": {"Tmdb": "16320"}}
 				],
 				"TotalRecordCount": 3
 			}`))
@@ -455,10 +459,10 @@ func TestEmbyClient_GetFavoritedItems_SkipsEmptyNames(t *testing.T) {
 		t.Fatalf("GetFavoritedItems should succeed: %v", err)
 	}
 	if len(favs) != 1 {
-		t.Fatalf("Expected 1 favorite (empty names skipped), got %d", len(favs))
+		t.Fatalf("Expected 1 favorite (missing TMDb IDs skipped), got %d", len(favs))
 	}
-	if !favs["serenity"] {
-		t.Error("Expected 'serenity' in favorites map")
+	if !favs[16320] {
+		t.Error("Expected TMDb ID 16320 in favorites map")
 	}
 }
 
@@ -472,5 +476,115 @@ func TestEmbyClient_GetFavoritedItems_APIError(t *testing.T) {
 	_, err := client.GetFavoritedItems("admin1")
 	if err == nil {
 		t.Fatal("Expected error for API failure")
+	}
+}
+
+func TestEmbyClient_GetBulkWatchData_MultiUserAggregation(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/Users":
+			_, _ = w.Write([]byte(`[
+				{"Id":"user-1","Name":"Alice","Policy":{"IsAdministrator":true}},
+				{"Id":"user-2","Name":"Bob","Policy":{"IsAdministrator":false}}
+			]`))
+		case "/Users/user-1/Items":
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{
+						"Name":"Serenity",
+						"ProviderIds":{"Tmdb":"16320"},
+						"UserData":{"PlayCount":3,"LastPlayedDate":"2024-01-15T20:30:00Z","Played":true}
+					}
+				],
+				"TotalRecordCount": 1
+			}`))
+		case "/Users/user-2/Items":
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{
+						"Name":"Serenity",
+						"ProviderIds":{"Tmdb":"16320"},
+						"UserData":{"PlayCount":2,"LastPlayedDate":"2024-02-20T15:00:00Z","Played":true}
+					}
+				],
+				"TotalRecordCount": 1
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
+	data, err := client.GetBulkWatchData()
+	if err != nil {
+		t.Fatalf("GetBulkWatchData should succeed: %v", err)
+	}
+
+	movie, ok := data[16320]
+	if !ok {
+		t.Fatal("Expected TMDb ID 16320 in aggregated data")
+	}
+	// Play counts are summed across users: 3 + 2 = 5
+	if movie.PlayCount != 5 {
+		t.Errorf("Expected aggregated PlayCount 5, got %d", movie.PlayCount)
+	}
+	// LastPlayed should be the most recent (Bob's 2024-02-20)
+	if movie.LastPlayed == nil {
+		t.Fatal("Expected LastPlayed to be set")
+	}
+	if movie.LastPlayed.Month() != 2 || movie.LastPlayed.Day() != 20 {
+		t.Errorf("Expected most recent LastPlayed (Feb 20), got %v", movie.LastPlayed)
+	}
+	// Users should contain both
+	if len(movie.Users) != 2 {
+		t.Fatalf("Expected 2 users, got %d: %v", len(movie.Users), movie.Users)
+	}
+}
+
+func TestEmbyClient_GetWatchlistItems_MultiUserUnion(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/Users":
+			_, _ = w.Write([]byte(`[
+				{"Id":"user-1","Name":"Alice","Policy":{"IsAdministrator":true}},
+				{"Id":"user-2","Name":"Bob","Policy":{"IsAdministrator":false}}
+			]`))
+		case "/Users/user-1/Items":
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{"Name":"Serenity","ProviderIds":{"Tmdb":"16320"}}
+				],
+				"TotalRecordCount": 1
+			}`))
+		case "/Users/user-2/Items":
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{"Name":"Firefly","ProviderIds":{"Tmdb":"1437"}}
+				],
+				"TotalRecordCount": 1
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewEmbyClient(srv.URL, testTautulliAPIKey)
+	favs, err := client.GetWatchlistItems()
+	if err != nil {
+		t.Fatalf("GetWatchlistItems should succeed: %v", err)
+	}
+	// Union of both users' favorites
+	if len(favs) != 2 {
+		t.Fatalf("Expected 2 watchlist items (union), got %d", len(favs))
+	}
+	if !favs[16320] {
+		t.Error("Expected TMDb ID 16320 (Serenity) in watchlist")
+	}
+	if !favs[1437] {
+		t.Error("Expected TMDb ID 1437 (Firefly) in watchlist")
 	}
 }

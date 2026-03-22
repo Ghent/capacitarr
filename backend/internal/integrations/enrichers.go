@@ -10,6 +10,7 @@ import (
 // BulkWatchEnricher enriches media items with bulk watch data from any
 // WatchDataProvider (Plex, Jellyfin, Emby). Only populates items that don't
 // already have watch data (PlayCount == 0) so higher-priority enrichers win.
+// Matches items by TMDb ID for deterministic, unambiguous matching.
 type BulkWatchEnricher struct {
 	name     string
 	priority int
@@ -27,7 +28,7 @@ func (e *BulkWatchEnricher) Name() string { return e.name }
 // Priority implements Enricher.
 func (e *BulkWatchEnricher) Priority() int { return e.priority }
 
-// Enrich implements Enricher by fetching bulk watch data and merging by title key.
+// Enrich implements Enricher by fetching bulk watch data and merging by TMDb ID.
 func (e *BulkWatchEnricher) Enrich(items []MediaItem) error {
 	watchMap, err := e.provider.GetBulkWatchData()
 	if err != nil {
@@ -36,8 +37,10 @@ func (e *BulkWatchEnricher) Enrich(items []MediaItem) error {
 	matched := 0
 	for i := range items {
 		item := &items[i]
-		titleKey := normalizedTitleKey(item)
-		if wd, ok := watchMap[titleKey]; ok {
+		if item.TMDbID == 0 {
+			continue // Skip items without TMDb ID
+		}
+		if wd, ok := watchMap[item.TMDbID]; ok {
 			// Only enrich if no higher-priority enricher already set watch data
 			if item.PlayCount == 0 {
 				item.PlayCount = wd.PlayCount
@@ -182,7 +185,7 @@ func (e *WatchlistEnricher) Name() string { return e.name }
 // Priority implements Enricher.
 func (e *WatchlistEnricher) Priority() int { return e.priority }
 
-// Enrich implements Enricher by applying watchlist flags to items.
+// Enrich implements Enricher by applying watchlist flags to items via TMDb ID matching.
 func (e *WatchlistEnricher) Enrich(items []MediaItem) error {
 	watchlistSet, err := e.provider.GetWatchlistItems()
 	if err != nil {
@@ -197,8 +200,10 @@ func (e *WatchlistEnricher) Enrich(items []MediaItem) error {
 		if item.OnWatchlist {
 			continue // Already set by a higher-priority enricher
 		}
-		titleKey := normalizedTitleKey(item)
-		if watchlistSet[titleKey] {
+		if item.TMDbID == 0 {
+			continue // Skip items without TMDb ID
+		}
+		if watchlistSet[item.TMDbID] {
 			item.OnWatchlist = true
 			matched++
 		}

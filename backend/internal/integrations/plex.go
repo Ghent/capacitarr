@@ -3,7 +3,9 @@ package integrations
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -58,18 +60,20 @@ type plexMediaResponse struct {
 }
 
 type plexMetadata struct {
-	RatingKey        string  `json:"ratingKey"`
-	Title            string  `json:"title"`
-	ParentTitle      string  `json:"parentTitle,omitempty"`
-	GrandparentTitle string  `json:"grandparentTitle,omitempty"`
-	Year             int     `json:"year"`
-	Type             string  `json:"type"` // movie, show, season, episode
-	AudienceRating   float64 `json:"audienceRating"`
-	Rating           float64 `json:"rating"`
-	ViewCount        int     `json:"viewCount"`
-	LastViewedAt     int64   `json:"lastViewedAt"`
-	AddedAt          int64   `json:"addedAt"`
-	Duration         int64   `json:"duration"`
+	RatingKey        string     `json:"ratingKey"`
+	Title            string     `json:"title"`
+	ParentTitle      string     `json:"parentTitle,omitempty"`
+	GrandparentTitle string     `json:"grandparentTitle,omitempty"`
+	Year             int        `json:"year"`
+	Type             string     `json:"type"` // movie, show, season, episode
+	AudienceRating   float64    `json:"audienceRating"`
+	Rating           float64    `json:"rating"`
+	ViewCount        int        `json:"viewCount"`
+	LastViewedAt     int64      `json:"lastViewedAt"`
+	AddedAt          int64      `json:"addedAt"`
+	Duration         int64      `json:"duration"`
+	GUID             string     `json:"guid"`           // Primary GUID (e.g. "plex://movie/...")
+	GUIDs            []plexGUID `json:"Guid,omitempty"` // Additional GUIDs including TMDb references
 	Genre            []struct {
 		Tag string `json:"tag"`
 	} `json:"Genre"`
@@ -84,6 +88,30 @@ type plexMetadata struct {
 	} `json:"Media"`
 	Index     int `json:"index,omitempty"`     // season/episode number
 	LeafCount int `json:"leafCount,omitempty"` // episode count (for shows/seasons)
+}
+
+// plexGUID represents a GUID entry from the Plex API.
+type plexGUID struct {
+	ID string `json:"id"` // e.g. "tmdb://12345", "imdb://tt1234567", "tvdb://54321"
+}
+
+// plexTMDbIDRegex matches TMDb IDs in Plex GUID strings like "tmdb://12345".
+var plexTMDbIDRegex = regexp.MustCompile(`^tmdb://(\d+)$`)
+
+// plexExtractTMDbID extracts the TMDb ID from a Plex item's GUIDs array.
+// Plex stores GUIDs as "tmdb://12345", "imdb://tt1234567", etc.
+// Returns 0 if no TMDb GUID is found.
+func plexExtractTMDbID(guids []plexGUID) int {
+	for _, g := range guids {
+		matches := plexTMDbIDRegex.FindStringSubmatch(g.ID)
+		if len(matches) == 2 {
+			id, err := strconv.Atoi(matches[1])
+			if err == nil {
+				return id
+			}
+		}
+	}
+	return 0
 }
 
 // getMediaItems fetches all movies, shows, and seasons from all Plex libraries.
@@ -195,6 +223,7 @@ func plexMetadataToMediaItem(m plexMetadata) *MediaItem {
 		Type:        mediaType,
 		Title:       m.Title,
 		Year:        m.Year,
+		TMDbID:      plexExtractTMDbID(m.GUIDs),
 		SizeBytes:   totalSize,
 		Path:        filePath,
 		Rating:      rating,
@@ -246,41 +275,88 @@ type PlexLibrarySection struct {
 }
 
 // GetBulkWatchData fetches all movies and shows from Plex libraries and returns
-// a map from normalized (lowercase) title to watch data. This allows enriching
-// *arr items with Plex watch history by title matching.
-func (p *PlexClient) GetBulkWatchData() (map[string]*WatchData, error) {
-	items, err := p.getMediaItems()
+// a map keyed by TMDb ID to watch data. TMDb IDs are extracted from Plex GUIDs.
+// Items without a parseable TMDb GUID are skipped.
+func (p *PlexClient) GetBulkWatchData() (map[int]*WatchData, error) {
+	body, err := p.doRequest("/library/sections")
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch Plex items: %w", err)
+		return nil, fmt.Errorf("failed to fetch Plex library sections: %w", err)
 	}
 
-	result := make(map[string]*WatchData)
-	for _, item := range items {
-		key := strings.ToLower(strings.TrimSpace(item.Title))
-		if key == "" {
+	var libs plexLibraryResponse
+	if err := json.Unmarshal(body, &libs); err != nil {
+		return nil, fmt.Errorf("failed to parse library sections: %w", err)
+	}
+
+	result := make(map[int]*WatchData)
+	for _, lib := range libs.MediaContainer.Directory {
+		if lib.Type != string(MediaTypeMovie) && lib.Type != string(MediaTypeShow) {
 			continue
 		}
-		data := &WatchData{
-			PlayCount:  item.PlayCount,
-			LastPlayed: item.LastPlayed,
+
+		itemBody, err := p.doRequest(fmt.Sprintf("/library/sections/%s/all", lib.Key))
+		if err != nil {
+			continue
 		}
-		// Keep the entry with the highest play count if duplicates
-		if existing, ok := result[key]; ok {
-			if data.PlayCount > existing.PlayCount {
-				result[key] = data
+
+		var media plexMediaResponse
+		if err := json.Unmarshal(itemBody, &media); err != nil {
+			continue
+		}
+
+		for _, m := range media.MediaContainer.Metadata {
+			tmdbID := plexExtractTMDbID(m.GUIDs)
+			if tmdbID == 0 {
+				continue
 			}
-		} else {
-			result[key] = data
+
+			var lastPlayed *time.Time
+			if m.LastViewedAt > 0 {
+				t := time.Unix(m.LastViewedAt, 0)
+				lastPlayed = &t
+			}
+
+			data := &WatchData{
+				PlayCount:  m.ViewCount,
+				LastPlayed: lastPlayed,
+			}
+			// Keep the entry with the highest play count if duplicates
+			if existing, ok := result[tmdbID]; ok {
+				if data.PlayCount > existing.PlayCount {
+					result[tmdbID] = data
+				}
+			} else {
+				result[tmdbID] = data
+			}
 		}
 	}
 	return result, nil
 }
 
-// GetOnDeckItems returns a set of normalized title keys for items on the Plex
-// "On Deck" list. On-deck items are those a user has started watching or that
-// are next in a series they are watching — a strong signal of active interest.
-// The returned map is keyed by lowercase title for matching against *arr items.
-func (p *PlexClient) GetOnDeckItems() (map[string]bool, error) {
+// GetTMDbToRatingKeyMap builds a mapping from TMDb ID to Plex ratingKey by
+// scanning all movie and show libraries. This is used by the Tautulli enricher
+// to translate TMDb IDs from *arr items into Plex rating keys for per-item
+// watch history queries. Built and consumed within a single poll cycle — not cached.
+func (p *PlexClient) GetTMDbToRatingKeyMap() (map[int]string, error) {
+	items, err := p.getMediaItems()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch Plex items for TMDb mapping: %w", err)
+	}
+
+	result := make(map[int]string)
+	for _, item := range items {
+		if item.TMDbID > 0 && item.ExternalID != "" {
+			result[item.TMDbID] = item.ExternalID
+		}
+	}
+	return result, nil
+}
+
+// GetOnDeckItems returns a set of TMDb IDs for items on the Plex "On Deck" list.
+// On-deck items are those a user has started watching or that are next in a
+// series they are watching — a strong signal of active interest.
+// The returned map is keyed by TMDb ID for matching against *arr items.
+func (p *PlexClient) GetOnDeckItems() (map[int]bool, error) {
 	body, err := p.doRequest("/library/onDeck")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Plex on-deck items: %w", err)
@@ -291,16 +367,11 @@ func (p *PlexClient) GetOnDeckItems() (map[string]bool, error) {
 		return nil, fmt.Errorf("failed to parse Plex on-deck response: %w", err)
 	}
 
-	result := make(map[string]bool)
+	result := make(map[int]bool)
 	for _, m := range resp.MediaContainer.Metadata {
-		// For episodes, use the show title (grandparentTitle) so the show-level
-		// item from *arr will match. For movies, use the title directly.
-		key := strings.ToLower(strings.TrimSpace(m.Title))
-		if m.GrandparentTitle != "" {
-			key = strings.ToLower(strings.TrimSpace(m.GrandparentTitle))
-		}
-		if key != "" {
-			result[key] = true
+		tmdbID := plexExtractTMDbID(m.GUIDs)
+		if tmdbID > 0 {
+			result[tmdbID] = true
 		}
 	}
 	return result, nil
@@ -334,8 +405,9 @@ func (p *PlexClient) GetCollectionNames() ([]string, error) {
 	return names, nil
 }
 
-// GetWatchlistItems implements WatchlistProvider by returning Plex on-deck items.
-func (p *PlexClient) GetWatchlistItems() (map[string]bool, error) {
+// GetWatchlistItems implements WatchlistProvider by returning Plex on-deck items
+// keyed by TMDb ID.
+func (p *PlexClient) GetWatchlistItems() (map[int]bool, error) {
 	return p.GetOnDeckItems()
 }
 

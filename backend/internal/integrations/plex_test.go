@@ -95,6 +95,7 @@ func TestPlexClient_getMediaItems_Movies(t *testing.T) {
 					ViewCount:      3,
 					LastViewedAt:   1700000000,
 					AddedAt:        1680000000,
+					GUIDs:          []plexGUID{{ID: "tmdb://16320"}, {ID: "imdb://tt0379786"}},
 					Genre: []struct {
 						Tag string `json:"tag"`
 					}{{Tag: "Action"}, {Tag: "Sci-Fi"}},
@@ -116,6 +117,7 @@ func TestPlexClient_getMediaItems_Movies(t *testing.T) {
 					Year:      2014,
 					Type:      "movie",
 					Rating:    9.0, // Only critic rating, no audience
+					GUIDs:     []plexGUID{{ID: "tmdb://99999"}},
 					Media: []struct {
 						Part []struct {
 							File string `json:"file"`
@@ -161,6 +163,9 @@ func TestPlexClient_getMediaItems_Movies(t *testing.T) {
 	}
 	if movie.ExternalID != "101" {
 		t.Errorf("Expected ExternalID '101', got %q", movie.ExternalID)
+	}
+	if movie.TMDbID != 16320 {
+		t.Errorf("Expected TMDbID 16320, got %d", movie.TMDbID)
 	}
 	if movie.SizeBytes != 8000000000 {
 		t.Errorf("Expected SizeBytes 8000000000, got %d", movie.SizeBytes)
@@ -216,6 +221,7 @@ func TestPlexClient_getMediaItems_ShowLibrary(t *testing.T) {
 					Year:      2008,
 					Type:      "show",
 					Rating:    9.5,
+					GUIDs:     []plexGUID{{ID: "tmdb://1437"}},
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -382,6 +388,7 @@ func TestPlexClient_SeasonMetadata(t *testing.T) {
 		Type:        "season",
 		Index:       2,
 		LeafCount:   13,
+		GUIDs:       []plexGUID{{ID: "tmdb://1437"}},
 		Media: []struct {
 			Part []struct {
 				File string `json:"file"`
@@ -453,6 +460,7 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 					Type:         "movie",
 					ViewCount:    5,
 					LastViewedAt: 1700000000,
+					GUIDs:        []plexGUID{{ID: "tmdb://16320"}},
 				},
 				{
 					RatingKey: "102",
@@ -460,6 +468,7 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 					Year:      2014,
 					Type:      "movie",
 					ViewCount: 0,
+					GUIDs:     []plexGUID{{ID: "tmdb://99999"}},
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -481,31 +490,25 @@ func TestPlexClient_GetBulkWatchData_Movies(t *testing.T) {
 		t.Fatalf("Expected 2 entries, got %d", len(watchMap))
 	}
 
-	// Verify title normalization (lowercase)
-	movie1, ok := watchMap["serenity"]
+	// Verify keyed by TMDb ID
+	movie1, ok := watchMap[16320]
 	if !ok {
-		t.Fatal("Expected 'serenity' key in watch map")
+		t.Fatal("Expected TMDb ID 16320 key in watch map")
 	}
 	if movie1.PlayCount != 5 {
 		t.Errorf("Expected PlayCount 5, got %d", movie1.PlayCount)
-	}
-	if movie1.PlayCount == 0 {
-		t.Error("Expected Played=true for Serenity")
 	}
 	if movie1.LastPlayed == nil {
 		t.Error("Expected LastPlayed to be set for Serenity")
 	}
 
 	// Unwatched movie should still be in map with PlayCount=0
-	movie2, ok := watchMap["serenity 2"]
+	movie2, ok := watchMap[99999]
 	if !ok {
-		t.Fatal("Expected 'serenity 2' key in watch map")
+		t.Fatal("Expected TMDb ID 99999 key in watch map")
 	}
 	if movie2.PlayCount != 0 {
 		t.Errorf("Expected PlayCount 0, got %d", movie2.PlayCount)
-	}
-	if movie2.PlayCount > 0 {
-		t.Error("Expected Played=false for Serenity 2")
 	}
 	if movie2.LastPlayed != nil {
 		t.Error("Expected LastPlayed to be nil for Serenity 2")
@@ -538,6 +541,7 @@ func TestPlexClient_GetBulkWatchData_Shows(t *testing.T) {
 					Type:         "show",
 					ViewCount:    10,
 					LastViewedAt: 1700000000,
+					GUIDs:        []plexGUID{{ID: "tmdb://1437"}},
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -555,16 +559,16 @@ func TestPlexClient_GetBulkWatchData_Shows(t *testing.T) {
 		t.Fatalf("GetBulkWatchData should succeed: %v", err)
 	}
 
-	show, ok := watchMap["firefly"]
+	show, ok := watchMap[1437]
 	if !ok {
-		t.Fatal("Expected 'firefly' key in watch map")
+		t.Fatal("Expected TMDb ID 1437 key in watch map")
 	}
 	if show.PlayCount != 10 {
 		t.Errorf("Expected PlayCount 10, got %d", show.PlayCount)
 	}
 }
 
-func TestPlexClient_GetBulkWatchData_DuplicateTitle(t *testing.T) {
+func TestPlexClient_GetBulkWatchData_DuplicateTMDbID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
@@ -589,13 +593,15 @@ func TestPlexClient_GetBulkWatchData_DuplicateTitle(t *testing.T) {
 					Year:      2005,
 					Type:      "movie",
 					ViewCount: 2,
+					GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
 				},
 				{
 					RatingKey: "102",
-					Title:     "Serenity",
-					Year:      2024,
+					Title:     "Serenity (Special Edition)",
+					Year:      2005,
 					Type:      "movie",
 					ViewCount: 7,
+					GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -614,12 +620,77 @@ func TestPlexClient_GetBulkWatchData_DuplicateTitle(t *testing.T) {
 	}
 
 	// Should keep the entry with the highest play count
-	serenity, ok := watchMap["serenity"]
+	serenity, ok := watchMap[16320]
 	if !ok {
-		t.Fatal("Expected 'serenity' key in watch map")
+		t.Fatal("Expected TMDb ID 16320 key in watch map")
 	}
 	if serenity.PlayCount != 7 {
 		t.Errorf("Expected highest PlayCount 7, got %d", serenity.PlayCount)
+	}
+}
+
+func TestPlexClient_GetBulkWatchData_SkipsMissingTMDbGUID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case testPlexPathSections:
+			resp := plexLibraryResponse{}
+			resp.MediaContainer.Directory = []struct {
+				Key   string `json:"key"`
+				Title string `json:"title"`
+				Type  string `json:"type"`
+			}{
+				{Key: "1", Title: "Movies", Type: "movie"},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Fatalf("Failed to encode: %v", err)
+			}
+		case testPlexPathMoviesAll:
+			resp := plexMediaResponse{}
+			resp.MediaContainer.Metadata = []plexMetadata{
+				{
+					RatingKey: "101",
+					Title:     "No GUIDs Movie",
+					Type:      "movie",
+					ViewCount: 1,
+					// No Guids — should be skipped
+				},
+				{
+					RatingKey: "102",
+					Title:     "Only IMDB GUID",
+					Type:      "movie",
+					ViewCount: 2,
+					GUIDs:     []plexGUID{{ID: "imdb://tt1234567"}},
+				},
+				{
+					RatingKey: "103",
+					Title:     "Serenity",
+					Type:      "movie",
+					ViewCount: 3,
+					GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
+				},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Fatalf("Failed to encode: %v", err)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewPlexClient(srv.URL, "test-token")
+	watchMap, err := client.GetBulkWatchData()
+	if err != nil {
+		t.Fatalf("GetBulkWatchData should succeed: %v", err)
+	}
+
+	// Only item with TMDb GUID should be in result
+	if len(watchMap) != 1 {
+		t.Fatalf("Expected 1 entry (missing TMDb GUIDs skipped), got %d", len(watchMap))
+	}
+	if _, ok := watchMap[16320]; !ok {
+		t.Error("Expected TMDb ID 16320 key in watch map")
 	}
 }
 
@@ -664,6 +735,7 @@ func TestPlexClient_MultiPartMedia(t *testing.T) {
 		RatingKey: "500",
 		Title:     "Serenity",
 		Type:      "movie",
+		GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
 		Media: []struct {
 			Part []struct {
 				File string `json:"file"`
@@ -693,16 +765,23 @@ func TestPlexClient_MultiPartMedia(t *testing.T) {
 	}
 }
 
-func TestPlexClient_GetOnDeckItems_Movies(t *testing.T) {
+func TestPlexClient_GetOnDeckItems(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/library/onDeck" {
-			resp := map[string]any{
-				"MediaContainer": map[string]any{
-					"Metadata": []map[string]any{
-						{"ratingKey": "101", "title": "Serenity", "type": "movie"},
-						{"ratingKey": "102", "title": "Serenity 2", "type": "movie"},
-					},
+			resp := plexMediaResponse{}
+			resp.MediaContainer.Metadata = []plexMetadata{
+				{
+					RatingKey: "101",
+					Title:     "Serenity",
+					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
+				},
+				{
+					RatingKey: "102",
+					Title:     "Serenity 2",
+					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://99999"}},
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -722,34 +801,33 @@ func TestPlexClient_GetOnDeckItems_Movies(t *testing.T) {
 	if len(onDeck) != 2 {
 		t.Fatalf("Expected 2 on-deck items, got %d", len(onDeck))
 	}
-	if !onDeck["serenity"] {
-		t.Error("Expected 'serenity' in on-deck map")
+	if !onDeck[16320] {
+		t.Error("Expected TMDb ID 16320 (Serenity) in on-deck map")
 	}
-	if !onDeck["serenity 2"] {
-		t.Error("Expected 'serenity 2' in on-deck map")
+	if !onDeck[99999] {
+		t.Error("Expected TMDb ID 99999 (Serenity 2) in on-deck map")
 	}
 }
 
-func TestPlexClient_GetOnDeckItems_EpisodesUseShowTitle(t *testing.T) {
+func TestPlexClient_GetOnDeckItems_Episodes(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/library/onDeck" {
-			resp := map[string]any{
-				"MediaContainer": map[string]any{
-					"Metadata": []map[string]any{
-						{
-							"ratingKey":        "301",
-							"title":            "The Train Job",
-							"type":             "episode",
-							"grandparentTitle": "Firefly",
-						},
-						{
-							"ratingKey":        "302",
-							"title":            "Bushwhacked",
-							"type":             "episode",
-							"grandparentTitle": "Firefly",
-						},
-					},
+			resp := plexMediaResponse{}
+			resp.MediaContainer.Metadata = []plexMetadata{
+				{
+					RatingKey:        "301",
+					Title:            "The Train Job",
+					Type:             "episode",
+					GrandparentTitle: "Firefly",
+					GUIDs:            []plexGUID{{ID: "tmdb://1437"}},
+				},
+				{
+					RatingKey:        "302",
+					Title:            "Bushwhacked",
+					Type:             "episode",
+					GrandparentTitle: "Firefly",
+					GUIDs:            []plexGUID{{ID: "tmdb://1437"}},
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -766,12 +844,53 @@ func TestPlexClient_GetOnDeckItems_EpisodesUseShowTitle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetOnDeckItems should succeed: %v", err)
 	}
-	// Both episodes from the same show should produce a single "firefly" key
+	// Both episodes from the same show share TMDb ID 1437, so result is deduplicated
 	if len(onDeck) != 1 {
-		t.Fatalf("Expected 1 show key (deduplicated), got %d", len(onDeck))
+		t.Fatalf("Expected 1 on-deck item (deduplicated by TMDb ID), got %d", len(onDeck))
 	}
-	if !onDeck["firefly"] {
-		t.Error("Expected 'firefly' in on-deck map (from grandparentTitle)")
+	if !onDeck[1437] {
+		t.Error("Expected TMDb ID 1437 (Firefly) in on-deck map")
+	}
+}
+
+func TestPlexClient_GetOnDeckItems_SkipsMissingTMDbGUID(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/library/onDeck" {
+			resp := plexMediaResponse{}
+			resp.MediaContainer.Metadata = []plexMetadata{
+				{
+					RatingKey: "101",
+					Title:     "No GUID Movie",
+					Type:      "movie",
+					// No Guids — should be skipped
+				},
+				{
+					RatingKey: "102",
+					Title:     "Serenity",
+					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
+				},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Fatalf("Failed to encode: %v", err)
+			}
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	client := NewPlexClient(srv.URL, "test-token")
+	onDeck, err := client.GetOnDeckItems()
+	if err != nil {
+		t.Fatalf("GetOnDeckItems should succeed: %v", err)
+	}
+	if len(onDeck) != 1 {
+		t.Fatalf("Expected 1 on-deck item (missing TMDb GUID skipped), got %d", len(onDeck))
+	}
+	if !onDeck[16320] {
+		t.Error("Expected TMDb ID 16320 in on-deck map")
 	}
 }
 
@@ -832,6 +951,7 @@ func TestPlexClient_GetCollectionNames(t *testing.T) {
 					RatingKey: "101",
 					Title:     "Serenity",
 					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
 					Collection: []struct {
 						Tag string `json:"tag"`
 					}{{Tag: "Joss Whedon"}, {Tag: "Sci-Fi Classics"}},
@@ -840,6 +960,7 @@ func TestPlexClient_GetCollectionNames(t *testing.T) {
 					RatingKey: "102",
 					Title:     "Firefly: The Movie",
 					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://1437"}},
 					Collection: []struct {
 						Tag string `json:"tag"`
 					}{{Tag: "Joss Whedon"}, {Tag: "Space Westerns"}},
@@ -848,6 +969,7 @@ func TestPlexClient_GetCollectionNames(t *testing.T) {
 					RatingKey: "103",
 					Title:     "No Collections Movie",
 					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://55555"}},
 				},
 			}
 			if err := json.NewEncoder(w).Encode(resp); err != nil {
@@ -909,5 +1031,94 @@ func TestPlexClient_GetCollectionNames_APIError(t *testing.T) {
 	_, err := client.GetCollectionNames()
 	if err == nil {
 		t.Fatal("Expected error for API failure")
+	}
+}
+
+func TestPlexClient_GetTMDbToRatingKeyMap(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case testPlexPathSections:
+			resp := plexLibraryResponse{}
+			resp.MediaContainer.Directory = []struct {
+				Key   string `json:"key"`
+				Title string `json:"title"`
+				Type  string `json:"type"`
+			}{
+				{Key: "1", Title: "Movies", Type: "movie"},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Fatalf("Failed to encode: %v", err)
+			}
+		case testPlexPathMoviesAll:
+			resp := plexMediaResponse{}
+			resp.MediaContainer.Metadata = []plexMetadata{
+				{
+					RatingKey: "101",
+					Title:     "Serenity",
+					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://16320"}},
+				},
+				{
+					RatingKey: "102",
+					Title:     "Firefly: The Movie",
+					Type:      "movie",
+					GUIDs:     []plexGUID{{ID: "tmdb://1437"}},
+				},
+				{
+					RatingKey: "103",
+					Title:     "No GUID Movie",
+					Type:      "movie",
+					// No Guids — should not appear in map
+				},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Fatalf("Failed to encode: %v", err)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewPlexClient(srv.URL, "test-token")
+	tmdbMap, err := client.GetTMDbToRatingKeyMap()
+	if err != nil {
+		t.Fatalf("GetTMDbToRatingKeyMap should succeed: %v", err)
+	}
+
+	// Only items with TMDb GUIDs should be in the map
+	if len(tmdbMap) != 2 {
+		t.Fatalf("Expected 2 entries, got %d", len(tmdbMap))
+	}
+	if tmdbMap[16320] != "101" {
+		t.Errorf("Expected TMDb 16320 → ratingKey '101', got %q", tmdbMap[16320])
+	}
+	if tmdbMap[1437] != "102" {
+		t.Errorf("Expected TMDb 1437 → ratingKey '102', got %q", tmdbMap[1437])
+	}
+}
+
+func TestPlexExtractTMDbID(t *testing.T) {
+	tests := []struct {
+		name  string
+		guids []plexGUID
+		want  int
+	}{
+		{"valid TMDb GUID", []plexGUID{{ID: "tmdb://16320"}}, 16320},
+		{"TMDb among others", []plexGUID{{ID: "imdb://tt0379786"}, {ID: "tmdb://16320"}, {ID: "tvdb://54321"}}, 16320},
+		{"no TMDb GUID", []plexGUID{{ID: "imdb://tt0379786"}, {ID: "tvdb://54321"}}, 0},
+		{"empty guids", []plexGUID{}, 0},
+		{"nil guids", nil, 0},
+		{"malformed TMDb GUID", []plexGUID{{ID: "tmdb://notanumber"}}, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := plexExtractTMDbID(tt.guids)
+			if got != tt.want {
+				t.Errorf("plexExtractTMDbID(%v) = %d, want %d", tt.guids, got, tt.want)
+			}
+		})
 	}
 }

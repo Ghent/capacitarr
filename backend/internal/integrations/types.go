@@ -67,9 +67,11 @@ type MediaDeleter interface {
 }
 
 // WatchDataProvider is implemented by integrations that can supply bulk watch data.
-// Implementations resolve any internal setup (e.g. admin user ID) internally.
+// Returns a map keyed by TMDb ID for deterministic matching against *arr items.
+// Implementations resolve any internal setup (e.g. admin user ID, TMDb ID
+// extraction from ProviderIds/GUIDs) internally.
 type WatchDataProvider interface {
-	GetBulkWatchData() (map[string]*WatchData, error)
+	GetBulkWatchData() (map[int]*WatchData, error)
 }
 
 // WatchData holds watch statistics for a single media item.
@@ -93,8 +95,9 @@ type MediaRequest struct {
 }
 
 // WatchlistProvider is implemented by integrations that can report watchlist/favorites.
+// Returns a map keyed by TMDb ID for deterministic matching against *arr items.
 type WatchlistProvider interface {
-	GetWatchlistItems() (map[string]bool, error)
+	GetWatchlistItems() (map[int]bool, error)
 }
 
 // DiskSpace represents disk usage reported by a service
