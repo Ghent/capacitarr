@@ -445,8 +445,38 @@ export interface RuleResolution {
   candidates: IntCandidate[];
 }
 
+export interface ItemResolution {
+  name: string;
+  type?: string;
+  action: 'create' | 'update' | 'unchanged';
+  changes?: FieldChange[];
+}
+
+export interface FieldChange {
+  field: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface PreferencesResolution {
+  action: 'update' | 'unchanged';
+  changes?: FieldChange[];
+}
+
+export interface DeletionPreview {
+  rules?: string[];
+  integrations?: string[];
+  notifications?: string[];
+  diskGroups?: string[];
+}
+
 export interface ImportPreview {
   rules: RuleResolution[];
+  integrations?: ItemResolution[];
+  notifications?: ItemResolution[];
+  diskGroups?: ItemResolution[];
+  preferences?: PreferencesResolution;
+  deletions?: DeletionPreview;
 }
 
 export interface RuleOverride {

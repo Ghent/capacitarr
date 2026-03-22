@@ -907,7 +907,8 @@ func TestBackupService_PreviewImport_MatchedAndUnmatched(t *testing.T) {
 		},
 	}
 
-	preview, err := svc.PreviewImport(envelope)
+	sections := ImportSections{Rules: true}
+	preview, err := svc.PreviewImport(envelope, sections)
 	if err != nil {
 		t.Fatalf("PreviewImport returned error: %v", err)
 	}
@@ -1296,6 +1297,118 @@ func TestBackupService_Import_SyncMode_IncludesPreImportSnapshot(t *testing.T) {
 	}
 	if len(result.PreImportSnapshot.Integrations) != 1 {
 		t.Errorf("expected 1 integration in snapshot, got %d", len(result.PreImportSnapshot.Integrations))
+	}
+}
+
+func TestBackupService_PreviewImport_AllSections(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+
+	// Seed existing data
+	database.Create(&db.IntegrationConfig{
+		Type: "sonarr", Name: "Firefly Sonarr", URL: "http://sonarr:8989",
+		APIKey: "key-1", Enabled: true,
+	})
+	database.Create(&db.IntegrationConfig{
+		Type: "radarr", Name: "Serenity Radarr", URL: "http://radarr:7878",
+		APIKey: "key-2", Enabled: true,
+	})
+	database.Create(&db.NotificationConfig{
+		Type: "discord", Name: "Firefly Alerts",
+		WebhookURL: "https://discord.com/api/webhooks/1", Enabled: true,
+	})
+	database.Create(&db.DiskGroup{
+		MountPath: "/mnt/media", ThresholdPct: 85, TargetPct: 75,
+	})
+
+	sonarrType := "sonarr"
+	sonarrName := "Firefly Sonarr"
+
+	envelope := SettingsExportEnvelope{
+		Version: 1,
+		Preferences: &PreferencesExport{
+			LogLevel: "debug", ExecutionMode: "live",
+			PollIntervalSeconds: 300, AuditLogRetentionDays: 30,
+			TiebreakerMethod: "newest", DeletionsEnabled: true,
+			SnoozeDurationHours: 24, CheckForUpdates: true,
+		},
+		Integrations: []IntegrationExport{
+			{Name: "Firefly Sonarr", Type: "sonarr", URL: "http://sonarr-new:8989", Enabled: true},
+			{Name: "New Lidarr", Type: "lidarr", URL: "http://lidarr:8686", Enabled: true},
+		},
+		Rules: []RuleExport{
+			{Field: "quality", Operator: "==", Value: "4K", Effect: "always_keep",
+				Enabled: true, IntegrationType: &sonarrType, IntegrationName: &sonarrName},
+		},
+		NotificationChannels: []NotificationExport{
+			{Name: "Firefly Alerts", Type: "discord", Enabled: true},
+			{Name: "New Apprise", Type: "apprise", Enabled: true},
+		},
+		DiskGroups: []DiskGroupExport{
+			{MountPath: "/mnt/media", ThresholdPct: 90, TargetPct: 80},
+		},
+	}
+
+	sections := ImportSections{
+		Preferences: true, Rules: true, Integrations: true,
+		NotificationChannels: true, DiskGroups: true, Mode: ImportModeSync,
+	}
+
+	preview, err := svc.PreviewImport(envelope, sections)
+	if err != nil {
+		t.Fatalf("PreviewImport returned error: %v", err)
+	}
+
+	// Check preferences
+	if preview.Preferences == nil {
+		t.Fatal("expected preferences preview")
+	}
+	if preview.Preferences.Action != "update" {
+		t.Errorf("expected preferences action 'update', got %q", preview.Preferences.Action)
+	}
+
+	// Check integrations
+	if len(preview.Integrations) != 2 {
+		t.Fatalf("expected 2 integration resolutions, got %d", len(preview.Integrations))
+	}
+	// Sonarr should be update (URL changed)
+	if preview.Integrations[0].Action != "update" {
+		t.Errorf("expected sonarr action 'update', got %q", preview.Integrations[0].Action)
+	}
+	// Lidarr should be create (new)
+	if preview.Integrations[1].Action != "create" {
+		t.Errorf("expected lidarr action 'create', got %q", preview.Integrations[1].Action)
+	}
+
+	// Check rules
+	if len(preview.Rules) != 1 {
+		t.Fatalf("expected 1 rule resolution, got %d", len(preview.Rules))
+	}
+	if preview.Rules[0].Resolution != "matched" {
+		t.Errorf("expected rule resolution 'matched', got %q", preview.Rules[0].Resolution)
+	}
+
+	// Check notifications
+	if len(preview.Notifications) != 2 {
+		t.Fatalf("expected 2 notification resolutions, got %d", len(preview.Notifications))
+	}
+
+	// Check disk groups
+	if len(preview.DiskGroups) != 1 {
+		t.Fatalf("expected 1 disk group resolution, got %d", len(preview.DiskGroups))
+	}
+	if preview.DiskGroups[0].Action != "update" {
+		t.Errorf("expected disk group action 'update', got %q", preview.DiskGroups[0].Action)
+	}
+
+	// Check sync-mode deletions
+	if preview.Deletions == nil {
+		t.Fatal("expected deletion preview in sync mode")
+	}
+	if len(preview.Deletions.Integrations) != 1 {
+		t.Errorf("expected 1 integration to delete (radarr), got %d", len(preview.Deletions.Integrations))
 	}
 }
 

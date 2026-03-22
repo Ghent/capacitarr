@@ -1,6 +1,6 @@
 # Backup/Restore Rework — Smarter, Safer, Consistent UX
 
-> **Status:** 📋 Planned
+> **Status:** 🔄 In Progress — Phases 1, 3, and 4 (partial) complete
 > **Created:** 2026-03-22
 > **Branch:** from `feature/2.0`
 > **Supersedes:** `20260316T1319Z-backup-restore-robustness-overhaul.md` (Phase 1-3 were completed on 1.x; this plan addresses the remaining gaps and new requirements for 2.0)

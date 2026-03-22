@@ -890,9 +890,50 @@ type IntCandidate struct {
 	Type string `json:"type"`
 }
 
+// Preview action constants for ItemResolution and PreferencesResolution.
+const (
+	previewActionCreate    = "create"
+	previewActionUpdate    = "update"
+	previewActionUnchanged = "unchanged"
+)
+
+// ItemResolution describes what will happen to a single item during import.
+type ItemResolution struct {
+	Name    string        `json:"name"`
+	Type    string        `json:"type,omitempty"`
+	Action  string        `json:"action"` // "create", "update", "unchanged"
+	Changes []FieldChange `json:"changes,omitempty"`
+}
+
+// FieldChange describes a single field-level change.
+type FieldChange struct {
+	Field    string `json:"field"`
+	OldValue string `json:"oldValue"`
+	NewValue string `json:"newValue"`
+}
+
+// PreferencesResolution describes changes to the singleton preferences.
+type PreferencesResolution struct {
+	Action  string        `json:"action"` // "update", "unchanged"
+	Changes []FieldChange `json:"changes,omitempty"`
+}
+
+// DeletionPreview lists items that would be deleted in sync mode.
+type DeletionPreview struct {
+	Rules         []string `json:"rules,omitempty"`
+	Integrations  []string `json:"integrations,omitempty"`
+	Notifications []string `json:"notifications,omitempty"`
+	DiskGroups    []string `json:"diskGroups,omitempty"`
+}
+
 // ImportPreview reports what would happen if the import were executed.
 type ImportPreview struct {
-	Rules []RuleResolution `json:"rules"`
+	Rules         []RuleResolution       `json:"rules"`
+	Integrations  []ItemResolution       `json:"integrations,omitempty"`
+	Notifications []ItemResolution       `json:"notifications,omitempty"`
+	DiskGroups    []ItemResolution       `json:"diskGroups,omitempty"`
+	Preferences   *PreferencesResolution `json:"preferences,omitempty"`
+	Deletions     *DeletionPreview       `json:"deletions,omitempty"`
 }
 
 // RuleOverride allows the user to manually assign an integration to a specific rule.
@@ -903,36 +944,128 @@ type RuleOverride struct {
 }
 
 // PreviewImport analyzes the export envelope against the current database and
-// reports how each rule would be resolved without committing any changes.
-func (s *BackupService) PreviewImport(envelope SettingsExportEnvelope) (*ImportPreview, error) {
+// reports how each section would be affected without committing any changes.
+// The sections parameter controls which sections to preview; syncMode controls
+// whether orphan deletions are reported.
+func (s *BackupService) PreviewImport(envelope SettingsExportEnvelope, sections ImportSections) (*ImportPreview, error) {
+	syncMode := isSyncMode(sections.Mode)
 	preview := &ImportPreview{
 		Rules: make([]RuleResolution, 0, len(envelope.Rules)),
 	}
 
-	// Load all integrations once for candidate lookup
+	// Load all integrations once (needed for rules AND integration preview)
 	var allIntegrations []db.IntegrationConfig
 	if err := s.db.Find(&allIntegrations).Error; err != nil {
 		return nil, fmt.Errorf("failed to load integrations for preview: %w", err)
 	}
 
+	// --- Preferences preview ---
+	if sections.Preferences && envelope.Preferences != nil {
+		preview.Preferences = s.previewPreferences(envelope.Preferences)
+	}
+
+	// --- Integration preview ---
+	if sections.Integrations && len(envelope.Integrations) > 0 {
+		preview.Integrations = s.previewIntegrations(envelope.Integrations, allIntegrations)
+	}
+
+	// --- Rules preview ---
+	if sections.Rules && len(envelope.Rules) > 0 {
+		preview.Rules = s.previewRules(envelope.Rules, allIntegrations)
+	}
+
+	// --- Notification preview ---
+	if sections.NotificationChannels && len(envelope.NotificationChannels) > 0 {
+		preview.Notifications = s.previewNotifications(envelope.NotificationChannels)
+	}
+
+	// --- Disk group preview ---
+	if sections.DiskGroups && len(envelope.DiskGroups) > 0 && s.diskGroups != nil {
+		preview.DiskGroups = s.previewDiskGroups(envelope.DiskGroups)
+	}
+
+	// --- Sync-mode deletion preview ---
+	if syncMode {
+		preview.Deletions = s.previewDeletions(envelope, sections, allIntegrations)
+	}
+
+	return preview, nil
+}
+
+// previewPreferences compares import preferences against current values.
+func (s *BackupService) previewPreferences(p *PreferencesExport) *PreferencesResolution {
+	var pref db.PreferenceSet
+	s.db.FirstOrCreate(&pref, db.PreferenceSet{ID: 1})
+
+	changes := make([]FieldChange, 0)
+	addChange := func(field, oldVal, newVal string) {
+		if oldVal != newVal {
+			changes = append(changes, FieldChange{Field: field, OldValue: oldVal, NewValue: newVal})
+		}
+	}
+
+	addChange("logLevel", pref.LogLevel, p.LogLevel)
+	addChange("executionMode", pref.ExecutionMode, p.ExecutionMode)
+	addChange("tiebreakerMethod", pref.TiebreakerMethod, p.TiebreakerMethod)
+	addChange("pollIntervalSeconds", fmt.Sprintf("%d", pref.PollIntervalSeconds), fmt.Sprintf("%d", p.PollIntervalSeconds))
+	addChange("auditLogRetentionDays", fmt.Sprintf("%d", pref.AuditLogRetentionDays), fmt.Sprintf("%d", p.AuditLogRetentionDays))
+	addChange("snoozeDurationHours", fmt.Sprintf("%d", pref.SnoozeDurationHours), fmt.Sprintf("%d", p.SnoozeDurationHours))
+	addChange("deletionsEnabled", fmt.Sprintf("%v", pref.DeletionsEnabled), fmt.Sprintf("%v", p.DeletionsEnabled))
+	addChange("checkForUpdates", fmt.Sprintf("%v", pref.CheckForUpdates), fmt.Sprintf("%v", p.CheckForUpdates))
+
+	action := previewActionUnchanged
+	if len(changes) > 0 {
+		action = previewActionUpdate
+	}
+	return &PreferencesResolution{Action: action, Changes: changes}
+}
+
+// previewIntegrations checks each imported integration against the current DB.
+func (s *BackupService) previewIntegrations(imports []IntegrationExport, existing []db.IntegrationConfig) []ItemResolution {
+	results := make([]ItemResolution, 0, len(imports))
+	existMap := make(map[string]*db.IntegrationConfig, len(existing))
+	for i := range existing {
+		existMap[existing[i].Type+":"+existing[i].Name] = &existing[i]
+	}
+
+	for _, ie := range imports {
+		key := ie.Type + ":" + ie.Name
+		if ex, ok := existMap[key]; ok {
+			changes := make([]FieldChange, 0)
+			if ex.URL != ie.URL {
+				changes = append(changes, FieldChange{Field: "url", OldValue: ex.URL, NewValue: ie.URL})
+			}
+			if ex.Enabled != ie.Enabled {
+				changes = append(changes, FieldChange{Field: "enabled", OldValue: fmt.Sprintf("%v", ex.Enabled), NewValue: fmt.Sprintf("%v", ie.Enabled)})
+			}
+			action := previewActionUnchanged
+			if len(changes) > 0 {
+				action = previewActionUpdate
+			}
+			results = append(results, ItemResolution{Name: ie.Name, Type: ie.Type, Action: action, Changes: changes})
+		} else {
+			results = append(results, ItemResolution{Name: ie.Name, Type: ie.Type, Action: previewActionCreate})
+		}
+	}
+	return results
+}
+
+// previewRules runs rule matching logic without committing.
+func (s *BackupService) previewRules(rules []RuleExport, allIntegrations []db.IntegrationConfig) []RuleResolution {
+	results := make([]RuleResolution, 0, len(rules))
 	autoMatchCache := make(map[string]*matchResult)
 
-	for i, r := range envelope.Rules {
-		res := RuleResolution{
-			Index: i,
-			Rule:  r,
-		}
+	for i, r := range rules {
+		res := RuleResolution{Index: i, Rule: r}
 
-		// Rule has no integration reference — mark as unmatched (every rule must belong to an integration)
 		if (r.IntegrationName == nil || *r.IntegrationName == "") &&
 			(r.IntegrationType == nil || *r.IntegrationType == "") {
 			res.Resolution = "unmatched"
-			preview.Rules = append(preview.Rules, res)
+			results = append(results, res)
 			continue
 		}
 
-		intName := ""
-		intType := ""
+		intName, intType := "", ""
 		if r.IntegrationName != nil {
 			intName = *r.IntegrationName
 		}
@@ -941,17 +1074,16 @@ func (s *BackupService) PreviewImport(envelope SettingsExportEnvelope) (*ImportP
 		}
 		lookupKey := intType + ":" + intName
 
-		// Check cache
 		if cached, ok := autoMatchCache[lookupKey]; ok {
 			res.Resolution = cached.resolution
 			res.MatchedIntID = cached.id
 			res.MatchedIntName = cached.name
 			res.Candidates = candidatesForType(allIntegrations, intType)
-			preview.Rules = append(preview.Rules, res)
+			results = append(results, res)
 			continue
 		}
 
-		// Strategy 1: Exact match by type and name
+		// Strategy 1: Exact match
 		matched := false
 		for idx := range allIntegrations {
 			ic := &allIntegrations[idx]
@@ -967,7 +1099,7 @@ func (s *BackupService) PreviewImport(envelope SettingsExportEnvelope) (*ImportP
 		}
 		if matched {
 			res.Candidates = candidatesForType(allIntegrations, intType)
-			preview.Rules = append(preview.Rules, res)
+			results = append(results, res)
 			continue
 		}
 
@@ -984,10 +1116,125 @@ func (s *BackupService) PreviewImport(envelope SettingsExportEnvelope) (*ImportP
 			autoMatchCache[lookupKey] = &matchResult{resolution: "unmatched"}
 		}
 		res.Candidates = typeMatches
-		preview.Rules = append(preview.Rules, res)
+		results = append(results, res)
+	}
+	return results
+}
+
+// previewNotifications checks each imported notification channel against the current DB.
+func (s *BackupService) previewNotifications(imports []NotificationExport) []ItemResolution {
+	var existing []db.NotificationConfig
+	s.db.Find(&existing)
+
+	existMap := make(map[string]*db.NotificationConfig, len(existing))
+	for i := range existing {
+		existMap[existing[i].Type+":"+existing[i].Name] = &existing[i]
 	}
 
-	return preview, nil
+	results := make([]ItemResolution, 0, len(imports))
+	for _, ne := range imports {
+		key := ne.Type + ":" + ne.Name
+		if _, ok := existMap[key]; ok {
+			results = append(results, ItemResolution{Name: ne.Name, Type: ne.Type, Action: previewActionUpdate})
+		} else {
+			results = append(results, ItemResolution{Name: ne.Name, Type: ne.Type, Action: previewActionCreate})
+		}
+	}
+	return results
+}
+
+// previewDiskGroups checks each imported disk group against the current DB.
+func (s *BackupService) previewDiskGroups(imports []DiskGroupExport) []ItemResolution {
+	groups, err := s.diskGroups.List()
+	if err != nil {
+		return nil
+	}
+	existMap := make(map[string]*db.DiskGroup, len(groups))
+	for i := range groups {
+		existMap[groups[i].MountPath] = &groups[i]
+	}
+
+	results := make([]ItemResolution, 0, len(imports))
+	for _, dge := range imports {
+		if ex, ok := existMap[dge.MountPath]; ok {
+			changes := make([]FieldChange, 0)
+			if ex.ThresholdPct != dge.ThresholdPct {
+				changes = append(changes, FieldChange{Field: "thresholdPct", OldValue: fmt.Sprintf("%.1f", ex.ThresholdPct), NewValue: fmt.Sprintf("%.1f", dge.ThresholdPct)})
+			}
+			if ex.TargetPct != dge.TargetPct {
+				changes = append(changes, FieldChange{Field: "targetPct", OldValue: fmt.Sprintf("%.1f", ex.TargetPct), NewValue: fmt.Sprintf("%.1f", dge.TargetPct)})
+			}
+			action := previewActionUnchanged
+			if len(changes) > 0 {
+				action = previewActionUpdate
+			}
+			results = append(results, ItemResolution{Name: dge.MountPath, Action: action, Changes: changes})
+		} else {
+			results = append(results, ItemResolution{Name: dge.MountPath, Action: previewActionCreate})
+		}
+	}
+	return results
+}
+
+// previewDeletions computes what existing items would be deleted in sync mode.
+func (s *BackupService) previewDeletions(envelope SettingsExportEnvelope, sections ImportSections, allIntegrations []db.IntegrationConfig) *DeletionPreview {
+	del := &DeletionPreview{}
+
+	if sections.Integrations && len(envelope.Integrations) > 0 {
+		importedKeys := make(map[string]bool, len(envelope.Integrations))
+		for _, ie := range envelope.Integrations {
+			importedKeys[ie.Type+":"+ie.Name] = true
+		}
+		for _, ic := range allIntegrations {
+			if !importedKeys[ic.Type+":"+ic.Name] {
+				del.Integrations = append(del.Integrations, ic.Name+" ("+ic.Type+")")
+			}
+		}
+	}
+
+	if sections.Rules && len(envelope.Rules) > 0 {
+		var existingRules []db.CustomRule
+		s.db.Find(&existingRules)
+		// In sync mode all existing rules are replaced, so report them
+		for _, r := range existingRules {
+			del.Rules = append(del.Rules, r.Field+" "+r.Operator+" "+r.Value)
+		}
+	}
+
+	if sections.NotificationChannels && len(envelope.NotificationChannels) > 0 {
+		var existingNC []db.NotificationConfig
+		s.db.Find(&existingNC)
+		importedKeys := make(map[string]bool, len(envelope.NotificationChannels))
+		for _, ne := range envelope.NotificationChannels {
+			importedKeys[ne.Type+":"+ne.Name] = true
+		}
+		for _, nc := range existingNC {
+			if !importedKeys[nc.Type+":"+nc.Name] {
+				del.Notifications = append(del.Notifications, nc.Name+" ("+nc.Type+")")
+			}
+		}
+	}
+
+	if sections.DiskGroups && len(envelope.DiskGroups) > 0 && s.diskGroups != nil {
+		groups, err := s.diskGroups.List()
+		if err == nil {
+			importedPaths := make(map[string]bool, len(envelope.DiskGroups))
+			for _, dge := range envelope.DiskGroups {
+				importedPaths[dge.MountPath] = true
+			}
+			for _, g := range groups {
+				if !importedPaths[g.MountPath] {
+					del.DiskGroups = append(del.DiskGroups, g.MountPath)
+				}
+			}
+		}
+	}
+
+	// Return nil if nothing would be deleted
+	if len(del.Rules) == 0 && len(del.Integrations) == 0 && len(del.Notifications) == 0 && len(del.DiskGroups) == 0 {
+		return nil
+	}
+	return del
 }
 
 // CommitImport executes the import using user-provided overrides for rule

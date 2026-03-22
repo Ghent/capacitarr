@@ -71,7 +71,7 @@ func RegisterBackupRoutes(protected *echo.Group, reg *services.Registry, appVers
 			return apiError(c, http.StatusBadRequest, "Unsupported export version")
 		}
 
-		preview, err := reg.Backup.PreviewImport(req.Payload)
+		preview, err := reg.Backup.PreviewImport(req.Payload, req.Sections)
 		if err != nil {
 			return apiError(c, http.StatusInternalServerError, "Failed to preview import")
 		}
