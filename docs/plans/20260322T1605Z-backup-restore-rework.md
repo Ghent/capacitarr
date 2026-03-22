@@ -1,6 +1,6 @@
 # Backup/Restore Rework — Smarter, Safer, Consistent UX
 
-> **Status:** 🔄 In Progress — Phases 1-3 complete, Phase 4 partial (icon headers, mode labels, imports/types), Phase 4 stepper + diff UI and Phase 5 OpenAPI remaining
+> **Status:** ✅ Complete
 > **Created:** 2026-03-22
 > **Branch:** from `feature/2.0`
 > **Supersedes:** `20260316T1319Z-backup-restore-robustness-overhaul.md` (Phase 1-3 were completed on 1.x; this plan addresses the remaining gaps and new requirements for 2.0)
