@@ -10,6 +10,14 @@
   - Emits 'update:modelValue' with the selected or created value
   - Emits 'create' when a new value is created (for parent components that need
     to persist the new value server-side)
+
+  Implementation note: Reka-UI's internal filter (filterSearch/filterState) is
+  disabled via `ignore-filter` on ComboboxRoot. This component manages its own
+  filtering through the `filteredOptions` computed, which controls which
+  ComboboxItem elements are rendered. Without `ignore-filter`, Reka-UI's internal
+  filter conflicts with our v-for filtering, causing items to be hidden even when
+  they are rendered in the DOM (the internal filter runs against allItems which
+  only contains currently-mounted items, not the full option set).
 -->
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
@@ -117,8 +125,7 @@ function handleSelect(value: string) {
   <ComboboxRoot
     v-model:open="open"
     :model-value="modelValue"
-    :display-value="() => searchTerm"
-    :filter-function="() => filteredOptions.map((o) => o.value)"
+    ignore-filter
     data-slot="creatable-combobox"
     :class="cn('relative', props.class)"
     :disabled="disabled"
@@ -149,7 +156,7 @@ function handleSelect(value: string) {
     <ComboboxContent
       :class="
         cn(
-          'absolute z-50 mt-1 max-h-[200px] w-full overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md',
+          'z-50 max-h-[200px] w-[var(--reka-popper-anchor-width)] overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md',
           'animate-in fade-in-0 zoom-in-95',
         )
       "
