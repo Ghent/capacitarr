@@ -214,6 +214,7 @@ const gaugeOption = computed(() => {
     animationDurationUpdate: 1000,
     animationEasingUpdate: 'cubicOut',
     series: [
+      // Main gauge: progress arc + background zones
       {
         type: 'gauge',
         startAngle: 210,
@@ -258,35 +259,11 @@ const gaugeOption = computed(() => {
           },
         },
 
-        // No pointer
         pointer: { show: false },
-
-        // Tick marks at target and threshold
-        axisTick: {
-          show: true,
-          splitNumber: 1,
-          distance: -18,
-          lineStyle: {
-            width: 2,
-            color: 'auto',
-          },
-          length: 6,
-        },
-
-        // Major split lines (at 0, target, threshold, 100 positions)
-        splitLine: {
-          show: false,
-        },
-
-        // Axis labels — show only at target and threshold
-        axisLabel: {
-          show: false,
-        },
-
-        // Title label (below the number)
-        title: {
-          show: false,
-        },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        title: { show: false },
 
         // Center detail: the big percentage number
         detail: {
@@ -300,6 +277,80 @@ const gaugeOption = computed(() => {
         },
 
         data: [{ value: usage }],
+      },
+      // Target marker: thin pointer at target %
+      {
+        type: 'gauge',
+        startAngle: 210,
+        endAngle: -30,
+        min: 0,
+        max: 100,
+        center: ['50%', '60%'],
+        radius: '90%',
+        axisLine: { show: false },
+        progress: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        pointer: {
+          show: true,
+          length: '110%',
+          width: 2,
+          offsetCenter: [0, 0],
+          itemStyle: {
+            color: '#10b981',
+            opacity: 0.7,
+          },
+        },
+        detail: {
+          show: true,
+          formatter: `${tgtPct}%`,
+          fontSize: 8,
+          color: '#10b981',
+          offsetCenter: [0, '75%'],
+          fontFamily: 'var(--font-geist-mono, monospace)',
+        },
+        title: { show: false },
+        data: [{ value: tgtPct, name: 'Target' }],
+        animation: false,
+        silent: true,
+      },
+      // Threshold marker: thin pointer at threshold %
+      {
+        type: 'gauge',
+        startAngle: 210,
+        endAngle: -30,
+        min: 0,
+        max: 100,
+        center: ['50%', '60%'],
+        radius: '90%',
+        axisLine: { show: false },
+        progress: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: false },
+        axisLabel: { show: false },
+        pointer: {
+          show: true,
+          length: '110%',
+          width: 2,
+          offsetCenter: [0, 0],
+          itemStyle: {
+            color: '#ef4444',
+            opacity: 0.7,
+          },
+        },
+        detail: {
+          show: true,
+          formatter: `${thrPct}%`,
+          fontSize: 8,
+          color: '#ef4444',
+          offsetCenter: [0, '90%'],
+          fontFamily: 'var(--font-geist-mono, monospace)',
+        },
+        title: { show: false },
+        data: [{ value: thrPct, name: 'Threshold' }],
+        animation: false,
+        silent: true,
       },
     ],
   };
