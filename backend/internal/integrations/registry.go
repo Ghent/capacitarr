@@ -258,6 +258,34 @@ func (r *IntegrationRegistry) PlexClient(id uint) (*PlexClient, bool) {
 	return nil, false
 }
 
+// JellystatClient checks if the Connectable at the given ID is a *JellystatClient
+// and returns it. Used by the enricher builder since Jellystat doesn't implement
+// WatchDataProvider (it requires a Jellyfin ID→TMDb ID map).
+func (r *IntegrationRegistry) JellystatClient(id uint) (*JellystatClient, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.connectors[id]; ok {
+		if jc, ok := c.(*JellystatClient); ok {
+			return jc, true
+		}
+	}
+	return nil, false
+}
+
+// JellyfinClient checks if the Connectable at the given ID is a *JellyfinClient
+// and returns it. Used by the poller to build JellyfinItemID→TMDbID maps for
+// Jellystat enrichment.
+func (r *IntegrationRegistry) JellyfinClient(id uint) (*JellyfinClient, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.connectors[id]; ok {
+		if jc, ok := c.(*JellyfinClient); ok {
+			return jc, true
+		}
+	}
+	return nil, false
+}
+
 // HasWatchProviders returns true if at least one WatchDataProvider is registered.
 func (r *IntegrationRegistry) HasWatchProviders() bool {
 	r.mu.RLock()

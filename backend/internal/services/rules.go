@@ -243,10 +243,11 @@ type FieldDef struct {
 // EnrichmentPresence tracks which enrichment integration types are enabled.
 // Used by GetFieldDefinitions to conditionally include enrichment-dependent fields.
 type EnrichmentPresence struct {
-	HasTautulli bool
-	HasSeerr    bool
-	HasMedia    bool
-	HasSonarr   bool
+	HasTautulli  bool
+	HasSeerr     bool
+	HasMedia     bool
+	HasSonarr    bool
+	HasJellystat bool
 }
 
 // GetFieldDefinitions returns available rule fields based on the service type

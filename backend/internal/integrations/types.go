@@ -25,6 +25,10 @@ const (
 	IntegrationTypeJellyfin IntegrationType = "jellyfin"
 	// IntegrationTypeEmby identifies an Emby media server integration.
 	IntegrationTypeEmby IntegrationType = "emby"
+	// IntegrationTypeJellystat identifies a Jellystat (Jellyfin analytics) integration.
+	// Jellystat is to Jellyfin what Tautulli is to Plex — an analytics supplement
+	// that provides richer watch history, per-user stats, and activity tracking.
+	IntegrationTypeJellystat IntegrationType = "jellystat"
 )
 
 // ============================================================================
@@ -40,9 +44,10 @@ const (
 //
 // Sonarr, Radarr, Lidarr, Readarr: Connectable + MediaSource + DiskReporter + MediaDeleter + RuleValueFetcher
 // Plex:                             Connectable + WatchDataProvider + WatchlistProvider
-// Tautulli:                         Connectable + WatchDataProvider
+// Tautulli:                         Connectable (enriches via TautulliEnricher, not WatchDataProvider)
 // Seerr:                            Connectable + RequestProvider
 // Jellyfin, Emby:                   Connectable + WatchDataProvider + WatchlistProvider
+// Jellystat:                        Connectable (enriches via JellystatEnricher, not WatchDataProvider)
 // ============================================================================
 
 // Connectable is implemented by any integration that can verify its connection.

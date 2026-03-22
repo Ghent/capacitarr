@@ -300,6 +300,57 @@ func (j *JellyfinClient) GetWatchlistItems() (map[int]bool, error) {
 	return merged, nil
 }
 
+// GetItemIDToTMDbIDMap builds a map from Jellyfin Item ID to TMDb ID for all
+// movies and series in the library. This map is used by the Jellystat enricher
+// to resolve Jellyfin Item IDs (which Jellystat tracks) to TMDb IDs (which *arr
+// items use for matching). Requires an admin user for the Items query.
+func (j *JellyfinClient) GetItemIDToTMDbIDMap() (map[string]int, error) {
+	adminID, err := j.GetAdminUserID()
+	if err != nil {
+		return nil, fmt.Errorf("jellyfin item ID map: %w", err)
+	}
+
+	result := make(map[string]int)
+	startIndex := 0
+	pageSize := 500
+
+	for {
+		endpoint := fmt.Sprintf(
+			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=ProviderIds&StartIndex=%d&Limit=%d",
+			adminID, startIndex, pageSize,
+		)
+		body, err := j.doRequest(endpoint)
+		if err != nil {
+			return result, fmt.Errorf("failed to fetch Jellyfin items for ID map: %w", err)
+		}
+
+		var resp struct {
+			Items            []jellyfinItem `json:"Items"`
+			TotalRecordCount int            `json:"TotalRecordCount"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return result, fmt.Errorf("failed to parse Jellyfin items for ID map: %w", err)
+		}
+
+		for _, item := range resp.Items {
+			tmdbID := extractTMDbID(item.ProviderIDs)
+			if tmdbID > 0 {
+				result[item.ID] = tmdbID
+			}
+		}
+
+		startIndex += len(resp.Items)
+		if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
+			break
+		}
+	}
+
+	slog.Debug("Built Jellyfin Item ID → TMDb ID map", "component", "jellyfin",
+		"mappings", len(result))
+
+	return result, nil
+}
+
 // Verify JellyfinClient satisfies capability interfaces at compile time.
 var _ Connectable = (*JellyfinClient)(nil)
 var _ WatchDataProvider = (*JellyfinClient)(nil)
