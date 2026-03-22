@@ -65,13 +65,19 @@ var _ Enricher = (*BulkWatchEnricher)(nil)
 // TautulliEnricher enriches items one-by-one using Tautulli's per-rating-key
 // history API. Higher priority than bulk providers since Tautulli provides
 // richer data (play counts, per-user history, watch durations).
+//
+// Tautulli queries by Plex ratingKey, but *arr items have TMDb IDs as their
+// primary identifier. The tmdbToRatingKey map bridges this gap — it maps
+// TMDb IDs to Plex ratingKeys, built from PlexClient during the same poll cycle.
 type TautulliEnricher struct {
-	client *TautulliClient
+	client          *TautulliClient
+	tmdbToRatingKey map[int]string // TMDb ID → Plex ratingKey
 }
 
-// NewTautulliEnricher creates an enricher wrapping a TautulliClient.
-func NewTautulliEnricher(client *TautulliClient) *TautulliEnricher {
-	return &TautulliEnricher{client: client}
+// NewTautulliEnricher creates an enricher wrapping a TautulliClient with a
+// TMDb→RatingKey lookup map for translating *arr item IDs to Plex rating keys.
+func NewTautulliEnricher(client *TautulliClient, tmdbToRatingKey map[int]string) *TautulliEnricher {
+	return &TautulliEnricher{client: client, tmdbToRatingKey: tmdbToRatingKey}
 }
 
 // Name implements Enricher.
@@ -81,22 +87,35 @@ func (e *TautulliEnricher) Name() string { return "Tautulli Watch History" }
 func (e *TautulliEnricher) Priority() int { return 10 }
 
 // Enrich implements Enricher by querying Tautulli per item.
+// Uses the TMDb→RatingKey map to translate *arr TMDb IDs into Plex rating keys.
 func (e *TautulliEnricher) Enrich(items []MediaItem) error {
+	if len(e.tmdbToRatingKey) == 0 {
+		slog.Debug("Tautulli enricher skipped — no TMDb→RatingKey mappings available",
+			"component", "enrichment")
+		return nil
+	}
+
+	matched := 0
 	for i := range items {
 		item := &items[i]
-		if item.ExternalID == "" {
+		if item.TMDbID == 0 {
 			continue
 		}
+		ratingKey, ok := e.tmdbToRatingKey[item.TMDbID]
+		if !ok {
+			continue // No Plex ratingKey for this TMDb ID
+		}
+
 		var watchData *TautulliWatchData
 		var err error
 		if item.Type == MediaTypeShow {
-			watchData, err = e.client.GetShowWatchHistory(item.ExternalID)
+			watchData, err = e.client.GetShowWatchHistory(ratingKey)
 		} else {
-			watchData, err = e.client.GetWatchHistory(item.ExternalID)
+			watchData, err = e.client.GetWatchHistory(ratingKey)
 		}
 		if err != nil {
 			slog.Debug("Tautulli enrichment failed", "component", "enrichment",
-				"title", item.Title, "error", err)
+				"title", item.Title, "tmdbID", item.TMDbID, "ratingKey", ratingKey, "error", err)
 			continue
 		}
 		if watchData != nil {
@@ -105,8 +124,11 @@ func (e *TautulliEnricher) Enrich(items []MediaItem) error {
 			if len(watchData.Users) > 0 {
 				item.WatchedByUsers = watchData.Users
 			}
+			matched++
 		}
 	}
+	slog.Info("Tautulli enrichment complete", "component", "enrichment",
+		"ratingKeyMappings", len(e.tmdbToRatingKey), "matched", matched)
 	return nil
 }
 
@@ -290,12 +312,15 @@ func BuildEnrichmentPipeline(registry *IntegrationRegistry) *EnrichmentPipeline 
 // RegisterTautulliEnrichers scans connectors for TautulliClient instances and
 // adds TautulliEnricher to the pipeline. Called separately because Tautulli
 // doesn't implement WatchDataProvider (it uses per-item queries, not bulk).
-func RegisterTautulliEnrichers(pipeline *EnrichmentPipeline, registry *IntegrationRegistry) {
+// The tmdbToRatingKey map translates TMDb IDs (from *arr items) to Plex rating
+// keys (which Tautulli uses for history queries). This map is built from
+// PlexClient during the same poll cycle.
+func RegisterTautulliEnrichers(pipeline *EnrichmentPipeline, registry *IntegrationRegistry, tmdbToRatingKey map[int]string) {
 	for id := range registry.Connectors() {
 		if tautulli, ok := registry.TautulliClient(id); ok {
-			pipeline.Add(NewTautulliEnricher(tautulli))
+			pipeline.Add(NewTautulliEnricher(tautulli, tmdbToRatingKey))
 			slog.Debug("Added TautulliEnricher to pipeline", "component", "enrichment",
-				"integrationID", id)
+				"integrationID", id, "tmdbMappings", len(tmdbToRatingKey))
 		}
 	}
 }

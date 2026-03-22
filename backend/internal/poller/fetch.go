@@ -143,7 +143,28 @@ func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResu
 
 	// Build enrichment pipeline from registry capabilities
 	pipeline := integrations.BuildEnrichmentPipeline(registry)
-	integrations.RegisterTautulliEnrichers(pipeline, registry)
+
+	// Build TMDb→RatingKey map from Plex for Tautulli enrichment.
+	// Tautulli queries by Plex ratingKey, but *arr items have TMDb IDs.
+	// This map bridges the gap. Built per poll cycle — not cached.
+	tmdbToRatingKey := make(map[int]string)
+	for id := range registry.Connectors() {
+		if plex, ok := registry.PlexClient(id); ok {
+			plexMap, mapErr := plex.GetTMDbToRatingKeyMap()
+			if mapErr != nil {
+				slog.Warn("Failed to build TMDb→RatingKey map from Plex",
+					"component", "poller", "integrationID", id, "error", mapErr)
+				continue
+			}
+			for tmdbID, ratingKey := range plexMap {
+				tmdbToRatingKey[tmdbID] = ratingKey
+			}
+			slog.Debug("Built TMDb→RatingKey map from Plex", "component", "poller",
+				"integrationID", id, "mappings", len(plexMap))
+		}
+	}
+
+	integrations.RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
 	result.pipeline = pipeline
 
 	return result

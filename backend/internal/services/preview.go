@@ -294,9 +294,23 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 		allItems = append(allItems, items...)
 	}
 
+	// Build TMDb→RatingKey map from Plex for Tautulli enrichment
+	tmdbToRatingKey := make(map[int]string)
+	for id := range registry.Connectors() {
+		if plex, ok := registry.PlexClient(id); ok {
+			plexMap, mapErr := plex.GetTMDbToRatingKeyMap()
+			if mapErr != nil {
+				continue
+			}
+			for tmdbID, ratingKey := range plexMap {
+				tmdbToRatingKey[tmdbID] = ratingKey
+			}
+		}
+	}
+
 	// Build and run the enrichment pipeline
 	pipeline := integrations.BuildEnrichmentPipeline(registry)
-	integrations.RegisterTautulliEnrichers(pipeline, registry)
+	integrations.RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
 	pipeline.Run(allItems)
 
 	prefs, err := s.preferences.GetPreferences()
