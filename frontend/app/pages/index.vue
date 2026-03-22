@@ -877,8 +877,11 @@ async function fetchDashboardData(silent = false) {
       api('/api/v1/disk-groups'),
       api('/api/v1/integrations'),
     ]);
-    // Fetch engine stats via the shared composable (handles toast on completion)
-    engineFetchStats();
+    // Fetch engine stats via the shared composable (handles toast on completion).
+    // Must be awaited so workerStats is populated before fetchApprovalQueue()
+    // checks isApprovalMode — otherwise executionMode defaults to 'dry-run'
+    // and the approval queue guard clears the list on initial load.
+    await engineFetchStats();
     // Fetch approval queue (non-blocking, only runs in approval mode)
     fetchApprovalQueue();
     // Fetch sparkline engine history data in parallel (non-blocking)
