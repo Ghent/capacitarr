@@ -34,11 +34,21 @@ func (p *EnrichmentPipeline) Add(e Enricher) {
 	p.enrichers = append(p.enrichers, e)
 }
 
+// EnrichmentStats holds summary statistics from a pipeline run.
+type EnrichmentStats struct {
+	EnrichersRun   int      // Number of enrichers that executed
+	ItemsProcessed int      // Number of items passed to the pipeline
+	TotalMatches   int      // Estimated total matches (sum of per-item enrichment hits)
+	ZeroMatchers   []string // Enricher names that ran but produced zero matches
+}
+
 // Run executes all enrichers in priority order. Failures are logged but do not
-// stop the pipeline — subsequent enrichers still run.
-func (p *EnrichmentPipeline) Run(items []MediaItem) {
+// stop the pipeline — subsequent enrichers still run. Returns enrichment stats.
+func (p *EnrichmentPipeline) Run(items []MediaItem) EnrichmentStats {
+	stats := EnrichmentStats{ItemsProcessed: len(items)}
+
 	if len(items) == 0 || len(p.enrichers) == 0 {
-		return
+		return stats
 	}
 
 	// Sort by priority (stable sort preserves registration order for same priority)
@@ -49,16 +59,75 @@ func (p *EnrichmentPipeline) Run(items []MediaItem) {
 	})
 
 	for _, e := range sorted {
+		// Snapshot enrichment state before this enricher runs to count its contributions
+		beforePlayCount := countItemsWithPlayCount(items)
+		beforeRequested := countItemsRequested(items)
+		beforeWatchlist := countItemsOnWatchlist(items)
+
 		slog.Info("Running enricher", "component", "enrichment", "enricher", e.Name(),
 			"priority", e.Priority(), "itemCount", len(items))
 		if err := e.Enrich(items); err != nil {
 			slog.Warn("Enrichment failed", "component", "enrichment",
 				"enricher", e.Name(), "error", err)
+			continue
+		}
+		stats.EnrichersRun++
+
+		// Measure the delta this enricher added
+		afterPlayCount := countItemsWithPlayCount(items)
+		afterRequested := countItemsRequested(items)
+		afterWatchlist := countItemsOnWatchlist(items)
+		delta := (afterPlayCount - beforePlayCount) + (afterRequested - beforeRequested) + (afterWatchlist - beforeWatchlist)
+		stats.TotalMatches += delta
+
+		// CrossReferenceEnricher always produces zero new matches (it just reconciles)
+		// so exclude it from zero-match detection
+		if delta == 0 && e.Priority() < 100 {
+			stats.ZeroMatchers = append(stats.ZeroMatchers, e.Name())
 		}
 	}
+
+	slog.Info("Enrichment pipeline complete", "component", "enrichment",
+		"enrichersRun", stats.EnrichersRun, "itemsProcessed", stats.ItemsProcessed,
+		"totalMatches", stats.TotalMatches, "zeroMatchers", len(stats.ZeroMatchers))
+
+	return stats
 }
 
 // Count returns the number of registered enrichers.
 func (p *EnrichmentPipeline) Count() int {
 	return len(p.enrichers)
+}
+
+// countItemsWithPlayCount returns the number of items with PlayCount > 0.
+func countItemsWithPlayCount(items []MediaItem) int {
+	count := 0
+	for i := range items {
+		if items[i].PlayCount > 0 {
+			count++
+		}
+	}
+	return count
+}
+
+// countItemsRequested returns the number of items with IsRequested == true.
+func countItemsRequested(items []MediaItem) int {
+	count := 0
+	for i := range items {
+		if items[i].IsRequested {
+			count++
+		}
+	}
+	return count
+}
+
+// countItemsOnWatchlist returns the number of items with OnWatchlist == true.
+func countItemsOnWatchlist(items []MediaItem) int {
+	count := 0
+	for i := range items {
+		if items[i].OnWatchlist {
+			count++
+		}
+	}
+	return count
 }

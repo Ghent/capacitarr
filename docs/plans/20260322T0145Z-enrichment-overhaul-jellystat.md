@@ -1,6 +1,6 @@
 # Enrichment Overhaul & Jellystat Integration
 
-**Status:** 📋 Planned
+**Status:** ✅ Complete
 **Branch:** `feature/enrichment-overhaul` (from `feature/2.0`)
 **Scope:** Fix all enrichment matching, multi-user aggregation, and add Jellystat integration
 

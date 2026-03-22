@@ -1,9 +1,41 @@
 package integrations
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 )
+
+// logEnrichmentResult logs enrichment match statistics at Info level with match
+// rate, and issues a Warn if the enricher processed items but produced zero
+// matches (likely a configuration error or expired credential).
+func logEnrichmentResult(enricherName string, itemCount, libraryItems, matched int, extraAttrs ...any) {
+	unmatched := itemCount - matched
+	var matchRate string
+	if itemCount > 0 {
+		matchRate = fmt.Sprintf("%.1f%%", float64(matched)/float64(itemCount)*100)
+	} else {
+		matchRate = "N/A"
+	}
+
+	attrs := make([]any, 0, 14+len(extraAttrs))
+	attrs = append(attrs,
+		"component", "enrichment",
+		"enricher", enricherName,
+		"itemCount", itemCount,
+		"libraryItems", libraryItems,
+		"matched", matched,
+		"unmatched", unmatched,
+		"matchRate", matchRate,
+	)
+	attrs = append(attrs, extraAttrs...)
+
+	if matched == 0 && libraryItems > 0 {
+		slog.Warn("Enrichment produced zero matches — check integration configuration", attrs...)
+	} else {
+		slog.Info("Enrichment complete", attrs...)
+	}
+}
 
 // ─── BulkWatchEnricher ──────────────────────────────────────────────────────
 
@@ -52,8 +84,7 @@ func (e *BulkWatchEnricher) Enrich(items []MediaItem) error {
 			}
 		}
 	}
-	slog.Info("Bulk watch enrichment complete", "component", "enrichment",
-		"enricher", e.name, "libraryItems", len(watchMap), "matched", matched)
+	logEnrichmentResult(e.name, len(items), len(watchMap), matched)
 	return nil
 }
 
@@ -127,13 +158,76 @@ func (e *TautulliEnricher) Enrich(items []MediaItem) error {
 			matched++
 		}
 	}
-	slog.Info("Tautulli enrichment complete", "component", "enrichment",
-		"ratingKeyMappings", len(e.tmdbToRatingKey), "matched", matched)
+	logEnrichmentResult("Tautulli Watch History", len(items), len(e.tmdbToRatingKey), matched,
+		"ratingKeyMappings", len(e.tmdbToRatingKey))
 	return nil
 }
 
 // Verify TautulliEnricher satisfies Enricher at compile time.
 var _ Enricher = (*TautulliEnricher)(nil)
+
+// ─── JellystatEnricher ──────────────────────────────────────────────────────
+
+// JellystatEnricher enriches items with watch data from Jellystat (Jellyfin
+// analytics). Like TautulliEnricher, it runs at priority 10 (highest for watch
+// data) and provides richer per-user stats than Jellyfin's native bulk API.
+//
+// Jellystat stores items by Jellyfin Item ID, so resolution to TMDb IDs
+// requires the jellyfinIDToTMDbID map — built from JellyfinClient's
+// ProviderIDs during the same poll cycle.
+type JellystatEnricher struct {
+	client             *JellystatClient
+	jellyfinIDToTMDbID map[string]int // Jellyfin Item ID → TMDb ID
+}
+
+// NewJellystatEnricher creates an enricher wrapping a JellystatClient with
+// a Jellyfin Item ID → TMDb ID lookup map for resolving Jellystat items.
+func NewJellystatEnricher(client *JellystatClient, jellyfinIDToTMDbID map[string]int) *JellystatEnricher {
+	return &JellystatEnricher{client: client, jellyfinIDToTMDbID: jellyfinIDToTMDbID}
+}
+
+// Name implements Enricher.
+func (e *JellystatEnricher) Name() string { return "Jellystat Watch History" }
+
+// Priority implements Enricher. Priority 10 is highest for watch data.
+func (e *JellystatEnricher) Priority() int { return 10 }
+
+// Enrich implements Enricher by fetching bulk watch stats from Jellystat and
+// matching items by TMDb ID.
+func (e *JellystatEnricher) Enrich(items []MediaItem) error {
+	if len(e.jellyfinIDToTMDbID) == 0 {
+		slog.Debug("Jellystat enricher skipped — no Jellyfin ID→TMDb ID mappings available",
+			"component", "enrichment")
+		return nil
+	}
+
+	watchMap, err := e.client.GetBulkWatchStats(e.jellyfinIDToTMDbID)
+	if err != nil {
+		return err
+	}
+
+	matched := 0
+	for i := range items {
+		item := &items[i]
+		if item.TMDbID == 0 {
+			continue
+		}
+		if wd, ok := watchMap[item.TMDbID]; ok {
+			item.PlayCount = wd.PlayCount
+			item.LastPlayed = wd.LastPlayed
+			if len(wd.Users) > 0 {
+				item.WatchedByUsers = wd.Users
+			}
+			matched++
+		}
+	}
+	logEnrichmentResult("Jellystat Watch History", len(items), len(watchMap), matched,
+		"jellyfinMappings", len(e.jellyfinIDToTMDbID))
+	return nil
+}
+
+// Verify JellystatEnricher satisfies Enricher at compile time.
+var _ Enricher = (*JellystatEnricher)(nil)
 
 // ─── RequestEnricher ────────────────────────────────────────────────────────
 
@@ -177,8 +271,7 @@ func (e *RequestEnricher) Enrich(items []MediaItem) error {
 			}
 		}
 	}
-	slog.Debug("Request enrichment complete", "component", "enrichment",
-		"requests", len(requests), "matched", matched)
+	logEnrichmentResult("Seerr Request Data", len(items), len(requests), matched)
 	return nil
 }
 
@@ -230,8 +323,7 @@ func (e *WatchlistEnricher) Enrich(items []MediaItem) error {
 			matched++
 		}
 	}
-	slog.Info("Watchlist enrichment complete", "component", "enrichment",
-		"enricher", e.name, "watchlistItems", len(watchlistSet), "matched", matched)
+	logEnrichmentResult(e.name, len(items), len(watchlistSet), matched)
 	return nil
 }
 
@@ -321,6 +413,22 @@ func RegisterTautulliEnrichers(pipeline *EnrichmentPipeline, registry *Integrati
 			pipeline.Add(NewTautulliEnricher(tautulli, tmdbToRatingKey))
 			slog.Debug("Added TautulliEnricher to pipeline", "component", "enrichment",
 				"integrationID", id, "tmdbMappings", len(tmdbToRatingKey))
+		}
+	}
+}
+
+// RegisterJellystatEnrichers scans connectors for JellystatClient instances and
+// adds JellystatEnricher to the pipeline. Called separately because Jellystat
+// doesn't implement WatchDataProvider (it requires a Jellyfin ID→TMDb ID map
+// that must be injected externally). The jellyfinIDToTMDbID map translates
+// Jellyfin Item IDs to TMDb IDs, built from JellyfinClient during the same
+// poll cycle.
+func RegisterJellystatEnrichers(pipeline *EnrichmentPipeline, registry *IntegrationRegistry, jellyfinIDToTMDbID map[string]int) {
+	for id := range registry.Connectors() {
+		if jellystat, ok := registry.JellystatClient(id); ok {
+			pipeline.Add(NewJellystatEnricher(jellystat, jellyfinIDToTMDbID))
+			slog.Debug("Added JellystatEnricher to pipeline", "component", "enrichment",
+				"integrationID", id, "jellyfinMappings", len(jellyfinIDToTMDbID))
 		}
 	}
 }

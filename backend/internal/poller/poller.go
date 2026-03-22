@@ -191,7 +191,16 @@ func (p *Poller) poll() {
 
 	// Enrich items using the pluggable enrichment pipeline
 	if fetched.pipeline != nil {
-		fetched.pipeline.Run(fetched.allItems)
+		enrichStats := fetched.pipeline.Run(fetched.allItems)
+
+		// Publish enrichment summary event
+		bus.Publish(events.EnrichmentCompleteEvent{
+			EnrichersRun:   enrichStats.EnrichersRun,
+			ItemsProcessed: enrichStats.ItemsProcessed,
+			TotalMatches:   enrichStats.TotalMatches,
+			ZeroMatchers:   enrichStats.ZeroMatchers,
+			Timestamp:      time.Now().UTC(),
+		})
 	}
 
 	// Find the most specific mount for each root folder

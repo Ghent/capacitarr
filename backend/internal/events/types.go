@@ -55,6 +55,29 @@ func (e EngineErrorEvent) EventType() string { return "engine_error" }
 // EventMessage implements Event.
 func (e EngineErrorEvent) EventMessage() string { return "Engine error: " + e.Error }
 
+// EnrichmentCompleteEvent is published after the enrichment pipeline finishes.
+// Provides a summary of enrichment health so the frontend can display
+// enrichment statistics and surface configuration problems.
+type EnrichmentCompleteEvent struct {
+	EnrichersRun   int       `json:"enrichersRun"`   // Total enrichers executed
+	ItemsProcessed int       `json:"itemsProcessed"` // Total items passed through the pipeline
+	TotalMatches   int       `json:"totalMatches"`   // Sum of matches across all enrichers
+	ZeroMatchers   []string  `json:"zeroMatchers"`   // Enrichers that produced zero matches despite having data
+	Timestamp      time.Time `json:"timestamp"`
+}
+
+// EventType implements Event.
+func (e EnrichmentCompleteEvent) EventType() string { return "enrichment_complete" }
+
+// EventMessage implements Event.
+func (e EnrichmentCompleteEvent) EventMessage() string {
+	if len(e.ZeroMatchers) > 0 {
+		return fmt.Sprintf("Enrichment complete: %d enrichers, %d matches (%d zero-match enrichers)",
+			e.EnrichersRun, e.TotalMatches, len(e.ZeroMatchers))
+	}
+	return fmt.Sprintf("Enrichment complete: %d enrichers, %d matches", e.EnrichersRun, e.TotalMatches)
+}
+
 // EngineModeChangedEvent is published when the execution mode is changed.
 type EngineModeChangedEvent struct {
 	OldMode string `json:"oldMode"`
