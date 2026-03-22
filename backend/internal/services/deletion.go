@@ -29,6 +29,7 @@ type DeleteJob struct {
 	ForceDryRun     bool   // When true, skip actual deletion even if DeletionsEnabled=true
 	UpsertAudit     bool   // When true, use AuditLog.UpsertDryRun() (idempotent poller dry-runs); when false, use AuditLog.Create() (append-only)
 	ApprovalEntryID uint   // Non-zero if this job originated from an approval queue item
+	CollectionGroup string // Non-empty if this job is part of a collection deletion (e.g., "Sonic the Hedgehog Collection")
 }
 
 // DeleteJobSummary is a serialisable snapshot of a queued deletion job,
@@ -413,12 +414,13 @@ func (s *DeletionService) processJob(job DeleteJob, deferredAuditEntries *[]db.A
 		s.batchSucceeded.Add(1)
 
 		logEntry := db.AuditLogEntry{
-			MediaName:   job.Item.Title,
-			MediaType:   string(job.Item.Type),
-			Action:      db.ActionCancelled,
-			SizeBytes:   job.Item.SizeBytes,
-			Trigger:     job.Trigger,
-			DiskGroupID: job.DiskGroupID,
+			MediaName:       job.Item.Title,
+			MediaType:       string(job.Item.Type),
+			Action:          db.ActionCancelled,
+			SizeBytes:       job.Item.SizeBytes,
+			Trigger:         job.Trigger,
+			DiskGroupID:     job.DiskGroupID,
+			CollectionGroup: job.CollectionGroup,
 		}
 		if err := s.auditLog.Create(logEntry); err != nil {
 			slog.Error("Failed to create audit log entry", "component", "services", "error", err)
@@ -453,15 +455,16 @@ func (s *DeletionService) processJob(job DeleteJob, deferredAuditEntries *[]db.A
 		s.batchSucceeded.Add(1)
 
 		logEntry := db.AuditLogEntry{
-			MediaName:    job.Item.Title,
-			MediaType:    string(job.Item.Type),
-			ScoreDetails: string(factorsJSON),
-			Action:       db.ActionDryDelete,
-			SizeBytes:    job.Item.SizeBytes,
-			Score:        job.Score,
-			Trigger:      job.Trigger,
-			DryRunReason: determineDryRunReason(deletionsEnabled, job.ForceDryRun),
-			DiskGroupID:  job.DiskGroupID,
+			MediaName:       job.Item.Title,
+			MediaType:       string(job.Item.Type),
+			ScoreDetails:    string(factorsJSON),
+			Action:          db.ActionDryDelete,
+			SizeBytes:       job.Item.SizeBytes,
+			Score:           job.Score,
+			Trigger:         job.Trigger,
+			DryRunReason:    determineDryRunReason(deletionsEnabled, job.ForceDryRun),
+			DiskGroupID:     job.DiskGroupID,
+			CollectionGroup: job.CollectionGroup,
 		}
 		if job.UpsertAudit && deferredAuditEntries != nil {
 			// Defer to batch flush at end of drainAll()
@@ -534,14 +537,15 @@ func (s *DeletionService) processJob(job DeleteJob, deferredAuditEntries *[]db.A
 	}
 
 	logEntry := db.AuditLogEntry{
-		MediaName:    job.Item.Title,
-		MediaType:    string(job.Item.Type),
-		ScoreDetails: string(factorsJSON),
-		Action:       db.ActionDeleted,
-		SizeBytes:    job.Item.SizeBytes,
-		Score:        job.Score,
-		Trigger:      job.Trigger,
-		DiskGroupID:  job.DiskGroupID,
+		MediaName:       job.Item.Title,
+		MediaType:       string(job.Item.Type),
+		ScoreDetails:    string(factorsJSON),
+		Action:          db.ActionDeleted,
+		SizeBytes:       job.Item.SizeBytes,
+		Score:           job.Score,
+		Trigger:         job.Trigger,
+		DiskGroupID:     job.DiskGroupID,
+		CollectionGroup: job.CollectionGroup,
 	}
 	if err := s.auditLog.Create(logEntry); err != nil {
 		slog.Error("Failed to create audit log entry", "component", "services", "error", err)

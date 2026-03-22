@@ -133,9 +133,29 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 	var skippedZeroScore int
 	var skippedDedup int
 	var skippedSnoozed int
+	var skippedCollectionProtected int
 
 	// Collect approval-mode items for batch upsert (Phase 2 optimization).
 	var pendingBatch []db.ApprovalQueueItem
+
+	// Track collections already expanded to avoid duplicate processing when
+	// multiple items from the same collection appear in the candidate list.
+	expandedCollections := make(map[string]bool)
+
+	// Pre-fetch integration configs for collection deletion checks.
+	// Uses a cache to avoid repeated DB lookups for the same integration.
+	integrationConfigCache := make(map[uint]*db.IntegrationConfig)
+	getIntegrationConfig := func(id uint) *db.IntegrationConfig {
+		if cfg, ok := integrationConfigCache[id]; ok {
+			return cfg
+		}
+		cfg, err := p.reg.Integration.GetByID(id)
+		if err != nil {
+			return nil
+		}
+		integrationConfigCache[id] = cfg
+		return cfg
+	}
 
 	for _, ev := range candidates {
 		if bytesFreed >= targetBytesToFree {
@@ -170,85 +190,172 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			"media", ev.Item.Title, "score", fmt.Sprintf("%.4f", ev.Score),
 			"size", ev.Item.SizeBytes, "reason", ev.Reason)
 
-		if prefs.ExecutionMode == "auto" {
-			deleter, err := registry.Deleter(ev.Item.IntegrationID)
-			if err != nil {
-				slog.Error("Integration not registered as MediaDeleter", "component", "poller",
-					"integrationId", ev.Item.IntegrationID, "error", err)
+		// ── Collection expansion ─────────────────────────────────────────
+		// When collection deletion is enabled on the item's integration,
+		// expand the single candidate into all collection members.
+		// The engine is unchanged — this is a post-selection expansion step.
+		type processItem struct {
+			item            integrations.MediaItem
+			score           float64
+			factors         []engine.ScoreFactor
+			collectionGroup string // non-empty if part of a collection
+		}
+		itemsToProcess := []processItem{{item: ev.Item, score: ev.Score, factors: ev.Factors}}
+
+		cfg := getIntegrationConfig(ev.Item.IntegrationID)
+		if cfg != nil && cfg.CollectionDeletion && len(ev.Item.Collections) > 0 {
+			collectionName := ev.Item.Collections[0]
+
+			// Skip if this collection was already expanded by a prior candidate
+			if expandedCollections[collectionName] {
+				slog.Debug("Skipping already-expanded collection member", "component", "poller",
+					"media", ev.Item.Title, "collection", collectionName)
 				continue
 			}
 
-			// Queue for background deletion via DeletionService
-			diskGroupID := group.ID
-			if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
-				Client:      deleter,
-				Item:        ev.Item,
-				Score:       ev.Score,
-				Factors:     ev.Factors,
-				Trigger:     db.TriggerEngine,
-				RunStatsID:  runStatsID,
-				DiskGroupID: &diskGroupID,
-			}); err != nil {
-				slog.Warn("Deletion queue full, skipping item", "component", "poller", "item", ev.Item.Title)
-				continue
-			}
-			bytesFreed += ev.Item.SizeBytes
-			deletionsQueued++
-			continue // Skip the synchronous DB insert below, worker handles it
-		} else if prefs.ExecutionMode == "approval" {
-			// Collect for batch upsert after the loop (replaces per-item UpsertPending).
-			factorsJSON, marshalErr := json.Marshal(ev.Factors)
-			if marshalErr != nil {
-				slog.Error("Failed to marshal score factors", "component", "poller", "error", marshalErr)
-				factorsJSON = []byte("[]")
-			}
-			diskGroupID := group.ID
-			pendingBatch = append(pendingBatch, db.ApprovalQueueItem{
-				MediaName:     ev.Item.Title,
-				MediaType:     string(ev.Item.Type),
-				ScoreDetails:  string(factorsJSON),
-				SizeBytes:     ev.Item.SizeBytes,
-				Score:         ev.Score,
-				PosterURL:     ev.Item.PosterURL,
-				IntegrationID: ev.Item.IntegrationID,
-				ExternalID:    ev.Item.ExternalID,
-				DiskGroupID:   &diskGroupID,
-				Trigger:       db.TriggerEngine,
-			})
+			if resolver, ok := registry.CollectionResolver(ev.Item.IntegrationID); ok {
+				members, resolveErr := resolver.ResolveCollectionMembers(ev.Item)
+				if resolveErr != nil {
+					slog.Warn("Collection resolution failed, proceeding with single item", "component", "poller",
+						"media", ev.Item.Title, "collection", collectionName, "error", resolveErr)
+				} else if len(members) > 1 {
+					// Check if any collection member is protected by always_keep rules
+					memberProtected := false
+					for _, member := range members {
+						isProtected, _, _, _ := engine.ApplyRulesExported(member, rules)
+						if isProtected {
+							slog.Info("Collection skipped — member has always_keep rule", "component", "poller",
+								"trigger", ev.Item.Title, "collection", collectionName, "protectedMember", member.Title)
+							memberProtected = true
+							break
+						}
+					}
+					if memberProtected {
+						skippedCollectionProtected++
+						expandedCollections[collectionName] = true
+						continue
+					}
 
-			// Track this item as still-needed for post-loop reconciliation
-			neededKeys[ev.Item.Title+"|"+string(ev.Item.Type)] = true
+					// Check if any collection member is snoozed
+					memberSnoozed := false
+					for _, member := range members {
+						memberSnoozedKey := member.Title + "|" + string(member.Type)
+						if snoozedKeys[memberSnoozedKey] {
+							slog.Info("Collection skipped — member is snoozed", "component", "poller",
+								"trigger", ev.Item.Title, "collection", collectionName, "snoozedMember", member.Title)
+							memberSnoozed = true
+							break
+						}
+					}
+					if memberSnoozed {
+						skippedSnoozed++
+						expandedCollections[collectionName] = true
+						continue
+					}
 
-			bytesFreed += ev.Item.SizeBytes
-			atomic.AddInt64(&p.lastRunFlagged, 1)
-			atomic.AddInt64(&p.lastRunFreedBytes, ev.Item.SizeBytes)
-			slog.Info("Engine action taken", "component", "poller",
-				"media", ev.Item.Title, "action", "queued_for_approval", "score", ev.Score, "freed", ev.Item.SizeBytes)
-			continue
+					// Expand: replace the single trigger item with all collection members
+					itemsToProcess = make([]processItem, 0, len(members))
+					for _, member := range members {
+						itemsToProcess = append(itemsToProcess, processItem{
+							item:            member,
+							score:           ev.Score, // Use the trigger item's score for all members
+							factors:         ev.Factors,
+							collectionGroup: collectionName,
+						})
+					}
+					expandedCollections[collectionName] = true
+
+					slog.Info("Collection expanded for deletion", "component", "poller",
+						"trigger", ev.Item.Title, "collection", collectionName, "memberCount", len(members))
+				}
+			}
 		}
 
-		// Dry-run mode: queue through DeletionService with ForceDryRun + UpsertAudit
-		diskGroupID := group.ID
-		if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
-			Client:      nil, // Dry-run never calls DeleteMediaItem; nil-safe in processJob()
-			Item:        ev.Item,
-			Score:       ev.Score,
-			Factors:     ev.Factors,
-			Trigger:     db.TriggerEngine,
-			RunStatsID:  runStatsID,
-			DiskGroupID: &diskGroupID,
-			ForceDryRun: true,
-			UpsertAudit: true,
-		}); err != nil {
-			slog.Warn("Deletion queue full, skipping dry-run item", "component", "poller", "item", ev.Item.Title)
-			continue
+		// ── Process all items (single item or expanded collection) ────────
+		for _, pi := range itemsToProcess {
+			if prefs.ExecutionMode == "auto" {
+				deleter, err := registry.Deleter(pi.item.IntegrationID)
+				if err != nil {
+					slog.Error("Integration not registered as MediaDeleter", "component", "poller",
+						"integrationId", pi.item.IntegrationID, "error", err)
+					continue
+				}
+
+				// Queue for background deletion via DeletionService
+				diskGroupID := group.ID
+				if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
+					Client:          deleter,
+					Item:            pi.item,
+					Score:           pi.score,
+					Factors:         pi.factors,
+					Trigger:         db.TriggerEngine,
+					RunStatsID:      runStatsID,
+					DiskGroupID:     &diskGroupID,
+					CollectionGroup: pi.collectionGroup,
+				}); err != nil {
+					slog.Warn("Deletion queue full, skipping item", "component", "poller", "item", pi.item.Title)
+					continue
+				}
+				bytesFreed += pi.item.SizeBytes
+				deletionsQueued++
+			} else if prefs.ExecutionMode == "approval" {
+				// Collect for batch upsert after the loop.
+				factorsJSON, marshalErr := json.Marshal(pi.factors)
+				if marshalErr != nil {
+					slog.Error("Failed to marshal score factors", "component", "poller", "error", marshalErr)
+					factorsJSON = []byte("[]")
+				}
+				diskGroupID := group.ID
+				pendingBatch = append(pendingBatch, db.ApprovalQueueItem{
+					MediaName:       pi.item.Title,
+					MediaType:       string(pi.item.Type),
+					ScoreDetails:    string(factorsJSON),
+					SizeBytes:       pi.item.SizeBytes,
+					Score:           pi.score,
+					PosterURL:       pi.item.PosterURL,
+					IntegrationID:   pi.item.IntegrationID,
+					ExternalID:      pi.item.ExternalID,
+					DiskGroupID:     &diskGroupID,
+					Trigger:         db.TriggerEngine,
+					CollectionGroup: pi.collectionGroup,
+				})
+
+				// Track this item as still-needed for post-loop reconciliation
+				neededKeys[pi.item.Title+"|"+string(pi.item.Type)] = true
+
+				bytesFreed += pi.item.SizeBytes
+				atomic.AddInt64(&p.lastRunFlagged, 1)
+				atomic.AddInt64(&p.lastRunFreedBytes, pi.item.SizeBytes)
+				slog.Info("Engine action taken", "component", "poller",
+					"media", pi.item.Title, "action", "queued_for_approval", "score", pi.score, "freed", pi.item.SizeBytes,
+					"collectionGroup", pi.collectionGroup)
+			} else {
+				// Dry-run mode: queue through DeletionService with ForceDryRun + UpsertAudit
+				diskGroupID := group.ID
+				if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
+					Client:          nil, // Dry-run never calls DeleteMediaItem; nil-safe in processJob()
+					Item:            pi.item,
+					Score:           pi.score,
+					Factors:         pi.factors,
+					Trigger:         db.TriggerEngine,
+					RunStatsID:      runStatsID,
+					DiskGroupID:     &diskGroupID,
+					ForceDryRun:     true,
+					UpsertAudit:     true,
+					CollectionGroup: pi.collectionGroup,
+				}); err != nil {
+					slog.Warn("Deletion queue full, skipping dry-run item", "component", "poller", "item", pi.item.Title)
+					continue
+				}
+				bytesFreed += pi.item.SizeBytes
+				deletionsQueued++
+				atomic.AddInt64(&p.lastRunFlagged, 1)
+				atomic.AddInt64(&p.lastRunFreedBytes, pi.item.SizeBytes)
+				slog.Info("Engine action taken", "component", "poller",
+					"media", pi.item.Title, "action", db.ActionDryDelete, "score", pi.score, "freed", pi.item.SizeBytes,
+					"collectionGroup", pi.collectionGroup)
+			}
 		}
-		bytesFreed += ev.Item.SizeBytes
-		deletionsQueued++
-		atomic.AddInt64(&p.lastRunFlagged, 1)
-		atomic.AddInt64(&p.lastRunFreedBytes, ev.Item.SizeBytes)
-		slog.Info("Engine action taken", "component", "poller",
-			"media", ev.Item.Title, "action", db.ActionDryDelete, "score", ev.Score, "freed", ev.Item.SizeBytes)
 	}
 
 	// Flush collected approval-mode items in a single batch transaction.
@@ -287,6 +394,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			"skippedZeroScore", skippedZeroScore,
 			"skippedDedup", skippedDedup,
 			"skippedSnoozed", skippedSnoozed,
+			"skippedCollectionProtected", skippedCollectionProtected,
 			"bytesFreedSoFar", bytesFreed)
 	}
 
