@@ -1231,3 +1231,224 @@ func TestApprovalReturnedToPendingEvent_EventMessage(t *testing.T) {
 		t.Errorf("expected EventMessage() = %q, got %q", expected, got)
 	}
 }
+
+func TestApprovalService_ListSnoozedKeys(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+
+	// Create a second disk group for cross-group filtering
+	otherDG := db.DiskGroup{MountPath: "/mnt/other", TotalBytes: 500000000, UsedBytes: 400000000, ThresholdPct: 80.0, TargetPct: 70.0}
+	if err := database.Create(&otherDG).Error; err != nil {
+		t.Fatalf("Failed to create other disk group: %v", err)
+	}
+	otherDGID := otherDG.ID
+
+	t.Run("empty when no snoozed items", func(t *testing.T) {
+		keys, err := svc.ListSnoozedKeys(dgID)
+		if err != nil {
+			t.Fatalf("ListSnoozedKeys returned error: %v", err)
+		}
+		if len(keys) != 0 {
+			t.Errorf("expected empty map, got %d keys", len(keys))
+		}
+	})
+
+	// Seed some items: 2 snoozed on dgID, 1 snoozed on otherDGID, 1 pending on dgID
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+	expiredSnooze := time.Now().UTC().Add(-1 * time.Hour)
+
+	items := []db.ApprovalQueueItem{
+		{MediaName: "Firefly", MediaType: "show", SizeBytes: 1000, IntegrationID: intID, ExternalID: "1", Status: db.StatusRejected, SnoozedUntil: &snoozedUntil, DiskGroupID: &dgID},
+		{MediaName: "Serenity", MediaType: "movie", SizeBytes: 2000, IntegrationID: intID, ExternalID: "2", Status: db.StatusRejected, SnoozedUntil: &snoozedUntil, DiskGroupID: &dgID},
+		{MediaName: "Other Show", MediaType: "show", SizeBytes: 3000, IntegrationID: intID, ExternalID: "3", Status: db.StatusRejected, SnoozedUntil: &snoozedUntil, DiskGroupID: &otherDGID},
+		{MediaName: "Pending Show", MediaType: "show", SizeBytes: 4000, IntegrationID: intID, ExternalID: "4", Status: db.StatusPending, DiskGroupID: &dgID},
+		{MediaName: "Expired Snooze", MediaType: "movie", SizeBytes: 5000, IntegrationID: intID, ExternalID: "5", Status: db.StatusRejected, SnoozedUntil: &expiredSnooze, DiskGroupID: &dgID},
+	}
+	for i := range items {
+		if err := database.Create(&items[i]).Error; err != nil {
+			t.Fatalf("Failed to create test item: %v", err)
+		}
+	}
+
+	t.Run("returns snoozed keys for target disk group", func(t *testing.T) {
+		keys, err := svc.ListSnoozedKeys(dgID)
+		if err != nil {
+			t.Fatalf("ListSnoozedKeys returned error: %v", err)
+		}
+		if len(keys) != 2 {
+			t.Fatalf("expected 2 snoozed keys, got %d: %v", len(keys), keys)
+		}
+		if !keys["Firefly|show"] {
+			t.Error("expected Firefly|show in snoozed keys")
+		}
+		if !keys["Serenity|movie"] {
+			t.Error("expected Serenity|movie in snoozed keys")
+		}
+	})
+
+	t.Run("does not include items from other disk groups", func(t *testing.T) {
+		keys, err := svc.ListSnoozedKeys(dgID)
+		if err != nil {
+			t.Fatalf("ListSnoozedKeys returned error: %v", err)
+		}
+		if keys["Other Show|show"] {
+			t.Error("should not include items from other disk group")
+		}
+	})
+
+	t.Run("does not include pending items", func(t *testing.T) {
+		keys, err := svc.ListSnoozedKeys(dgID)
+		if err != nil {
+			t.Fatalf("ListSnoozedKeys returned error: %v", err)
+		}
+		if keys["Pending Show|show"] {
+			t.Error("should not include pending items")
+		}
+	})
+
+	t.Run("does not include expired snoozes", func(t *testing.T) {
+		keys, err := svc.ListSnoozedKeys(dgID)
+		if err != nil {
+			t.Fatalf("ListSnoozedKeys returned error: %v", err)
+		}
+		if keys["Expired Snooze|movie"] {
+			t.Error("should not include items with expired snooze")
+		}
+	})
+
+	t.Run("returns correct keys for other disk group", func(t *testing.T) {
+		keys, err := svc.ListSnoozedKeys(otherDGID)
+		if err != nil {
+			t.Fatalf("ListSnoozedKeys returned error: %v", err)
+		}
+		if len(keys) != 1 {
+			t.Fatalf("expected 1 snoozed key for other DG, got %d", len(keys))
+		}
+		if !keys["Other Show|show"] {
+			t.Error("expected Other Show|show in snoozed keys for other DG")
+		}
+	})
+}
+
+func TestApprovalService_BulkUpsertPending(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+
+	t.Run("empty slice is a no-op", func(t *testing.T) {
+		created, updated, err := svc.BulkUpsertPending(nil)
+		if err != nil {
+			t.Fatalf("BulkUpsertPending returned error: %v", err)
+		}
+		if created != 0 || updated != 0 {
+			t.Errorf("expected 0/0, got created=%d updated=%d", created, updated)
+		}
+	})
+
+	t.Run("creates new items when none exist", func(t *testing.T) {
+		items := []db.ApprovalQueueItem{
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 5000, Score: 0.9, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: "engine"},
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 3000, Score: 0.7, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID, Trigger: "engine"},
+		}
+		created, updated, err := svc.BulkUpsertPending(items)
+		if err != nil {
+			t.Fatalf("BulkUpsertPending returned error: %v", err)
+		}
+		if created != 2 {
+			t.Errorf("expected 2 created, got %d", created)
+		}
+		if updated != 0 {
+			t.Errorf("expected 0 updated, got %d", updated)
+		}
+
+		// Verify items are in DB
+		var count int64
+		database.Model(&db.ApprovalQueueItem{}).Where("status = ?", db.StatusPending).Count(&count)
+		if count != 2 {
+			t.Errorf("expected 2 pending items in DB, got %d", count)
+		}
+	})
+
+	t.Run("updates existing pending items on second call", func(t *testing.T) {
+		items := []db.ApprovalQueueItem{
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 6000, Score: 0.95, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: "engine"},
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 4000, Score: 0.8, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID, Trigger: "engine"},
+		}
+		created, updated, err := svc.BulkUpsertPending(items)
+		if err != nil {
+			t.Fatalf("BulkUpsertPending returned error: %v", err)
+		}
+		if created != 0 {
+			t.Errorf("expected 0 created, got %d", created)
+		}
+		if updated != 2 {
+			t.Errorf("expected 2 updated, got %d", updated)
+		}
+
+		// Verify updated values
+		var entry db.ApprovalQueueItem
+		database.Where("media_name = ? AND media_type = ?", "Firefly", "show").First(&entry)
+		if entry.SizeBytes != 6000 {
+			t.Errorf("expected SizeBytes=6000 after update, got %d", entry.SizeBytes)
+		}
+		if entry.Score != 0.95 {
+			t.Errorf("expected Score=0.95 after update, got %f", entry.Score)
+		}
+	})
+
+	t.Run("handles mixed creates and updates", func(t *testing.T) {
+		items := []db.ApprovalQueueItem{
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 7000, Score: 0.99, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: "engine"},   // exists → update
+			{MediaName: "New Movie", MediaType: "movie", SizeBytes: 2000, Score: 0.5, IntegrationID: intID, ExternalID: "3", DiskGroupID: &dgID, Trigger: "engine"}, // new → create
+		}
+		created, updated, err := svc.BulkUpsertPending(items)
+		if err != nil {
+			t.Fatalf("BulkUpsertPending returned error: %v", err)
+		}
+		if created != 1 {
+			t.Errorf("expected 1 created, got %d", created)
+		}
+		if updated != 1 {
+			t.Errorf("expected 1 updated, got %d", updated)
+		}
+	})
+
+	t.Run("does not clobber rejected items", func(t *testing.T) {
+		// Create a rejected item
+		snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+		rejected := db.ApprovalQueueItem{
+			MediaName: "Rejected Show", MediaType: "show", SizeBytes: 9000,
+			IntegrationID: intID, ExternalID: "99", Status: db.StatusRejected,
+			SnoozedUntil: &snoozedUntil, DiskGroupID: &dgID,
+		}
+		if err := database.Create(&rejected).Error; err != nil {
+			t.Fatalf("Failed to create rejected item: %v", err)
+		}
+
+		// Try to upsert with same media_name/media_type — should create a new pending entry
+		items := []db.ApprovalQueueItem{
+			{MediaName: "Rejected Show", MediaType: "show", SizeBytes: 8000, Score: 0.6, IntegrationID: intID, ExternalID: "99", DiskGroupID: &dgID, Trigger: "engine"},
+		}
+		created, _, err := svc.BulkUpsertPending(items)
+		if err != nil {
+			t.Fatalf("BulkUpsertPending returned error: %v", err)
+		}
+		if created != 1 {
+			t.Errorf("expected 1 created (new pending alongside rejected), got %d", created)
+		}
+
+		// Verify the rejected item is unchanged
+		var rejectedEntry db.ApprovalQueueItem
+		database.Where("media_name = ? AND status = ?", "Rejected Show", db.StatusRejected).First(&rejectedEntry)
+		if rejectedEntry.SizeBytes != 9000 {
+			t.Errorf("rejected item should be unchanged, got SizeBytes=%d", rejectedEntry.SizeBytes)
+		}
+	})
+}

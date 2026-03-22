@@ -282,3 +282,72 @@ func TestAuditLogService_PruneOlderThan_ZeroKeepsForever(t *testing.T) {
 		t.Errorf("expected 0 entries pruned with retention=0, got %d", pruned)
 	}
 }
+
+func TestAuditLogService_BulkUpsertDryRun(t *testing.T) {
+	database := setupTestDB(t)
+	svc := NewAuditLogService(database)
+
+	t.Run("empty slice is a no-op", func(t *testing.T) {
+		if err := svc.BulkUpsertDryRun(nil); err != nil {
+			t.Fatalf("BulkUpsertDryRun returned error: %v", err)
+		}
+	})
+
+	t.Run("creates new dry-run entries", func(t *testing.T) {
+		entries := []db.AuditLogEntry{
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 5000, Score: 0.9, Trigger: "engine", DryRunReason: "mode"},
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 3000, Score: 0.7, Trigger: "engine", DryRunReason: "mode"},
+		}
+		if err := svc.BulkUpsertDryRun(entries); err != nil {
+			t.Fatalf("BulkUpsertDryRun returned error: %v", err)
+		}
+
+		var count int64
+		database.Model(&db.AuditLogEntry{}).Where("action = ?", db.ActionDryDelete).Count(&count)
+		if count != 2 {
+			t.Errorf("expected 2 dry-run entries in DB, got %d", count)
+		}
+	})
+
+	t.Run("updates existing dry-run entries on second call", func(t *testing.T) {
+		entries := []db.AuditLogEntry{
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 6000, Score: 0.95, Trigger: "engine", DryRunReason: "mode"},
+		}
+		if err := svc.BulkUpsertDryRun(entries); err != nil {
+			t.Fatalf("BulkUpsertDryRun returned error: %v", err)
+		}
+
+		// Verify updated values
+		var entry db.AuditLogEntry
+		database.Where("media_name = ? AND action = ?", "Firefly", db.ActionDryDelete).First(&entry)
+		if entry.SizeBytes != 6000 {
+			t.Errorf("expected SizeBytes=6000 after update, got %d", entry.SizeBytes)
+		}
+		if entry.Score != 0.95 {
+			t.Errorf("expected Score=0.95 after update, got %f", entry.Score)
+		}
+
+		// Total count should still be 2 (not 3)
+		var count int64
+		database.Model(&db.AuditLogEntry{}).Where("action = ?", db.ActionDryDelete).Count(&count)
+		if count != 2 {
+			t.Errorf("expected 2 dry-run entries (upsert, not insert), got %d", count)
+		}
+	})
+
+	t.Run("handles mixed creates and updates", func(t *testing.T) {
+		entries := []db.AuditLogEntry{
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 4000, Score: 0.8, Trigger: "engine", DryRunReason: "mode"},      // update
+			{MediaName: "New Movie", MediaType: "movie", SizeBytes: 2000, Score: 0.5, Trigger: "engine", DryRunReason: "disabled"}, // create
+		}
+		if err := svc.BulkUpsertDryRun(entries); err != nil {
+			t.Fatalf("BulkUpsertDryRun returned error: %v", err)
+		}
+
+		var count int64
+		database.Model(&db.AuditLogEntry{}).Where("action = ?", db.ActionDryDelete).Count(&count)
+		if count != 3 {
+			t.Errorf("expected 3 dry-run entries, got %d", count)
+		}
+	})
+}

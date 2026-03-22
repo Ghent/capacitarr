@@ -97,6 +97,71 @@ func (s *AuditLogService) UpsertDryRun(entry db.AuditLogEntry) error {
 	return s.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&entry).Error
 }
 
+// BulkUpsertDryRun creates or updates multiple dry-run audit log entries in a
+// single transaction. Each entry is matched on (media_name, media_type, action='dry_delete').
+// Existing entries are updated; new entries are batch-created.
+func (s *AuditLogService) BulkUpsertDryRun(entries []db.AuditLogEntry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+
+	now := time.Now().UTC()
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		// Step 1: Load all existing dry-run entries for the given media in one query.
+		orConditions := tx.Where("1 = 0")
+		for _, e := range entries {
+			orConditions = orConditions.Or("media_name = ? AND media_type = ?", e.MediaName, e.MediaType)
+		}
+
+		var existing []db.AuditLogEntry
+		if err := tx.Where("action = ?", db.ActionDryDelete).Where(orConditions).Find(&existing).Error; err != nil {
+			return fmt.Errorf("failed to load existing dry-run entries: %w", err)
+		}
+
+		// Build lookup map: "name|type" → existing entry ID
+		existingMap := make(map[string]uint, len(existing))
+		for _, e := range existing {
+			existingMap[e.MediaName+"|"+e.MediaType] = e.ID
+		}
+
+		// Step 2: Partition into creates and updates
+		var toCreate []db.AuditLogEntry
+		for _, entry := range entries {
+			entry.Action = db.ActionDryDelete
+			entry.CreatedAt = now
+			key := entry.MediaName + "|" + entry.MediaType
+
+			if id, exists := existingMap[key]; exists {
+				// Update existing entry
+				if err := tx.Model(&db.AuditLogEntry{}).Where("id = ?", id).Updates(map[string]any{
+					"score_details":  entry.ScoreDetails,
+					"size_bytes":     entry.SizeBytes,
+					"score":          entry.Score,
+					"trigger":        entry.Trigger,
+					"dry_run_reason": entry.DryRunReason,
+					"integration_id": entry.IntegrationID,
+					"disk_group_id":  entry.DiskGroupID,
+					"created_at":     now,
+				}).Error; err != nil {
+					return fmt.Errorf("failed to update dry-run entry %q: %w", entry.MediaName, err)
+				}
+			} else {
+				toCreate = append(toCreate, entry)
+			}
+		}
+
+		// Step 3: Batch insert new entries
+		if len(toCreate) > 0 {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(toCreate, 100).Error; err != nil {
+				return fmt.Errorf("failed to batch create dry-run entries: %w", err)
+			}
+		}
+
+		return nil
+	})
+}
+
 // ListRecent returns the most recent N audit log entries, ordered newest first.
 func (s *AuditLogService) ListRecent(limit int) ([]db.AuditLogEntry, error) {
 	logs := make([]db.AuditLogEntry, 0, limit)

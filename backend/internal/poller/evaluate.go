@@ -119,11 +119,23 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 	// Keys are "MediaName|MediaType" strings matching the approval queue schema.
 	neededKeys := make(map[string]bool)
 
+	// Pre-fetch all snoozed keys for this disk group in a single query.
+	// This replaces per-item IsSnoozed() calls (N queries → 1).
+	snoozedKeys, snoozedErr := p.reg.Approval.ListSnoozedKeys(group.ID)
+	if snoozedErr != nil {
+		slog.Error("Failed to pre-fetch snoozed keys, falling back to empty set",
+			"component", "poller", "mount", group.MountPath, "error", snoozedErr)
+		snoozedKeys = make(map[string]bool)
+	}
+
 	var bytesFreed int64
 	var deletionsQueued int
 	var skippedZeroScore int
 	var skippedDedup int
 	var skippedSnoozed int
+
+	// Collect approval-mode items for batch upsert (Phase 2 optimization).
+	var pendingBatch []db.ApprovalQueueItem
 
 	for _, ev := range candidates {
 		if bytesFreed >= targetBytesToFree {
@@ -146,7 +158,9 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		// Skip items that are currently snoozed (rejected with an active snooze window).
 		// This check runs in ALL execution modes so items snoozed from the deletion queue
 		// in auto/dry-run mode are also respected by the engine.
-		if p.reg.Approval.IsSnoozed(ev.Item.Title, string(ev.Item.Type), group.ID) {
+		// Uses pre-fetched snoozedKeys map for O(1) lookup instead of per-item DB query.
+		snoozedKey := ev.Item.Title + "|" + string(ev.Item.Type)
+		if snoozedKeys[snoozedKey] {
 			skippedSnoozed++
 			slog.Debug("Skipping snoozed item", "component", "poller", "media", ev.Item.Title)
 			continue
@@ -182,14 +196,14 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			deletionsQueued++
 			continue // Skip the synchronous DB insert below, worker handles it
 		} else if prefs.ExecutionMode == "approval" {
-			// Upsert into approval_queue via ApprovalService
+			// Collect for batch upsert after the loop (replaces per-item UpsertPending).
 			factorsJSON, marshalErr := json.Marshal(ev.Factors)
 			if marshalErr != nil {
 				slog.Error("Failed to marshal score factors", "component", "poller", "error", marshalErr)
 				factorsJSON = []byte("[]")
 			}
 			diskGroupID := group.ID
-			if _, err := p.reg.Approval.UpsertPending(db.ApprovalQueueItem{
+			pendingBatch = append(pendingBatch, db.ApprovalQueueItem{
 				MediaName:     ev.Item.Title,
 				MediaType:     string(ev.Item.Type),
 				ScoreDetails:  string(factorsJSON),
@@ -200,10 +214,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 				ExternalID:    ev.Item.ExternalID,
 				DiskGroupID:   &diskGroupID,
 				Trigger:       db.TriggerEngine,
-			}); err != nil {
-				slog.Error("Failed to upsert approval queue item", "component", "poller", "media", ev.Item.Title, "error", err)
-				continue
-			}
+			})
 
 			// Track this item as still-needed for post-loop reconciliation
 			neededKeys[ev.Item.Title+"|"+string(ev.Item.Type)] = true
@@ -238,6 +249,19 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		atomic.AddInt64(&p.lastRunFreedBytes, ev.Item.SizeBytes)
 		slog.Info("Engine action taken", "component", "poller",
 			"media", ev.Item.Title, "action", db.ActionDryDelete, "score", ev.Score, "freed", ev.Item.SizeBytes)
+	}
+
+	// Flush collected approval-mode items in a single batch transaction.
+	// This replaces N individual UpsertPending() calls with one BulkUpsertPending().
+	if len(pendingBatch) > 0 {
+		created, updated, batchErr := p.reg.Approval.BulkUpsertPending(pendingBatch)
+		if batchErr != nil {
+			slog.Error("Failed to batch upsert approval queue items", "component", "poller",
+				"mount", group.MountPath, "batchSize", len(pendingBatch), "error", batchErr)
+		} else {
+			slog.Info("Batch upserted approval queue items", "component", "poller",
+				"mount", group.MountPath, "created", created, "updated", updated)
+		}
 	}
 
 	// Per-cycle queue reconciliation: in approval mode, dismiss any pending items

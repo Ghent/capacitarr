@@ -191,6 +191,98 @@ func (s *ApprovalService) UpsertPending(item db.ApprovalQueueItem) (bool, error)
 	return true, nil
 }
 
+// BulkUpsertPending creates or updates multiple pending approval queue items in a
+// single transaction. Items are matched on (media_name, media_type) with status='pending'.
+// Returns the number of items created and updated.
+func (s *ApprovalService) BulkUpsertPending(items []db.ApprovalQueueItem) (created int, updated int, err error) {
+	if len(items) == 0 {
+		return 0, 0, nil
+	}
+
+	now := time.Now().UTC()
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// Step 1: Collect all (media_name, media_type) pairs and load existing pending entries in one query.
+		// SQLite doesn't support row-value IN clauses, so we build an OR chain.
+		// For typical batch sizes (10-100 items), this is efficient and avoids N+1.
+		type mediaKey struct {
+			name     string
+			typeName string
+		}
+		keys := make([]mediaKey, len(items))
+		for i, item := range items {
+			keys[i] = mediaKey{name: item.MediaName, typeName: item.MediaType}
+		}
+
+		var existing []db.ApprovalQueueItem
+		query := tx.Where("status = ?", db.StatusPending)
+
+		// Build OR conditions for each (media_name, media_type) pair
+		orConditions := tx.Where("1 = 0") // start with false
+		for _, k := range keys {
+			orConditions = orConditions.Or("media_name = ? AND media_type = ?", k.name, k.typeName)
+		}
+		query = query.Where(orConditions)
+
+		if err := query.Find(&existing).Error; err != nil {
+			return fmt.Errorf("failed to load existing pending entries: %w", err)
+		}
+
+		// Build lookup map: "name|type" → existing entry ID
+		existingMap := make(map[string]uint, len(existing))
+		for _, e := range existing {
+			existingMap[e.MediaName+"|"+e.MediaType] = e.ID
+		}
+
+		// Step 2: Partition items into creates and updates
+		var toCreate []db.ApprovalQueueItem
+		var toUpdate []db.ApprovalQueueItem
+		for i := range items {
+			items[i].Status = db.StatusPending
+			key := items[i].MediaName + "|" + items[i].MediaType
+			if _, exists := existingMap[key]; exists {
+				toUpdate = append(toUpdate, items[i])
+			} else {
+				items[i].CreatedAt = now
+				items[i].UpdatedAt = now
+				toCreate = append(toCreate, items[i])
+			}
+		}
+
+		// Step 3: Batch insert new entries
+		if len(toCreate) > 0 {
+			if err := tx.CreateInBatches(toCreate, 100).Error; err != nil {
+				return fmt.Errorf("failed to batch create pending entries: %w", err)
+			}
+			created = len(toCreate)
+		}
+
+		// Step 4: Batch update existing entries (one UPDATE per item, but within the same tx)
+		for _, item := range toUpdate {
+			key := item.MediaName + "|" + item.MediaType
+			id := existingMap[key]
+			if err := tx.Model(&db.ApprovalQueueItem{}).Where("id = ?", id).Updates(map[string]any{
+				"score_details":  item.ScoreDetails,
+				"size_bytes":     item.SizeBytes,
+				"score":          item.Score,
+				"poster_url":     item.PosterURL,
+				"integration_id": item.IntegrationID,
+				"external_id":    item.ExternalID,
+				"disk_group_id":  item.DiskGroupID,
+				"trigger":        item.Trigger,
+				"updated_at":     now,
+			}).Error; err != nil {
+				return fmt.Errorf("failed to update pending entry %q: %w", item.MediaName, err)
+			}
+		}
+		updated = len(toUpdate)
+
+		return nil
+	})
+
+	return created, updated, err
+}
+
 // IsSnoozed checks if a media item is currently snoozed (rejected with an active snooze window).
 // When diskGroupID is non-nil, the check is scoped to that specific disk group.
 func (s *ApprovalService) IsSnoozed(mediaName, mediaType string, diskGroupID ...uint) bool {
@@ -204,6 +296,30 @@ func (s *ApprovalService) IsSnoozed(mediaName, mediaType string, diskGroupID ...
 	}
 	query.Count(&count)
 	return count > 0
+}
+
+// ListSnoozedKeys returns the set of "mediaName|mediaType" keys that are
+// currently snoozed for the given disk group in a single query. The caller
+// can do O(1) map lookups instead of per-item IsSnoozed() DB queries.
+func (s *ApprovalService) ListSnoozedKeys(diskGroupID uint) (map[string]bool, error) {
+	type row struct {
+		MediaName string
+		MediaType string
+	}
+	var rows []row
+	err := s.db.Model(&db.ApprovalQueueItem{}).
+		Select("media_name, media_type").
+		Where("status = ? AND snoozed_until IS NOT NULL AND snoozed_until > ? AND disk_group_id = ?",
+			db.StatusRejected, time.Now().UTC(), diskGroupID).
+		Find(&rows).Error
+	if err != nil {
+		return nil, fmt.Errorf("list snoozed keys: %w", err)
+	}
+	keys := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		keys[r.MediaName+"|"+r.MediaType] = true
+	}
+	return keys, nil
 }
 
 // BulkUnsnooze clears all active snoozes and resets items to pending.

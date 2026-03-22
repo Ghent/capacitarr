@@ -332,6 +332,8 @@ func (s *DeletionService) queueLen() int {
 
 // drainAll processes all items currently in the queue. Items added during
 // draining are also processed (no new grace period until we've fully drained).
+// Dry-run audit entries with UpsertAudit=true are collected and batch-flushed
+// at the end to reduce per-item DB overhead.
 func (s *DeletionService) drainAll() {
 	s.processing.Store(true)
 	defer s.processing.Store(false)
@@ -345,23 +347,38 @@ func (s *DeletionService) drainAll() {
 	s.graceTimerMu.Unlock()
 	s.graceActive.Store(false)
 
+	// Collect dry-run audit entries for batch flush after drain completes.
+	var deferredAuditEntries []db.AuditLogEntry
+
+drainLoop:
 	for {
 		job, ok := s.dequeueJob()
 		if !ok {
-			return
+			break
 		}
 
 		// Check for stop signal between jobs
 		select {
 		case <-s.stopCh:
-			// Process this last job then return
-			s.processJob(job)
-			return
+			// Process this last job then break to flush
+			s.processJob(job, &deferredAuditEntries)
+			break drainLoop
 		default:
 		}
 
 		_ = s.rateLimiter.Wait(context.Background()) //nolint:errcheck // Wait with background context never returns non-nil error
-		s.processJob(job)
+		s.processJob(job, &deferredAuditEntries)
+	}
+
+	// Batch-flush deferred dry-run audit entries
+	if len(deferredAuditEntries) > 0 {
+		if err := s.auditLog.BulkUpsertDryRun(deferredAuditEntries); err != nil {
+			slog.Error("Failed to batch upsert dry-run audit entries", "component", "services",
+				"count", len(deferredAuditEntries), "error", err)
+		} else {
+			slog.Info("Batch upserted dry-run audit entries", "component", "services",
+				"count", len(deferredAuditEntries))
+		}
 	}
 }
 
@@ -379,7 +396,10 @@ func (s *DeletionService) dequeueJob() (DeleteJob, bool) {
 	return job, true
 }
 
-func (s *DeletionService) processJob(job DeleteJob) {
+// processJob handles a single deletion job. When deferredAuditEntries is non-nil,
+// dry-run entries with UpsertAudit=true are collected for batch flush instead of
+// being written individually to the database.
+func (s *DeletionService) processJob(job DeleteJob, deferredAuditEntries *[]db.AuditLogEntry) {
 	s.currentlyDeleting.Store(job.Item.Title)
 	defer s.currentlyDeleting.Store("")
 	defer s.checkBatchComplete()
@@ -442,7 +462,11 @@ func (s *DeletionService) processJob(job DeleteJob) {
 			DryRunReason: determineDryRunReason(deletionsEnabled, job.ForceDryRun),
 			DiskGroupID:  job.DiskGroupID,
 		}
-		if job.UpsertAudit {
+		if job.UpsertAudit && deferredAuditEntries != nil {
+			// Defer to batch flush at end of drainAll()
+			*deferredAuditEntries = append(*deferredAuditEntries, logEntry)
+		} else if job.UpsertAudit {
+			// No collector available (e.g., shutdown path), write immediately
 			if err := s.auditLog.UpsertDryRun(logEntry); err != nil {
 				slog.Error("Failed to upsert audit log entry", "component", "services", "error", err)
 			}
