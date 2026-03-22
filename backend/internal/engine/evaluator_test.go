@@ -7,15 +7,15 @@ import (
 	"capacitarr/internal/integrations"
 )
 
-func defaultPrefs() db.PreferenceSet {
-	return db.PreferenceSet{
-		WatchHistoryWeight:      10,
-		LastWatchedWeight:       8,
-		FileSizeWeight:          6,
-		RatingWeight:            5,
-		TimeInLibraryWeight:     4,
-		SeriesStatusWeight:      3,
-		RequestPopularityWeight: 2,
+func defaultWeights() map[string]int {
+	return map[string]int{
+		"watch_history":      10,
+		"last_watched":       8,
+		"file_size":          6,
+		"rating":             5,
+		"time_in_library":    4,
+		"series_status":      3,
+		"request_popularity": 2,
 	}
 }
 
@@ -27,10 +27,10 @@ func TestEvaluator_Evaluate(t *testing.T) {
 		{Title: "Firefly", Type: integrations.MediaTypeShow, SizeBytes: 5 * 1024 * 1024 * 1024, PlayCount: 3},
 	}
 
-	prefs := defaultPrefs()
+	weights := defaultWeights()
 	rules := []db.CustomRule{}
 
-	result := eval.Evaluate(items, prefs, rules, "size_desc")
+	result := eval.Evaluate(items, weights, rules, "size_desc")
 
 	if result.TotalCount != 2 {
 		t.Errorf("expected TotalCount 2, got %d", result.TotalCount)
@@ -60,12 +60,12 @@ func TestEvaluator_EvaluateWithProtection(t *testing.T) {
 		{Title: "Firefly", Type: integrations.MediaTypeShow, SizeBytes: 5 * 1024 * 1024 * 1024, PlayCount: 3, Rating: 9.0, IntegrationID: 1},
 	}
 
-	prefs := defaultPrefs()
+	weights := defaultWeights()
 	rules := []db.CustomRule{
 		{ID: 1, IntegrationID: &intID, Field: "title", Operator: "==", Value: "Firefly", Effect: "always_keep", Enabled: true},
 	}
 
-	result := eval.Evaluate(items, prefs, rules, "size_desc")
+	result := eval.Evaluate(items, weights, rules, "size_desc")
 
 	if len(result.Protected) != 1 {
 		t.Fatalf("expected 1 protected item, got %d", len(result.Protected))
@@ -87,8 +87,8 @@ func TestEvaluationResult_CandidatesForDeletion(t *testing.T) {
 		{Title: "Firefly S2", Type: integrations.MediaTypeShow, SizeBytes: 15 * 1024 * 1024 * 1024, PlayCount: 5},
 	}
 
-	prefs := defaultPrefs()
-	result := eval.Evaluate(items, prefs, []db.CustomRule{}, "size_desc")
+	weights := defaultWeights()
+	result := eval.Evaluate(items, weights, []db.CustomRule{}, "size_desc")
 
 	// Request 15GB freed
 	candidates := result.CandidatesForDeletion(15 * 1024 * 1024 * 1024)

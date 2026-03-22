@@ -62,15 +62,18 @@ func sampleMediaItems() []integrations.MediaItem {
 func seedPreviewCache(t *testing.T, reg *services.Registry, items []integrations.MediaItem) {
 	t.Helper()
 	prefs := db.PreferenceSet{
-		WatchHistoryWeight:  10,
-		LastWatchedWeight:   8,
-		FileSizeWeight:      6,
-		RatingWeight:        5,
-		TimeInLibraryWeight: 4,
-		SeriesStatusWeight:  3,
-		TiebreakerMethod:    "size_desc",
+		TiebreakerMethod: "size_desc",
 	}
-	reg.Preview.SetPreviewCache(items, prefs, nil)
+	weights := map[string]int{
+		"watch_history":      10,
+		"last_watched":       8,
+		"file_size":          6,
+		"rating":             5,
+		"time_in_library":    4,
+		"series_status":      3,
+		"request_popularity": 0,
+	}
+	reg.Preview.SetPreviewCache(items, prefs, weights, nil)
 }
 
 func TestAnalyticsE2E_DeadContentEndpoint(t *testing.T) {

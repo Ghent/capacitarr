@@ -24,6 +24,7 @@ import (
 
 	"capacitarr/internal/config"
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 	"capacitarr/internal/jobs"
@@ -222,6 +223,15 @@ func main() {
 		slog.Error("Failed to initialize database", "component", "main", "operation", "init_database", "error", err)
 		os.Exit(1)
 	}
+
+	// Seed scoring factor weights from the engine's default factors.
+	// Converts engine.ScoringFactor (which db can't import) to db.FactorDefault.
+	defaultFactors := engine.DefaultFactors()
+	factorDefaults := make([]db.FactorDefault, len(defaultFactors))
+	for i, f := range defaultFactors {
+		factorDefaults[i] = db.FactorDefault{Key: f.Key(), DefaultWeight: f.DefaultWeight()}
+	}
+	db.SeedFactorWeights(database, factorDefaults)
 
 	// Auto-import auth from .v1.bak so the user can log in with their
 	// existing credentials before deciding to import the rest of their settings.

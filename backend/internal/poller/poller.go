@@ -152,6 +152,12 @@ func (p *Poller) poll() {
 		return
 	}
 
+	weights, err := p.reg.Settings.GetWeightMap()
+	if err != nil {
+		slog.Error("Failed to load scoring factor weights", "component", "poller", "operation", "load_weights", "error", err)
+		return
+	}
+
 	// Create engine run stats row via service
 	runStats, err := p.reg.Engine.CreateRunStats(prefs.ExecutionMode)
 	if err != nil {
@@ -263,7 +269,7 @@ func (p *Poller) poll() {
 		}
 
 		// Evaluate and trigger cleanup if threshold breached
-		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.registry, runStatsID, prefs, rules)
+		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.registry, runStatsID, prefs, weights, rules)
 	}
 
 	// Clear the approval queue only when ALL disk groups are below threshold.
@@ -309,7 +315,7 @@ func (p *Poller) poll() {
 	p.reg.Engine.SetLastRunStats(int(evaluated), int(flagged), int(protected))
 
 	// Populate preview cache with already-fetched and enriched items
-	p.reg.Preview.SetPreviewCache(fetched.allItems, prefs, rules)
+	p.reg.Preview.SetPreviewCache(fetched.allItems, prefs, weights, rules)
 
 	// Publish engine complete event
 	bus.Publish(events.EngineCompleteEvent{

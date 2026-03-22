@@ -9,32 +9,19 @@ import (
 	"capacitarr/internal/integrations"
 )
 
-// isolatedPrefs returns a PreferenceSet with all weights zeroed except the
+// isolatedWeights returns a weight map with all weights zeroed except the
 // named one, allowing a single scoring factor to be tested in isolation.
-func isolatedPrefs(weight string, value int) db.PreferenceSet { //nolint:unparam // value is always 10 in tests but the param documents intent
-	p := db.PreferenceSet{}
-	switch weight {
-	case "WatchHistory":
-		p.WatchHistoryWeight = value
-	case "LastWatched":
-		p.LastWatchedWeight = value
-	case "FileSize":
-		p.FileSizeWeight = value
-	case "Rating":
-		p.RatingWeight = value
-	case "TimeInLibrary":
-		p.TimeInLibraryWeight = value
-	case "Series Status":
-		p.SeriesStatusWeight = value
-	}
-	return p
+func isolatedWeights(key string, value int) map[string]int { //nolint:unparam // value is always 10 in tests but the param documents intent
+	weights := map[string]int{}
+	weights[key] = value
+	return weights
 }
 
 func TestCalculateScore_AllZeroWeights(t *testing.T) {
 	item := integrations.MediaItem{PlayCount: 5, SizeBytes: 10 * 1024 * 1024 * 1024}
-	prefs := db.PreferenceSet{} // all zero
+	weights := map[string]int{} // all zero
 
-	score, reason, factors := calculateScore(item, prefs)
+	score, reason, factors := calculateScore(item, DefaultFactors(), weights)
 	if score != 0.0 {
 		t.Errorf("Expected 0.0 with zero weights, got %v", score)
 	}
@@ -63,9 +50,9 @@ func TestCalculateScore_WatchHistory(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			item := integrations.MediaItem{PlayCount: tc.playCount}
-			prefs := isolatedPrefs("WatchHistory", 10)
+			weights := isolatedWeights("watch_history", 10)
 
-			score, _, factors := calculateScore(item, prefs)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights)
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -100,9 +87,9 @@ func TestCalculateScore_LastWatched(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			item := integrations.MediaItem{LastPlayed: tc.lastPlayed}
-			prefs := isolatedPrefs("LastWatched", 10)
+			weights := isolatedWeights("last_watched", 10)
 
-			score, _, factors := calculateScore(item, prefs)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights)
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -133,9 +120,9 @@ func TestCalculateScore_FileSize(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			item := integrations.MediaItem{SizeBytes: tc.sizeBytes}
-			prefs := isolatedPrefs("FileSize", 10)
+			weights := isolatedWeights("file_size", 10)
 
-			score, _, factors := calculateScore(item, prefs)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights)
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -168,9 +155,9 @@ func TestCalculateScore_Rating(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			item := integrations.MediaItem{Rating: tc.rating}
-			prefs := isolatedPrefs("Rating", 10)
+			weights := isolatedWeights("rating", 10)
 
-			score, _, factors := calculateScore(item, prefs)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights)
 			if score < tc.minScore-0.001 || score > tc.maxScore+0.001 {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -204,9 +191,9 @@ func TestCalculateScore_TimeInLibrary(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			item := integrations.MediaItem{AddedAt: tc.addedAt}
-			prefs := isolatedPrefs("TimeInLibrary", 10)
+			weights := isolatedWeights("time_in_library", 10)
 
-			score, _, factors := calculateScore(item, prefs)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights)
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -243,9 +230,9 @@ func TestCalculateScore_SeriesStatus(t *testing.T) {
 				Type:         tc.mediaType,
 				SeriesStatus: tc.seriesStatus,
 			}
-			prefs := isolatedPrefs("Series Status", 10)
+			weights := isolatedWeights("series_status", 10)
 
-			score, _, factors := calculateScore(item, prefs)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights)
 			if score < tc.expected-0.001 || score > tc.expected+0.001 {
 				t.Errorf("Expected score ~%v, got %v", tc.expected, score)
 			}
@@ -268,16 +255,16 @@ func TestCalculateScore_CombinedWeights(t *testing.T) {
 	}
 
 	// All weights equal at 5
-	prefs := db.PreferenceSet{
-		WatchHistoryWeight:  5,
-		LastWatchedWeight:   5,
-		FileSizeWeight:      5,
-		RatingWeight:        5,
-		TimeInLibraryWeight: 5,
-		SeriesStatusWeight:  5,
+	weights := map[string]int{
+		"watch_history":   5,
+		"last_watched":    5,
+		"file_size":       5,
+		"rating":          5,
+		"time_in_library": 5,
+		"series_status":   5,
 	}
 
-	score, _, factors := calculateScore(item, prefs)
+	score, _, factors := calculateScore(item, DefaultFactors(), weights)
 
 	// Score should be high (most factors push toward deletion)
 	if score < 0.7 {
@@ -287,9 +274,9 @@ func TestCalculateScore_CombinedWeights(t *testing.T) {
 		t.Errorf("Score should be capped at 1.0, got %v", score)
 	}
 
-	// Should have exactly 6 factors
-	if len(factors) != 6 {
-		t.Errorf("Expected 6 factors, got %d", len(factors))
+	// Should have exactly 7 factors (includes request_popularity with weight 0)
+	if len(factors) != 7 {
+		t.Errorf("Expected 7 factors, got %d", len(factors))
 	}
 
 	// All factors should have Type "weight"
@@ -306,19 +293,20 @@ func TestCalculateScoreReasonFormat(t *testing.T) {
 		Type:         integrations.MediaTypeShow,
 		SeriesStatus: "ended",
 	}
-	prefs := db.PreferenceSet{
-		WatchHistoryWeight:  5,
-		LastWatchedWeight:   3,
-		FileSizeWeight:      2,
-		RatingWeight:        4,
-		TimeInLibraryWeight: 1,
-		SeriesStatusWeight:  5,
+	weights := map[string]int{
+		"watch_history":      5,
+		"last_watched":       3,
+		"file_size":          2,
+		"rating":             4,
+		"time_in_library":    1,
+		"series_status":      5,
+		"request_popularity": 0,
 	}
 
-	_, reason, _ := calculateScore(item, prefs)
+	_, reason, _ := calculateScore(item, DefaultFactors(), weights)
 
-	// Reason should contain all six factor labels
-	for _, label := range []string{"Watch:", "Recency:", "Size:", "Rating:", "Age:", "Status:"} {
+	// Reason should contain all seven factor keys
+	for _, label := range []string{"watch_history:", "last_watched:", "file_size:", "rating:", "time_in_library:", "series_status:", "request_popularity:"} {
 		if !strings.Contains(reason, label) {
 			t.Errorf("Expected reason to contain %q, got: %s", label, reason)
 		}
@@ -338,16 +326,17 @@ func TestCalculateScore_FactorContributionsNormalized(t *testing.T) {
 		Type:         integrations.MediaTypeShow,
 		SeriesStatus: "ended",
 	}
-	prefs := db.PreferenceSet{
-		WatchHistoryWeight:  10,
-		LastWatchedWeight:   8,
-		FileSizeWeight:      6,
-		RatingWeight:        5,
-		TimeInLibraryWeight: 4,
-		SeriesStatusWeight:  3,
+	weights := map[string]int{
+		"watch_history":      10,
+		"last_watched":       8,
+		"file_size":          6,
+		"rating":             5,
+		"time_in_library":    4,
+		"series_status":      3,
+		"request_popularity": 0,
 	}
 
-	_, _, factors := calculateScore(item, prefs)
+	_, _, factors := calculateScore(item, DefaultFactors(), weights)
 
 	var totalContribution float64
 	for _, f := range factors {
@@ -358,20 +347,20 @@ func TestCalculateScore_FactorContributionsNormalized(t *testing.T) {
 	}
 
 	// Total contributions should approximately equal the final score
-	score, _, _ := calculateScore(item, prefs)
+	score, _, _ := calculateScore(item, DefaultFactors(), weights)
 	if totalContribution < score-0.01 || totalContribution > score+0.01 {
 		t.Errorf("Sum of contributions (%v) doesn't match final score (%v)", totalContribution, score)
 	}
 }
 
 func TestEvaluateMedia_EmptyItemList(t *testing.T) {
-	prefs := db.PreferenceSet{WatchHistoryWeight: 5}
-	result := EvaluateMedia(nil, prefs, nil)
+	weights := map[string]int{"watch_history": 5}
+	result := EvaluateMedia(nil, DefaultFactors(), weights, nil)
 	if len(result) != 0 {
 		t.Errorf("Expected empty result for nil items, got %d", len(result))
 	}
 
-	result = EvaluateMedia([]integrations.MediaItem{}, prefs, nil)
+	result = EvaluateMedia([]integrations.MediaItem{}, DefaultFactors(), weights, nil)
 	if len(result) != 0 {
 		t.Errorf("Expected empty result for empty items, got %d", len(result))
 	}
@@ -381,13 +370,13 @@ func TestEvaluateMedia_ProtectedItemHasZeroScore(t *testing.T) {
 	items := []integrations.MediaItem{
 		{Title: "Protected Movie", IntegrationID: 1},
 	}
-	prefs := db.PreferenceSet{WatchHistoryWeight: 10}
+	weights := map[string]int{"watch_history": 10}
 	intID := uint(1)
 	rules := []db.CustomRule{
 		{Enabled: true, IntegrationID: &intID, Field: "title", Operator: "==", Value: "protected movie", Effect: "always_keep"},
 	}
 
-	result := EvaluateMedia(items, prefs, rules)
+	result := EvaluateMedia(items, DefaultFactors(), weights, rules)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 result, got %d", len(result))
 	}
@@ -403,13 +392,13 @@ func TestEvaluateMedia_RuleModifiersApplied(t *testing.T) {
 	items := []integrations.MediaItem{
 		{Title: "Target Movie", IntegrationID: 1, Rating: 3.0},
 	}
-	prefs := db.PreferenceSet{RatingWeight: 10}
+	weights := map[string]int{"rating": 10}
 	intID := uint(1)
 	rules := []db.CustomRule{
 		{Enabled: true, IntegrationID: &intID, Field: "rating", Operator: "<", Value: "5", Effect: "prefer_remove"}, // ×3.0
 	}
 
-	result := EvaluateMedia(items, prefs, rules)
+	result := EvaluateMedia(items, DefaultFactors(), weights, rules)
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 result, got %d", len(result))
 	}

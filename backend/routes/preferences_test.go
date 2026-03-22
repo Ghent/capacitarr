@@ -30,9 +30,6 @@ func TestGetPreferences(t *testing.T) {
 	}
 
 	// Verify default values from seed
-	if pref.WatchHistoryWeight != 10 {
-		t.Errorf("Expected WatchHistoryWeight 10, got %d", pref.WatchHistoryWeight)
-	}
 	if pref.ExecutionMode != "dry-run" {
 		t.Errorf("Expected ExecutionMode 'dry-run', got %q", pref.ExecutionMode)
 	}
@@ -46,12 +43,6 @@ func TestSavePreferences(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	body := `{
-		"watchHistoryWeight": 5,
-		"lastWatchedWeight": 3,
-		"fileSizeWeight": 2,
-		"ratingWeight": 4,
-		"timeInLibraryWeight": 1,
-		"seriesStatusWeight": 7,
 		"executionMode": "approval",
 		"tiebreakerMethod": "name_asc",
 		"logLevel": "debug",
@@ -77,12 +68,6 @@ func TestSavePreferences(t *testing.T) {
 		t.Fatalf("Failed to parse: %v", err)
 	}
 
-	if pref.WatchHistoryWeight != 5 {
-		t.Errorf("Expected WatchHistoryWeight 5, got %d", pref.WatchHistoryWeight)
-	}
-	if pref.SeriesStatusWeight != 7 {
-		t.Errorf("Expected SeriesStatusWeight 7, got %d", pref.SeriesStatusWeight)
-	}
 	if pref.ExecutionMode != "approval" {
 		t.Errorf("Expected ExecutionMode 'approval', got %q", pref.ExecutionMode)
 	}
@@ -91,22 +76,18 @@ func TestSavePreferences(t *testing.T) {
 	}
 }
 
-func TestSavePreferences_InvalidWeight(t *testing.T) {
+func TestSavePreferences_InvalidPayload(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	body := `{
-		"watchHistoryWeight": 15,
-		"executionMode": "dry-run",
-		"tiebreakerMethod": "size_desc",
-		"logLevel": "info"
-	}`
+	// Malformed JSON should be rejected
+	body := `{invalid json}`
 	req := testutil.AuthenticatedRequest(t, http.MethodPut, "/api/preferences", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf("Expected 400 for weight > 10, got %d: %s", rec.Code, rec.Body.String())
+		t.Errorf("Expected 400 for malformed JSON, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

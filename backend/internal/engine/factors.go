@@ -10,11 +10,23 @@ import (
 // ScoringFactor calculates a single dimension of the deletion score.
 // Each factor returns a raw score from 0.0 (least deletable) to 1.0 (most deletable).
 // The engine multiplies by the user-configured weight and normalizes across all factors.
+//
+// Factors are self-describing: they declare their own key, display name, description,
+// and default weight. This allows the system to auto-seed the scoring_factor_weights
+// table and auto-populate the UI without hardcoding factor metadata anywhere else.
+// Adding a new scoring dimension requires only implementing this interface and
+// appending it to DefaultFactors() — no schema migration, no route changes, no UI changes.
 type ScoringFactor interface {
 	// Name returns the human-readable name shown in UI breakdowns.
 	Name() string
-	// Key returns the machine-readable key for serialization and preferences.
+	// Key returns the machine-readable key for serialization and DB storage.
 	Key() string
+	// Description returns a short explanation of what this factor measures,
+	// shown below the weight slider in the UI.
+	Description() string
+	// DefaultWeight returns the initial weight (0-10) used when seeding the
+	// scoring_factor_weights table for the first time.
+	DefaultWeight() int
 	// Calculate returns a raw score from 0.0 to 1.0 for the given item.
 	Calculate(item integrations.MediaItem) float64
 }
@@ -46,6 +58,14 @@ func (f *WatchHistoryFactor) Name() string { return "Watch History" }
 // Key returns the preference key.
 func (f *WatchHistoryFactor) Key() string { return "watch_history" }
 
+// Description returns the UI description.
+func (f *WatchHistoryFactor) Description() string {
+	return "Unwatched items score higher for deletion. More plays = more protected."
+}
+
+// DefaultWeight returns the initial weight.
+func (f *WatchHistoryFactor) DefaultWeight() int { return 10 }
+
 // Calculate returns 1.0 for unwatched, decaying for more plays.
 func (f *WatchHistoryFactor) Calculate(item integrations.MediaItem) float64 {
 	if item.PlayCount > 0 {
@@ -65,6 +85,14 @@ func (f *RecencyFactor) Name() string { return "Last Watched" }
 
 // Key returns the preference key.
 func (f *RecencyFactor) Key() string { return "last_watched" }
+
+// Description returns the UI description.
+func (f *RecencyFactor) Description() string {
+	return "Media not watched in a long time scores higher for deletion."
+}
+
+// DefaultWeight returns the initial weight.
+func (f *RecencyFactor) DefaultWeight() int { return 8 }
 
 // Calculate returns 1.0 for never-watched or > 365 days, proportional for recent.
 func (f *RecencyFactor) Calculate(item integrations.MediaItem) float64 {
@@ -89,6 +117,14 @@ func (f *FileSizeFactor) Name() string { return "File Size" }
 // Key returns the preference key.
 func (f *FileSizeFactor) Key() string { return "file_size" }
 
+// Description returns the UI description.
+func (f *FileSizeFactor) Description() string {
+	return "Larger files score higher to free more space per deletion."
+}
+
+// DefaultWeight returns the initial weight.
+func (f *FileSizeFactor) DefaultWeight() int { return 6 }
+
 // Calculate returns 0.0-1.0 proportional to size, capped at 50GB.
 func (f *FileSizeFactor) Calculate(item integrations.MediaItem) float64 {
 	sizeGB := float64(item.SizeBytes) / (1024 * 1024 * 1024)
@@ -109,6 +145,14 @@ func (f *RatingFactor) Name() string { return "Rating" }
 
 // Key returns the preference key.
 func (f *RatingFactor) Key() string { return "rating" }
+
+// Description returns the UI description.
+func (f *RatingFactor) Description() string {
+	return "Low-rated content scores higher for deletion."
+}
+
+// DefaultWeight returns the initial weight.
+func (f *RatingFactor) DefaultWeight() int { return 5 }
 
 // Calculate returns 0.5 for unknown, inverted scale for rated items.
 func (f *RatingFactor) Calculate(item integrations.MediaItem) float64 {
@@ -132,6 +176,14 @@ func (f *LibraryAgeFactor) Name() string { return "Time in Library" }
 
 // Key returns the preference key.
 func (f *LibraryAgeFactor) Key() string { return "time_in_library" }
+
+// Description returns the UI description.
+func (f *LibraryAgeFactor) Description() string {
+	return "Older content may be less valuable. Normalized against one year."
+}
+
+// DefaultWeight returns the initial weight.
+func (f *LibraryAgeFactor) DefaultWeight() int { return 4 }
 
 // Calculate returns 0.5 for unknown, proportional to age capped at 1.0.
 func (f *LibraryAgeFactor) Calculate(item integrations.MediaItem) float64 {
@@ -157,6 +209,14 @@ func (f *SeriesStatusFactor) Name() string { return "Series Status" }
 // Key returns the preference key.
 func (f *SeriesStatusFactor) Key() string { return "series_status" }
 
+// Description returns the UI description.
+func (f *SeriesStatusFactor) Description() string {
+	return "Ended or canceled shows score higher since no new episodes are expected."
+}
+
+// DefaultWeight returns the initial weight.
+func (f *SeriesStatusFactor) DefaultWeight() int { return 3 }
+
 // Calculate returns 1.0 for ended shows, 0.2 for continuing, 0.5 for non-TV or unknown.
 func (f *SeriesStatusFactor) Calculate(item integrations.MediaItem) float64 {
 	if item.Type == integrations.MediaTypeShow || item.Type == integrations.MediaTypeSeason {
@@ -170,7 +230,7 @@ func (f *SeriesStatusFactor) Calculate(item integrations.MediaItem) float64 {
 	return 0.5
 }
 
-// ─── RequestPopularityFactor (NEW in 2.0) ───────────────────────────────────
+// ─── RequestPopularityFactor ────────────────────────────────────────────────
 
 // RequestPopularityFactor scores items by whether they were user-requested.
 // Requested items get a lower deletion score (more protected).
@@ -181,6 +241,14 @@ func (f *RequestPopularityFactor) Name() string { return "Request Popularity" }
 
 // Key returns the preference key.
 func (f *RequestPopularityFactor) Key() string { return "request_popularity" }
+
+// Description returns the UI description.
+func (f *RequestPopularityFactor) Description() string {
+	return "Requested content is protected. Unfulfilled requests are strongly protected."
+}
+
+// DefaultWeight returns the initial weight.
+func (f *RequestPopularityFactor) DefaultWeight() int { return 2 }
 
 // Calculate returns 0.1 for requested items (protect), 0.5 for unrequested.
 func (f *RequestPopularityFactor) Calculate(item integrations.MediaItem) float64 {

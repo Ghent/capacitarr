@@ -593,16 +593,17 @@ func TestApplyRules_WeightFactorsHaveNilRuleID(t *testing.T) {
 		IntegrationID: 1,
 	}
 
-	prefs := db.PreferenceSet{
-		WatchHistoryWeight:  10,
-		LastWatchedWeight:   8,
-		FileSizeWeight:      6,
-		RatingWeight:        5,
-		TimeInLibraryWeight: 4,
-		SeriesStatusWeight:  3,
+	weights := map[string]int{
+		"watch_history":      10,
+		"last_watched":       8,
+		"file_size":          6,
+		"rating":             5,
+		"time_in_library":    4,
+		"series_status":      3,
+		"request_popularity": 0,
 	}
 
-	evaluated := EvaluateMedia([]integrations.MediaItem{item}, prefs, nil)
+	evaluated := EvaluateMedia([]integrations.MediaItem{item}, DefaultFactors(), weights, nil)
 	if len(evaluated) != 1 {
 		t.Fatalf("Expected 1 evaluated item, got %d", len(evaluated))
 	}

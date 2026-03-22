@@ -94,3 +94,49 @@ func (s *SettingsService) ListRecentActivities(limit int) ([]db.ActivityEvent, e
 	}
 	return activities, nil
 }
+
+// ─── Scoring Factor Weights ─────────────────────────────────────────────────
+
+// ListFactorWeights returns all scoring factor weight rows, ordered by factor_key.
+func (s *SettingsService) ListFactorWeights() ([]db.ScoringFactorWeight, error) {
+	var weights []db.ScoringFactorWeight
+	if err := s.db.Order("factor_key").Find(&weights).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch scoring factor weights: %w", err)
+	}
+	return weights, nil
+}
+
+// GetWeightMap returns a map of factor_key → weight for use in the scoring engine.
+func (s *SettingsService) GetWeightMap() (map[string]int, error) {
+	weights, err := s.ListFactorWeights()
+	if err != nil {
+		return nil, err
+	}
+	m := make(map[string]int, len(weights))
+	for _, w := range weights {
+		m[w.FactorKey] = w.Weight
+	}
+	return m, nil
+}
+
+// UpdateFactorWeights updates the weight for each factor key in the map.
+// Keys that don't exist in the DB are silently skipped. Values are clamped to 0-10.
+func (s *SettingsService) UpdateFactorWeights(weights map[string]int) error {
+	for key, weight := range weights {
+		// Clamp to 0-10
+		if weight < 0 {
+			weight = 0
+		}
+		if weight > 10 {
+			weight = 10
+		}
+		if err := s.db.Model(&db.ScoringFactorWeight{}).
+			Where("factor_key = ?", key).
+			Updates(map[string]any{"weight": weight, "updated_at": time.Now().UTC()}).Error; err != nil {
+			return fmt.Errorf("failed to update weight for factor %q: %w", key, err)
+		}
+	}
+
+	s.bus.Publish(events.SettingsChangedEvent{})
+	return nil
+}

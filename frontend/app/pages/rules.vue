@@ -16,11 +16,11 @@
     <!-- Disk Thresholds -->
     <RulesRuleDiskThresholds :disk-groups="diskGroups" @update:disk-group="onDiskGroupUpdated" />
 
-    <!-- Preference Weights -->
+    <!-- Preference Weights (dynamically populated from API) -->
     <RulesRuleWeightEditor
-      :preferences="weightPreferences"
-      @save="savePreferences"
-      @update:preference="onPreferenceUpdate"
+      :factors="factorWeights"
+      @save="saveFactorWeights"
+      @update:weight="onWeightUpdate"
       @apply-preset="onApplyPreset"
     />
 
@@ -48,8 +48,13 @@
 </template>
 
 <script setup lang="ts">
-import type { DiskGroup, IntegrationConfig, CustomRule, PreferenceSet } from '~/types/api';
-import type { WeightKeys } from '~/components/rules/RuleWeightEditor.vue';
+import type {
+  DiskGroup,
+  IntegrationConfig,
+  CustomRule,
+  PreferenceSet,
+  ScoringFactorWeight,
+} from '~/types/api';
 
 const api = useApi();
 const { addToast } = useToast();
@@ -85,30 +90,14 @@ function onDiskGroupUpdated(updated: DiskGroup) {
 }
 
 // ---------------------------------------------------------------------------
-// Preferences
+// Preferences (non-weight settings — still used for execution mode, etc.)
 // ---------------------------------------------------------------------------
 const prefs = reactive({
-  watchHistoryWeight: 10,
-  lastWatchedWeight: 8,
-  fileSizeWeight: 6,
-  ratingWeight: 5,
-  timeInLibraryWeight: 4,
-  seriesStatusWeight: 3,
   executionMode: 'dry-run',
   tiebreakerMethod: 'size_desc',
   logLevel: 'info',
   auditLogRetentionDays: 30,
 });
-
-/** Weight-only view of prefs for the weight editor component */
-const weightPreferences = computed<WeightKeys>(() => ({
-  watchHistoryWeight: prefs.watchHistoryWeight,
-  lastWatchedWeight: prefs.lastWatchedWeight,
-  fileSizeWeight: prefs.fileSizeWeight,
-  ratingWeight: prefs.ratingWeight,
-  timeInLibraryWeight: prefs.timeInLibraryWeight,
-  seriesStatusWeight: prefs.seriesStatusWeight,
-}));
 
 async function fetchPreferences() {
   try {
@@ -121,21 +110,51 @@ async function fetchPreferences() {
   }
 }
 
-async function savePreferences() {
+// ---------------------------------------------------------------------------
+// Scoring Factor Weights (dynamic — fetched from dedicated API)
+// ---------------------------------------------------------------------------
+const factorWeights = ref<ScoringFactorWeight[]>([]);
+
+async function fetchFactorWeights() {
   try {
-    await api('/api/v1/preferences', { method: 'PUT', body: { ...prefs, id: 1 } });
-    addToast('Settings saved', 'success');
-  } catch {
-    addToast('Failed to save preferences', 'error');
+    factorWeights.value = (await api('/api/v1/scoring-factor-weights')) as ScoringFactorWeight[];
+  } catch (err) {
+    console.warn('[Rules] fetchFactorWeights failed:', err);
   }
 }
 
-function onPreferenceUpdate(key: string, value: number) {
-  Object.assign(prefs, { [key]: value });
+async function saveFactorWeights() {
+  try {
+    // Build weight map from current state
+    const weightMap: Record<string, number> = {};
+    for (const f of factorWeights.value) {
+      weightMap[f.key] = f.weight;
+    }
+    const updated = (await api('/api/v1/scoring-factor-weights', {
+      method: 'PUT',
+      body: weightMap,
+    })) as ScoringFactorWeight[];
+    factorWeights.value = updated;
+    addToast('Weights saved', 'success');
+  } catch {
+    addToast('Failed to save weights', 'error');
+  }
+}
+
+function onWeightUpdate(key: string, value: number) {
+  const factor = factorWeights.value.find((f) => f.key === key);
+  if (factor) {
+    factor.weight = value;
+  }
 }
 
 function onApplyPreset(values: Record<string, number>) {
-  Object.assign(prefs, values);
+  for (const f of factorWeights.value) {
+    const v = values[f.key];
+    if (v !== undefined) {
+      f.weight = v;
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -244,6 +263,7 @@ async function reorderRules(order: number[]) {
 onMounted(async () => {
   await Promise.all([
     fetchPreferences(),
+    fetchFactorWeights(),
     fetchRules(),
     previewRefresh(),
     fetchDiskGroups(),

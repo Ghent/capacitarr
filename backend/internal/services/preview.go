@@ -166,8 +166,8 @@ func (s *PreviewService) GetPreview(force bool) (*PreviewResult, error) {
 // Called by the poller at the end of each cycle. The service runs
 // EvaluateMedia + SortEvaluated + DiskContext assembly internally.
 // The result is also persisted to the database for restart recovery.
-func (s *PreviewService) SetPreviewCache(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.CustomRule) {
-	result := s.buildPreview(items, prefs, rules)
+func (s *PreviewService) SetPreviewCache(items []integrations.MediaItem, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule) {
+	result := s.buildPreview(items, prefs, weights, rules)
 
 	s.previewMu.Lock()
 	s.previewCache = result
@@ -260,8 +260,8 @@ func (s *PreviewService) runInvalidationListener() {
 
 // buildPreview evaluates and scores pre-fetched items. Used by
 // SetPreviewCache (poller-driven population).
-func (s *PreviewService) buildPreview(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.CustomRule) *PreviewResult {
-	evaluated := engine.EvaluateMedia(items, prefs, rules)
+func (s *PreviewService) buildPreview(items []integrations.MediaItem, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule) *PreviewResult {
+	evaluated := engine.EvaluateMedia(items, engine.DefaultFactors(), weights, rules)
 	engine.SortEvaluated(evaluated, prefs.TiebreakerMethod)
 	s.EnrichWithQueueStatus(evaluated)
 
@@ -333,12 +333,17 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 		return nil, err
 	}
 
+	weights, err := s.preferences.GetWeightMap()
+	if err != nil {
+		return nil, err
+	}
+
 	rules, err := s.rules.List()
 	if err != nil {
 		return nil, err
 	}
 
-	return s.buildPreview(allItems, prefs, rules), nil
+	return s.buildPreview(allItems, prefs, weights, rules), nil
 }
 
 // EnrichWithQueueStatus annotates each EvaluatedItem with its current queue

@@ -68,22 +68,18 @@ type ImportResult struct {
 	NotificationChannelsImported int  `json:"notificationChannelsImported"`
 }
 
-// PreferencesExport contains all PreferenceSet fields except ID and UpdatedAt.
+// PreferencesExport contains all PreferenceSet fields except ID and UpdatedAt,
+// plus scoring factor weights as a dynamic map.
 type PreferencesExport struct {
-	LogLevel              string `json:"logLevel"`
-	AuditLogRetentionDays int    `json:"auditLogRetentionDays"`
-	PollIntervalSeconds   int    `json:"pollIntervalSeconds"`
-	WatchHistoryWeight    int    `json:"watchHistoryWeight"`
-	LastWatchedWeight     int    `json:"lastWatchedWeight"`
-	FileSizeWeight        int    `json:"fileSizeWeight"`
-	RatingWeight          int    `json:"ratingWeight"`
-	TimeInLibraryWeight   int    `json:"timeInLibraryWeight"`
-	SeriesStatusWeight    int    `json:"seriesStatusWeight"`
-	ExecutionMode         string `json:"executionMode"`
-	TiebreakerMethod      string `json:"tiebreakerMethod"`
-	DeletionsEnabled      bool   `json:"deletionsEnabled"`
-	SnoozeDurationHours   int    `json:"snoozeDurationHours"`
-	CheckForUpdates       bool   `json:"checkForUpdates"`
+	LogLevel              string         `json:"logLevel"`
+	AuditLogRetentionDays int            `json:"auditLogRetentionDays"`
+	PollIntervalSeconds   int            `json:"pollIntervalSeconds"`
+	ExecutionMode         string         `json:"executionMode"`
+	TiebreakerMethod      string         `json:"tiebreakerMethod"`
+	DeletionsEnabled      bool           `json:"deletionsEnabled"`
+	SnoozeDurationHours   int            `json:"snoozeDurationHours"`
+	CheckForUpdates       bool           `json:"checkForUpdates"`
+	FactorWeights         map[string]int `json:"factorWeights,omitempty"` // factor_key → weight (0-10)
 }
 
 // RuleExport is a single rule in the portable export format.
@@ -163,21 +159,24 @@ func (s *BackupService) Export(sections ExportSections, appVersion string) (*Set
 		if err := s.db.FirstOrCreate(&pref, db.PreferenceSet{ID: 1}).Error; err != nil {
 			return nil, fmt.Errorf("failed to fetch preferences for export: %w", err)
 		}
+		// Export scoring factor weights as a dynamic map
+		var factorWeights []db.ScoringFactorWeight
+		s.db.Find(&factorWeights)
+		weightsMap := make(map[string]int, len(factorWeights))
+		for _, fw := range factorWeights {
+			weightsMap[fw.FactorKey] = fw.Weight
+		}
+
 		envelope.Preferences = &PreferencesExport{
 			LogLevel:              pref.LogLevel,
 			AuditLogRetentionDays: pref.AuditLogRetentionDays,
 			PollIntervalSeconds:   pref.PollIntervalSeconds,
-			WatchHistoryWeight:    pref.WatchHistoryWeight,
-			LastWatchedWeight:     pref.LastWatchedWeight,
-			FileSizeWeight:        pref.FileSizeWeight,
-			RatingWeight:          pref.RatingWeight,
-			TimeInLibraryWeight:   pref.TimeInLibraryWeight,
-			SeriesStatusWeight:    pref.SeriesStatusWeight,
 			ExecutionMode:         pref.ExecutionMode,
 			TiebreakerMethod:      pref.TiebreakerMethod,
 			DeletionsEnabled:      pref.DeletionsEnabled,
 			SnoozeDurationHours:   pref.SnoozeDurationHours,
 			CheckForUpdates:       pref.CheckForUpdates,
+			FactorWeights:         weightsMap,
 		}
 	}
 
@@ -423,7 +422,7 @@ func (s *BackupService) deleteForReplace(tx *gorm.DB, sections ImportSections) e
 	return nil
 }
 
-// importPreferences updates the singleton PreferenceSet row.
+// importPreferences updates the singleton PreferenceSet row and scoring factor weights.
 func (s *BackupService) importPreferences(tx *gorm.DB, p *PreferencesExport) error {
 	var pref db.PreferenceSet
 	if err := tx.FirstOrCreate(&pref, db.PreferenceSet{ID: 1}).Error; err != nil {
@@ -433,19 +432,30 @@ func (s *BackupService) importPreferences(tx *gorm.DB, p *PreferencesExport) err
 	pref.LogLevel = p.LogLevel
 	pref.AuditLogRetentionDays = p.AuditLogRetentionDays
 	pref.PollIntervalSeconds = p.PollIntervalSeconds
-	pref.WatchHistoryWeight = p.WatchHistoryWeight
-	pref.LastWatchedWeight = p.LastWatchedWeight
-	pref.FileSizeWeight = p.FileSizeWeight
-	pref.RatingWeight = p.RatingWeight
-	pref.TimeInLibraryWeight = p.TimeInLibraryWeight
-	pref.SeriesStatusWeight = p.SeriesStatusWeight
 	pref.ExecutionMode = p.ExecutionMode
 	pref.TiebreakerMethod = p.TiebreakerMethod
 	pref.DeletionsEnabled = p.DeletionsEnabled
 	pref.SnoozeDurationHours = p.SnoozeDurationHours
 	pref.CheckForUpdates = p.CheckForUpdates
 
-	return tx.Save(&pref).Error
+	if err := tx.Save(&pref).Error; err != nil {
+		return err
+	}
+
+	// Import scoring factor weights (only update existing keys)
+	for key, weight := range p.FactorWeights {
+		if weight < 0 {
+			weight = 0
+		}
+		if weight > 10 {
+			weight = 10
+		}
+		tx.Model(&db.ScoringFactorWeight{}).
+			Where("factor_key = ?", key).
+			Updates(map[string]any{"weight": weight})
+	}
+
+	return nil
 }
 
 // importRules creates rules from the export payload, resolving integration

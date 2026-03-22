@@ -54,12 +54,6 @@ export interface PreferenceSet {
   logLevel: string;
   auditLogRetentionDays: number;
   pollIntervalSeconds: number;
-  watchHistoryWeight: number;
-  lastWatchedWeight: number;
-  fileSizeWeight: number;
-  ratingWeight: number;
-  timeInLibraryWeight: number;
-  seriesStatusWeight: number;
   executionMode: string;
   tiebreakerMethod: string;
   deletionsEnabled: boolean;
@@ -67,6 +61,16 @@ export interface PreferenceSet {
   deletionQueueDelaySeconds: number;
   checkForUpdates: boolean;
   updatedAt: string;
+}
+
+// ScoringFactorWeight represents a single scoring factor with its current weight
+// and metadata from the engine's factor registry. Returned by GET /api/v1/scoring-factor-weights.
+export interface ScoringFactorWeight {
+  key: string;
+  name: string;
+  description: string;
+  weight: number;
+  defaultWeight: number;
 }
 
 // ---------------------------------------------------------------------------

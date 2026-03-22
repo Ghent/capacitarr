@@ -94,10 +94,11 @@ type DeletionService struct {
 	stopCh        chan struct{} // closed when Stop() is called
 }
 
-// SettingsReader provides read access to application preferences.
+// SettingsReader provides read access to application preferences and scoring factor weights.
 // Defined here to avoid import cycles between DeletionService and SettingsService.
 type SettingsReader interface {
 	GetPreferences() (db.PreferenceSet, error)
+	GetWeightMap() (map[string]int, error)
 }
 
 // EngineStatsWriter provides write access to engine run stats.

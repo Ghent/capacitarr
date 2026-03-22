@@ -6,7 +6,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"time"
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/integrations"
@@ -34,9 +33,13 @@ type EvaluatedItem struct {
 	ApprovalQueueID *uint                  `json:"approvalQueueId,omitempty"` // for linking to approval actions
 }
 
-// EvaluateMedia calculates deletion scores for a list of items based on preferences and protections.
-// Higher score = More likely to be deleted.
-func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.CustomRule) []EvaluatedItem {
+// EvaluateMedia calculates deletion scores for a list of items using the
+// given scoring factors and weight map. Higher score = More likely to be deleted.
+//
+// The factors slice determines which scoring dimensions are active, and the
+// weights map provides the user-configured weight (0-10) for each factor key.
+// Factors whose key is missing from the weights map use 0 (disabled).
+func EvaluateMedia(items []integrations.MediaItem, factors []ScoringFactor, weights map[string]int, rules []db.CustomRule) []EvaluatedItem {
 	evaluated := make([]EvaluatedItem, 0, len(items))
 
 	for _, item := range items {
@@ -54,7 +57,7 @@ func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules
 			continue
 		}
 
-		score, scoreReason, scoreFactors := calculateScore(item, prefs)
+		score, scoreReason, scoreFactors := calculateScore(item, factors, weights)
 		finalScore := score * modifier
 
 		// Merge weight factors with rule factors
@@ -81,81 +84,39 @@ func EvaluateMedia(items []integrations.MediaItem, prefs db.PreferenceSet, rules
 	return evaluated
 }
 
-func calculateScore(item integrations.MediaItem, prefs db.PreferenceSet) (float64, string, []ScoreFactor) {
-	var totalScore float64
-
-	// Max total weight to normalize the score
-	totalWeight := float64(prefs.WatchHistoryWeight + prefs.LastWatchedWeight + prefs.FileSizeWeight + prefs.RatingWeight + prefs.TimeInLibraryWeight + prefs.SeriesStatusWeight)
+// calculateScore iterates over the registered scoring factors, calculates each
+// factor's raw score, applies the user-configured weight, and normalizes the
+// result to 0.0–1.0. This replaces the previous hardcoded per-factor logic.
+func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weights map[string]int) (float64, string, []ScoreFactor) {
+	// Sum total weight for normalization
+	var totalWeight float64
+	for _, f := range factors {
+		totalWeight += float64(weights[f.Key()])
+	}
 	if totalWeight == 0 {
 		return 0.0, "All preference weights are zero", nil
 	}
 
-	// Watch History (More plays = lower deletion score. Unwatched = higher deletion score)
-	// Example: 0 plays = 1.0 multiplier. 1 play = 0.5. >2 plays = 0.1
-	watchHistoryScore := 1.0
-	if item.PlayCount > 0 {
-		watchHistoryScore = 0.5 / float64(item.PlayCount) // Simplistic decay
-	}
-	watchHistoryContrib := watchHistoryScore * float64(prefs.WatchHistoryWeight)
-	totalScore += watchHistoryContrib
+	var totalScore float64
+	resultFactors := make([]ScoreFactor, 0, len(factors))
+	reasonParts := make([]string, 0, len(factors))
 
-	// Last Watched (More recently watched = lower deletion score)
-	// Example: 1 year ago = 1.0, 1 month ago = 0.2, unwatched = 1.0
-	lastWatchedScore := 1.0
-	if item.LastPlayed != nil && !item.LastPlayed.IsZero() {
-		daysSincePlayed := time.Since(*item.LastPlayed).Hours() / 24.0
-		if daysSincePlayed < 365 {
-			lastWatchedScore = daysSincePlayed / 365.0
-		}
-	}
-	recencyContrib := lastWatchedScore * float64(prefs.LastWatchedWeight)
-	totalScore += recencyContrib
+	for _, f := range factors {
+		w := weights[f.Key()]
+		rawScore := f.Calculate(item)
+		contribution := rawScore * float64(w)
+		totalScore += contribution
 
-	// File Size (Bigger file = higher deletion score to free space)
-	// Normalize to say, maximum 50GB for a season/movie?
-	// Or simplistic log-based sizing
-	sizeGB := float64(item.SizeBytes) / (1024 * 1024 * 1024)
-	fileSizeScore := sizeGB / 50.0 // Normalize against 50GB
-	if fileSizeScore > 1.0 {
-		fileSizeScore = 1.0
+		normalizedContrib := contribution / totalWeight
+		resultFactors = append(resultFactors, ScoreFactor{
+			Name:         f.Name(),
+			RawScore:     rawScore,
+			Weight:       w,
+			Contribution: normalizedContrib,
+			Type:         "weight",
+		})
+		reasonParts = append(reasonParts, fmt.Sprintf("%s:%.2f", f.Key(), normalizedContrib))
 	}
-	sizeContrib := fileSizeScore * float64(prefs.FileSizeWeight)
-	totalScore += sizeContrib
-
-	// Rating (Higher rating = lower deletion score)
-	// Rating is usually 0-10 or 0-100. Assume 0-10 for Sonarr/Radarr mostly? Normalize to 1.0 = bad, 0.0 = good
-	ratingScore := 0.5 // default if unknown
-	if item.Rating > 0 && item.Rating <= 10 {
-		ratingScore = 1.0 - (item.Rating / 10.0)
-	} else if item.Rating > 10 && item.Rating <= 100 { // Just in case it's percentage
-		ratingScore = 1.0 - (item.Rating / 100.0)
-	}
-	ratingContrib := ratingScore * float64(prefs.RatingWeight)
-	totalScore += ratingContrib
-
-	// Time In Library (Older items = slightly higher chance to delete, depending on user prefs)
-	timeInLibraryScore := 0.5
-	if item.AddedAt != nil && !item.AddedAt.IsZero() {
-		daysSinceAdded := time.Since(*item.AddedAt).Hours() / 24.0
-		timeInLibraryScore = daysSinceAdded / 365.0 // Normalize against 1 year
-		if timeInLibraryScore > 1.0 {
-			timeInLibraryScore = 1.0
-		}
-	}
-	ageContrib := timeInLibraryScore * float64(prefs.TimeInLibraryWeight)
-	totalScore += ageContrib
-
-	// Series Status (Ended shows = higher deletion score vs continuing shows)
-	seriesStatusScore := 0.5
-	if item.Type == integrations.MediaTypeShow || item.Type == integrations.MediaTypeSeason {
-		if strings.ToLower(item.SeriesStatus) == "ended" {
-			seriesStatusScore = 1.0
-		} else if strings.ToLower(item.SeriesStatus) == "continuing" {
-			seriesStatusScore = 0.2
-		}
-	}
-	statusContrib := seriesStatusScore * float64(prefs.SeriesStatusWeight)
-	totalScore += statusContrib
 
 	// Normalize to 0.0 - 1.0
 	finalScore := totalScore / totalWeight
@@ -163,35 +124,13 @@ func calculateScore(item integrations.MediaItem, prefs db.PreferenceSet) (float6
 		finalScore = 1.0
 	}
 
-	// Build structured factors
-	factors := []ScoreFactor{
-		{Name: "Watch History", RawScore: watchHistoryScore, Weight: prefs.WatchHistoryWeight, Contribution: watchHistoryContrib / totalWeight, Type: "weight"},
-		{Name: "Last Watched", RawScore: lastWatchedScore, Weight: prefs.LastWatchedWeight, Contribution: recencyContrib / totalWeight, Type: "weight"},
-		{Name: "File Size", RawScore: fileSizeScore, Weight: prefs.FileSizeWeight, Contribution: sizeContrib / totalWeight, Type: "weight"},
-		{Name: "Rating", RawScore: ratingScore, Weight: prefs.RatingWeight, Contribution: ratingContrib / totalWeight, Type: "weight"},
-		{Name: "Time in Library", RawScore: timeInLibraryScore, Weight: prefs.TimeInLibraryWeight, Contribution: ageContrib / totalWeight, Type: "weight"},
-		{Name: "Series Status", RawScore: seriesStatusScore, Weight: prefs.SeriesStatusWeight, Contribution: statusContrib / totalWeight, Type: "weight"},
-	}
+	reason := strings.Join(reasonParts, ", ")
 
-	// Build per-factor breakdown showing each factor's normalized contribution (backward compat)
-	reason := fmt.Sprintf("Watch:%.2f, Recency:%.2f, Size:%.2f, Rating:%.2f, Age:%.2f, Status:%.2f",
-		watchHistoryContrib/totalWeight,
-		recencyContrib/totalWeight,
-		sizeContrib/totalWeight,
-		ratingContrib/totalWeight,
-		ageContrib/totalWeight,
-		statusContrib/totalWeight,
-	)
 	slog.Debug("Score calculated", "component", "engine",
 		"title", item.Title, "finalScore", fmt.Sprintf("%.4f", finalScore),
-		"watchHistory", fmt.Sprintf("%.2f", watchHistoryContrib/totalWeight),
-		"recency", fmt.Sprintf("%.2f", recencyContrib/totalWeight),
-		"size", fmt.Sprintf("%.2f", sizeContrib/totalWeight),
-		"rating", fmt.Sprintf("%.2f", ratingContrib/totalWeight),
-		"age", fmt.Sprintf("%.2f", ageContrib/totalWeight),
-		"status", fmt.Sprintf("%.2f", statusContrib/totalWeight))
+		"breakdown", reason)
 
-	return finalScore, reason, factors
+	return finalScore, reason, resultFactors
 }
 
 // SortEvaluated sorts evaluated items by score descending, using the configured tiebreaker

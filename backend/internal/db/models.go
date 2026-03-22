@@ -95,52 +95,39 @@ type LibraryHistory struct {
 	CreatedAt     time.Time `json:"createdAt"`
 }
 
-// PreferenceSet stores the global weights for the scoring engine (0-10 scale)
-// and analytics threshold settings.
+// PreferenceSet stores global application settings (engine modes, thresholds,
+// analytics config). Scoring factor weights are stored separately in the
+// scoring_factor_weights table — see ScoringFactorWeight.
 type PreferenceSet struct {
 	ID                        uint      `gorm:"primarykey" json:"id"`
-	LogLevel                  string    `gorm:"default:'info';not null" json:"logLevel"`          // "debug", "info", "warn", "error"
-	AuditLogRetentionDays     int       `gorm:"default:30;not null" json:"auditLogRetentionDays"` // 0 = forever, else days
-	PollIntervalSeconds       int       `gorm:"default:300;not null" json:"pollIntervalSeconds"`  // minimum 60, default 300 (5 min)
-	WatchHistoryWeight        int       `gorm:"default:10" json:"watchHistoryWeight"`             // High default
-	LastWatchedWeight         int       `gorm:"default:8" json:"lastWatchedWeight"`
-	FileSizeWeight            int       `gorm:"default:6" json:"fileSizeWeight"`
-	RatingWeight              int       `gorm:"default:5" json:"ratingWeight"`
-	TimeInLibraryWeight       int       `gorm:"default:4" json:"timeInLibraryWeight"`
-	SeriesStatusWeight        int       `gorm:"default:3" json:"seriesStatusWeight"`
-	RequestPopularityWeight   int       `gorm:"default:2" json:"requestPopularityWeight"`             // NEW in 2.0: RequestPopularityFactor
+	LogLevel                  string    `gorm:"default:'info';not null" json:"logLevel"`              // "debug", "info", "warn", "error"
+	AuditLogRetentionDays     int       `gorm:"default:30;not null" json:"auditLogRetentionDays"`     // 0 = forever, else days
+	PollIntervalSeconds       int       `gorm:"default:300;not null" json:"pollIntervalSeconds"`      // minimum 60, default 300 (5 min)
 	ExecutionMode             string    `gorm:"default:'dry-run';not null" json:"executionMode"`      // "dry-run", "approval", "auto"
 	TiebreakerMethod          string    `gorm:"default:'size_desc';not null" json:"tiebreakerMethod"` // "size_desc", "size_asc", "name_asc", "oldest_first", "newest_first"
 	DeletionsEnabled          bool      `gorm:"default:true;not null" json:"deletionsEnabled"`        // Safety guard: actual deletions only when true
 	SnoozeDurationHours       int       `gorm:"default:24;not null" json:"snoozeDurationHours"`       // Hours to snooze rejected items before re-evaluation
 	CheckForUpdates           bool      `gorm:"default:true;not null" json:"checkForUpdates"`         // Enable outbound update checks
 	DeletionQueueDelaySeconds int       `gorm:"default:30;not null" json:"deletionQueueDelaySeconds"` // Grace period before processing queued deletions (10-300)
-	DeadContentMinDays        int       `gorm:"default:90;not null" json:"deadContentMinDays"`        // NEW in 2.0: Minimum days in library for "dead content" report
-	StaleContentDays          int       `gorm:"default:180;not null" json:"staleContentDays"`         // NEW in 2.0: Days since last watch for "stale content" report
+	DeadContentMinDays        int       `gorm:"default:90;not null" json:"deadContentMinDays"`        // Minimum days in library for "dead content" report
+	StaleContentDays          int       `gorm:"default:180;not null" json:"staleContentDays"`         // Days since last watch for "stale content" report
 	UpdatedAt                 time.Time `json:"updatedAt"`
 }
 
-// GetFactorWeight returns the configured weight for a scoring factor by key.
-// Keys map to the ScoringFactor.Key() values defined in engine/factors.go.
-func (p PreferenceSet) GetFactorWeight(key string) int {
-	switch key {
-	case "watch_history":
-		return p.WatchHistoryWeight
-	case "last_watched":
-		return p.LastWatchedWeight
-	case "file_size":
-		return p.FileSizeWeight
-	case "rating":
-		return p.RatingWeight
-	case "time_in_library":
-		return p.TimeInLibraryWeight
-	case "series_status":
-		return p.SeriesStatusWeight
-	case "request_popularity":
-		return p.RequestPopularityWeight
-	default:
-		return 0
-	}
+// ScoringFactorWeight stores the user-configured weight for a single scoring
+// factor. The factor_key matches ScoringFactor.Key() from engine/factors.go.
+// Rows are auto-seeded from DefaultFactors() on startup — adding a new factor
+// implementation is all that's needed to register a new weight.
+type ScoringFactorWeight struct {
+	FactorKey string    `gorm:"primaryKey;column:factor_key" json:"key"`
+	Weight    int       `gorm:"not null;default:5" json:"weight"` // 0-10 scale
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// TableName returns the database table name for ScoringFactorWeight.
+func (ScoringFactorWeight) TableName() string {
+	return "scoring_factor_weights"
 }
 
 // CustomRule stores custom rules that influence media scoring via keep/remove effects.

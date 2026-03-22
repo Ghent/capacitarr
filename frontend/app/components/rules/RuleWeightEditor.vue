@@ -51,41 +51,41 @@
         </p>
       </Transition>
 
-      <!-- Two-Column Slider Grid -->
+      <!-- Two-Column Slider Grid — dynamically rendered from API response -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-        <div v-for="slider in sliders" :key="slider.key" class="space-y-1.5">
+        <div v-for="factor in factors" :key="factor.key" class="space-y-1.5">
           <div class="flex justify-between text-sm">
             <span class="inline-flex items-center gap-1.5 font-medium text-foreground">
-              {{ slider.label }}
-              <UiTooltipProvider v-if="slider.tooltip">
+              {{ factor.name }}
+              <UiTooltipProvider v-if="factor.key === 'rating'">
                 <UiTooltip>
                   <UiTooltipTrigger as-child>
                     <InfoIcon class="w-3.5 h-3.5 text-muted-foreground cursor-help" />
                   </UiTooltipTrigger>
                   <UiTooltipContent side="top" class="max-w-xs text-xs">
-                    {{ slider.tooltip }}
+                    {{ $t('rules.ratingTooltip') }}
                   </UiTooltipContent>
                 </UiTooltip>
               </UiTooltipProvider>
             </span>
             <span class="text-muted-foreground font-mono tabular-nums"
-              >{{ preferences[slider.key as keyof WeightKeys] }} / 10</span
+              >{{ factor.weight }} / 10</span
             >
           </div>
           <UiSlider
-            :model-value="[Number(preferences[slider.key as keyof WeightKeys])]"
+            :model-value="[factor.weight]"
             :min="0"
             :max="10"
             :step="1"
             class="w-full"
             @update:model-value="
               (v: number[] | undefined) => {
-                if (v && v[0] != null) $emit('update:preference', slider.key, v[0]);
+                if (v && v[0] != null) $emit('update:weight', factor.key, v[0]);
               }
             "
           />
           <p class="text-xs text-muted-foreground">
-            {{ slider.description }}
+            {{ factor.description }}
           </p>
         </div>
       </div>
@@ -95,106 +95,66 @@
 
 <script setup lang="ts">
 import { InfoIcon } from 'lucide-vue-next';
-
-const { t } = useI18n();
-
-export interface WeightKeys {
-  watchHistoryWeight: number;
-  lastWatchedWeight: number;
-  fileSizeWeight: number;
-  ratingWeight: number;
-  timeInLibraryWeight: number;
-  seriesStatusWeight: number;
-}
+import type { ScoringFactorWeight } from '~/types/api';
 
 const props = defineProps<{
-  preferences: WeightKeys;
+  factors: ScoringFactorWeight[];
 }>();
 
 const emit = defineEmits<{
   save: [];
-  'update:preference': [key: string, value: number];
+  'update:weight': [key: string, value: number];
   'apply-preset': [values: Record<string, number>];
 }>();
 
-const sliders = [
-  {
-    key: 'watchHistoryWeight',
-    label: 'Watch History (Play Count)',
-    description: 'Unwatched items score much higher.',
-  },
-  {
-    key: 'lastWatchedWeight',
-    label: 'Days Since Last Watched',
-    description: 'Media not watched in a long time scores higher.',
-  },
-  {
-    key: 'fileSizeWeight',
-    label: 'File Size',
-    description: 'Larger files score higher to free more space.',
-  },
-  {
-    key: 'ratingWeight',
-    label: 'Rating',
-    description: 'Low-rated content scores higher for deletion.',
-    tooltip: t('rules.ratingTooltip'),
-  },
-  {
-    key: 'timeInLibraryWeight',
-    label: 'Time in Library',
-    description: 'Older content may be less valuable.',
-  },
-  {
-    key: 'seriesStatusWeight',
-    label: 'Series Status',
-    description:
-      'Ended or canceled shows score higher for removal since no new episodes are expected.',
-  },
-];
-
+// Presets use factor keys as property names so they work with any factor set.
 const presets = [
   {
     name: 'Balanced',
     values: {
-      watchHistoryWeight: 8,
-      lastWatchedWeight: 7,
-      fileSizeWeight: 6,
-      ratingWeight: 5,
-      timeInLibraryWeight: 4,
-      seriesStatusWeight: 3,
+      watch_history: 8,
+      last_watched: 7,
+      file_size: 6,
+      rating: 5,
+      time_in_library: 4,
+      series_status: 3,
+      request_popularity: 2,
     },
   },
   {
     name: 'Space Saver',
     values: {
-      watchHistoryWeight: 3,
-      lastWatchedWeight: 3,
-      fileSizeWeight: 10,
-      ratingWeight: 2,
-      timeInLibraryWeight: 8,
-      seriesStatusWeight: 5,
+      watch_history: 3,
+      last_watched: 3,
+      file_size: 10,
+      rating: 2,
+      time_in_library: 8,
+      series_status: 5,
+      request_popularity: 1,
     },
   },
   {
     name: 'Hoarder',
     values: {
-      watchHistoryWeight: 10,
-      lastWatchedWeight: 10,
-      fileSizeWeight: 2,
-      ratingWeight: 8,
-      timeInLibraryWeight: 2,
-      seriesStatusWeight: 2,
+      watch_history: 10,
+      last_watched: 10,
+      file_size: 2,
+      rating: 8,
+      time_in_library: 2,
+      series_status: 2,
+      request_popularity: 5,
     },
   },
   {
     name: 'Watch-Based',
     values: {
-      watchHistoryWeight: 10,
-      lastWatchedWeight: 9,
-      fileSizeWeight: 4,
-      ratingWeight: 3,
-      timeInLibraryWeight: 3,
-      seriesStatusWeight: 5,
+      watch_history: 10,
+      last_watched: 9,
+      file_size: 4,
+      rating: 3,
+      time_in_library: 3,
+      series_status: 5,
+      request_popularity: 3,
     },
   },
 ];
@@ -208,9 +168,10 @@ const presetDescriptions: Record<string, string> = {
 };
 
 function isActivePreset(values: Record<string, number>): boolean {
-  return Object.entries(values).every(
-    ([key, val]) => props.preferences[key as keyof WeightKeys] === val,
-  );
+  return Object.entries(values).every(([key, val]) => {
+    const factor = props.factors.find((f) => f.key === key);
+    return factor ? factor.weight === val : true;
+  });
 }
 
 const activePresetDescription = computed(() => {

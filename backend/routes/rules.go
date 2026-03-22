@@ -15,9 +15,10 @@ import (
 // RegisterRuleRoutes sets up the endpoints for managing custom rules, preferences,
 // and score preview.
 func RegisterRuleRoutes(protected *echo.Group, reg *services.Registry) {
-	// Delegate preference and preview routes to their own files
+	// Delegate preference, preview, and scoring factor weight routes to their own files
 	RegisterPreferenceRoutes(protected, reg)
 	RegisterPreviewRoutes(protected, reg)
+	RegisterFactorWeightRoutes(protected, reg)
 
 	// Delegate rule-field and rule-value routes to rulefields.go
 	RegisterRuleFieldRoutes(protected, reg)

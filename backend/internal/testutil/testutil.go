@@ -107,12 +107,6 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 		LogLevel:              "info",
 		AuditLogRetentionDays: 30,
 		PollIntervalSeconds:   300,
-		WatchHistoryWeight:    10,
-		LastWatchedWeight:     8,
-		FileSizeWeight:        6,
-		RatingWeight:          5,
-		TimeInLibraryWeight:   4,
-		SeriesStatusWeight:    3,
 		TiebreakerMethod:      "size_desc",
 		DeletionsEnabled:      true,
 		SnoozeDurationHours:   24,
@@ -120,6 +114,20 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	}
 	if err := database.FirstOrCreate(&pref, db.PreferenceSet{ID: 1}).Error; err != nil {
 		t.Fatalf("Failed to seed preferences: %v", err)
+	}
+
+	// Seed default factor weights (mirrors db.SeedFactorWeights behaviour)
+	defaultWeights := []db.ScoringFactorWeight{
+		{FactorKey: "watch_history", Weight: 10},
+		{FactorKey: "last_watched", Weight: 8},
+		{FactorKey: "file_size", Weight: 6},
+		{FactorKey: "rating", Weight: 5},
+		{FactorKey: "time_in_library", Weight: 4},
+		{FactorKey: "series_status", Weight: 3},
+		{FactorKey: "request_popularity", Weight: 2},
+	}
+	for _, w := range defaultWeights {
+		database.FirstOrCreate(&w, db.ScoringFactorWeight{FactorKey: w.FactorKey})
 	}
 
 	return database

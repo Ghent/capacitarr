@@ -12,6 +12,15 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 )
 
+// FactorDefault describes a scoring factor's key and default weight for seeding.
+// Defined here to avoid importing the engine package from db (which would create
+// a circular dependency: db → engine → db). The engine package provides its own
+// DefaultFactors() which returns richer types; main.go bridges the two.
+type FactorDefault struct {
+	Key           string
+	DefaultWeight int
+}
+
 // Init opens the SQLite database, runs migrations, and returns the connection.
 func Init(cfg *config.Config) (*gorm.DB, error) {
 	logLevel := gormlogger.Warn
@@ -41,25 +50,17 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 	// Ensure default preferences exist with strictly safe defaults
 	var pref PreferenceSet
 	if err := database.FirstOrCreate(&pref, PreferenceSet{
-		ID:                      1,
-		ExecutionMode:           "dry-run",
-		LogLevel:                "info",
-		AuditLogRetentionDays:   30,
-		PollIntervalSeconds:     300,
-		WatchHistoryWeight:      10,
-		LastWatchedWeight:       8,
-		FileSizeWeight:          6,
-		RatingWeight:            5,
-		TimeInLibraryWeight:     4,
-		SeriesStatusWeight:      3,
-		RequestPopularityWeight: 2,
-
-		TiebreakerMethod:    "size_desc",
-		DeletionsEnabled:    true,
-		SnoozeDurationHours: 24,
-		CheckForUpdates:     true,
-		DeadContentMinDays:  90,
-		StaleContentDays:    180,
+		ID:                    1,
+		ExecutionMode:         "dry-run",
+		LogLevel:              "info",
+		AuditLogRetentionDays: 30,
+		PollIntervalSeconds:   300,
+		TiebreakerMethod:      "size_desc",
+		DeletionsEnabled:      true,
+		SnoozeDurationHours:   24,
+		CheckForUpdates:       true,
+		DeadContentMinDays:    90,
+		StaleContentDays:      180,
 	}).Error; err != nil {
 		slog.Error("Failed to seed default preferences", "component", "db", "operation", "seed_preferences", "error", err)
 	}
@@ -69,4 +70,31 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 
 	slog.Info("Database initialized successfully", "component", "db", "path", cfg.Database)
 	return database, nil
+}
+
+// SeedFactorWeights ensures a scoring_factor_weights row exists for each
+// registered factor. Missing keys are inserted with their DefaultWeight;
+// existing rows are left unchanged so user customizations are preserved.
+//
+// Called from main.go after Init, passing FactorDefaults derived from
+// engine.DefaultFactors() to avoid a circular import.
+func SeedFactorWeights(database *gorm.DB, defaults []FactorDefault) {
+	for _, fd := range defaults {
+		var existing ScoringFactorWeight
+		result := database.Where("factor_key = ?", fd.Key).First(&existing)
+		if result.Error != nil {
+			// Row doesn't exist — seed it
+			row := ScoringFactorWeight{
+				FactorKey: fd.Key,
+				Weight:    fd.DefaultWeight,
+			}
+			if err := database.Create(&row).Error; err != nil {
+				slog.Error("Failed to seed scoring factor weight",
+					"component", "db", "factor", fd.Key, "error", err)
+			} else {
+				slog.Debug("Seeded scoring factor weight",
+					"component", "db", "factor", fd.Key, "weight", fd.DefaultWeight)
+			}
+		}
+	}
 }

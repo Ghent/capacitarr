@@ -30,6 +30,10 @@ func (m *mockSettingsReader) GetPreferences() (db.PreferenceSet, error) {
 	}, nil
 }
 
+func (m *mockSettingsReader) GetWeightMap() (map[string]int, error) {
+	return map[string]int{}, nil
+}
+
 // mockEngineStatsWriter implements EngineStatsWriter for deletion tests.
 type mockEngineStatsWriter struct{}
 

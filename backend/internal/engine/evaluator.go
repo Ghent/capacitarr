@@ -37,11 +37,14 @@ type EvaluationResult struct {
 	TotalCount int
 }
 
-// Evaluate scores all items against the given preferences and rules,
+// Evaluate scores all items against the given weight map and rules,
 // and returns a categorized result. This is the pure evaluation logic —
 // no side effects, no DB writes, no queue operations.
-func (e *Evaluator) Evaluate(items []integrations.MediaItem, prefs db.PreferenceSet, rules []db.CustomRule, tiebreakerMethod string) *EvaluationResult {
-	evaluated := EvaluateMedia(items, prefs, rules)
+//
+// The weights map provides the user-configured weight (0-10) for each factor key.
+// If a factor's key is missing from the map, it defaults to 0 (disabled).
+func (e *Evaluator) Evaluate(items []integrations.MediaItem, weights map[string]int, rules []db.CustomRule, tiebreakerMethod string) *EvaluationResult {
+	evaluated := EvaluateMedia(items, e.factors, weights, rules)
 	SortEvaluated(evaluated, tiebreakerMethod)
 
 	result := &EvaluationResult{

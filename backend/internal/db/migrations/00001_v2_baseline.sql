@@ -107,34 +107,39 @@ CREATE INDEX idx_library_histories_disk_group_id ON library_histories(disk_group
 CREATE INDEX idx_library_histories_library_id ON library_histories(library_id);
 
 -- ============================================================================
--- Preferences (singleton row — scoring factor weights + global settings)
+-- Preferences (singleton row — global application settings)
+-- Scoring factor weights are in the scoring_factor_weights table.
 -- ============================================================================
 
 CREATE TABLE preference_sets (
-    id                         INTEGER PRIMARY KEY AUTOINCREMENT,
-    log_level                  TEXT    NOT NULL DEFAULT 'info',
-    audit_log_retention_days   INTEGER NOT NULL DEFAULT 30,
-    poll_interval_seconds      INTEGER NOT NULL DEFAULT 300,
-    -- Scoring factor weights (0-10 scale). Each maps to a ScoringFactor implementation.
-    watch_history_weight       INTEGER NOT NULL DEFAULT 10,
-    last_watched_weight        INTEGER NOT NULL DEFAULT 8,
-    file_size_weight           INTEGER NOT NULL DEFAULT 6,
-    rating_weight              INTEGER NOT NULL DEFAULT 5,
-    time_in_library_weight     INTEGER NOT NULL DEFAULT 4,
-    series_status_weight       INTEGER NOT NULL DEFAULT 3,
-    request_popularity_weight  INTEGER NOT NULL DEFAULT 2,   -- NEW in 2.0: RequestPopularityFactor
-    quality_bloat_weight       INTEGER NOT NULL DEFAULT 2,   -- NEW in 2.0: QualityBloatFactor
+    id                             INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_level                      TEXT    NOT NULL DEFAULT 'info',
+    audit_log_retention_days       INTEGER NOT NULL DEFAULT 30,
+    poll_interval_seconds          INTEGER NOT NULL DEFAULT 300,
     -- Engine settings
-    execution_mode             TEXT    NOT NULL DEFAULT 'dry-run',
-    tiebreaker_method          TEXT    NOT NULL DEFAULT 'size_desc',
-    deletions_enabled          INTEGER NOT NULL DEFAULT 1,
-    snooze_duration_hours      INTEGER NOT NULL DEFAULT 24,
+    execution_mode                 TEXT    NOT NULL DEFAULT 'dry-run',
+    tiebreaker_method              TEXT    NOT NULL DEFAULT 'size_desc',
+    deletions_enabled              INTEGER NOT NULL DEFAULT 1,
+    snooze_duration_hours          INTEGER NOT NULL DEFAULT 24,
     check_for_updates              INTEGER NOT NULL DEFAULT 1,
     deletion_queue_delay_seconds   INTEGER NOT NULL DEFAULT 30,   -- Grace period before processing queued deletions (10-300)
-    -- Analytics thresholds (NEW in 2.0)
+    -- Analytics thresholds
     dead_content_min_days          INTEGER NOT NULL DEFAULT 90,   -- Minimum days in library for "dead content" report
-    stale_content_days         INTEGER NOT NULL DEFAULT 180,  -- Days since last watch for "stale content" report
-    updated_at                 DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    stale_content_days             INTEGER NOT NULL DEFAULT 180,  -- Days since last watch for "stale content" report
+    updated_at                     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================================================
+-- Scoring Factor Weights (dynamic registry — one row per factor)
+-- Auto-seeded from engine.DefaultFactors() on startup. Adding a new factor
+-- implementation is all that's needed to register a new weight row.
+-- ============================================================================
+
+CREATE TABLE scoring_factor_weights (
+    factor_key TEXT    PRIMARY KEY,
+    weight     INTEGER NOT NULL DEFAULT 5 CHECK(weight >= 0 AND weight <= 10),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ============================================================================
@@ -308,6 +313,7 @@ DROP TABLE IF EXISTS engine_run_stats;
 DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS approval_queue;
 DROP TABLE IF EXISTS custom_rules;
+DROP TABLE IF EXISTS scoring_factor_weights;
 DROP TABLE IF EXISTS preference_sets;
 DROP TABLE IF EXISTS library_histories;
 DROP TABLE IF EXISTS disk_group_integrations;

@@ -268,7 +268,7 @@ func TestEvaluateAndCleanDisk_BelowThreshold_NoLongerClearsQueue(t *testing.T) {
 	}
 
 	// Call evaluateAndCleanDisk — should NOT clear the queue
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil)
 	if result != 0 {
 		t.Errorf("expected 0 deletions queued, got %d", result)
 	}
@@ -306,7 +306,7 @@ func TestEvaluateAndCleanDisk_WithOverride(t *testing.T) {
 	// Run with no items — it should still detect threshold breach and not return 0 early
 	// Since there are no media items, it won't actually queue anything, but the
 	// breach detection code path should be entered (checking for currentPct > threshold).
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil)
 	// With no items, nothing to delete, but the important thing is it didn't
 	// short-circuit at the "below threshold" check.
 	if result != 0 {
@@ -331,7 +331,7 @@ func TestEvaluateAndCleanDisk_OverrideZeroUsesDetected(t *testing.T) {
 		TargetPct:          70.0,
 	}
 
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil)
 	if result != 0 {
 		t.Errorf("expected 0 (below threshold), got %d", result)
 	}
@@ -485,7 +485,7 @@ func TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems(t *testing.T) {
 
 	// Run with no media items — no candidates will be generated, so
 	// neededKeys will be empty, and all pending items should be reconciled away
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, map[string]int{}, nil)
 	if result != 0 {
 		t.Errorf("expected 0 deletions queued, got %d", result)
 	}
@@ -547,7 +547,7 @@ func TestEvaluateAndCleanDisk_ReconcileNoopInDryRun(t *testing.T) {
 
 	// Run in dry-run mode — reconciliation should NOT happen
 	prefs := db.PreferenceSet{ExecutionMode: "dry-run"}
-	p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, nil)
+	p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, map[string]int{}, nil)
 
 	// Verify: pending item is preserved (reconciliation didn't run)
 	var pendingCount int64
@@ -612,16 +612,18 @@ func TestEvaluateAndCleanDisk_IsSnoozed_AutoMode(t *testing.T) {
 	}
 
 	prefs := db.PreferenceSet{
-		ExecutionMode:       db.ModeAuto,
-		WatchHistoryWeight:  5,
-		FileSizeWeight:      5,
-		RatingWeight:        5,
-		LastWatchedWeight:   5,
-		TimeInLibraryWeight: 5,
-		SeriesStatusWeight:  5,
+		ExecutionMode: db.ModeAuto,
+	}
+	weights := map[string]int{
+		"watch_history":   5,
+		"file_size":       5,
+		"rating":          5,
+		"last_watched":    5,
+		"time_in_library": 5,
+		"series_status":   5,
 	}
 
-	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, nil)
+	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, weights, nil)
 
 	// The item should be skipped because it's snoozed — 0 queued
 	if result != 0 {
@@ -680,16 +682,18 @@ func TestEvaluateAndCleanDisk_IsSnoozed_DryRunMode(t *testing.T) {
 	}
 
 	prefs := db.PreferenceSet{
-		ExecutionMode:       db.ModeDryRun,
-		WatchHistoryWeight:  5,
-		FileSizeWeight:      5,
-		RatingWeight:        5,
-		LastWatchedWeight:   5,
-		TimeInLibraryWeight: 5,
-		SeriesStatusWeight:  5,
+		ExecutionMode: db.ModeDryRun,
+	}
+	weights := map[string]int{
+		"watch_history":   5,
+		"file_size":       5,
+		"rating":          5,
+		"last_watched":    5,
+		"time_in_library": 5,
+		"series_status":   5,
 	}
 
-	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, nil)
+	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, weights, nil)
 
 	// The item should be skipped because it's snoozed — 0 queued
 	if result != 0 {

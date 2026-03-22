@@ -11,6 +11,7 @@ import (
 )
 
 // RegisterPreferenceRoutes sets up the endpoints for managing the PreferenceSet singleton.
+// Note: Scoring factor weights have been moved to their own table and API — see factorweights.go.
 func RegisterPreferenceRoutes(protected *echo.Group, reg *services.Registry) {
 	protected.GET("/preferences", func(c echo.Context) error {
 		pref, err := reg.Settings.GetPreferences()
@@ -28,18 +29,6 @@ func RegisterPreferenceRoutes(protected *echo.Group, reg *services.Registry) {
 		}
 		// Force ID to 1 to ensure a single singleton record
 		payload.ID = 1
-
-		// Validate weight values (0-10)
-		weights := []int{
-			payload.WatchHistoryWeight, payload.LastWatchedWeight,
-			payload.FileSizeWeight, payload.RatingWeight,
-			payload.TimeInLibraryWeight, payload.SeriesStatusWeight,
-		}
-		for _, w := range weights {
-			if w < 0 || w > 10 {
-				return apiError(c, http.StatusBadRequest, "Weight values must be between 0 and 10")
-			}
-		}
 
 		// Validate tiebreaker method
 		if payload.TiebreakerMethod == "" {
