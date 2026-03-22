@@ -311,3 +311,8 @@ type MediaCache struct {
 	ItemCount   int    `gorm:"column:item_count;not null"`
 	UpdatedAt   time.Time
 }
+
+// TableName returns the database table name for MediaCache.
+func (MediaCache) TableName() string {
+	return "media_cache"
+}
