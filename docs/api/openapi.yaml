@@ -953,8 +953,15 @@ paths:
       description: |
         Imports settings from a previously exported envelope. Supports
         section-level granularity — you can import a subset of the
-        available sections. Rules are appended (additive). Preferences,
-        integrations, disk groups, and notification channels are upserted.
+        available sections.
+
+        Two import modes are available:
+        - **merge** (default): Upserts matching items, creates new ones,
+          leaves existing unmatched items untouched.
+        - **sync**: Upserts matching items, creates new ones, and deletes
+          existing items NOT in the import file — making the database
+          match the file exactly for the selected sections. A pre-import
+          snapshot is included in the response for safety.
 
         Sensitive credentials (API keys, webhook URLs) are not included
         in exports and must be re-entered manually after import.
@@ -989,9 +996,11 @@ paths:
       summary: Preview settings import without applying changes
       description: |
         Analyzes the export file against the current database and reports
-        how each rule would be resolved, without committing any changes.
-        Returns conflict details and resolution options for rules that
-        reference integrations by name (which may differ between instances).
+        how each section would be affected, without committing any changes.
+        Returns per-section diff with create/update/unchanged status,
+        field-level changes, rule resolution details, and sync-mode
+        deletion previews. This endpoint powers the "Review Changes"
+        step in the UI import wizard.
       requestBody:
         required: true
         content:
@@ -2362,6 +2371,15 @@ components:
               type: boolean
             notifications:
               type: boolean
+            mode:
+              type: string
+              description: |
+                Import mode. "merge" (default) upserts matching items and
+                leaves unmatched items. "sync" also deletes existing items
+                not in the import file. Legacy values "append" and "replace"
+                are accepted for backward compatibility.
+              enum: [merge, sync]
+              default: merge
       required: [envelope]
 
     SettingsImportResponse:
@@ -2374,6 +2392,10 @@ components:
           type: integer
           description: Number of rules imported
           example: 5
+        rulesUnmatched:
+          type: integer
+          description: Number of rules that could not be matched to an integration
+          example: 0
         integrationsImported:
           type: integer
           description: Number of integrations imported
@@ -2386,6 +2408,15 @@ components:
           type: integer
           description: Number of notification channels imported
           example: 1
+        itemsDeleted:
+          type: integer
+          description: Number of existing items deleted during sync mode
+          example: 0
+        preImportSnapshot:
+          $ref: "#/components/schemas/SettingsExportEnvelope"
+          description: |
+            Snapshot of the affected sections before the import was applied.
+            Only included in sync mode. Can be used to restore previous state.
 
     RuleField:
       type: object

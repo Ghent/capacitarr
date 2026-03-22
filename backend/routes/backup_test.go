@@ -246,6 +246,108 @@ func TestImportSettings_InvalidBody(t *testing.T) {
 	}
 }
 
+func TestImportSettings_SyncMode(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Seed existing data that should be deleted by sync
+	database.Create(&db.IntegrationConfig{
+		Type: "radarr", Name: "Serenity Radarr", URL: "http://radarr:7878",
+		APIKey: "secret-key", Enabled: true,
+	})
+
+	body := `{
+		"payload": {
+			"version": 1,
+			"exportedAt": "2026-03-09T12:00:00Z",
+			"appVersion": "v2.0.0",
+			"integrations": [
+				{"name": "Firefly Sonarr", "type": "sonarr", "url": "http://sonarr:8989", "enabled": true}
+			]
+		},
+		"sections": {
+			"integrations": true,
+			"mode": "sync"
+		}
+	}`
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/settings/import", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result services.ImportResult
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if result.IntegrationsImported != 1 {
+		t.Errorf("Expected 1 integration imported, got %d", result.IntegrationsImported)
+	}
+	if result.ItemsDeleted != 1 {
+		t.Errorf("Expected 1 item deleted (orphan radarr), got %d", result.ItemsDeleted)
+	}
+	if result.PreImportSnapshot == nil {
+		t.Error("Expected pre-import snapshot in sync mode")
+	}
+}
+
+func TestPreviewImport_ReturnsAllSections(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Seed existing integration
+	database.Create(&db.IntegrationConfig{
+		Type: "sonarr", Name: "Firefly Sonarr", URL: "http://sonarr:8989",
+		APIKey: "secret-key", Enabled: true,
+	})
+
+	sonarrType := "sonarr"
+	sonarrName := "Firefly Sonarr"
+
+	body := `{
+		"payload": {
+			"version": 1,
+			"exportedAt": "2026-03-09T12:00:00Z",
+			"appVersion": "v2.0.0",
+			"integrations": [
+				{"name": "Firefly Sonarr", "type": "sonarr", "url": "http://sonarr-new:8989", "enabled": true}
+			],
+			"rules": [
+				{"field": "quality", "operator": "==", "value": "4K", "effect": "always_keep", "enabled": true, "integrationName": "` + sonarrName + `", "integrationType": "` + sonarrType + `"}
+			]
+		},
+		"sections": {
+			"integrations": true,
+			"rules": true,
+			"mode": "sync"
+		}
+	}`
+
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/settings/import/preview", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var preview services.ImportPreview
+	if err := json.Unmarshal(rec.Body.Bytes(), &preview); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	if len(preview.Integrations) != 1 {
+		t.Errorf("Expected 1 integration resolution, got %d", len(preview.Integrations))
+	}
+	if len(preview.Rules) != 1 {
+		t.Errorf("Expected 1 rule resolution, got %d", len(preview.Rules))
+	}
+}
+
 func TestImportSettings_Unauthenticated(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
