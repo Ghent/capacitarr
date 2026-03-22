@@ -14,6 +14,7 @@ export interface IntegrationConfig {
   url: string;
   apiKey: string;
   enabled: boolean;
+  collectionDeletion: boolean;
   mediaSizeBytes: number;
   mediaCount: number;
   lastSync?: string | null;
@@ -112,6 +113,7 @@ export interface AuditLogEntry {
   trigger: string;
   dryRunReason: string;
   integrationId?: number;
+  collectionGroup?: string;
   createdAt: string;
 }
 
@@ -135,6 +137,7 @@ export interface ApprovalQueueItem {
   status: 'pending' | 'approved' | 'rejected';
   trigger: string;
   userInitiated?: boolean;
+  collectionGroup?: string;
   snoozedUntil?: string;
   createdAt: string;
   updatedAt: string;
@@ -227,6 +230,7 @@ export interface MediaItem {
   requestCount?: number;
   tmdbId?: number;
   language?: string;
+  collections?: string[];
 }
 
 export interface ScoreFactor {
@@ -325,6 +329,7 @@ export interface SelectedDetailItem {
   sizeBytes: number;
   action: string;
   createdAt: string;
+  collectionGroup?: string;
 }
 
 // ---------------------------------------------------------------------------
