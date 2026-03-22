@@ -278,7 +278,7 @@ const gaugeOption = computed(() => {
 
         data: [{ value: usage }],
       },
-      // Target tick: tiny green nub protruding from outer edge of arc
+      // Target marker: small green triangle on INNER edge of arc
       {
         type: 'gauge',
         startAngle: 210,
@@ -286,28 +286,28 @@ const gaugeOption = computed(() => {
         min: 0,
         max: 100,
         center: ['50%', '60%'],
-        radius: '100%',
+        radius: '90%',
         z: 3,
-        axisLine: {
-          lineStyle: {
-            width: 6,
-            color: [
-              [Math.max(0, (tgtPct - 0.4) / 100), 'transparent'],
-              [(tgtPct + 0.4) / 100, colorAlpha('#10b981', 0.8)],
-              [1, 'transparent'],
-            ],
-          },
-        },
+        axisLine: { show: false },
         progress: { show: false },
-        pointer: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: { show: false },
         detail: { show: false },
         title: { show: false },
+        pointer: {
+          show: true,
+          icon: 'triangle',
+          length: '12%',
+          width: 6,
+          offsetCenter: [0, '-62%'],
+          itemStyle: { color: '#10b981', opacity: 0.85 },
+        },
+        data: [{ value: tgtPct }],
+        animation: false,
         silent: true,
       },
-      // Threshold tick: tiny red nub protruding from outer edge of arc
+      // Threshold marker: small red triangle on OUTER edge of arc
       {
         type: 'gauge',
         startAngle: 210,
@@ -315,25 +315,25 @@ const gaugeOption = computed(() => {
         min: 0,
         max: 100,
         center: ['50%', '60%'],
-        radius: '100%',
+        radius: '90%',
         z: 3,
-        axisLine: {
-          lineStyle: {
-            width: 6,
-            color: [
-              [Math.max(0, (thrPct - 0.4) / 100), 'transparent'],
-              [(thrPct + 0.4) / 100, colorAlpha('#ef4444', 0.8)],
-              [1, 'transparent'],
-            ],
-          },
-        },
+        axisLine: { show: false },
         progress: { show: false },
-        pointer: { show: false },
         axisTick: { show: false },
         splitLine: { show: false },
         axisLabel: { show: false },
         detail: { show: false },
         title: { show: false },
+        pointer: {
+          show: true,
+          icon: 'triangle',
+          length: '12%',
+          width: 6,
+          offsetCenter: [0, '-92%'],
+          itemStyle: { color: '#ef4444', opacity: 0.85 },
+        },
+        data: [{ value: thrPct }],
+        animation: false,
         silent: true,
       },
     ],
