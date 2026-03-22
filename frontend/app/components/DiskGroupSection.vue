@@ -46,7 +46,7 @@
       <div class="flex items-center gap-4">
         <!-- ECharts Gauge Arc -->
         <div
-          class="shrink-0"
+          class="shrink-0 rounded-full"
           :class="{ 'gauge-critical': rawUsagePct >= (group.thresholdPct || 85) }"
           style="width: 160px; height: 120px"
         >
@@ -284,17 +284,17 @@ const gaugeOption = computed(() => {
 </script>
 
 <style scoped>
+.gauge-critical {
+  animation: gauge-pulse 2s ease-in-out infinite;
+}
+
 @keyframes gauge-pulse {
   0%,
   100% {
-    filter: drop-shadow(0 0 6px var(--destructive));
+    box-shadow: 0 0 8px 2px color-mix(in srgb, var(--destructive) 40%, transparent);
   }
   50% {
-    filter: drop-shadow(0 0 18px var(--destructive));
+    box-shadow: 0 0 24px 6px color-mix(in srgb, var(--destructive) 70%, transparent);
   }
-}
-
-.gauge-critical {
-  animation: gauge-pulse 2s ease-in-out infinite;
 }
 </style>
