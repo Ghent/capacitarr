@@ -225,6 +225,30 @@
           </template>
         </div>
 
+        <!-- Collection Deletion toggle (only for supported types) -->
+        <div v-if="collectionDeletionTypes.has(formState.type)" class="space-y-2 pt-1">
+          <UiSeparator />
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-1.5">
+                <LayersIcon class="w-4 h-4 text-indigo-500 shrink-0" />
+                <UiLabel class="cursor-pointer">Collection Deletion</UiLabel>
+              </div>
+              <p class="text-xs text-muted-foreground mt-1">
+                {{ collectionDeletionDescriptions[formState.type] || '' }}
+              </p>
+            </div>
+            <UiSwitch v-model:checked="formState.collectionDeletion" />
+          </div>
+          <NuxtLink
+            to="/help#collection-deletion"
+            class="text-xs text-primary hover:underline inline-flex items-center gap-1"
+          >
+            <InfoIcon class="w-3 h-3" />
+            Learn more about collection deletion
+          </NuxtLink>
+        </div>
+
         <UiAlert v-if="formError" variant="destructive">
           <UiAlertDescription>{{ formError }}</UiAlertDescription>
         </UiAlert>
@@ -253,6 +277,8 @@ import {
   ClockIcon,
   AlertTriangleIcon,
   LogInIcon,
+  LayersIcon,
+  InfoIcon,
 } from 'lucide-vue-next';
 import type { IntegrationConfig, ConnectionTestResult, ApiError } from '~/types/api';
 import { PlexOAuth } from '~/utils/plexOAuth';
@@ -276,7 +302,18 @@ const editingIntegration = ref<IntegrationConfig | null>(null);
 const saving = ref(false);
 const formError = ref('');
 
-const formState = reactive({ type: 'sonarr', name: '', url: '', apiKey: '' });
+const formState = reactive({ type: 'sonarr', name: '', url: '', apiKey: '', collectionDeletion: false });
+
+/** Integration types that support collection deletion */
+const collectionDeletionTypes = new Set(['radarr', 'plex', 'jellyfin', 'emby']);
+
+/** Description text for the collection deletion toggle per integration type */
+const collectionDeletionDescriptions: Record<string, string> = {
+  radarr: 'Uses TMDb movie collections — curated franchise groupings like "The Lord of the Rings Collection".',
+  plex: 'Uses Plex library collections. Includes automatic and user-created collections. Custom collections can group unrelated media.',
+  jellyfin: 'Uses Jellyfin Box Sets — groups of related movies that were auto-detected or manually organized.',
+  emby: 'Uses Emby Box Sets — groups of related movies that were auto-detected or manually organized.',
+};
 
 // ─── Enable/Disable toggle ──────────────────────────────────────────────────
 async function toggleEnabled(integration: IntegrationConfig, enabled: boolean) {
@@ -349,7 +386,7 @@ async function fetchIntegrations(showSpinner = true) {
 
 function openAddModal() {
   editingIntegration.value = null;
-  Object.assign(formState, { type: 'sonarr', name: '', url: '', apiKey: '' });
+  Object.assign(formState, { type: 'sonarr', name: '', url: '', apiKey: '', collectionDeletion: false });
   formError.value = '';
   showModal.value = true;
 }
@@ -365,6 +402,7 @@ function openEditModal(integration: IntegrationConfig) {
     name: integration.name,
     url: integration.url,
     apiKey: integration.apiKey,
+    collectionDeletion: integration.collectionDeletion ?? false,
   });
   formError.value = '';
   showModal.value = true;
