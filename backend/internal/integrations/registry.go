@@ -244,6 +244,20 @@ func (r *IntegrationRegistry) TautulliClient(id uint) (*TautulliClient, bool) {
 	return nil, false
 }
 
+// PlexClient checks if the Connectable at the given ID is a *PlexClient
+// and returns it. Used by the poller to build the TMDb→RatingKey map for
+// Tautulli enrichment.
+func (r *IntegrationRegistry) PlexClient(id uint) (*PlexClient, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.connectors[id]; ok {
+		if pc, ok := c.(*PlexClient); ok {
+			return pc, true
+		}
+	}
+	return nil, false
+}
+
 // HasWatchProviders returns true if at least one WatchDataProvider is registered.
 func (r *IntegrationRegistry) HasWatchProviders() bool {
 	r.mu.RLock()
