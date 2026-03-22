@@ -8,6 +8,7 @@ import {
   MusicIcon,
   BookOpenIcon,
   MonitorPlayIcon,
+  BarChart3Icon,
 } from 'lucide-vue-next';
 import type { FunctionalComponent } from 'vue';
 
@@ -29,6 +30,8 @@ export function typeIcon(type: string): FunctionalComponent {
       return MonitorPlayIcon;
     case 'tautulli':
       return ActivityIcon;
+    case 'jellystat':
+      return BarChart3Icon;
     case 'seerr':
       return InboxIcon;
     default:
@@ -54,6 +57,8 @@ export function typeColor(type: string): string {
       return 'bg-emerald-500';
     case 'tautulli':
       return 'bg-teal-500';
+    case 'jellystat':
+      return 'bg-violet-500';
     case 'seerr':
       return 'bg-indigo-500';
     default:
@@ -79,6 +84,8 @@ export function typeTextColor(type: string): string {
       return 'text-emerald-500';
     case 'tautulli':
       return 'text-teal-500';
+    case 'jellystat':
+      return 'text-violet-500';
     case 'seerr':
       return 'text-indigo-500';
     default:
@@ -95,6 +102,7 @@ export const namePlaceholders: Record<string, string> = {
   jellyfin: 'My Jellyfin',
   emby: 'My Emby',
   tautulli: 'My Tautulli',
+  jellystat: 'My Jellystat',
   seerr: 'My Seerr',
 };
 
@@ -107,6 +115,7 @@ export const urlPlaceholders: Record<string, string> = {
   jellyfin: 'http://localhost:8096',
   emby: 'http://localhost:8096',
   tautulli: 'http://localhost:8181',
+  jellystat: 'http://localhost:3000',
   seerr: 'http://localhost:5055',
 };
 
@@ -119,5 +128,6 @@ export const urlHelpTexts: Record<string, string> = {
   jellyfin: 'Your Jellyfin server URL (IP or hostname + port).',
   emby: 'Your Emby server URL (IP or hostname + port).',
   tautulli: 'Your Tautulli instance URL (IP or hostname + port).',
+  jellystat: 'Your Jellystat instance URL (IP or hostname + port).',
   seerr: 'Full URL including any subpath (e.g., https://example.com/requests/).',
 };

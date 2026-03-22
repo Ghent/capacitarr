@@ -166,6 +166,7 @@
               <UiSelectItem value="jellyfin">Jellyfin</UiSelectItem>
               <UiSelectItem value="emby">Emby</UiSelectItem>
               <UiSelectItem value="tautulli">Tautulli</UiSelectItem>
+              <UiSelectItem value="jellystat">Jellystat</UiSelectItem>
               <UiSelectItem value="seerr">Seerr</UiSelectItem>
             </UiSelectContent>
           </UiSelect>

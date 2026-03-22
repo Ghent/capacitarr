@@ -308,10 +308,25 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 		}
 	}
 
+	// Build Jellyfin Item ID → TMDb ID map for Jellystat enrichment
+	jellyfinIDToTMDbID := make(map[string]int)
+	for id := range registry.Connectors() {
+		if jf, ok := registry.JellyfinClient(id); ok {
+			jfMap, mapErr := jf.GetItemIDToTMDbIDMap()
+			if mapErr != nil {
+				continue
+			}
+			for itemID, tmdbID := range jfMap {
+				jellyfinIDToTMDbID[itemID] = tmdbID
+			}
+		}
+	}
+
 	// Build and run the enrichment pipeline
 	pipeline := integrations.BuildEnrichmentPipeline(registry)
 	integrations.RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
-	pipeline.Run(allItems)
+	integrations.RegisterJellystatEnrichers(pipeline, registry, jellyfinIDToTMDbID)
+	_ = pipeline.Run(allItems)
 
 	prefs, err := s.preferences.GetPreferences()
 	if err != nil {

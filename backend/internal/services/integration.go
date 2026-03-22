@@ -527,6 +527,8 @@ func (s *IntegrationService) DetectEnrichment() EnrichmentPresence {
 			p.HasMedia = true
 		case string(integrations.IntegrationTypeSonarr):
 			p.HasSonarr = true
+		case string(integrations.IntegrationTypeJellystat):
+			p.HasJellystat = true
 		}
 	}
 	return p

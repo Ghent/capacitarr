@@ -165,6 +165,28 @@ func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResu
 	}
 
 	integrations.RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
+
+	// Build Jellyfin Item ID → TMDb ID map for Jellystat enrichment.
+	// Jellystat stores items by Jellyfin Item ID, but *arr items use TMDb IDs.
+	// This map bridges the gap. Built per poll cycle — not cached.
+	jellyfinIDToTMDbID := make(map[string]int)
+	for id := range registry.Connectors() {
+		if jf, ok := registry.JellyfinClient(id); ok {
+			jfMap, mapErr := jf.GetItemIDToTMDbIDMap()
+			if mapErr != nil {
+				slog.Warn("Failed to build Jellyfin ID→TMDb ID map",
+					"component", "poller", "integrationID", id, "error", mapErr)
+				continue
+			}
+			for itemID, tmdbID := range jfMap {
+				jellyfinIDToTMDbID[itemID] = tmdbID
+			}
+			slog.Debug("Built Jellyfin ID→TMDb ID map", "component", "poller",
+				"integrationID", id, "mappings", len(jfMap))
+		}
+	}
+
+	integrations.RegisterJellystatEnrichers(pipeline, registry, jellyfinIDToTMDbID)
 	result.pipeline = pipeline
 
 	return result
