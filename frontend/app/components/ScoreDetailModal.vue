@@ -145,6 +145,23 @@
           </div>
         </div>
 
+        <!-- Collection Membership -->
+        <div
+          v-if="collectionGroup"
+          class="rounded-lg border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-2"
+        >
+          <div class="flex items-center gap-2 text-indigo-500 dark:text-indigo-400">
+            <LayersIcon class="w-4 h-4 shrink-0" />
+            <span class="text-sm font-medium truncate" :title="collectionGroup">
+              {{ collectionGroup }}
+            </span>
+          </div>
+          <p class="text-[11px] text-muted-foreground leading-relaxed">
+            This item is part of a collection. When collection deletion is enabled, all members of
+            this collection are deleted together.
+          </p>
+        </div>
+
         <!-- Final Score -->
         <div
           v-if="!isProtected"
@@ -194,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import { ClockIcon } from 'lucide-vue-next';
+import { ClockIcon, LayersIcon } from 'lucide-vue-next';
 import { formatBytes } from '~/utils/format';
 import type { ScoreFactor } from '~/types/api';
 
@@ -209,6 +226,8 @@ interface Props {
   sizeBytes: number;
   action: string;
   createdAt?: string;
+  /** Collection group name if this item is part of a collection deletion */
+  collectionGroup?: string;
 }
 
 const props = defineProps<Props>();

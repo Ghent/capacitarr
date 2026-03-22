@@ -198,6 +198,14 @@
                 <UiTableCell class="font-medium whitespace-nowrap">
                   <div class="flex items-center gap-2">
                     <span class="truncate">{{ vRow.entry.group.entry.mediaName }}</span>
+                    <UiBadge
+                      v-if="vRow.entry.group.entry.collectionGroup"
+                      variant="outline"
+                      class="text-[10px] border-indigo-500/50 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0"
+                      :title="vRow.entry.group.entry.collectionGroup"
+                    >
+                      <LayersIcon class="w-3 h-3" />
+                    </UiBadge>
                     <button
                       v-if="vRow.entry.group.seasons.length > 0"
                       :aria-label="
@@ -318,6 +326,7 @@
       :size-bytes="selectedItem.sizeBytes"
       :action="selectedItem.action"
       :created-at="selectedItem.createdAt"
+      :collection-group="selectedItem.collectionGroup"
       @close="selectedItem = null"
     />
   </div>
@@ -335,6 +344,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   ArrowUpDownIcon,
+  LayersIcon,
 } from 'lucide-vue-next';
 import type { AuditLogEntry, AuditResponse, SelectedDetailItem } from '~/types/api';
 
@@ -396,6 +406,7 @@ function selectItem(entry: AuditLogEntry) {
     sizeBytes: entry.sizeBytes,
     action: entry.action,
     createdAt: entry.createdAt,
+    collectionGroup: entry.collectionGroup,
   };
 }
 

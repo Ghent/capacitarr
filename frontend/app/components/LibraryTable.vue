@@ -15,6 +15,7 @@ import {
   ClockIcon,
   CheckIcon,
   ZapIcon,
+  LayersIcon,
 } from 'lucide-vue-next';
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import type { EvaluatedItem, IntegrationConfig } from '~/types/api';
@@ -504,6 +505,7 @@ const tableColumns = computed(() => [
                   :size-bytes="getEntry(vRow.index * gridCols + (col - 1)).item.sizeBytes"
                   :is-protected="getEntry(vRow.index * gridCols + (col - 1)).isProtected"
                   :queue-status="getEntry(vRow.index * gridCols + (col - 1)).queueStatus"
+                  :collection-name="getEntry(vRow.index * gridCols + (col - 1)).item.collections?.[0]"
                   :selectable="selectionMode"
                   :selected="selectedIds.has(itemKey(getEntry(vRow.index * gridCols + (col - 1))))"
                   @click="
@@ -598,7 +600,7 @@ const tableColumns = computed(() => [
                     />
                   </UiTableCell>
                   <UiTableCell class="font-medium">
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
                       <span class="truncate">{{ getEntry(vRow.index).item.title }}</span>
                       <UiBadge
                         v-if="getEntry(vRow.index).queueStatus === 'pending'"
@@ -631,6 +633,15 @@ const tableColumns = computed(() => [
                       >
                         <LoaderCircleIcon class="w-3 h-3 animate-spin" />
                         {{ t('library.queueDeleting') }}
+                      </UiBadge>
+                      <UiBadge
+                        v-if="getEntry(vRow.index).item.collections?.length"
+                        variant="outline"
+                        class="text-[10px] border-indigo-500/50 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0"
+                        :title="getEntry(vRow.index).item.collections?.join(', ')"
+                      >
+                        <LayersIcon class="w-3 h-3" />
+                        {{ getEntry(vRow.index).item.collections![0] }}
                       </UiBadge>
                     </div>
                   </UiTableCell>

@@ -11,6 +11,7 @@ import {
   CheckIcon,
   ZapIcon,
   LoaderCircleIcon,
+  LayersIcon,
 } from 'lucide-vue-next';
 
 const { gridItem } = useMotionPresets();
@@ -28,6 +29,8 @@ const props = defineProps<{
   selected?: boolean;
   seasonCount?: number;
   queueStatus?: 'pending' | 'approved' | 'user_initiated' | 'deleting';
+  /** Collection name if the item belongs to a collection (e.g., "Sonic the Hedgehog Collection") */
+  collectionName?: string;
   /** Animation stagger delay in ms (e.g., index * 30). Defaults to 0. */
   animationDelay?: number;
 }>();
@@ -218,6 +221,16 @@ const queueStatusLabel = computed(() => {
       class="absolute bottom-1.5 right-1.5 rounded-full bg-black/50 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white/80"
     >
       ×{{ seasonCount }}
+    </div>
+
+    <!-- Bottom-left: Collection badge -->
+    <div
+      v-if="collectionName"
+      class="absolute bottom-1.5 left-1.5 rounded-full bg-indigo-500/70 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white flex items-center gap-0.5 max-w-[60%]"
+      :title="collectionName"
+    >
+      <LayersIcon class="w-2.5 h-2.5 shrink-0" />
+      <span class="truncate">{{ collectionName }}</span>
     </div>
 
     <!-- Queue status banner (above title gradient) -->
