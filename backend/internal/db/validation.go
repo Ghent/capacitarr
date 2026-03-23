@@ -23,18 +23,18 @@ var ValidEffects = map[string]bool{
 
 // ValidExecutionModes defines the allowed engine execution modes.
 var ValidExecutionModes = map[string]bool{
-	"dry-run": true, "approval": true, "auto": true,
+	ModeDryRun: true, ModeApproval: true, ModeAuto: true,
 }
 
 // ValidTiebreakerMethods defines the allowed tiebreaker sort methods.
 var ValidTiebreakerMethods = map[string]bool{
-	"size_desc": true, "size_asc": true, "name_asc": true,
-	"oldest_first": true, "newest_first": true,
+	TiebreakerSizeDesc: true, TiebreakerSizeAsc: true, TiebreakerNameAsc: true,
+	TiebreakerOldestFirst: true, TiebreakerNewestFirst: true,
 }
 
 // ValidLogLevels defines the allowed log level values.
 var ValidLogLevels = map[string]bool{
-	"debug": true, "info": true, "warn": true, "error": true,
+	LogLevelDebug: true, LogLevelInfo: true, LogLevelWarn: true, LogLevelError: true,
 }
 
 // ValidIntegrationTypes defines the allowed integration type values.

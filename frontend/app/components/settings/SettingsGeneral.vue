@@ -222,6 +222,7 @@
 <script setup lang="ts">
 import { MonitorIcon, CogIcon } from 'lucide-vue-next';
 import type { PreferenceSet } from '~/types/api';
+import { MODE_DRY_RUN, MODE_APPROVAL, MODE_AUTO, TIEBREAKER_SIZE_DESC } from '~/constants';
 import type { AcceptableValue } from 'reka-ui';
 import SaveIndicator from '~/components/settings/SaveIndicator.vue';
 
@@ -239,14 +240,14 @@ const { saveStatus, initFields, autoSavePreference } = useAutoSave();
 initFields(['executionMode', 'tiebreaker', 'snoozeDuration']);
 
 // Engine behavior state
-const engineExecutionMode = ref('dry-run');
-const engineTiebreakerMethod = ref('size_desc');
+const engineExecutionMode = ref<string>(MODE_DRY_RUN);
+const engineTiebreakerMethod = ref<string>(TIEBREAKER_SIZE_DESC);
 const snoozeDurationHours = ref(24);
 
 const executionModes = [
-  { value: 'dry-run', label: 'Dry Run', description: 'Log only, no deletions' },
-  { value: 'approval', label: 'Approval', description: 'Queue for manual approval' },
-  { value: 'auto', label: 'Automatic', description: 'Delete automatically' },
+  { value: MODE_DRY_RUN, label: 'Dry Run', description: 'Log only, no deletions' },
+  { value: MODE_APPROVAL, label: 'Approval', description: 'Queue for manual approval' },
+  { value: MODE_AUTO, label: 'Automatic', description: 'Delete automatically' },
 ];
 
 function setExecutionMode(mode: string) {

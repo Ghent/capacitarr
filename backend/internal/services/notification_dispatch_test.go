@@ -91,14 +91,14 @@ func TestNotificationDispatch_TwoGateFlush(t *testing.T) {
 	svc, mock := newTestDispatch(t, channels)
 
 	// Simulate a full engine cycle
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "auto"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeAuto})
 	time.Sleep(50 * time.Millisecond)
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     100,
 		Flagged:       3,
 		DurationMs:    500,
-		ExecutionMode: "auto",
+		ExecutionMode: db.ModeAuto,
 	})
 	time.Sleep(50 * time.Millisecond)
 
@@ -127,7 +127,7 @@ func TestNotificationDispatch_ReverseGateOrder(t *testing.T) {
 
 	svc, mock := newTestDispatch(t, channels)
 
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "dry-run"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeDryRun})
 	time.Sleep(50 * time.Millisecond)
 
 	// Gate 2 fires first
@@ -139,7 +139,7 @@ func TestNotificationDispatch_ReverseGateOrder(t *testing.T) {
 		Evaluated:     50,
 		Flagged:       0,
 		DurationMs:    200,
-		ExecutionMode: "dry-run",
+		ExecutionMode: db.ModeDryRun,
 	})
 	time.Sleep(200 * time.Millisecond)
 
@@ -147,7 +147,7 @@ func TestNotificationDispatch_ReverseGateOrder(t *testing.T) {
 	if len(digests) != 1 {
 		t.Fatalf("expected 1 digest (reverse gate order), got %d", len(digests))
 	}
-	if digests[0].ExecutionMode != "dry-run" {
+	if digests[0].ExecutionMode != db.ModeDryRun {
 		t.Errorf("expected execution mode 'dry-run', got %q", digests[0].ExecutionMode)
 	}
 }
@@ -161,7 +161,7 @@ func TestNotificationDispatch_Accumulation(t *testing.T) {
 
 	svc, mock := newTestDispatch(t, channels)
 
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "auto"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeAuto})
 	time.Sleep(50 * time.Millisecond)
 
 	// 3 successful deletions
@@ -178,7 +178,7 @@ func TestNotificationDispatch_Accumulation(t *testing.T) {
 		Evaluated:     200,
 		Flagged:       3,
 		DurationMs:    1000,
-		ExecutionMode: "auto",
+		ExecutionMode: db.ModeAuto,
 	})
 	time.Sleep(50 * time.Millisecond)
 
@@ -230,9 +230,9 @@ func TestNotificationDispatch_SubscriptionFiltering(t *testing.T) {
 
 	svc, mock := newTestDispatch(t, channels)
 
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "auto"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeAuto})
 	time.Sleep(50 * time.Millisecond)
-	svc.bus.Publish(events.EngineCompleteEvent{Evaluated: 10, Flagged: 0, DurationMs: 100, ExecutionMode: "auto"})
+	svc.bus.Publish(events.EngineCompleteEvent{Evaluated: 10, Flagged: 0, DurationMs: 100, ExecutionMode: db.ModeAuto})
 	time.Sleep(50 * time.Millisecond)
 	svc.bus.Publish(events.DeletionBatchCompleteEvent{Succeeded: 0, Failed: 0})
 	time.Sleep(200 * time.Millisecond)
@@ -252,7 +252,7 @@ func TestNotificationDispatch_ModeChangedAlert(t *testing.T) {
 
 	svc, mock := newTestDispatch(t, channels)
 
-	svc.bus.Publish(events.EngineModeChangedEvent{OldMode: "dry-run", NewMode: "auto"})
+	svc.bus.Publish(events.EngineModeChangedEvent{OldMode: db.ModeDryRun, NewMode: db.ModeAuto})
 	time.Sleep(200 * time.Millisecond)
 
 	alerts := mock.getAlerts()
@@ -312,7 +312,7 @@ func TestNotificationDispatch_ApprovalModeFreedBytes(t *testing.T) {
 
 	svc, mock := newTestDispatch(t, channels)
 
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "approval"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeApproval})
 	time.Sleep(50 * time.Millisecond)
 
 	// In approval mode, no DeletionDryRun/DeletionSuccess events are published.
@@ -321,7 +321,7 @@ func TestNotificationDispatch_ApprovalModeFreedBytes(t *testing.T) {
 		Evaluated:     2232,
 		Flagged:       80,
 		DurationMs:    11900,
-		ExecutionMode: "approval",
+		ExecutionMode: db.ModeApproval,
 		FreedBytes:    5368709120, // ~5 GB potential savings
 	})
 	time.Sleep(50 * time.Millisecond)
@@ -336,7 +336,7 @@ func TestNotificationDispatch_ApprovalModeFreedBytes(t *testing.T) {
 	if digests[0].FreedBytes != 5368709120 {
 		t.Errorf("expected freedBytes=5368709120, got %d", digests[0].FreedBytes)
 	}
-	if digests[0].ExecutionMode != "approval" {
+	if digests[0].ExecutionMode != db.ModeApproval {
 		t.Errorf("expected execution mode 'approval', got %q", digests[0].ExecutionMode)
 	}
 	if digests[0].Flagged != 80 {
@@ -358,14 +358,14 @@ func TestNotificationDispatch_ApprovalModeDigestSuppressed(t *testing.T) { //nol
 
 	svc, mock := newTestDispatch(t, channels)
 
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "approval"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeApproval})
 	time.Sleep(50 * time.Millisecond)
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     100,
 		Flagged:       5,
 		DurationMs:    500,
-		ExecutionMode: "approval",
+		ExecutionMode: db.ModeApproval,
 		FreedBytes:    1073741824,
 	})
 	time.Sleep(50 * time.Millisecond)
@@ -392,14 +392,14 @@ func TestNotificationDispatch_NonApprovalDigestNotAffected(t *testing.T) {
 	svc, mock := newTestDispatch(t, channels)
 
 	// Run an auto-mode cycle
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "auto"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeAuto})
 	time.Sleep(50 * time.Millisecond)
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     50,
 		Flagged:       2,
 		DurationMs:    300,
-		ExecutionMode: "auto",
+		ExecutionMode: db.ModeAuto,
 	})
 	time.Sleep(50 * time.Millisecond)
 
@@ -410,7 +410,7 @@ func TestNotificationDispatch_NonApprovalDigestNotAffected(t *testing.T) {
 	if len(digests) != 1 {
 		t.Fatalf("expected 1 digest (auto mode unaffected by OnApprovalActivity=false), got %d", len(digests))
 	}
-	if digests[0].ExecutionMode != "auto" {
+	if digests[0].ExecutionMode != db.ModeAuto {
 		t.Errorf("expected execution mode 'auto', got %q", digests[0].ExecutionMode)
 	}
 }
@@ -425,14 +425,14 @@ func TestNotificationDispatch_AppriseChannel(t *testing.T) {
 
 	svc, mock := newTestDispatch(t, channels)
 
-	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: "auto"})
+	svc.bus.Publish(events.EngineStartEvent{ExecutionMode: db.ModeAuto})
 	time.Sleep(50 * time.Millisecond)
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     50,
 		Flagged:       2,
 		DurationMs:    300,
-		ExecutionMode: "auto",
+		ExecutionMode: db.ModeAuto,
 	})
 	time.Sleep(50 * time.Millisecond)
 

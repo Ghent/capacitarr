@@ -410,10 +410,10 @@ func TestMetricsService_GetWorkerMetrics_ExecutionModeFromPreferences(t *testing
 	deletion.SetDependencies(settings, engine, svc, nil)
 
 	// Create an engine run stats record with "dry-run" mode (simulating a past run)
-	database.Create(&db.EngineRunStats{ExecutionMode: "dry-run"})
+	database.Create(&db.EngineRunStats{ExecutionMode: db.ModeDryRun})
 
 	// Change the preference to "auto" (user changed mode without running engine)
-	database.Save(&db.PreferenceSet{ID: 1, ExecutionMode: "auto", PollIntervalSeconds: 300, TiebreakerMethod: "size_desc", LogLevel: "info"})
+	database.Save(&db.PreferenceSet{ID: 1, ExecutionMode: db.ModeAuto, PollIntervalSeconds: 300, TiebreakerMethod: db.TiebreakerSizeDesc, LogLevel: db.LogLevelInfo})
 
 	metrics := svc.GetWorkerMetrics()
 
@@ -422,7 +422,7 @@ func TestMetricsService_GetWorkerMetrics_ExecutionModeFromPreferences(t *testing
 	if !ok {
 		t.Fatal("Expected executionMode to be a string")
 	}
-	if mode != "auto" {
+	if mode != db.ModeAuto {
 		t.Errorf("Expected executionMode %q from preferences, got %q (likely reading from engine run stats)", "auto", mode)
 	}
 }

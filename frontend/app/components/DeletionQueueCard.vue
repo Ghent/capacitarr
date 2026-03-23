@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MODE_DRY_RUN, MODE_APPROVAL } from '~/constants';
 import {
   Trash2Icon,
   XIcon,
@@ -34,9 +35,9 @@ const hasContent = computed(
 /** Mode-specific empty state message key */
 const emptyStateMessage = computed(() => {
   switch (executionMode.value) {
-    case 'approval':
+    case MODE_APPROVAL:
       return t('deletion.emptyInApproval');
-    case 'dry-run':
+    case MODE_DRY_RUN:
       return t('deletion.emptyInDryRun');
     default:
       return t('deletion.noItems');

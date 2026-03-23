@@ -53,7 +53,7 @@ func seedDataForReset(t *testing.T, database *gorm.DB) {
 		Evaluated:     10,
 		Flagged:       3,
 		FreedBytes:    5000000,
-		ExecutionMode: "dry-run",
+		ExecutionMode: db.ModeDryRun,
 		DurationMs:    150,
 	}).Error; err != nil {
 		t.Fatalf("Failed to seed engine run stats: %v", err)

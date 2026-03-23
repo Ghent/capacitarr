@@ -418,7 +418,7 @@ func TestSortEvaluated_ScoreDescending(t *testing.T) {
 		{Item: integrations.MediaItem{Title: "Mid"}, Score: 0.5},
 	}
 
-	SortEvaluated(items, "size_desc")
+	SortEvaluated(items, db.TiebreakerSizeDesc)
 
 	if items[0].Item.Title != "High" || items[1].Item.Title != "Mid" || items[2].Item.Title != "Low" {
 		t.Errorf("Expected High, Mid, Low order; got %s, %s, %s",
@@ -432,7 +432,7 @@ func TestSortEvaluated_TiebreakerSizeDesc(t *testing.T) {
 		{Item: integrations.MediaItem{Title: "Large", SizeBytes: 1000}, Score: 0.5},
 	}
 
-	SortEvaluated(items, "size_desc")
+	SortEvaluated(items, db.TiebreakerSizeDesc)
 
 	if items[0].Item.Title != "Large" {
 		t.Errorf("Expected 'Large' first with size_desc tiebreaker, got %s", items[0].Item.Title)
@@ -445,7 +445,7 @@ func TestSortEvaluated_TiebreakerSizeAsc(t *testing.T) {
 		{Item: integrations.MediaItem{Title: "Small", SizeBytes: 100}, Score: 0.5},
 	}
 
-	SortEvaluated(items, "size_asc")
+	SortEvaluated(items, db.TiebreakerSizeAsc)
 
 	if items[0].Item.Title != "Small" {
 		t.Errorf("Expected 'Small' first with size_asc tiebreaker, got %s", items[0].Item.Title)
@@ -458,7 +458,7 @@ func TestSortEvaluated_TiebreakerNameAsc(t *testing.T) {
 		{Item: integrations.MediaItem{Title: "Alpha"}, Score: 0.5},
 	}
 
-	SortEvaluated(items, "name_asc")
+	SortEvaluated(items, db.TiebreakerNameAsc)
 
 	if items[0].Item.Title != "Alpha" {
 		t.Errorf("Expected 'Alpha' first with name_asc tiebreaker, got %s", items[0].Item.Title)
@@ -474,7 +474,7 @@ func TestSortEvaluated_TiebreakerOldestFirst(t *testing.T) {
 		{Item: integrations.MediaItem{Title: "Old", AddedAt: &old}, Score: 0.5},
 	}
 
-	SortEvaluated(items, "oldest_first")
+	SortEvaluated(items, db.TiebreakerOldestFirst)
 
 	if items[0].Item.Title != "Old" {
 		t.Errorf("Expected 'Old' first with oldest_first tiebreaker, got %s", items[0].Item.Title)
@@ -490,7 +490,7 @@ func TestSortEvaluated_TiebreakerNewestFirst(t *testing.T) {
 		{Item: integrations.MediaItem{Title: "Recent", AddedAt: &recent}, Score: 0.5},
 	}
 
-	SortEvaluated(items, "newest_first")
+	SortEvaluated(items, db.TiebreakerNewestFirst)
 
 	if items[0].Item.Title != "Recent" {
 		t.Errorf("Expected 'Recent' first with newest_first tiebreaker, got %s", items[0].Item.Title)
@@ -506,8 +506,8 @@ func TestSortEvaluated_NilAddedAt(t *testing.T) {
 	}
 
 	// Should not panic with nil dates
-	SortEvaluated(items, "oldest_first")
-	SortEvaluated(items, "newest_first")
+	SortEvaluated(items, db.TiebreakerOldestFirst)
+	SortEvaluated(items, db.TiebreakerNewestFirst)
 
 	if len(items) != 2 {
 		t.Errorf("Expected 2 items after sorting with nil dates, got %d", len(items))

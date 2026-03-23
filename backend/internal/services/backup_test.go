@@ -57,7 +57,7 @@ func TestBackupService_Export_AllSections(t *testing.T) {
 	if envelope.Preferences == nil {
 		t.Fatal("expected preferences to be non-nil")
 	}
-	if envelope.Preferences.ExecutionMode != "dry-run" {
+	if envelope.Preferences.ExecutionMode != db.ModeDryRun {
 		t.Errorf("expected execution mode 'dry-run', got %q", envelope.Preferences.ExecutionMode)
 	}
 
@@ -208,7 +208,7 @@ func TestBackupService_Import_AllSections(t *testing.T) {
 			LogLevel:              "debug",
 			AuditLogRetentionDays: 60,
 			PollIntervalSeconds:   600,
-			ExecutionMode:         "approval",
+			ExecutionMode:         db.ModeApproval,
 			TiebreakerMethod:      "name_asc",
 			DeletionsEnabled:      false,
 			SnoozeDurationHours:   48,
@@ -270,7 +270,7 @@ func TestBackupService_Import_AllSections(t *testing.T) {
 	// Verify preferences were updated
 	var pref db.PreferenceSet
 	database.First(&pref)
-	if pref.ExecutionMode != "approval" {
+	if pref.ExecutionMode != db.ModeApproval {
 		t.Errorf("expected execution mode 'approval', got %q", pref.ExecutionMode)
 	}
 	if pref.LogLevel != "debug" {
@@ -341,7 +341,7 @@ func TestBackupService_Import_OnlyPreferences(t *testing.T) {
 			LogLevel:              "warn",
 			AuditLogRetentionDays: 7,
 			PollIntervalSeconds:   120,
-			ExecutionMode:         "auto",
+			ExecutionMode:         db.ModeAuto,
 			TiebreakerMethod:      "size_asc",
 			DeletionsEnabled:      true,
 			SnoozeDurationHours:   12,
@@ -379,7 +379,7 @@ func TestBackupService_Import_OnlyPreferences(t *testing.T) {
 	// Verify preferences were updated
 	var pref db.PreferenceSet
 	database.First(&pref)
-	if pref.ExecutionMode != "auto" {
+	if pref.ExecutionMode != db.ModeAuto {
 		t.Errorf("expected execution mode 'auto', got %q", pref.ExecutionMode)
 	}
 

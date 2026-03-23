@@ -22,7 +22,7 @@ func seedAuditLogs(t *testing.T, database *gorm.DB, n int) {
 	for i := 0; i < n; i++ {
 		action := "deleted"
 		if i%2 == 0 {
-			action = "dry_delete"
+			action = db.ActionDryDelete
 		}
 		log := db.AuditLogEntry{
 			MediaName: fmt.Sprintf("Test Media %d", i),
@@ -201,7 +201,7 @@ func TestGetAuditLogs_FilterByAction(t *testing.T) {
 		expectedCount int
 	}{
 		{"filter deleted", "deleted", 5},
-		{"filter dry_delete", "dry_delete", 5},
+		{"filter dry_delete", db.ActionDryDelete, 5},
 		{"filter nonexistent", "Unknown", 0},
 	}
 
@@ -238,7 +238,7 @@ func TestGetAuditLogs_SearchFilter(t *testing.T) {
 	logs := []db.AuditLogEntry{
 		{MediaName: "Serenity", MediaType: "movie", Action: "deleted", SizeBytes: 1000},
 		{MediaName: "Serenity 2", MediaType: "movie", Action: "deleted", SizeBytes: 2000},
-		{MediaName: "Serenity 3", MediaType: "movie", Action: "dry_delete", SizeBytes: 3000},
+		{MediaName: "Serenity 3", MediaType: "movie", Action: db.ActionDryDelete, SizeBytes: 3000},
 	}
 	for _, log := range logs {
 		if err := database.Create(&log).Error; err != nil {
@@ -369,7 +369,7 @@ func seedApprovalEntry(t *testing.T, database *gorm.DB) (itemID uint) {
 		MediaName:     "Approval Test Movie",
 		MediaType:     "movie",
 		ScoreDetails:  `[{"name":"WatchHistory","rawScore":0.5,"weight":10},{"name":"Size","rawScore":0.8,"weight":6}]`,
-		Status:        "pending",
+		Status:        db.StatusPending,
 		SizeBytes:     5000000,
 		Score:         0.75,
 		IntegrationID: integration.ID,
@@ -450,7 +450,7 @@ func TestApproveEntry_NotPending(t *testing.T) {
 	entry := db.ApprovalQueueItem{
 		MediaName:     "Not Pending Movie",
 		MediaType:     "movie",
-		Status:        "approved",
+		Status:        db.StatusApproved,
 		SizeBytes:     1000000,
 		IntegrationID: integration.ID,
 		ExternalID:    "ext-test-2",

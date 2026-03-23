@@ -274,7 +274,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		// ── Process all items (single item or expanded collection) ────────
 		for _, pi := range itemsToProcess {
 			switch prefs.ExecutionMode {
-			case "auto":
+			case db.ModeAuto:
 				deleter, err := registry.Deleter(pi.item.IntegrationID)
 				if err != nil {
 					slog.Error("Integration not registered as MediaDeleter", "component", "poller",
@@ -299,7 +299,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 				}
 				bytesFreed += pi.item.SizeBytes
 				deletionsQueued++
-			case "approval":
+			case db.ModeApproval:
 				// Collect for batch upsert after the loop.
 				factorsJSON, marshalErr := json.Marshal(pi.factors)
 				if marshalErr != nil {
@@ -376,7 +376,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 	// for this disk group that are no longer in the "still-needed" set. This trims
 	// stale entries that were added in previous cycles but are no longer candidates
 	// (e.g., threshold was raised, scores changed, media was removed).
-	if prefs.ExecutionMode == "approval" {
+	if prefs.ExecutionMode == db.ModeApproval {
 		if dismissed, reconcileErr := p.reg.Approval.ReconcileQueue(group.ID, neededKeys); reconcileErr != nil {
 			slog.Error("Failed to reconcile approval queue", "component", "poller",
 				"mount", group.MountPath, "error", reconcileErr)

@@ -113,6 +113,7 @@ import {
   XIcon,
 } from 'lucide-vue-next';
 import type { IntegrationConfig, EvaluatedItem } from '~/types/api';
+import { MODE_DRY_RUN } from '~/constants';
 
 const api = useApi();
 const { addToast } = useToast();
@@ -309,7 +310,7 @@ async function handleDelete(selectedItems: EvaluatedItem[]) {
     const toastMessages: Record<string, string> = {
       auto: t('library.deleteSuccessAuto', { count: result.queued }),
       approval: t('library.deleteSuccessApproval', { count: result.queued }),
-      'dry-run': t('library.deleteSuccessDryRun', { count: result.queued }),
+      [MODE_DRY_RUN]: t('library.deleteSuccessDryRun', { count: result.queued }),
     };
     addToast(
       toastMessages[result.mode] || t('library.deleteSuccess', { count: result.queued }),

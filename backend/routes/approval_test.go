@@ -488,7 +488,7 @@ func TestManualDelete_ApprovalMode(t *testing.T) {
 
 	// Set approval mode
 	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
-		"execution_mode":    "approval",
+		"execution_mode":    db.ModeApproval,
 		"deletions_enabled": true,
 	})
 
@@ -513,7 +513,7 @@ func TestManualDelete_ApprovalMode(t *testing.T) {
 	if queued, ok := result["queued"].(float64); !ok || int(queued) != 1 {
 		t.Errorf("Expected queued=1, got %v", result["queued"])
 	}
-	if mode, ok := result["mode"].(string); !ok || mode != "approval" {
+	if mode, ok := result["mode"].(string); !ok || mode != db.ModeApproval {
 		t.Errorf("Expected mode='approval', got %v", result["mode"])
 	}
 
@@ -536,7 +536,7 @@ func TestManualDelete_DryRunMode(t *testing.T) {
 
 	// Set dry-run mode with deletions enabled
 	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
-		"execution_mode":    "dry-run",
+		"execution_mode":    db.ModeDryRun,
 		"deletions_enabled": true,
 	})
 
@@ -561,7 +561,7 @@ func TestManualDelete_DryRunMode(t *testing.T) {
 	if queued, ok := result["queued"].(float64); !ok || int(queued) != 1 {
 		t.Errorf("Expected queued=1, got %v", result["queued"])
 	}
-	if mode, ok := result["mode"].(string); !ok || mode != "dry-run" {
+	if mode, ok := result["mode"].(string); !ok || mode != db.ModeDryRun {
 		t.Errorf("Expected mode='dry-run', got %v", result["mode"])
 	}
 }
@@ -572,7 +572,7 @@ func TestManualDelete_DeletionsDisabled(t *testing.T) {
 
 	// Disable deletions in auto mode — should still accept (dry-run internally)
 	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
-		"execution_mode":    "auto",
+		"execution_mode":    db.ModeAuto,
 		"deletions_enabled": false,
 	})
 
@@ -605,7 +605,7 @@ func TestApproveQueueItem_DryRunMode(t *testing.T) {
 
 	// Set dry-run mode — approval should still succeed (simulated deletion)
 	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
-		"execution_mode":    "dry-run",
+		"execution_mode":    db.ModeDryRun,
 		"deletions_enabled": true,
 	})
 

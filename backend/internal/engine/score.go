@@ -147,11 +147,11 @@ func SortEvaluated(evaluated []EvaluatedItem, tiebreakerMethod string) {
 		// Tiebreaker for equal scores
 		a, b := evaluated[i].Item, evaluated[j].Item
 		switch tiebreakerMethod {
-		case "size_asc":
+		case db.TiebreakerSizeAsc:
 			return a.SizeBytes < b.SizeBytes
-		case "name_asc":
+		case db.TiebreakerNameAsc:
 			return strings.ToLower(a.Title) < strings.ToLower(b.Title)
-		case "oldest_first":
+		case db.TiebreakerOldestFirst:
 			if a.AddedAt == nil && b.AddedAt == nil {
 				return false
 			}
@@ -162,7 +162,7 @@ func SortEvaluated(evaluated []EvaluatedItem, tiebreakerMethod string) {
 				return true
 			}
 			return a.AddedAt.Before(*b.AddedAt)
-		case "newest_first":
+		case db.TiebreakerNewestFirst:
 			if a.AddedAt == nil && b.AddedAt == nil {
 				return false
 			}
@@ -173,7 +173,7 @@ func SortEvaluated(evaluated []EvaluatedItem, tiebreakerMethod string) {
 				return true
 			}
 			return a.AddedAt.After(*b.AddedAt)
-		default: // "size_desc" — largest first
+		default: // db.TiebreakerSizeDesc — largest first
 			return a.SizeBytes > b.SizeBytes
 		}
 	})

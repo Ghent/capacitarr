@@ -20,7 +20,7 @@ func TestSettingsService_GetPreferences(t *testing.T) {
 	if prefs.ID != 1 {
 		t.Errorf("expected preference ID 1, got %d", prefs.ID)
 	}
-	if prefs.ExecutionMode != "dry-run" {
+	if prefs.ExecutionMode != db.ModeDryRun {
 		t.Errorf("expected execution mode 'dry-run', got %q", prefs.ExecutionMode)
 	}
 }

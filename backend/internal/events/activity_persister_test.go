@@ -5,6 +5,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"capacitarr/internal/db"
 )
 
 // mockActivityWriter records all CreateActivity calls for testing.
@@ -51,7 +53,7 @@ func TestActivityPersister_PersistsSingleEvent(t *testing.T) {
 	persister := NewActivityPersister(writer, bus)
 	persister.Start()
 
-	bus.Publish(EngineStartEvent{ExecutionMode: "dry-run"})
+	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeDryRun})
 
 	// Give the persister time to write
 	time.Sleep(100 * time.Millisecond)
@@ -76,7 +78,7 @@ func TestActivityPersister_PersistsSingleEvent(t *testing.T) {
 	if err := json.Unmarshal([]byte(evt.Metadata), &meta); err != nil {
 		t.Fatalf("failed to parse metadata JSON: %v", err)
 	}
-	if meta["executionMode"] != "dry-run" {
+	if meta["executionMode"] != db.ModeDryRun {
 		t.Errorf("expected executionMode 'dry-run' in metadata, got %v", meta["executionMode"])
 	}
 }
@@ -88,7 +90,7 @@ func TestActivityPersister_PersistsMultipleEvents(t *testing.T) {
 	persister := NewActivityPersister(writer, bus)
 	persister.Start()
 
-	bus.Publish(EngineStartEvent{ExecutionMode: "approval"})
+	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeApproval})
 	bus.Publish(EngineCompleteEvent{Evaluated: 50, Flagged: 5})
 	bus.Publish(LoginEvent{Username: "admin"})
 

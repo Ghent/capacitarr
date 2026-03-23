@@ -37,7 +37,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	}
 
 	// Seed default preferences
-	pref := db.PreferenceSet{ID: 1, ExecutionMode: "dry-run", LogLevel: "info", AuditLogRetentionDays: 30}
+	pref := db.PreferenceSet{ID: 1, ExecutionMode: db.ModeDryRun, LogLevel: db.LogLevelInfo, AuditLogRetentionDays: 30}
 	if err := database.FirstOrCreate(&pref, db.PreferenceSet{ID: 1}).Error; err != nil {
 		t.Fatalf("Failed to seed preferences: %v", err)
 	}
@@ -1354,8 +1354,8 @@ func TestApprovalService_BulkUpsertPending(t *testing.T) {
 
 	t.Run("creates new items when none exist", func(t *testing.T) {
 		items := []db.ApprovalQueueItem{
-			{MediaName: "Firefly", MediaType: "show", SizeBytes: 5000, Score: 0.9, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: "engine"},
-			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 3000, Score: 0.7, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID, Trigger: "engine"},
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 5000, Score: 0.9, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: db.TriggerEngine},
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 3000, Score: 0.7, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID, Trigger: db.TriggerEngine},
 		}
 		created, updated, err := svc.BulkUpsertPending(items)
 		if err != nil {
@@ -1378,8 +1378,8 @@ func TestApprovalService_BulkUpsertPending(t *testing.T) {
 
 	t.Run("updates existing pending items on second call", func(t *testing.T) {
 		items := []db.ApprovalQueueItem{
-			{MediaName: "Firefly", MediaType: "show", SizeBytes: 6000, Score: 0.95, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: "engine"},
-			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 4000, Score: 0.8, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID, Trigger: "engine"},
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 6000, Score: 0.95, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: db.TriggerEngine},
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 4000, Score: 0.8, IntegrationID: intID, ExternalID: "2", DiskGroupID: &dgID, Trigger: db.TriggerEngine},
 		}
 		created, updated, err := svc.BulkUpsertPending(items)
 		if err != nil {
@@ -1405,8 +1405,8 @@ func TestApprovalService_BulkUpsertPending(t *testing.T) {
 
 	t.Run("handles mixed creates and updates", func(t *testing.T) {
 		items := []db.ApprovalQueueItem{
-			{MediaName: "Firefly", MediaType: "show", SizeBytes: 7000, Score: 0.99, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: "engine"},   // exists → update
-			{MediaName: "New Movie", MediaType: "movie", SizeBytes: 2000, Score: 0.5, IntegrationID: intID, ExternalID: "3", DiskGroupID: &dgID, Trigger: "engine"}, // new → create
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 7000, Score: 0.99, IntegrationID: intID, ExternalID: "1", DiskGroupID: &dgID, Trigger: db.TriggerEngine},   // exists → update
+			{MediaName: "New Movie", MediaType: "movie", SizeBytes: 2000, Score: 0.5, IntegrationID: intID, ExternalID: "3", DiskGroupID: &dgID, Trigger: db.TriggerEngine}, // new → create
 		}
 		created, updated, err := svc.BulkUpsertPending(items)
 		if err != nil {
@@ -1434,7 +1434,7 @@ func TestApprovalService_BulkUpsertPending(t *testing.T) {
 
 		// Try to upsert with same media_name/media_type — should create a new pending entry
 		items := []db.ApprovalQueueItem{
-			{MediaName: "Rejected Show", MediaType: "show", SizeBytes: 8000, Score: 0.6, IntegrationID: intID, ExternalID: "99", DiskGroupID: &dgID, Trigger: "engine"},
+			{MediaName: "Rejected Show", MediaType: "show", SizeBytes: 8000, Score: 0.6, IntegrationID: intID, ExternalID: "99", DiskGroupID: &dgID, Trigger: db.TriggerEngine},
 		}
 		created, _, err := svc.BulkUpsertPending(items)
 		if err != nil {

@@ -7,6 +7,7 @@
  * on mount and after explicit user actions (mode change).
  */
 import type { WorkerStats, PreferenceSet, DeletionProgress } from '~/types/api';
+import { MODE_DRY_RUN, MODE_AUTO, MODE_APPROVAL } from '~/constants';
 
 // Module-level flag: SSE handlers are registered once globally.
 let _sseRegistered = false;
@@ -45,7 +46,7 @@ export function useEngineControl() {
   // Dashboard and other pages can watch this to trigger data refreshes.
   const runCompletionCounter = useState<number>('engineRunCompletionCounter', () => 0);
 
-  const executionMode = computed(() => workerStats.value?.executionMode || 'dry-run');
+  const executionMode = computed(() => workerStats.value?.executionMode || MODE_DRY_RUN);
   const lastRunEpoch = computed(() => workerStats.value?.lastRunEpoch || 0);
   const lastRunEvaluated = computed(() => workerStats.value?.lastRunEvaluated || 0);
   const lastRunFlagged = computed(() => workerStats.value?.lastRunFlagged || 0);
@@ -56,9 +57,9 @@ export function useEngineControl() {
 
   function modeLabel(mode: string): string {
     switch (mode) {
-      case 'auto':
+      case MODE_AUTO:
         return 'Auto';
-      case 'approval':
+      case MODE_APPROVAL:
         return 'Approval';
       default:
         return 'Dry-Run';

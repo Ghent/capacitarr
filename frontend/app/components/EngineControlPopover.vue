@@ -31,9 +31,9 @@
           </h4>
           <UiBadge
             :variant="
-              executionMode === 'auto'
+              executionMode === MODE_AUTO
                 ? 'destructive'
-                : executionMode === 'approval'
+                : executionMode === MODE_APPROVAL
                   ? 'outline'
                   : 'secondary'
             "
@@ -104,7 +104,7 @@
         <UiButton class="w-full" :disabled="runNowLoading" @click="triggerRunNow">
           <LoaderCircleIcon v-if="runNowLoading" class="w-4 h-4 animate-spin" />
           <PlayIcon v-else class="w-4 h-4" />
-          {{ executionMode === 'dry-run' ? $t('engine.dryRun') : $t('engine.runNow') }}
+          {{ executionMode === MODE_DRY_RUN ? $t('engine.dryRun') : $t('engine.runNow') }}
         </UiButton>
       </div>
     </UiPopoverContent>
@@ -135,6 +135,7 @@
 
 <script setup lang="ts">
 import { ShieldIcon, HandIcon, ZapIcon, PlayIcon, LoaderCircleIcon } from 'lucide-vue-next';
+import { MODE_DRY_RUN, MODE_APPROVAL, MODE_AUTO } from '~/constants';
 
 const { scaleIn } = useMotionPresets();
 
@@ -164,17 +165,17 @@ const {
 const showAutoConfirm = ref(false);
 
 const modes = [
-  { value: 'dry-run', label: 'Dry-Run' },
-  { value: 'approval', label: 'Approval' },
-  { value: 'auto', label: 'Auto' },
+  { value: MODE_DRY_RUN, label: 'Dry-Run' },
+  { value: MODE_APPROVAL, label: 'Approval' },
+  { value: MODE_AUTO, label: 'Auto' },
 ];
 
 // Mode icon — distinct shape per mode, NOT color-coded
 const modeIcon = computed(() => {
   switch (executionMode.value) {
-    case 'auto':
+    case MODE_AUTO:
       return ZapIcon; // ⚡ auto = lightning bolt
-    case 'approval':
+    case MODE_APPROVAL:
       return HandIcon; // ✋ manual review
     default:
       return ShieldIcon; // 🛡️ dry-run = protected/safe
@@ -189,7 +190,7 @@ const statusDotColor = computed(() => {
 });
 
 function handleModeChange(mode: string) {
-  if (mode === 'auto') {
+  if (mode === MODE_AUTO) {
     showAutoConfirm.value = true;
   } else {
     setMode(mode);
@@ -198,7 +199,7 @@ function handleModeChange(mode: string) {
 
 async function confirmAutoMode() {
   showAutoConfirm.value = false;
-  await setMode('auto');
+  await setMode(MODE_AUTO);
 }
 
 // Fetch stats on mount for initial hydration.

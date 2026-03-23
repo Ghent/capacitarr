@@ -63,7 +63,7 @@ func sampleMediaItems() []integrations.MediaItem {
 func seedPreviewCache(t *testing.T, reg *services.Registry, items []integrations.MediaItem) {
 	t.Helper()
 	prefs := db.PreferenceSet{
-		TiebreakerMethod: "size_desc",
+		TiebreakerMethod: db.TiebreakerSizeDesc,
 	}
 	weights := map[string]int{
 		"watch_history":      10,
