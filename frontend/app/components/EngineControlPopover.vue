@@ -92,10 +92,10 @@
           </div>
           <div class="rounded-lg bg-muted px-2.5 py-1.5">
             <div class="text-muted-foreground">
-              {{ $t('engine.flagged') }}
+              {{ $t('engine.candidates') }}
             </div>
             <div class="font-medium">
-              {{ lastRunFlagged }}
+              {{ lastRunCandidates }}
             </div>
           </div>
         </div>
@@ -151,7 +151,7 @@ const {
   executionMode,
   lastRunEpoch,
   lastRunEvaluated,
-  lastRunFlagged,
+  lastRunCandidates,
   queueDepth,
   isRunning,
   runNowLoading,

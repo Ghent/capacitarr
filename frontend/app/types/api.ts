@@ -165,7 +165,7 @@ export interface WorkerStats {
   pollIntervalSeconds: number;
   queueDepth: number;
   lastRunEvaluated: number;
-  lastRunFlagged: number;
+  lastRunCandidates: number;
   lastRunFreedBytes: number;
   lastRunEpoch: number;
   currentlyDeleting: string;

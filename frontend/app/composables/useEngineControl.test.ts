@@ -99,7 +99,7 @@ describe('useEngineControl', () => {
       expect(ctrl.executionMode.value).toBe('dry-run');
       expect(ctrl.lastRunEpoch.value).toBe(0);
       expect(ctrl.lastRunEvaluated.value).toBe(0);
-      expect(ctrl.lastRunFlagged.value).toBe(0);
+      expect(ctrl.lastRunCandidates.value).toBe(0);
       expect(ctrl.lastRunFreedBytes.value).toBe(0);
       expect(ctrl.queueDepth.value).toBe(0);
       expect(ctrl.isRunning.value).toBe(false);
@@ -138,7 +138,7 @@ describe('useEngineControl', () => {
         executionMode: 'auto',
         lastRunEpoch: 1700000000,
         lastRunEvaluated: 150,
-        lastRunFlagged: 5,
+        lastRunCandidates: 5,
         lastRunFreedBytes: 1073741824,
         queueDepth: 3,
         isRunning: false,
@@ -153,7 +153,7 @@ describe('useEngineControl', () => {
       expect(ctrl.executionMode.value).toBe('auto');
       expect(ctrl.lastRunEpoch.value).toBe(1700000000);
       expect(ctrl.lastRunEvaluated.value).toBe(150);
-      expect(ctrl.lastRunFlagged.value).toBe(5);
+      expect(ctrl.lastRunCandidates.value).toBe(5);
       expect(ctrl.lastRunFreedBytes.value).toBe(1073741824);
       expect(ctrl.queueDepth.value).toBe(3);
       expect(ctrl.isRunning.value).toBe(false);
@@ -179,7 +179,7 @@ describe('useEngineControl', () => {
         isRunning: true,
         executionMode: 'auto',
         lastRunEvaluated: 0,
-        lastRunFlagged: 0,
+        lastRunCandidates: 0,
       });
       await ctrl.fetchStats();
 
@@ -292,7 +292,7 @@ describe('useEngineControl', () => {
         executionMode: 'dry-run',
         isRunning: false,
         lastRunEvaluated: 0,
-        lastRunFlagged: 0,
+        lastRunCandidates: 0,
       });
       const ctrl = useEngineControl();
       await ctrl.fetchStats();

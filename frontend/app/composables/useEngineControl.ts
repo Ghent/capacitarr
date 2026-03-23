@@ -49,7 +49,7 @@ export function useEngineControl() {
   const executionMode = computed(() => workerStats.value?.executionMode || MODE_DRY_RUN);
   const lastRunEpoch = computed(() => workerStats.value?.lastRunEpoch || 0);
   const lastRunEvaluated = computed(() => workerStats.value?.lastRunEvaluated || 0);
-  const lastRunFlagged = computed(() => workerStats.value?.lastRunFlagged || 0);
+  const lastRunCandidates = computed(() => workerStats.value?.lastRunCandidates || 0);
   const lastRunFreedBytes = computed(() => workerStats.value?.lastRunFreedBytes || 0);
   const queueDepth = computed(() => workerStats.value?.queueDepth || 0);
   const isRunning = computed(() => workerStats.value?.isRunning === true);
@@ -87,7 +87,7 @@ export function useEngineControl() {
     on('engine_complete', (data: unknown) => {
       const event = data as {
         evaluated?: number;
-        flagged?: number;
+        candidates?: number;
         durationMs?: number;
         executionMode?: string;
         completedAtEpoch?: number;
@@ -104,7 +104,7 @@ export function useEngineControl() {
           ...workerStats.value,
           isRunning: false,
           lastRunEvaluated: event.evaluated ?? workerStats.value.lastRunEvaluated,
-          lastRunFlagged: event.flagged ?? workerStats.value.lastRunFlagged,
+          lastRunCandidates: event.candidates ?? workerStats.value.lastRunCandidates,
           lastRunEpoch: event.completedAtEpoch || Math.floor(Date.now() / 1000),
           executionMode: event.executionMode || workerStats.value.executionMode,
         };
@@ -115,9 +115,9 @@ export function useEngineControl() {
       // Completion detection — toast + counter
       if (wasRunning) {
         const evaluated = event.evaluated ?? 0;
-        const flagged = event.flagged ?? 0;
+        const candidates = event.candidates ?? 0;
         addToast(
-          `Engine run complete — evaluated ${evaluated.toLocaleString()} items, flagged ${flagged.toLocaleString()}`,
+          `Engine run complete — evaluated ${evaluated.toLocaleString()} items, ${candidates.toLocaleString()} candidates`,
           'success',
         );
       }
@@ -246,7 +246,7 @@ export function useEngineControl() {
     executionMode,
     lastRunEpoch,
     lastRunEvaluated,
-    lastRunFlagged,
+    lastRunCandidates,
     lastRunFreedBytes,
     queueDepth,
     isRunning,

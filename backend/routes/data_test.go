@@ -51,7 +51,7 @@ func seedDataForReset(t *testing.T, database *gorm.DB) {
 	if err := database.Create(&db.EngineRunStats{
 		RunAt:         now,
 		Evaluated:     10,
-		Candidates:       3,
+		Candidates:    3,
 		FreedBytes:    5000000,
 		ExecutionMode: db.ModeDryRun,
 		DurationMs:    150,

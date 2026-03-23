@@ -96,7 +96,7 @@ func TestNotificationDispatch_TwoGateFlush(t *testing.T) {
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     100,
-		Candidates:       3,
+		Candidates:    3,
 		DurationMs:    500,
 		ExecutionMode: db.ModeAuto,
 	})
@@ -137,7 +137,7 @@ func TestNotificationDispatch_ReverseGateOrder(t *testing.T) {
 	// Gate 1 fires second — should trigger flush
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     50,
-		Candidates:       0,
+		Candidates:    0,
 		DurationMs:    200,
 		ExecutionMode: db.ModeDryRun,
 	})
@@ -176,7 +176,7 @@ func TestNotificationDispatch_Accumulation(t *testing.T) {
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     200,
-		Candidates:       3,
+		Candidates:    3,
 		DurationMs:    1000,
 		ExecutionMode: db.ModeAuto,
 	})
@@ -319,7 +319,7 @@ func TestNotificationDispatch_ApprovalModeFreedBytes(t *testing.T) {
 	// FreedBytes comes from the EngineCompleteEvent instead.
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     2232,
-		Candidates:       80,
+		Candidates:    80,
 		DurationMs:    11900,
 		ExecutionMode: db.ModeApproval,
 		FreedBytes:    5368709120, // ~5 GB potential savings
@@ -363,7 +363,7 @@ func TestNotificationDispatch_ApprovalModeDigestSuppressed(t *testing.T) { //nol
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     100,
-		Candidates:       5,
+		Candidates:    5,
 		DurationMs:    500,
 		ExecutionMode: db.ModeApproval,
 		FreedBytes:    1073741824,
@@ -397,7 +397,7 @@ func TestNotificationDispatch_NonApprovalDigestNotAffected(t *testing.T) {
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     50,
-		Candidates:       2,
+		Candidates:    2,
 		DurationMs:    300,
 		ExecutionMode: db.ModeAuto,
 	})
@@ -430,7 +430,7 @@ func TestNotificationDispatch_AppriseChannel(t *testing.T) {
 
 	svc.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:     50,
-		Candidates:       2,
+		Candidates:    2,
 		DurationMs:    300,
 		ExecutionMode: db.ModeAuto,
 	})

@@ -101,7 +101,7 @@
           </span>
         </div>
 
-        <!-- Top row: title, run now, mode badge, evaluated/flagged -->
+        <!-- Top row: title, run now, mode badge, evaluated/candidates -->
         <div class="flex flex-wrap items-center gap-2 mb-3">
           <div class="flex items-center gap-1.5 text-primary font-medium text-sm">
             <component :is="ActivityIcon" class="w-4 h-4" />
@@ -144,23 +144,26 @@
           </UiBadge>
           <span class="text-xs text-muted-foreground">
             {{ $t('dashboard.evaluated') }} {{ engineLastRunEvaluated?.toLocaleString() ?? 0 }} ·
-            {{ $t('dashboard.flagged') }} {{ engineLastRunFlagged?.toLocaleString() ?? 0 }}
+            {{ $t('dashboard.candidates') }} {{ engineLastRunCandidates?.toLocaleString() ?? 0 }}
           </span>
         </div>
 
-        <!-- Sparkline: items flagged + deleted per engine run -->
-        <div v-if="flaggedSeries.length > 0 || deletedSeries.length > 0" class="mb-3">
+        <!-- Sparkline: candidates + deleted/would-delete per engine run -->
+        <div v-if="candidatesSeries.length > 0 || deletedSeries.length > 0" class="mb-3">
           <div class="flex items-center gap-3 mb-1">
             <span class="text-[11px] text-muted-foreground/70">
               {{ $t('dashboard.engineActivityTitle') }} · {{ dateRangeLabel }}
             </span>
             <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
               <span class="w-2 h-2 rounded-full bg-primary" />
-              {{ $t('dashboard.flagged') }}
+              {{ $t('dashboard.candidates') }}
             </span>
             <span class="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <span class="w-2 h-2 rounded-full bg-destructive" />
-              {{ $t('dashboard.deleted') }}
+              <span
+                class="w-2 h-2 rounded-full"
+                :class="isDryRunMode ? 'bg-amber-500' : 'bg-destructive'"
+              />
+              {{ isDryRunMode ? $t('dashboard.wouldDelete') : $t('dashboard.deleted') }}
             </span>
           </div>
           <ClientOnly>
@@ -424,7 +427,7 @@ const {
   executionMode: engineExecutionMode,
   lastRunEpoch: engineLastRunEpoch,
   lastRunEvaluated: engineLastRunEvaluated,
-  lastRunFlagged: engineLastRunFlagged,
+  lastRunCandidates: engineLastRunCandidates,
   isRunning: engineIsRunning,
   pollIntervalSeconds: enginePollInterval,
   runNowLoading: engineRunNowLoading,
@@ -477,10 +480,12 @@ const engineHistoryData = ref<
   Array<{
     timestamp: string;
     evaluated: number;
-    flagged: number;
+    candidates: number;
+    queued: number;
     deleted: number;
     freedBytes: number;
     durationMs: number;
+    executionMode: string;
   }>
 >([]);
 const showMiniSparklines = ref(
@@ -911,7 +916,7 @@ async function fetchDashboardData(silent = false) {
   }
 }
 
-// --- Sparkline: engine history (flagged + deleted per engine run) ---
+// --- Sparkline: engine history (candidates + deleted/would-delete per engine run) ---
 
 // Bucket data points into hourly groups, summing values within each hour.
 // This reduces dense per-run data (hundreds of points) into a smaller set of
@@ -938,39 +943,96 @@ function bucketHourly(
     .map((b) => ({ x: b.ts, y: b.sum }));
 }
 
-const flaggedSeries = computed(() => bucketHourly(engineHistoryData.value, 'flagged'));
-
+const candidatesSeries = computed(() => bucketHourly(engineHistoryData.value, 'candidates'));
+const queuedSeries = computed(() => bucketHourly(engineHistoryData.value, 'queued'));
+const evaluatedSeries = computed(() => bucketHourly(engineHistoryData.value, 'evaluated'));
 const deletedSeries = computed(() => bucketHourly(engineHistoryData.value, 'deleted'));
+const isDryRunMode = computed(() => engineExecutionMode.value === MODE_DRY_RUN);
 
 // --- ECharts sparkline options ---
 
 const sparklineEChartsOption = computed(() => {
-  const flagged = flaggedSeries.value;
-  const deleted = deletedSeries.value;
+  const candidates = candidatesSeries.value;
+  const evaluated = evaluatedSeries.value;
+  const isDryRun = isDryRunMode.value;
+  const secondSeriesData = isDryRun ? queuedSeries.value : deletedSeries.value;
+  const ghostSeriesData = isDryRun ? deletedSeries.value : queuedSeries.value;
+  const secondName = isDryRun ? t('dashboard.wouldDelete') : t('dashboard.deleted');
+  const secondColor = isDryRun ? chart3Color.value : destructiveColor.value;
+  const ghostName = isDryRun ? t('dashboard.deleted') : t('dashboard.wouldDelete');
+  const ghostColor = isDryRun ? destructiveColor.value : chart3Color.value;
   const series: Array<Record<string, unknown>> = [];
 
-  if (flagged.length > 0) {
+  // Background band: evaluated (faint area, no line)
+  if (evaluated.length > 0) {
     series.push({
-      name: 'Flagged',
+      name: 'Evaluated',
+      type: 'line',
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { width: 0 },
+      areaStyle: { color: chart1Color.value, opacity: 0.08 },
+      emphasis: { disabled: true },
+      silent: true,
+      data: evaluated.map((d) => [d.x, d.y]),
+      z: 0,
+    });
+  }
+
+  // Primary series: Candidates (always shown)
+  if (candidates.length > 0) {
+    series.push({
+      name: t('dashboard.candidates'),
       type: 'line',
       smooth: true,
       symbol: 'none',
       lineStyle: glowLineStyle(chart1Color.value),
       areaStyle: gradientArea(chart1Color.value),
       emphasis: emphasisConfig(),
-      data: flagged.map((d) => [d.x, d.y]),
+      data: candidates.map((d) => [d.x, d.y]),
     });
   }
-  if (deleted.length > 0) {
+
+  // Active second series: Would Delete (dry-run) or Deleted (auto/approval)
+  if (secondSeriesData.length > 0) {
+    const lastPoint = secondSeriesData[secondSeriesData.length - 1];
     series.push({
-      name: 'Deleted',
+      name: secondName,
       type: 'line',
       smooth: true,
       symbol: 'none',
-      lineStyle: glowLineStyle(destructiveColor.value),
-      areaStyle: gradientArea(destructiveColor.value),
+      lineStyle: glowLineStyle(secondColor),
+      areaStyle: gradientArea(secondColor),
       emphasis: emphasisConfig(),
-      data: deleted.map((d) => [d.x, d.y]),
+      data: secondSeriesData.map((d) => [d.x, d.y]),
+      // Animated pulse on rightmost point while engine is running
+      markPoint:
+        engineIsRunning.value && lastPoint
+          ? {
+              symbol: 'circle',
+              symbolSize: 8,
+              data: [{ coord: [lastPoint.x, lastPoint.y] }],
+              itemStyle: { color: secondColor },
+              animation: true,
+              animationDuration: 1200,
+              animationEasingUpdate: 'sinusoidalInOut',
+            }
+          : undefined,
+    });
+  }
+
+  // Ghost series: inactive mode's data (faint dashed, no interaction)
+  if (ghostSeriesData.length > 0 && ghostSeriesData.some((d) => d.y > 0)) {
+    series.push({
+      name: ghostName + ' (historical)',
+      type: 'line',
+      smooth: true,
+      symbol: 'none',
+      lineStyle: { color: ghostColor, width: 1, type: 'dashed', opacity: 0.15 },
+      areaStyle: undefined,
+      emphasis: { disabled: true },
+      silent: true,
+      data: ghostSeriesData.map((d) => [d.x, d.y]),
     });
   }
 
@@ -987,6 +1049,22 @@ const sparklineEChartsOption = computed(() => {
         crossStyle: { color: chart1Color.value, opacity: 0.3 },
       },
       ...tooltipConfig(),
+      formatter: (
+        params: Array<{ seriesName: string; value: [number, number]; marker: string }>,
+      ) => {
+        if (!params.length) return '';
+        const ts = new Date(params[0]!.value[0]).toLocaleString();
+        let html = `<div style="font-weight:600">${ts}</div>`;
+        for (const p of params) {
+          // Skip ghost and evaluated background series in tooltip
+          if (p.seriesName.includes('(historical)') || p.seriesName === 'Evaluated') continue;
+          html += `<div>${p.marker} ${p.seriesName}: <b>${p.value[1]}</b></div>`;
+        }
+        if (isDryRun) {
+          html += `<div style="opacity:0.6;font-size:11px;margin-top:2px">dry-run — no deletions</div>`;
+        }
+        return html;
+      },
     },
     series,
   };
@@ -1056,10 +1134,12 @@ async function fetchEngineHistory() {
     const data = (await api(`/api/v1/engine/history?range=${range}`)) as Array<{
       timestamp: string;
       evaluated: number;
-      flagged: number;
+      candidates: number;
+      queued: number;
       deleted: number;
       freedBytes: number;
       durationMs: number;
+      executionMode: string;
     }>;
     engineHistoryData.value = data || [];
   } catch (err) {

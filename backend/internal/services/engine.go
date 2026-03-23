@@ -207,10 +207,10 @@ func (s *EngineService) RestoreLastRunStats() {
 // Keys match the frontend TypeScript WorkerStats interface.
 func (s *EngineService) GetStats() map[string]any {
 	stats := map[string]any{
-		"isRunning":          s.pollRunning.Load(),
-		"lastRunEvaluated":   s.lastEvaluated.Load(),
-		"lastRunCandidates":  s.lastCandidates.Load(),
-		"protectedCount":     s.lastProtected.Load(),
+		"isRunning":         s.pollRunning.Load(),
+		"lastRunEvaluated":  s.lastEvaluated.Load(),
+		"lastRunCandidates": s.lastCandidates.Load(),
+		"protectedCount":    s.lastProtected.Load(),
 	}
 
 	// Get the latest completed run from the database.
