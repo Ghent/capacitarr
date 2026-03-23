@@ -978,17 +978,14 @@ const sparklineEChartsOption = computed(() => {
     animation: true,
     animationDelay: (idx: number) => idx * 10,
     grid: { top: 4, right: 4, bottom: 4, left: 4 },
-    xAxis: {
-      type: 'time',
-      show: false,
-      axisPointer: {
-        type: 'cross',
-        lineStyle: { color: chart1Color.value, opacity: 0.3 },
-      },
-    },
+    xAxis: { type: 'time', show: false },
     yAxis: { type: 'value', show: false },
     tooltip: {
       trigger: 'axis',
+      axisPointer: {
+        type: 'cross',
+        crossStyle: { color: chart1Color.value, opacity: 0.3 },
+      },
       ...tooltipConfig(),
     },
     series,
