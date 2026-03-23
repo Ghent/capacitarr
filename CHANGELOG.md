@@ -12,35 +12,44 @@
 - *(architecture)* Pluggable enrichment pipeline with auto-discovered enrichers
 - *(architecture)* Pluggable scoring factors with `ScoringFactor` interface
 - *(architecture)* Extracted evaluator from poller — reusable scoring + filtering logic
-- *(analytics)* Library composition dashboard (quality, genre, year, type, integration breakdowns)
-- *(analytics)* Quality distribution visualization with bloat detection
-- *(analytics)* Dead content detection (never-watched, not on watchlist)
-- *(analytics)* Stale content reports with configurable staleness threshold
-- *(analytics)* Popularity heatmap (genre × year → play count)
-- *(analytics)* Request fulfillment tracking (Seerr request vs. watch correlation)
-- *(frontend)* Insights page with Overview, Quality, and Watch Intelligence tabs
+- *(analytics)* Dead content detection smart filter (never-watched, not on watchlist)
+- *(analytics)* Stale content smart filter with configurable staleness threshold
+- *(analytics)* Capacity forecast with linear regression
+- *(collections)* Collection-based deletion — deleting one collection member deletes all
+- *(enrichment)* TMDb ID-based matching replaces error-prone title normalization
+- *(enrichment)* Multi-user watch data aggregation for Jellyfin and Emby
+- *(enrichment)* Jellystat integration for Jellyfin analytics
+- *(enrichment)* Watchlist/favorites enrichment from Plex, Jellyfin, and Emby
+- *(enrichment)* Collection enrichment from Plex, Jellyfin, and Emby
 - *(frontend)* ECharts replaces ApexCharts with tree-shaken imports
 - *(frontend)* Virtual scrolling on all unbounded lists via @tanstack/vue-virtual
 - *(frontend)* CreatableCombobox component for free-text rule value input
 - *(frontend)* DashboardCard component for consistent analytics card layout
 - *(frontend)* Granular SSE event subscriptions per component
 - *(frontend)* Universal bottom toolbar with glassmorphism and iOS safe area support
-- *(frontend)* Cross-page linking (Insights → Library, Rules → Library)
 - *(library)* Library entity with per-library threshold management
-- *(library)* Smart filter presets (Dead, Stale, Bloated, Requested, Protected)
+- *(library)* Smart filter presets (Dead, Stale, Requested, Protected)
 - *(library)* Audit log merged into Library → History tab
-- *(rules)* Rule impact preview showing affected item counts
 - *(rules)* CreatableCombobox for custom value input in rule builder
-- *(settings)* Per-integration threshold overrides with slider UI
+- *(rules)* Edit existing custom rules with card state-swap pattern
+- *(engine)* Dynamic scoring factor weight registry (auto-seeded, UI-driven)
+- *(backup)* Stepper import flow with inline field-level diffs
 - *(migration)* Optional one-way migration from 1.x database (CLI + web UI)
+- *(notifications)* Integration status notifications (failure + recovery)
+
+### 🐛 Bug Fixes
+
+- *(enrichment)* Aggregate episode-level watch data into parent series for Jellyfin and Emby — reported by @Thundernerd ([#4](https://gitlab.com/starshadow/software/capacitarr/-/issues/4))
 
 ### 🔧 Refactors
 
 - *(integrations)* Rename `overseerr.go` → `seerr.go`, `OverseerrClient` → `SeerrClient`
 - *(integrations)* Factory pattern for client creation (`integrations.CreateClient()`)
 - *(poller)* Poller is now an orchestrator calling the extracted evaluator
+- *(poller)* Batch database queries during poll cycle for performance
 - *(models)* Layered media model with `EnrichmentData` and typed `MediaMetadata`
-- *(navigation)* Simplified top navbar to brand + 6 page links; utilities moved to bottom toolbar
+- *(navigation)* Simplified top navbar to brand + page links; utilities moved to bottom toolbar
+- *(deletion)* Unified deletion pipeline with grace period and snooze support
 
 ## [1.10.0] - 2026-03-18
 

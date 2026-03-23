@@ -54,7 +54,8 @@ func (j *JellyfinClient) TestConnection() error {
 type jellyfinItem struct {
 	ID           string            `json:"Id"`
 	Name         string            `json:"Name"`
-	Type         string            `json:"Type"` // "Movie", "Series", "Episode", "Audio"
+	SeriesID     string            `json:"SeriesId,omitempty"` // Parent series ID (Episode items only)
+	Type         string            `json:"Type"`               // "Movie", "Series", "Episode", "Audio"
 	Path         string            `json:"Path"`
 	RunTimeTicks int64             `json:"RunTimeTicks"`
 	ProviderIDs  map[string]string `json:"ProviderIds"` // e.g. {"Tmdb": "12345", "Imdb": "tt1234567"}
@@ -102,13 +103,18 @@ func extractTMDbID(providerIDs map[string]string) int {
 }
 
 // GetBulkWatchDataForUser fetches all movies and series from Jellyfin's library with their
-// watch data (PlayCount, LastPlayedDate) in a single paginated API call.
+// watch data (PlayCount, LastPlayedDate) in a single paginated API call, then supplements
+// with episode-level watch data that may not be reflected on the parent Series item.
 // Returns a map from TMDb ID to watch data, along with the username for user tracking.
 func (j *JellyfinClient) GetBulkWatchDataForUser(userID, userName string) (map[int]*WatchData, error) {
 	result := make(map[int]*WatchData)
+	// seriesIndex maps Jellyfin item IDs for Series items to their TMDb ID.
+	// Used in the episode pass to find the parent series TMDb ID.
+	seriesIndex := make(map[string]int)
 	startIndex := 0
 	pageSize := 500
 
+	// Pass 1: Fetch Movie and Series items.
 	for {
 		endpoint := fmt.Sprintf(
 			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=UserData,ProviderIds&StartIndex=%d&Limit=%d",
@@ -131,6 +137,11 @@ func (j *JellyfinClient) GetBulkWatchDataForUser(userID, userName string) (map[i
 			tmdbID := extractTMDbID(item.ProviderIDs)
 			if tmdbID == 0 {
 				continue // Skip items without TMDb ID
+			}
+
+			// Build series index for episode lookups
+			if item.Type == "Series" && item.ID != "" {
+				seriesIndex[item.ID] = tmdbID
 			}
 
 			data := &WatchData{
@@ -159,6 +170,85 @@ func (j *JellyfinClient) GetBulkWatchDataForUser(userID, userName string) (map[i
 		startIndex += len(resp.Items)
 		if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
 			break
+		}
+	}
+
+	// Pass 2: Fetch played Episode items and aggregate into parent Series.
+	// Jellyfin sometimes tracks play data on episodes but not on the parent
+	// Series item, so a Series may show PlayCount=0 even when episodes have
+	// been watched. This pass fixes that by rolling episode data up.
+	if len(seriesIndex) > 0 {
+		startIndex = 0
+		for {
+			endpoint := fmt.Sprintf(
+				"/Users/%s/Items?IncludeItemTypes=Episode&IsPlayed=true&Recursive=true&Fields=UserData&StartIndex=%d&Limit=%d",
+				userID, startIndex, pageSize,
+			)
+			body, err := j.doRequest(endpoint)
+			if err != nil {
+				slog.Warn("Failed to fetch Jellyfin episode watch data",
+					"component", "jellyfin", "user", userName, "error", err)
+				break
+			}
+
+			var resp struct {
+				Items            []jellyfinItem `json:"Items"`
+				TotalRecordCount int            `json:"TotalRecordCount"`
+			}
+			if err := json.Unmarshal(body, &resp); err != nil {
+				slog.Warn("Failed to parse Jellyfin episode response",
+					"component", "jellyfin", "error", err)
+				break
+			}
+
+			for _, ep := range resp.Items {
+				if ep.SeriesID == "" || ep.UserData.PlayCount == 0 {
+					continue
+				}
+				seriesTMDbID, ok := seriesIndex[ep.SeriesID]
+				if !ok || seriesTMDbID == 0 {
+					continue
+				}
+
+				var epLastPlayed *time.Time
+				if ep.UserData.LastPlayedDate != "" {
+					if t, err := time.Parse(time.RFC3339, ep.UserData.LastPlayedDate); err == nil {
+						epLastPlayed = &t
+					}
+				}
+
+				if existing, ok := result[seriesTMDbID]; ok {
+					// Series already in result — supplement with episode data.
+					// Use the higher of series-level or episode-aggregated play count.
+					if ep.UserData.PlayCount > existing.PlayCount {
+						existing.PlayCount = ep.UserData.PlayCount
+					}
+					if epLastPlayed != nil && (existing.LastPlayed == nil || epLastPlayed.After(*existing.LastPlayed)) {
+						existing.LastPlayed = epLastPlayed
+					}
+					// Mark the user as having watched if not already tracked
+					if userName != "" && len(existing.Users) == 0 {
+						existing.Users = []string{userName}
+					}
+				} else {
+					// Series wasn't in result (had no TMDb match in pass 1, but was indexed) — create entry
+					wd := &WatchData{
+						PlayCount: ep.UserData.PlayCount,
+					}
+					if epLastPlayed != nil {
+						wd.LastPlayed = epLastPlayed
+					}
+					if userName != "" {
+						wd.Users = []string{userName}
+					}
+					result[seriesTMDbID] = wd
+				}
+			}
+
+			startIndex += len(resp.Items)
+			if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
+				break
+			}
 		}
 	}
 

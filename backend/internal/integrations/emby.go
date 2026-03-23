@@ -51,8 +51,11 @@ func (e *EmbyClient) TestConnection() error {
 
 // embyItem represents a media item from the Emby API
 type embyItem struct {
+	ID          string            `json:"Id"`
 	Name        string            `json:"Name"`
-	ProviderIDs map[string]string `json:"ProviderIds"` // e.g. {"Tmdb": "12345", "Imdb": "tt1234567"}
+	SeriesID    string            `json:"SeriesId,omitempty"` // Parent series ID (Episode items only)
+	Type        string            `json:"Type"`               // "Movie", "Series", "Episode", "Audio"
+	ProviderIDs map[string]string `json:"ProviderIds"`        // e.g. {"Tmdb": "12345", "Imdb": "tt1234567"}
 	UserData    struct {
 		PlayCount      int    `json:"PlayCount"`
 		LastPlayedDate string `json:"LastPlayedDate"`
@@ -83,13 +86,18 @@ func (e *EmbyClient) getAllUsers() ([]embyUser, error) {
 }
 
 // GetBulkWatchDataForUser fetches all movies and series from Emby's library with their
-// watch data (PlayCount, LastPlayedDate) in a single paginated API call.
+// watch data (PlayCount, LastPlayedDate) in a single paginated API call, then supplements
+// with episode-level watch data that may not be reflected on the parent Series item.
 // Returns a map from TMDb ID to WatchData.
 func (e *EmbyClient) GetBulkWatchDataForUser(userID, userName string) (map[int]*WatchData, error) {
 	result := make(map[int]*WatchData)
+	// seriesIndex maps Emby item IDs for Series items to their TMDb ID.
+	// Used in the episode pass to find the parent series TMDb ID.
+	seriesIndex := make(map[string]int)
 	startIndex := 0
 	pageSize := 500
 
+	// Pass 1: Fetch Movie and Series items.
 	for {
 		endpoint := fmt.Sprintf(
 			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=UserData,ProviderIds&StartIndex=%d&Limit=%d",
@@ -112,6 +120,11 @@ func (e *EmbyClient) GetBulkWatchDataForUser(userID, userName string) (map[int]*
 			tmdbID := extractTMDbID(item.ProviderIDs)
 			if tmdbID == 0 {
 				continue // Skip items without TMDb ID
+			}
+
+			// Build series index for episode lookups
+			if item.Type == "Series" && item.ID != "" {
+				seriesIndex[item.ID] = tmdbID
 			}
 
 			data := &WatchData{
@@ -140,6 +153,82 @@ func (e *EmbyClient) GetBulkWatchDataForUser(userID, userName string) (map[int]*
 		startIndex += len(resp.Items)
 		if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
 			break
+		}
+	}
+
+	// Pass 2: Fetch played Episode items and aggregate into parent Series.
+	// Emby sometimes tracks play data on episodes but not on the parent
+	// Series item, so a Series may show PlayCount=0 even when episodes have
+	// been watched. This pass fixes that by rolling episode data up.
+	if len(seriesIndex) > 0 {
+		startIndex = 0
+		for {
+			endpoint := fmt.Sprintf(
+				"/Users/%s/Items?IncludeItemTypes=Episode&IsPlayed=true&Recursive=true&Fields=UserData&StartIndex=%d&Limit=%d",
+				userID, startIndex, pageSize,
+			)
+			body, err := e.doRequest(endpoint)
+			if err != nil {
+				slog.Warn("Failed to fetch Emby episode watch data",
+					"component", "emby", "user", userName, "error", err)
+				break
+			}
+
+			var resp struct {
+				Items            []embyItem `json:"Items"`
+				TotalRecordCount int        `json:"TotalRecordCount"`
+			}
+			if err := json.Unmarshal(body, &resp); err != nil {
+				slog.Warn("Failed to parse Emby episode response",
+					"component", "emby", "error", err)
+				break
+			}
+
+			for _, ep := range resp.Items {
+				if ep.SeriesID == "" || ep.UserData.PlayCount == 0 {
+					continue
+				}
+				seriesTMDbID, ok := seriesIndex[ep.SeriesID]
+				if !ok || seriesTMDbID == 0 {
+					continue
+				}
+
+				var epLastPlayed *time.Time
+				if ep.UserData.LastPlayedDate != "" {
+					if t, err := time.Parse(time.RFC3339, ep.UserData.LastPlayedDate); err == nil {
+						epLastPlayed = &t
+					}
+				}
+
+				if existing, ok := result[seriesTMDbID]; ok {
+					// Series already in result — supplement with episode data.
+					if ep.UserData.PlayCount > existing.PlayCount {
+						existing.PlayCount = ep.UserData.PlayCount
+					}
+					if epLastPlayed != nil && (existing.LastPlayed == nil || epLastPlayed.After(*existing.LastPlayed)) {
+						existing.LastPlayed = epLastPlayed
+					}
+					if userName != "" && len(existing.Users) == 0 {
+						existing.Users = []string{userName}
+					}
+				} else {
+					wd := &WatchData{
+						PlayCount: ep.UserData.PlayCount,
+					}
+					if epLastPlayed != nil {
+						wd.LastPlayed = epLastPlayed
+					}
+					if userName != "" {
+						wd.Users = []string{userName}
+					}
+					result[seriesTMDbID] = wd
+				}
+			}
+
+			startIndex += len(resp.Items)
+			if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
+				break
+			}
 		}
 	}
 

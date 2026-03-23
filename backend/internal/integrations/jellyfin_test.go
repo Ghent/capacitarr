@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 const testJellyfinPathItems = "/Users/admin-1/Items"
@@ -355,6 +356,98 @@ func TestJellyfinClient_GetBulkWatchDataForUser_SkipsMissingTMDbID(t *testing.T)
 	}
 	if _, ok := data[16320]; !ok {
 		t.Error("Expected TMDb ID 16320 key in data map")
+	}
+}
+
+func TestJellyfinClient_GetBulkWatchDataForUser_EpisodeAggregation(t *testing.T) {
+	// Series has PlayCount=0 at the series level, but episodes have been watched.
+	// The episode pass should promote that watch data to the parent series.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != testJellyfinPathItems {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		includeTypes := r.URL.Query().Get("IncludeItemTypes")
+		switch includeTypes {
+		case "Movie,Series":
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{
+						"Id":"series-ff",
+						"Name":"Firefly",
+						"Type":"Series",
+						"ProviderIds":{"Tmdb":"1437"},
+						"UserData":{"PlayCount":0,"LastPlayedDate":"","Played":false}
+					},
+					{
+						"Id":"movie-1",
+						"Name":"Serenity",
+						"Type":"Movie",
+						"ProviderIds":{"Tmdb":"16320"},
+						"UserData":{"PlayCount":2,"LastPlayedDate":"2024-06-01T10:00:00Z","Played":true}
+					}
+				],
+				"TotalRecordCount": 2
+			}`))
+		case "Episode":
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{
+						"Id":"ep-1",
+						"Name":"Serenity (Pilot)",
+						"SeriesId":"series-ff",
+						"Type":"Episode",
+						"UserData":{"PlayCount":3,"LastPlayedDate":"2024-08-15T20:00:00Z","Played":true}
+					},
+					{
+						"Id":"ep-2",
+						"Name":"The Train Job",
+						"SeriesId":"series-ff",
+						"Type":"Episode",
+						"UserData":{"PlayCount":1,"LastPlayedDate":"2024-07-10T18:00:00Z","Played":true}
+					}
+				],
+				"TotalRecordCount": 2
+			}`))
+		default:
+			_, _ = w.Write([]byte(`{"Items":[],"TotalRecordCount":0}`))
+		}
+	}))
+	defer srv.Close()
+
+	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
+	data, err := client.GetBulkWatchDataForUser("admin-1", "admin")
+	if err != nil {
+		t.Fatalf("GetBulkWatchDataForUser should succeed: %v", err)
+	}
+
+	// Series should have episode-level watch data promoted
+	series, ok := data[1437]
+	if !ok {
+		t.Fatal("Expected TMDb ID 1437 (Firefly) in data map")
+	}
+	if series.PlayCount != 3 {
+		t.Errorf("Expected PlayCount 3 (from best episode), got %d", series.PlayCount)
+	}
+	if series.LastPlayed == nil {
+		t.Fatal("Expected LastPlayed to be set from episode data")
+	}
+	expectedTime, _ := time.Parse(time.RFC3339, "2024-08-15T20:00:00Z")
+	if !series.LastPlayed.Equal(expectedTime) {
+		t.Errorf("Expected LastPlayed %v, got %v", expectedTime, *series.LastPlayed)
+	}
+	if len(series.Users) != 1 || series.Users[0] != "admin" {
+		t.Errorf("Expected Users=[admin], got %v", series.Users)
+	}
+
+	// Movie should be unaffected by episode pass
+	movie, ok := data[16320]
+	if !ok {
+		t.Fatal("Expected TMDb ID 16320 (Serenity) in data map")
+	}
+	if movie.PlayCount != 2 {
+		t.Errorf("Expected PlayCount 2 for movie, got %d", movie.PlayCount)
 	}
 }
 
