@@ -232,7 +232,7 @@ The database contains:
 - **Integrations:** Connection URLs and API keys for \*arr apps, Plex, Tautulli, etc.
 - **Preferences:** Scoring weights, execution mode, poll interval, thresholds
 - **Custom Rules:** All user-defined keep/remove rules
-- **Notification Channels:** Discord/Slack webhook configurations
+- **Notification Channels:** Discord/Apprise webhook configurations
 - **Audit Log:** History of all deletions and dry-runs
 - **Approval Queue:** Pending, approved, and snoozed items
 - **Engine Statistics:** Run history and lifetime counters

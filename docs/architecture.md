@@ -51,6 +51,7 @@ flowchart LR
 
     subgraph ENRICHMENT["Enrichment"]
         TAUTULLI["Tautulli"]
+        JELLYSTAT["Jellystat"]
         SEERR["Seerr"]
     end
 
@@ -115,7 +116,7 @@ All services accept `*gorm.DB` and `*events.EventBus` in their constructor and a
 | | RulesService | Custom rule CRUD, validation, and impact preview |
 | | PreviewService | Scored media preview cache, SSE-driven invalidation |
 | **Analytics** | WatchAnalyticsService | Dead content, stale content analytics |
-| **External** | IntegrationService | CRUD, test connections, sync data, per-integration thresholds |
+| **External** | IntegrationService | CRUD, test connections, sync data |
 | | AuthService | Login, change password, generate API keys |
 | | NotificationChannelService | CRUD for notification channels |
 | | NotificationDispatchService | Two-gate flush, digest, and alerts |
@@ -163,12 +164,14 @@ Integration clients implement only the capability interfaces they support, repla
 | Interface | Description | Implementors |
 |-----------|-------------|-------------|
 | `Connectable` | Connection testing | All integrations |
-| `MediaSource` | List managed media items | Sonarr, Radarr, Lidarr, Readarr, Plex |
+| `MediaSource` | List managed media items | Sonarr, Radarr, Lidarr, Readarr |
 | `DiskReporter` | Disk usage reporting | Sonarr, Radarr, Lidarr, Readarr |
 | `MediaDeleter` | Delete media items | Sonarr, Radarr, Lidarr, Readarr |
-| `WatchDataProvider` | Play counts and history | Plex, Tautulli, Jellyfin, Emby |
+| `WatchDataProvider` | Play counts and history | Plex, Jellyfin, Emby |
 | `RequestProvider` | Media request data | Seerr |
 | `WatchlistProvider` | User watchlists/favorites | Plex, Jellyfin, Emby |
+| `CollectionDataProvider` | Collection memberships | Plex, Jellyfin, Emby |
+| `CollectionResolver` | Resolve collection members for deletion | Radarr |
 | `RuleValueFetcher` | Dynamic rule field values | Sonarr, Radarr, Lidarr, Readarr |
 
 ### Integration Registry
@@ -176,10 +179,12 @@ Integration clients implement only the capability interfaces they support, repla
 The `IntegrationRegistry` provides runtime discovery of available integrations by capability:
 
 ```go
-registry.WatchProviders()   // → [Plex, Tautulli, Jellyfin, Emby]
-registry.MediaSources()     // → [Sonarr, Radarr]
-registry.DiskReporters()    // → [Sonarr, Radarr]
-registry.RequestProviders() // → [Seerr]
+registry.WatchProviders()          // → [Plex, Jellyfin, Emby]
+registry.MediaSources()            // → [Sonarr, Radarr, Lidarr, Readarr]
+registry.DiskReporters()           // → [Sonarr, Radarr, Lidarr, Readarr]
+registry.RequestProviders()        // → [Seerr]
+registry.CollectionDataProviders() // → [Plex, Jellyfin, Emby]
+registry.CollectionResolvers()     // → [Radarr]
 ```
 
 Integration clients are created via a factory pattern (`integrations.CreateClient(config)`) and auto-registered. The poller and preview service use the registry to discover capabilities instead of hardcoded wiring.
@@ -193,14 +198,16 @@ flowchart LR
     FETCH["Fetch<br/>MediaSource.GetMediaItems()"]
     BULK["BulkWatchEnricher<br/>Play counts + last played"]
     TAUTULLI_E["TautulliEnricher<br/>Per-user watch data"]
+    JELLYSTAT_E["JellystatEnricher<br/>Per-user watch data"]
     REQUEST["RequestEnricher<br/>Seerr request status"]
     WATCHLIST["WatchlistEnricher<br/>Watchlist/favorites"]
+    COLLECTION["CollectionEnricher<br/>Collection memberships"]
     XREF["CrossReferenceEnricher<br/>Requestor watched?"]
 
-    FETCH --> BULK --> TAUTULLI_E --> REQUEST --> WATCHLIST --> XREF
+    FETCH --> BULK --> TAUTULLI_E --> JELLYSTAT_E --> REQUEST --> WATCHLIST --> COLLECTION --> XREF
 ```
 
-Each enricher implements the `Enricher` interface (`Name()`, `Priority()`, `Enrich(items)`) and is auto-discovered from the registry's capabilities.
+Each enricher implements the `Enricher` interface (`Name()`, `Priority()`, `Enrich(items)`) and is auto-discovered from the registry's capabilities. The pipeline currently includes 7 enrichers.
 
 ### Pluggable Scoring Factors
 
@@ -208,12 +215,13 @@ The scoring engine uses a `ScoringFactor` interface for each scoring dimension:
 
 | Factor | Weight Key | Description |
 |--------|-----------|-------------|
-| `WatchHistoryFactor` | `WatchHistoryWeight` | Play count influence |
-| `LastWatchedFactor` | `LastWatchedWeight` | Recency of last watch |
-| `FileSizeFactor` | `FileSizeWeight` | Larger files scored higher for deletion |
-| `RatingFactor` | `RatingWeight` | Community/critic ratings |
-| `TimeInLibraryFactor` | `TimeInLibraryWeight` | Older items scored higher |
-| `SeriesStatusFactor` | `SeriesStatusWeight` | Ended series scored higher |
+| `WatchHistoryFactor` | `watch_history` | Play count influence |
+| `RecencyFactor` | `last_watched` | Recency of last watch |
+| `FileSizeFactor` | `file_size` | Larger files scored higher for deletion |
+| `RatingFactor` | `rating` | Community/critic ratings |
+| `LibraryAgeFactor` | `time_in_library` | Older items scored higher |
+| `SeriesStatusFactor` | `series_status` | Ended series scored higher |
+| `RequestPopularityFactor` | `request_popularity` | Requested content is protected |
 
 New factors can be added by implementing the `ScoringFactor` interface and registering them — no changes to the evaluator loop.
 
@@ -264,11 +272,11 @@ flowchart LR
 
 **Cycle digests** are batched summaries sent once per engine run. They include evaluated count, flagged count, deleted count, freed bytes, duration, and disk usage. The digest is only dispatched after both gates fire, ensuring deletion results are included.
 
-**Instant alerts** fire immediately when their trigger event occurs — they are not batched. Alert types include engine errors, mode changes, server started, threshold breaches, update available, and approval activity.
+**Instant alerts** fire immediately when their trigger event occurs — they are not batched. Alert types include engine errors, mode changes, server started, threshold breaches, update available, approval activity, and integration status (failure + recovery).
 
 See [notifications.md](notifications.md) for the full user-facing guide.
 
-### Event Types (53 total)
+### Event Types (52 total)
 
 | Category | Events |
 |----------|--------|
@@ -276,7 +284,7 @@ See [notifications.md](notifications.md) for the full user-facing guide.
 | **Settings** | `engine_mode_changed`, `settings_changed`, `threshold_changed`, `threshold_breached`, `settings_exported`, `settings_imported` |
 | **Auth** | `login`, `password_changed`, `username_changed`, `api_key_generated` |
 | **Integration** | `integration_added`, `integration_updated`, `integration_removed`, `integration_test`, `integration_test_failed`, `integration_recovered` |
-| **Approval** | `approval_approved`, `approval_rejected`, `approval_unsnoozed`, `approval_bulk_unsnoozed`, `approval_orphans_recovered`, `approval_queue_cleared`, `approval_dismissed`, `approval_returned_to_pending`, `approval_queue_reconciled` |
+| **Approval** | `approval_approved`, `approval_rejected`, `approval_unsnoozed`, `approval_bulk_unsnoozed`, `approval_orphans_recovered`, `approval_queue_cleared`, `approval_dismissed`, `approval_queue_reconciled` |
 | **Deletion** | `deletion_success`, `deletion_failed`, `deletion_dry_run`, `deletion_batch_complete`, `deletion_progress`, `deletion_queued`, `deletion_cancelled`, `deletion_grace_period` |
 | **Rules** | `rule_created`, `rule_updated`, `rule_deleted` |
 | **Notifications** | `notification_channel_added`, `notification_channel_updated`, `notification_channel_removed`, `notification_sent`, `notification_delivery_failed` |
@@ -355,7 +363,7 @@ Transient dashboard feed with 7-day retention:
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | INTEGER | Primary key |
-| `event_type` | TEXT | One of 42 event types |
+| `event_type` | TEXT | One of 52 event types |
 | `message` | TEXT | Human-readable message |
 | `metadata` | TEXT | Optional JSON payload |
 | `created_at` | DATETIME | Row creation |
@@ -392,12 +400,13 @@ flowchart LR
 | Page | Route | Purpose |
 |------|-------|---------|
 | Dashboard | `/` | Disk groups, approval queue, activity feed, engine controls, sparklines |
-
 | Library | `/library` | Browse (smart filters, virtual scrolling) + History (audit log) — 2 tabs |
+| Audit | `/audit` | Full deletion and dry-run history |
 | Rules | `/rules` | Cascading rule builder, drag-and-drop sort, rule impact badges |
-| Settings | `/settings` | Preferences, integrations (per-integration thresholds), notifications, auth |
+| Settings | `/settings` | Preferences, integrations, notifications, auth |
 | Help | `/help` | Scoring guide, FAQ, about section |
 | Login | `/login` | Authentication |
+| Migrate | `/migrate` | Optional 1.x → 2.0 database migration stepper |
 
 ## Project Structure
 
@@ -411,10 +420,11 @@ capacitarr/
 │   │   ├── db/                     # SQLite models, schema migrations
 │   │   ├── engine/                 # Scoring + rule evaluation
 │   │   ├── events/                 # Event bus, typed events, SSE broadcaster, activity persister
-│   │   ├── integrations/           # *arr, Plex, Jellyfin, Emby, Seerr, Tautulli clients + registry + enrichment pipeline
+│   │   ├── integrations/           # *arr, Plex, Jellyfin, Emby, Seerr, Tautulli, Jellystat clients + registry + enrichment pipeline
 │   │   ├── jobs/                   # Cron scheduling (retention cleanup, time-series rollups)
 │   │   ├── notifications/          # Discord, Apprise notification senders + HTTP client
 │   │   ├── poller/                 # Engine orchestrator (scheduled disk monitoring)
+│   │   ├── migration/              # 1.x → 2.0 database migration detection + import
 │   │   ├── services/               # Service layer (business logic)
 │   │   ├── testutil/               # Shared test helpers (in-memory DB, fixtures)
 │   │   └── logger/                 # Structured logging
@@ -423,7 +433,7 @@ capacitarr/
 │   ├── app/
 │   │   ├── components/             # Vue components (shadcn-vue based)
 │   │   ├── composables/            # Vue composables (useEventStream, useEngineControl, etc.)
-│   │   ├── pages/                  # Nuxt pages (dashboard, audit, rules, settings, help)
+│   │   ├── pages/                  # Nuxt pages (dashboard, library, audit, rules, settings, help, login, migrate)
 │   │   ├── locales/                # i18n translations (22 languages)
 │   │   ├── types/                  # TypeScript type definitions
 │   │   └── assets/css/             # Tailwind CSS + theme variables
@@ -431,7 +441,7 @@ capacitarr/
 ├── site/                           # Project marketing site (Nuxt UI Pro)
 ├── docs/                           # Documentation
 │   └── api/                        # OpenAPI spec, examples, workflows
-├── docker-compose.yml              # Development/deployment compose file
+├── scripts/                        # Release utility scripts (Discord notify, Docker build/mirror)
 ├── Dockerfile                      # Multi-stage build (Node → Go → Alpine)
 └── Makefile                        # CI/CD targets (lint, test, security, build)
 ```

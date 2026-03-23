@@ -33,6 +33,7 @@ Instant alerts fire immediately when their trigger event occurs — they are not
 | **Threshold Breached** | Disk usage has exceeded the configured threshold for a disk group |
 | **Update Available** | A newer Capacitarr release was detected on GitLab |
 | **Approval Activity** | An item was approved or rejected in the approval queue |
+| **Integration Status** | An integration has failed its connection test or recovered from a previous failure |
 
 ## Discord Setup
 
@@ -133,13 +134,14 @@ Each external notification channel (Discord or Apprise) has independent subscrip
 | **Threshold Breach** | Disk usage exceeds threshold | Immediate alert when a disk group exceeds its threshold |
 | **Update Available** | New version detected | Fires when a newer Capacitarr release exists on GitLab |
 | **Approval Activity** | Items approved or rejected | Fires when approval queue items are approved or rejected |
+| **Integration Status** | Integration failure or recovery | Fires when an integration fails its connection test or recovers |
 
 ## Digest Format
 
 Cycle digest notifications are rendered as rich embeds in Discord and as Markdown messages for Apprise. Here's what a typical auto-mode digest looks like:
 
 ```
-⚡ Capacitarr v1.0.0 • auto
+⚡ Capacitarr v2.0.0 • auto
 ─────────────────────────────
 🧹 Cleanup Complete
 
@@ -148,7 +150,7 @@ in 3.2s, freeing 48.3 GB
 
 ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░ 72% → 65%
 
-📦 v1.1.0 available!
+📦 v2.1.0 available!
 ```
 
 Digest components:

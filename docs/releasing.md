@@ -20,7 +20,7 @@ The standard CI pipeline runs on every push and merge request:
 
 - **Lint** — `golangci-lint` + ESLint
 - **Test** — Go tests + frontend tests
-- **Security** — `govulncheck` + `pnpm audit`
+- **Security** — `govulncheck` + `pnpm audit` + Trivy (filesystem + image) + Gitleaks + Semgrep
 - **Build** — Docker multi-arch smoke test (build only, no push)
 
 ## Release Workflow
@@ -134,6 +134,10 @@ The changelog is configured in [`cliff.toml`](../cliff.toml) at the project root
 | `build:docker` | build | `docker:latest` | Multi-arch Docker smoke test (no push) |
 | `security:govulncheck` | security | `golang:1.26-alpine` | Go vulnerability check |
 | `security:pnpm-audit` | security | `node:22-alpine` | npm dependency audit |
+| `security:trivy` | security | `aquasec/trivy:latest` | Filesystem CVE scan (Go modules + pnpm) |
+| `security:trivy-image` | security | `docker:latest` | Docker image CVE scan (Alpine + Go binary) |
+| `security:gitleaks` | security | `zricethezav/gitleaks:latest` | Git secrets detection |
+| `security:semgrep` | security | `semgrep/semgrep:latest` | Static analysis (SAST) |
 
 ### On Tag Push (`v*`)
 
@@ -144,6 +148,7 @@ The changelog is configured in [`cliff.toml`](../cliff.toml) at the project root
 | `release:docker:build` | release | `docker:latest` | Build and push multi-arch Docker images to GitLab CR |
 | `release:docker:dockerhub` | release | `alpine` + `crane` | Mirror image from GitLab CR to Docker Hub |
 | `release:docker:ghcr` | release | `alpine` + `crane` | Mirror image from GitLab CR to GHCR |
+| `notify:discord` | notify | `alpine` | Send release notification to Discord |
 | `pages` | pages | `node:22-alpine` | Rebuild project site with latest changelog |
 
 ## Release Artifacts
