@@ -20,7 +20,7 @@ lint:
 	@echo "→ Linting backend (golangci-lint via Docker)..."
 	@echo "→ Ensuring go:embed directory exists..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golangci/golangci-lint:latest golangci-lint run ./...
 	@echo "✓ Lint complete"
 
@@ -43,7 +43,7 @@ check:
 	@echo "→ Ensuring go:embed directory exists..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
 	@echo "→ Checking backend (golangci-lint via Docker)..."
-	docker run --rm -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golangci/golangci-lint:latest golangci-lint run ./...
 	@echo "✓ All checks passed"
 
@@ -54,10 +54,10 @@ lint\:ci:
 	@echo "═══ CI Lint Stage ═══"
 	@echo "→ [lint:go] golangci-lint (Docker: golangci/golangci-lint:latest)..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golangci/golangci-lint:latest golangci-lint run ./...
 	@echo "→ [lint:frontend] ESLint + Prettier (Docker: node:22-alpine)..."
-	docker run --rm -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
 		node:22-alpine sh -c "\
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
@@ -71,10 +71,10 @@ test\:ci:
 	@echo "═══ CI Test Stage ═══"
 	@echo "→ [test:go] go test (Docker: golang:1.26-alpine)..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golang:1.26-alpine sh -c "cd /app && go test -v ./... -count=1"
 	@echo "→ [test:frontend] vitest (Docker: node:22-alpine)..."
-	docker run --rm -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
 		node:22-alpine sh -c "\
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
@@ -86,26 +86,26 @@ security\:ci:
 	@echo "═══ CI Security Stage ═══"
 	@echo "→ [security:govulncheck] (Docker: golang:1.26-alpine)..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golang:1.26-alpine sh -c "\
 			go install golang.org/x/vuln/cmd/govulncheck@latest && \
 			cd /app && govulncheck ./..."
 	@echo "→ [security:pnpm-audit] (Docker: node:22-alpine)..."
-	docker run --rm -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
+	docker run --rm --pull always -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
 		node:22-alpine sh -c "\
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
 			pnpm audit"
-	@echo "→ [security:trivy] Filesystem vulnerability scan (Docker: aquasec/trivy)..."
-	docker run --rm -v $(CURDIR)/backend:/src aquasec/trivy:latest \
+	@echo "→ [security:trivy] Filesystem vulnerability scan (Docker: ghcr.io/aquasecurity/trivy)..."
+	docker run --rm --pull always -v $(CURDIR)/backend:/src ghcr.io/aquasecurity/trivy:latest \
 		fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln /src
-	docker run --rm -v $(CURDIR)/frontend:/src aquasec/trivy:latest \
+	docker run --rm --pull always -v $(CURDIR)/frontend:/src ghcr.io/aquasecurity/trivy:latest \
 		fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln /src
 	@echo "→ [security:gitleaks] Secret scanning (Docker: zricethezav/gitleaks)..."
-	docker run --rm -v $(CURDIR):/src zricethezav/gitleaks:latest \
+	docker run --rm --pull always -v $(CURDIR):/src zricethezav/gitleaks:latest \
 		detect --source /src --config /src/.gitleaks.toml --verbose
 	@echo "→ [security:semgrep] SAST scan (Docker: semgrep/semgrep)..."
-	docker run --rm -v $(CURDIR):/src semgrep/semgrep:latest \
+	docker run --rm --pull always -v $(CURDIR):/src semgrep/semgrep:latest \
 		semgrep scan --config=auto --error /src
 	@echo "✓ CI security stage passed"
 
@@ -136,9 +136,9 @@ security\:zap:
 ## Scan the built Docker image for OS-level and binary CVEs (requires prior `make build`)
 security\:image:
 	@echo "═══ Container Image Scan ═══"
-	@echo "→ [security:trivy-image] Scanning Docker image (Docker: aquasec/trivy)..."
-	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-		aquasec/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln \
+	@echo "→ [security:trivy-image] Scanning Docker image (Docker: ghcr.io/aquasecurity/trivy)..."
+	docker run --rm --pull always -v /var/run/docker.sock:/var/run/docker.sock \
+		ghcr.io/aquasecurity/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln \
 		capacitarr-capacitarr:latest
 	@echo "✓ Container image scan passed"
 

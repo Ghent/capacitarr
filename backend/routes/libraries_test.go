@@ -2,6 +2,7 @@ package routes_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -144,7 +145,7 @@ func TestLibraryE2E_UnauthenticatedReturns401(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/libraries", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "/api/libraries", nil)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 

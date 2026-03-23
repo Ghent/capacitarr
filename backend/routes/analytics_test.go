@@ -1,6 +1,7 @@
 package routes_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -240,7 +241,7 @@ func TestAnalyticsE2E_UnauthenticatedReturns401(t *testing.T) {
 
 	for _, ep := range endpoints {
 		t.Run(ep, func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodGet, ep, nil)
+			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, ep, nil)
 			rec := httptest.NewRecorder()
 			e.ServeHTTP(rec, req)
 
