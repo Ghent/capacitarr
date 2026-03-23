@@ -14,7 +14,7 @@ Intelligent Media Library [Management]{.text-primary}.
 
 #description
 Automatically score, evaluate, and clean up your *arr stack.
-Connect Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli, and Overseerr.
+Connect Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli, Jellystat, and Seerr.
 
 #links
   :::u-button
@@ -64,7 +64,7 @@ Features
   #title
   Multi-Integration
   #description
-  Connect Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli, Overseerr.
+  Connect Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli, Jellystat, Seerr.
   :::
 
   :::u-page-feature
