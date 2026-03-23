@@ -30,14 +30,9 @@ const screenshots: Screenshot[] = [
     description: 'Transparent priority rankings with full score breakdowns',
   },
   {
-    src: `${base}/screenshots/audit-log.webp`,
-    title: 'Audit Log',
-    description: 'Complete history of every action taken, fully searchable',
-  },
-  {
-    src: `${base}/screenshots/settings.webp`,
-    title: 'Settings',
-    description: 'Connect and configure all your integrations in one place',
+    src: `${base}/screenshots/library.webp`,
+    title: 'Library Management',
+    description: 'Per-library threshold management with independent disk usage triggers',
   },
   {
     src: `${base}/screenshots/scorecard-keep.webp`,
