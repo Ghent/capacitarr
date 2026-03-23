@@ -8,6 +8,7 @@
  * and is shared between components on the same page.
  */
 import type { FetchError } from 'ofetch';
+import { MODE_APPROVAL } from '~/constants';
 import type { ApprovalQueueItem } from '~/types/api';
 
 export interface ApprovalGroup {
@@ -60,7 +61,7 @@ export function useApprovalQueue() {
   const approvedItems = useState<ApprovalGroup[]>('approvalApproved', () => []);
   const loading = useState<Record<string, boolean>>('approvalLoading', () => ({}));
 
-  const isApprovalMode = computed(() => executionMode.value === 'approval');
+  const isApprovalMode = computed(() => executionMode.value === MODE_APPROVAL);
 
   /**
    * Fetch all approval queue items and group them for display.

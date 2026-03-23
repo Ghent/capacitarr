@@ -103,11 +103,11 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 	// Seed default preferences (mirrors db.Init behaviour)
 	pref := db.PreferenceSet{
 		ID:                    1,
-		ExecutionMode:         "dry-run",
-		LogLevel:              "info",
+		ExecutionMode:         db.ModeDryRun,
+		LogLevel:              db.LogLevelInfo,
 		AuditLogRetentionDays: 30,
 		PollIntervalSeconds:   300,
-		TiebreakerMethod:      "size_desc",
+		TiebreakerMethod:      db.TiebreakerSizeDesc,
 		DeletionsEnabled:      true,
 		SnoozeDurationHours:   24,
 		CheckForUpdates:       true,

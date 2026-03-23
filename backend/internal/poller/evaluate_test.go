@@ -42,7 +42,7 @@ func setupEvaluateTestDB(t *testing.T) (*gorm.DB, *services.Registry) {
 
 	pref := db.PreferenceSet{
 		ID:                  1,
-		ExecutionMode:       "approval",
+		ExecutionMode:       db.ModeApproval,
 		LogLevel:            "info",
 		PollIntervalSeconds: 300,
 	}
@@ -86,7 +86,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		ScoreDetails:  `[{"name":"size","contribution":3.0},{"name":"age","contribution":2.5}]`,
-		Status:        "pending",
+		Status:        db.StatusPending,
 		SizeBytes:     1000000000,
 		Score:         5.50,
 		IntegrationID: integrationID,
@@ -99,7 +99,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	var existing db.ApprovalQueueItem
 	result := reg.DB.Where(
 		"media_name = ? AND media_type = ? AND status = ?",
-		mediaName, mediaType, "pending",
+		mediaName, mediaType, db.StatusPending,
 	).First(&existing)
 	if result.Error == nil {
 		reg.DB.Model(&existing).Updates(map[string]any{
@@ -115,7 +115,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 
 	// Verify: one entry exists
 	var count int64
-	database.Model(&db.ApprovalQueueItem{}).Where("media_name = ? AND status = ?", mediaName, "pending").Count(&count)
+	database.Model(&db.ApprovalQueueItem{}).Where("media_name = ? AND status = ?", mediaName, db.StatusPending).Count(&count)
 	if count != 1 {
 		t.Fatalf("Expected 1 approval queue entry after first run, got %d", count)
 	}
@@ -125,7 +125,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		ScoreDetails:  `[{"name":"size","contribution":3.5},{"name":"age","contribution":2.7}]`,
-		Status:        "pending",
+		Status:        db.StatusPending,
 		SizeBytes:     1100000000,
 		Score:         6.20,
 		IntegrationID: integrationID,
@@ -138,7 +138,7 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	var existing2 db.ApprovalQueueItem
 	result2 := reg.DB.Where(
 		"media_name = ? AND media_type = ? AND status = ?",
-		mediaName, mediaType, "pending",
+		mediaName, mediaType, db.StatusPending,
 	).First(&existing2)
 	if result2.Error == nil {
 		reg.DB.Model(&existing2).Updates(map[string]any{
@@ -153,14 +153,14 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	}
 
 	// Verify: still only one entry
-	database.Model(&db.ApprovalQueueItem{}).Where("media_name = ? AND status = ?", mediaName, "pending").Count(&count)
+	database.Model(&db.ApprovalQueueItem{}).Where("media_name = ? AND status = ?", mediaName, db.StatusPending).Count(&count)
 	if count != 1 {
 		t.Errorf("Expected 1 approval queue entry after second run (dedup), got %d", count)
 	}
 
 	// Verify: the entry was updated with the new values
 	var updated db.ApprovalQueueItem
-	database.Where("media_name = ? AND status = ?", mediaName, "pending").First(&updated)
+	database.Where("media_name = ? AND status = ?", mediaName, db.StatusPending).First(&updated)
 	if updated.Score != 6.20 {
 		t.Errorf("Expected updated score=6.20, got %f", updated.Score)
 	}
@@ -351,7 +351,7 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		ScoreDetails:  `[]`,
-		Status:        "approved",
+		Status:        db.StatusApproved,
 		SizeBytes:     500000000,
 		Score:         4.00,
 		IntegrationID: integrationID,
@@ -366,7 +366,7 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		ScoreDetails:  `[{"name":"size","contribution":4.5}]`,
-		Status:        "pending",
+		Status:        db.StatusPending,
 		SizeBytes:     550000000,
 		Score:         4.50,
 		IntegrationID: integrationID,
@@ -379,7 +379,7 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	var existing db.ApprovalQueueItem
 	result := reg.DB.Where(
 		"media_name = ? AND media_type = ? AND status = ?",
-		mediaName, mediaType, "pending",
+		mediaName, mediaType, db.StatusPending,
 	).First(&existing)
 	if result.Error == nil {
 		reg.DB.Model(&existing).Updates(map[string]any{
@@ -396,7 +396,7 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 
 	// Verify: the approved entry is untouched
 	var approved db.ApprovalQueueItem
-	database.Where("media_name = ? AND status = ?", mediaName, "approved").First(&approved)
+	database.Where("media_name = ? AND status = ?", mediaName, db.StatusApproved).First(&approved)
 	if approved.ID == 0 {
 		t.Fatal("Expected approved entry to still exist")
 	}
@@ -409,7 +409,7 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 
 	// Verify: a new "pending" entry was created (separate from the approved one)
 	var queued db.ApprovalQueueItem
-	database.Where("media_name = ? AND status = ?", mediaName, "pending").First(&queued)
+	database.Where("media_name = ? AND status = ?", mediaName, db.StatusPending).First(&queued)
 	if queued.ID == 0 {
 		t.Fatal("Expected new 'pending' entry to be created")
 	}
@@ -481,7 +481,7 @@ func TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems(t *testing.T) {
 		t.Fatalf("Failed to create snoozed item: %v", err)
 	}
 
-	prefs := db.PreferenceSet{ExecutionMode: "approval"}
+	prefs := db.PreferenceSet{ExecutionMode: db.ModeApproval}
 
 	// Run with no media items — no candidates will be generated, so
 	// neededKeys will be empty, and all pending items should be reconciled away
@@ -546,7 +546,7 @@ func TestEvaluateAndCleanDisk_ReconcileNoopInDryRun(t *testing.T) {
 	}
 
 	// Run in dry-run mode — reconciliation should NOT happen
-	prefs := db.PreferenceSet{ExecutionMode: "dry-run"}
+	prefs := db.PreferenceSet{ExecutionMode: db.ModeDryRun}
 	p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, map[string]int{}, nil)
 
 	// Verify: pending item is preserved (reconciliation didn't run)

@@ -84,7 +84,7 @@ func TestConcurrentAccess(t *testing.T) {
 	}
 
 	// Seed a preference row for reads
-	pref := PreferenceSet{ID: 1, ExecutionMode: "dry-run", LogLevel: "info"}
+	pref := PreferenceSet{ID: 1, ExecutionMode: ModeDryRun, LogLevel: LogLevelInfo}
 	if err := database.Create(&pref).Error; err != nil {
 		t.Fatalf("Failed to seed preferences: %v", err)
 	}

@@ -1,4 +1,10 @@
 import type { EvaluatedItem, DiskContext, DeletionProgress, PreviewResponse } from '~/types/api';
+import {
+  EVENT_DELETION_SUCCESS,
+  EVENT_DELETION_DRY_RUN,
+  EVENT_DELETION_PROGRESS,
+  EVENT_DELETION_BATCH_COMPLETE,
+} from '~/constants';
 
 /**
  * usePreview — SSE-reactive preview data composable.
@@ -112,19 +118,19 @@ export function usePreview() {
   onMounted(() => {
     on('preview_updated', handlePreviewUpdated);
     on('preview_invalidated', handlePreviewInvalidated);
-    on('deletion_success', handleDeletionSuccess);
-    on('deletion_dry_run', handleDeletionDryRun);
-    on('deletion_progress', handleDeletionProgress);
-    on('deletion_batch_complete', handleDeletionBatchComplete);
+    on(EVENT_DELETION_SUCCESS, handleDeletionSuccess);
+    on(EVENT_DELETION_DRY_RUN, handleDeletionDryRun);
+    on(EVENT_DELETION_PROGRESS, handleDeletionProgress);
+    on(EVENT_DELETION_BATCH_COMPLETE, handleDeletionBatchComplete);
   });
 
   onUnmounted(() => {
     off('preview_updated', handlePreviewUpdated);
     off('preview_invalidated', handlePreviewInvalidated);
-    off('deletion_success', handleDeletionSuccess);
-    off('deletion_dry_run', handleDeletionDryRun);
-    off('deletion_progress', handleDeletionProgress);
-    off('deletion_batch_complete', handleDeletionBatchComplete);
+    off(EVENT_DELETION_SUCCESS, handleDeletionSuccess);
+    off(EVENT_DELETION_DRY_RUN, handleDeletionDryRun);
+    off(EVENT_DELETION_PROGRESS, handleDeletionProgress);
+    off(EVENT_DELETION_BATCH_COMPLETE, handleDeletionBatchComplete);
   });
 
   return {

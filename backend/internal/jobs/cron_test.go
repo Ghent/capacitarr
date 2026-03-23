@@ -39,8 +39,8 @@ func setupCronTestDB(t *testing.T) *services.Registry {
 
 	pref := db.PreferenceSet{
 		ID:                    1,
-		ExecutionMode:         "dry-run",
-		LogLevel:              "info",
+		ExecutionMode:         db.ModeDryRun,
+		LogLevel:              db.LogLevelInfo,
 		AuditLogRetentionDays: 30,
 		PollIntervalSeconds:   300,
 	}

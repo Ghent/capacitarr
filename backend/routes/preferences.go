@@ -32,7 +32,7 @@ func RegisterPreferenceRoutes(protected *echo.Group, reg *services.Registry) {
 
 		// Validate tiebreaker method
 		if payload.TiebreakerMethod == "" {
-			payload.TiebreakerMethod = "size_desc"
+			payload.TiebreakerMethod = db.TiebreakerSizeDesc
 		}
 		if !db.ValidTiebreakerMethods[payload.TiebreakerMethod] {
 			return apiError(c, http.StatusBadRequest, "Tiebreaker method must be size_desc, size_asc, name_asc, oldest_first, or newest_first")

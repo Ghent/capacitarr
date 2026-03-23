@@ -30,7 +30,7 @@ func TestGetPreferences(t *testing.T) {
 	}
 
 	// Verify default values from seed
-	if pref.ExecutionMode != "dry-run" {
+	if pref.ExecutionMode != db.ModeDryRun {
 		t.Errorf("Expected ExecutionMode 'dry-run', got %q", pref.ExecutionMode)
 	}
 	if pref.LogLevel != "info" {
@@ -68,7 +68,7 @@ func TestSavePreferences(t *testing.T) {
 		t.Fatalf("Failed to parse: %v", err)
 	}
 
-	if pref.ExecutionMode != "approval" {
+	if pref.ExecutionMode != db.ModeApproval {
 		t.Errorf("Expected ExecutionMode 'approval', got %q", pref.ExecutionMode)
 	}
 	if pref.TiebreakerMethod != "name_asc" {

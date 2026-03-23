@@ -51,11 +51,11 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 	var pref PreferenceSet
 	if err := database.FirstOrCreate(&pref, PreferenceSet{
 		ID:                    1,
-		ExecutionMode:         "dry-run",
-		LogLevel:              "info",
+		ExecutionMode:         ModeDryRun,
+		LogLevel:              LogLevelInfo,
 		AuditLogRetentionDays: 30,
 		PollIntervalSeconds:   300,
-		TiebreakerMethod:      "size_desc",
+		TiebreakerMethod:      TiebreakerSizeDesc,
 		DeletionsEnabled:      true,
 		SnoozeDurationHours:   24,
 		CheckForUpdates:       true,

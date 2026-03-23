@@ -126,7 +126,7 @@ func TestEngineService_GetStats_WithDBRecord(t *testing.T) {
 		Flagged:       10,
 		Deleted:       3,
 		FreedBytes:    5000000000,
-		ExecutionMode: "approval",
+		ExecutionMode: db.ModeApproval,
 		DurationMs:    1500,
 	}
 	if err := database.Create(&runStats).Error; err != nil {
@@ -135,7 +135,7 @@ func TestEngineService_GetStats_WithDBRecord(t *testing.T) {
 
 	stats := svc.GetStats()
 
-	if stats["executionMode"] != "approval" {
+	if stats["executionMode"] != db.ModeApproval {
 		t.Errorf("expected executionMode 'approval', got %v", stats["executionMode"])
 	}
 	if stats["lastRunFreedBytes"] != int64(5000000000) {
@@ -160,7 +160,7 @@ func TestEngineService_GetStats_FallsBackToRunAt(t *testing.T) {
 	runAt := time.Now().UTC()
 	runStats := db.EngineRunStats{
 		RunAt:         runAt,
-		ExecutionMode: "dry-run",
+		ExecutionMode: db.ModeDryRun,
 	}
 	if err := database.Create(&runStats).Error; err != nil {
 		t.Fatalf("Failed to create engine run stats: %v", err)
@@ -182,11 +182,11 @@ func TestEngineService_CreateRunStats(t *testing.T) {
 	bus := newTestBus(t)
 	svc := NewEngineService(database, bus)
 
-	stats, err := svc.CreateRunStats("dry-run")
+	stats, err := svc.CreateRunStats(db.ModeDryRun)
 	if err != nil {
 		t.Fatalf("CreateRunStats error: %v", err)
 	}
-	if stats.ExecutionMode != "dry-run" {
+	if stats.ExecutionMode != db.ModeDryRun {
 		t.Errorf("expected mode 'dry-run', got %q", stats.ExecutionMode)
 	}
 	if stats.ID == 0 {
@@ -199,7 +199,7 @@ func TestEngineService_UpdateRunStats(t *testing.T) {
 	bus := newTestBus(t)
 	svc := NewEngineService(database, bus)
 
-	stats, _ := svc.CreateRunStats("dry-run")
+	stats, _ := svc.CreateRunStats(db.ModeDryRun)
 
 	err := svc.UpdateRunStats(stats.ID, 100, 15, 2500)
 	if err != nil {
@@ -234,9 +234,9 @@ func TestEngineService_LatestRunStatsID(t *testing.T) {
 	}
 
 	// Create two run stats — latest should win
-	first, _ := svc.CreateRunStats("dry-run")
+	first, _ := svc.CreateRunStats(db.ModeDryRun)
 	time.Sleep(10 * time.Millisecond) // ensure distinct timestamps
-	second, _ := svc.CreateRunStats("approval")
+	second, _ := svc.CreateRunStats(db.ModeApproval)
 
 	id := svc.LatestRunStatsID()
 	if id != second.ID {
@@ -250,8 +250,8 @@ func TestEngineService_GetHistory(t *testing.T) {
 	svc := NewEngineService(database, bus)
 
 	// Create some run stats
-	_, _ = svc.CreateRunStats("dry-run")
-	_, _ = svc.CreateRunStats("approval")
+	_, _ = svc.CreateRunStats(db.ModeDryRun)
+	_, _ = svc.CreateRunStats(db.ModeApproval)
 
 	points, err := svc.GetHistory(24 * time.Hour)
 	if err != nil {

@@ -295,8 +295,8 @@ func TestAuditLogService_BulkUpsertDryRun(t *testing.T) {
 
 	t.Run("creates new dry-run entries", func(t *testing.T) {
 		entries := []db.AuditLogEntry{
-			{MediaName: "Firefly", MediaType: "show", SizeBytes: 5000, Score: 0.9, Trigger: "engine", DryRunReason: "mode"},
-			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 3000, Score: 0.7, Trigger: "engine", DryRunReason: "mode"},
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 5000, Score: 0.9, Trigger: db.TriggerEngine, DryRunReason: "mode"},
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 3000, Score: 0.7, Trigger: db.TriggerEngine, DryRunReason: "mode"},
 		}
 		if err := svc.BulkUpsertDryRun(entries); err != nil {
 			t.Fatalf("BulkUpsertDryRun returned error: %v", err)
@@ -311,7 +311,7 @@ func TestAuditLogService_BulkUpsertDryRun(t *testing.T) {
 
 	t.Run("updates existing dry-run entries on second call", func(t *testing.T) {
 		entries := []db.AuditLogEntry{
-			{MediaName: "Firefly", MediaType: "show", SizeBytes: 6000, Score: 0.95, Trigger: "engine", DryRunReason: "mode"},
+			{MediaName: "Firefly", MediaType: "show", SizeBytes: 6000, Score: 0.95, Trigger: db.TriggerEngine, DryRunReason: "mode"},
 		}
 		if err := svc.BulkUpsertDryRun(entries); err != nil {
 			t.Fatalf("BulkUpsertDryRun returned error: %v", err)
@@ -337,8 +337,8 @@ func TestAuditLogService_BulkUpsertDryRun(t *testing.T) {
 
 	t.Run("handles mixed creates and updates", func(t *testing.T) {
 		entries := []db.AuditLogEntry{
-			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 4000, Score: 0.8, Trigger: "engine", DryRunReason: "mode"},      // update
-			{MediaName: "New Movie", MediaType: "movie", SizeBytes: 2000, Score: 0.5, Trigger: "engine", DryRunReason: "disabled"}, // create
+			{MediaName: "Serenity", MediaType: "movie", SizeBytes: 4000, Score: 0.8, Trigger: db.TriggerEngine, DryRunReason: "mode"},      // update
+			{MediaName: "New Movie", MediaType: "movie", SizeBytes: 2000, Score: 0.5, Trigger: db.TriggerEngine, DryRunReason: "disabled"}, // create
 		}
 		if err := svc.BulkUpsertDryRun(entries); err != nil {
 			t.Fatalf("BulkUpsertDryRun returned error: %v", err)

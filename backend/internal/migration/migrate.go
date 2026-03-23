@@ -297,7 +297,7 @@ func importPreferences(ctx context.Context, srcDB *sql.DB, dest *gorm.DB) error 
 	}
 
 	// Log if the user's execution mode is being overridden for safety
-	if source.ExecutionMode != "dry-run" {
+	if source.ExecutionMode != db.ModeDryRun {
 		slog.Info("Overriding execution mode to dry-run for safety after migration",
 			"component", "migration", "original_mode", source.ExecutionMode)
 	}
@@ -313,7 +313,7 @@ func importPreferences(ctx context.Context, srcDB *sql.DB, dest *gorm.DB) error 
 		"log_level":                source.LogLevel,
 		"audit_log_retention_days": source.AuditLogRetentionDays,
 		"poll_interval_seconds":    source.PollIntervalSeconds,
-		"execution_mode":           "dry-run", // Safety: force dry-run after migration
+		"execution_mode":           db.ModeDryRun, // Safety: force dry-run after migration
 		"tiebreaker_method":        source.TiebreakerMethod,
 		"deletions_enabled":        source.DeletionsEnabled,
 		"snooze_duration_hours":    source.SnoozeDurationHours,

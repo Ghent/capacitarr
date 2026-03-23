@@ -48,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+import { MODE_DRY_RUN, TIEBREAKER_SIZE_DESC } from '~/constants';
 import type {
   DiskGroup,
   IntegrationConfig,
@@ -93,8 +94,8 @@ function onDiskGroupUpdated(updated: DiskGroup) {
 // Preferences (non-weight settings — still used for execution mode, etc.)
 // ---------------------------------------------------------------------------
 const prefs = reactive({
-  executionMode: 'dry-run',
-  tiebreakerMethod: 'size_desc',
+  executionMode: MODE_DRY_RUN,
+  tiebreakerMethod: TIEBREAKER_SIZE_DESC,
   logLevel: 'info',
   auditLogRetentionDays: 30,
 });

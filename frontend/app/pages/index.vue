@@ -132,9 +132,9 @@
           </span>
           <UiBadge
             :variant="
-              engineExecutionMode === 'auto'
+              engineExecutionMode === MODE_AUTO
                 ? 'destructive'
-                : engineExecutionMode === 'approval'
+                : engineExecutionMode === MODE_APPROVAL
                   ? 'outline'
                   : 'secondary'
             "
@@ -268,7 +268,9 @@
           <div class="rounded-lg bg-muted px-3 py-2">
             <div class="text-[11px] text-muted-foreground mb-0.5">
               {{
-                engineExecutionMode === 'auto' ? $t('dashboard.freed') : $t('dashboard.wouldFree')
+                engineExecutionMode === MODE_AUTO
+                  ? $t('dashboard.freed')
+                  : $t('dashboard.wouldFree')
               }}
             </div>
             <div class="text-sm font-bold tabular-nums">
@@ -308,7 +310,7 @@
                   </span>
                 </span>
               </template>
-              <template v-else-if="engineExecutionMode === 'dry-run'">
+              <template v-else-if="engineExecutionMode === MODE_DRY_RUN">
                 <span class="text-muted-foreground text-xs">{{
                   $t('dashboard.dryRunNoDelete')
                 }}</span>
@@ -392,6 +394,17 @@ import {
 import { useVirtualizer } from '@tanstack/vue-virtual';
 import { formatBytes } from '~/utils/format';
 import type { ActivityEvent, DeletionProgress, DiskGroup, IntegrationConfig } from '~/types/api';
+import {
+  MODE_DRY_RUN,
+  MODE_AUTO,
+  MODE_APPROVAL,
+  EVENT_DELETION_SUCCESS,
+  EVENT_DELETION_DRY_RUN,
+  EVENT_DELETION_FAILED,
+  EVENT_DELETION_QUEUED,
+  EVENT_DELETION_PROGRESS,
+  EVENT_DELETION_BATCH_COMPLETE,
+} from '~/constants';
 
 const { t } = useI18n();
 const api = useApi();
@@ -549,15 +562,15 @@ function eventIcon(eventType: string) {
     case 'approval_orphans_recovered':
       return RefreshCwIcon;
     // Deletion
-    case 'deletion_queued':
-    case 'deletion_success':
-    case 'deletion_dry_run':
+    case EVENT_DELETION_QUEUED:
+    case EVENT_DELETION_SUCCESS:
+    case EVENT_DELETION_DRY_RUN:
       return Trash2Icon;
-    case 'deletion_failed':
+    case EVENT_DELETION_FAILED:
       return AlertCircleIcon;
-    case 'deletion_batch_complete':
+    case EVENT_DELETION_BATCH_COMPLETE:
       return CheckCircle2Icon;
-    case 'deletion_progress':
+    case EVENT_DELETION_PROGRESS:
       return Trash2Icon;
     // Disk
     case 'threshold_breached':
@@ -609,8 +622,8 @@ function eventIconClass(eventType: string): string {
     case 'server_started':
     case 'integration_added':
     case 'integration_test':
-    case 'deletion_success':
-    case 'deletion_batch_complete':
+    case EVENT_DELETION_SUCCESS:
+    case EVENT_DELETION_BATCH_COMPLETE:
     case 'notification_channel_added':
     case 'notification_sent':
       return 'text-success';
@@ -619,15 +632,15 @@ function eventIconClass(eventType: string): string {
     case 'rule_deleted':
     case 'integration_test_failed':
     case 'integration_removed':
-    case 'deletion_failed':
+    case EVENT_DELETION_FAILED:
     case 'threshold_breached':
     case 'data_reset':
     case 'notification_channel_removed':
     case 'notification_delivery_failed':
       return 'text-destructive';
-    case 'deletion_queued':
-    case 'deletion_dry_run':
-    case 'deletion_progress':
+    case EVENT_DELETION_QUEUED:
+    case EVENT_DELETION_DRY_RUN:
+    case EVENT_DELETION_PROGRESS:
     case 'approval_orphans_recovered':
       return 'text-warning';
     case 'rule_updated':
@@ -776,12 +789,12 @@ const activityEventTypes = [
   'approval_unsnoozed',
   'approval_bulk_unsnoozed',
   'approval_orphans_recovered',
-  'deletion_queued',
-  'deletion_success',
-  'deletion_failed',
-  'deletion_dry_run',
-  'deletion_batch_complete',
-  'deletion_progress',
+  EVENT_DELETION_QUEUED,
+  EVENT_DELETION_SUCCESS,
+  EVENT_DELETION_FAILED,
+  EVENT_DELETION_DRY_RUN,
+  EVENT_DELETION_BATCH_COMPLETE,
+  EVENT_DELETION_PROGRESS,
   'threshold_breached',
   'update_available',
   'rule_created',
@@ -839,13 +852,13 @@ onMounted(async () => {
   sseOn('approval_unsnoozed', handleApprovalChange);
   sseOn('approval_bulk_unsnoozed', handleApprovalChange);
   sseOn('approval_orphans_recovered', handleApprovalChange);
-  sseOn('deletion_success', handleApprovalChange);
+  sseOn(EVENT_DELETION_SUCCESS, handleApprovalChange);
 
   // When a deletion completes, patch the most recent sparkline data point in real-time
-  sseOn('deletion_progress', handleDeletionProgressSparkline);
+  sseOn(EVENT_DELETION_PROGRESS, handleDeletionProgressSparkline);
 
   // When all deletions for a cycle finish, refresh dashboard stats — the numbers are now final
-  sseOn('deletion_batch_complete', handleDeletionBatchCompleteRefresh);
+  sseOn(EVENT_DELETION_BATCH_COMPLETE, handleDeletionBatchCompleteRefresh);
 });
 
 onUnmounted(() => {
@@ -858,8 +871,8 @@ onUnmounted(() => {
   _activityHandlers.clear();
 
   // Unsubscribe deletion progress handlers
-  sseOff('deletion_progress', handleDeletionProgressSparkline);
-  sseOff('deletion_batch_complete', handleDeletionBatchCompleteRefresh);
+  sseOff(EVENT_DELETION_PROGRESS, handleDeletionProgressSparkline);
+  sseOff(EVENT_DELETION_BATCH_COMPLETE, handleDeletionBatchCompleteRefresh);
 
   // Unsubscribe approval handlers
   sseOff('approval_approved', handleApprovalChange);
@@ -867,7 +880,7 @@ onUnmounted(() => {
   sseOff('approval_unsnoozed', handleApprovalChange);
   sseOff('approval_bulk_unsnoozed', handleApprovalChange);
   sseOff('approval_orphans_recovered', handleApprovalChange);
-  sseOff('deletion_success', handleApprovalChange);
+  sseOff(EVENT_DELETION_SUCCESS, handleApprovalChange);
 });
 
 async function fetchDashboardData(silent = false) {

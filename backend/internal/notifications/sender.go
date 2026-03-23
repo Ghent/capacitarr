@@ -1,6 +1,10 @@
 package notifications
 
-import "fmt"
+import (
+	"fmt"
+
+	"capacitarr/internal/db"
+)
 
 // SenderConfig holds the configuration passed to a Sender for each delivery.
 // All senders receive a WebhookURL; channel-specific fields (e.g. AppriseTags)
@@ -91,11 +95,11 @@ func TriggerLabel(t AlertType) string {
 	}
 }
 
-// Execution mode constants used for digest title/color selection.
+// Execution mode aliases for readability in this package.
 const (
-	ModeAuto     = "auto"
-	ModeDryRun   = "dry-run"
-	ModeApproval = "approval"
+	ModeAuto     = db.ModeAuto
+	ModeDryRun   = db.ModeDryRun
+	ModeApproval = db.ModeApproval
 )
 
 // Digest title constants.

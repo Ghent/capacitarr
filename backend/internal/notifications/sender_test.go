@@ -69,7 +69,7 @@ func TestDiscordSender_SendDigest_AutoMode(t *testing.T) {
 
 	sender := NewDiscordSender()
 	digest := CycleDigest{
-		ExecutionMode: "auto",
+		ExecutionMode: ModeAuto,
 		Evaluated:     847,
 		Flagged:       3,
 		Deleted:       3,
@@ -112,7 +112,7 @@ func TestDiscordSender_SendDigest_DryRunMode(t *testing.T) {
 
 	sender := NewDiscordSender()
 	digest := CycleDigest{
-		ExecutionMode: "dry-run",
+		ExecutionMode: ModeDryRun,
 		Evaluated:     847,
 		Flagged:       3,
 		FreedBytes:    67108864000,
@@ -144,7 +144,7 @@ func TestDiscordSender_SendDigest_AllClear(t *testing.T) {
 
 	sender := NewDiscordSender()
 	digest := CycleDigest{
-		ExecutionMode: "auto",
+		ExecutionMode: ModeAuto,
 		Evaluated:     847,
 		Flagged:       0,
 		DurationMs:    500,
@@ -175,7 +175,7 @@ func TestDiscordSender_SendDigest_WithUpdateBanner(t *testing.T) {
 
 	sender := NewDiscordSender()
 	digest := CycleDigest{
-		ExecutionMode:   "auto",
+		ExecutionMode:   ModeAuto,
 		Evaluated:       100,
 		Flagged:         2,
 		Deleted:         2,

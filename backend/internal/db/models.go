@@ -160,6 +160,23 @@ const (
 	ModeApproval = "approval"
 )
 
+// Tiebreaker method constants — used in PreferenceSet.TiebreakerMethod field.
+const (
+	TiebreakerSizeDesc    = "size_desc"
+	TiebreakerSizeAsc     = "size_asc"
+	TiebreakerNameAsc     = "name_asc"
+	TiebreakerOldestFirst = "oldest_first"
+	TiebreakerNewestFirst = "newest_first"
+)
+
+// Log level constants — used in PreferenceSet.LogLevel field.
+const (
+	LogLevelDebug = "debug"
+	LogLevelInfo  = "info"
+	LogLevelWarn  = "warn"
+	LogLevelError = "error"
+)
+
 // ApprovalQueueItem represents an item in the approval queue (state machine).
 // Items flow through: pending → approved → (deletion) OR pending → rejected (snoozed).
 // Items with UserInitiated=true were queued by a user (via POST /delete) rather than
