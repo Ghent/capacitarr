@@ -1,7 +1,7 @@
 # Collection-Based Deletion
 
 **Created:** 2026-03-22T21:21Z
-**Status:** 📋 Plan — Awaiting Approval
+**Status:** ✅ Complete
 **Branch:** `feature/collection-deletion` (from `feature/2.0`)
 
 ---

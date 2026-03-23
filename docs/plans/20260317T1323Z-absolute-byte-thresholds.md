@@ -1,6 +1,6 @@
 # Absolute Byte Thresholds for Disk Groups
 
-**Status:** 📋 Not Started  
+**Status:** ⏸️ Deferred to post-2.0  
 **Priority:** Feature Request  
 **Estimated Effort:** M (1–2 days)
 

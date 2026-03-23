@@ -1,7 +1,7 @@
 # Custom Rules Import/Export
 
 **Created:** 2026-03-06T22:51Z
-**Status:** 🔲 Not Started
+**Status:** ❌ Superseded — replaced by settings backup/restore (`39bcf31`)
 **Scope:** Custom Rules portability (export + import)
 **Branch:** `feature/custom-rules-import-export`
 

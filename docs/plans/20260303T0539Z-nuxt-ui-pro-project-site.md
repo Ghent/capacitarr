@@ -2,6 +2,7 @@
 
 **Created:** 2026-03-03T05:39Z
 **Updated:** 2026-03-03T13:55Z
+**Status:** ✅ Complete
 **Scope:** Replace Astro + Starlight site (`capacitarr/site/`) with Nuxt UI v4
 **Deploys to:** GitLab Pages via CI pipeline
 

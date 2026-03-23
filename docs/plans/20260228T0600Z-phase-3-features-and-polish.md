@@ -1,5 +1,7 @@
 # Capacitarr Phase 3: Features & Polish
 
+**Status:** ✅ Complete
+
 This plan covers the next development iteration after the v2 migration (see `20260228T0130Z-v2-migration-plan.md`). It addresses backend correctness bugs discovered during live testing, scoring engine UX improvements, dashboard enhancements, new integrations, and visual polish.
 
 ---
