@@ -504,7 +504,7 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 		if prefsErr != nil {
 			return approved, fmt.Errorf("failed to load preferences: %w", prefsErr)
 		}
-		forceDryRun = !prefs.DeletionsEnabled || prefs.ExecutionMode == "dry-run"
+		forceDryRun = !prefs.DeletionsEnabled || prefs.ExecutionMode == db.ModeDryRun
 	}
 
 	// 8. Queue for background deletion

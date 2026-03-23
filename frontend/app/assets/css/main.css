@@ -1269,11 +1269,16 @@ table tr {
       0 1px 4px oklch(from var(--color-primary) l c h / 0.3);
   }
 
-  /* Toggle switch needs larger tap target */
+  /* Toggle switch needs larger tap target — use invisible pseudo-element
+     to extend the hit area without inflating the visual track */
   [data-slot='switch'] {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
+    position: relative;
+  }
+
+  [data-slot='switch']::before {
+    content: '';
+    position: absolute;
+    inset: -12px -6px;
   }
 }
 
