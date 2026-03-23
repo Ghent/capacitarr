@@ -1,6 +1,6 @@
 # Capacitarr API
 
-The Capacitarr REST API provides programmatic access to capacity management for media servers such as Sonarr, Radarr, and Plex. Use it to manage disk groups, integrations, protection rules, and the scoring engine that evaluates media for potential deletion when disk space runs low.
+The Capacitarr REST API provides programmatic access to capacity management for media servers such as Sonarr, Radarr, and Plex. Use it to manage disk groups, libraries, integrations, protection rules, and the scoring engine that evaluates media for potential deletion when disk space runs low.
 
 ## Base URL
 
@@ -97,11 +97,11 @@ curl -s -H "X-Api-Key: <your-api-key>" \
 [
   {
     "id": 1,
-    "name": "media",
+    "mountPath": "/mnt/media",
     "totalBytes": 2000000000000,
     "usedBytes": 1800000000000,
-    "thresholdPct": 90,
-    "targetPct": 80
+    "thresholdPct": 85,
+    "targetPct": 75
   }
 ]
 ```
@@ -138,7 +138,7 @@ Common HTTP status codes:
 
 Authentication endpoints are rate-limited to prevent brute-force attacks:
 
-- **Login** (`POST /auth/login`): 5 attempts per 15 minutes per IP address
+- **Login** (`POST /auth/login`): 10 attempts per 15 minutes per IP address
 
 When rate-limited, the server returns a `429 Too Many Requests` response. Wait for the window to reset before retrying.
 
@@ -157,21 +157,28 @@ The SSE endpoint supports reconnection replay via the `Last-Event-ID` header. Se
 
 | Group | Endpoints |
 |-------|-----------|
-| **Health** | `GET /health`, `GET /version`, `GET /version/check` |
-| **Auth** | `POST /auth/login`, `PUT /auth/password`, `PUT /auth/username`, `POST /auth/apikey`, `GET /auth/apikey` |
+| **Health** | `GET /health`, `GET /version` |
+| **Auth** | `GET /auth/status`, `POST /auth/login`, `PUT /auth/password`, `PUT /auth/username`, `POST /auth/apikey`, `GET /auth/apikey` |
+| **Libraries** | `GET /libraries`, `GET /libraries/:id`, `POST /libraries`, `PUT /libraries/:id`, `DELETE /libraries/:id` |
 | **Disk Groups** | `GET /disk-groups`, `PUT /disk-groups/:id` |
 | **Engine** | `POST /engine/run`, `GET /engine/history` |
 | **Integrations** | `GET /integrations`, `GET /integrations/:id`, `POST /integrations`, `PUT /integrations/:id`, `DELETE /integrations/:id`, `POST /integrations/test`, `POST /integrations/sync` |
-| **Rules** | `GET /custom-rules`, `POST /custom-rules`, `PUT /custom-rules/:id`, `DELETE /custom-rules/:id`, `PUT /custom-rules/reorder`, `GET /custom-rules/export`, `POST /custom-rules/import`, `GET /rule-fields`, `GET /rule-values` |
-| **Approval Queue** | `GET /approval-queue`, `POST /approval-queue/:id/approve`, `POST /approval-queue/:id/reject`, `POST /approval-queue/:id/unsnooze` |
+| **Rules** | `GET /custom-rules`, `POST /custom-rules`, `PUT /custom-rules/:id`, `DELETE /custom-rules/:id`, `PUT /custom-rules/reorder`, `GET /custom-rules/:id/impact`, `GET /custom-rules/:id/context`, `GET /rule-fields`, `GET /rule-values` |
+| **Factor Weights** | `GET /scoring-factor-weights`, `PUT /scoring-factor-weights` |
+| **Approval Queue** | `GET /approval-queue`, `POST /approval-queue/:id/approve`, `POST /approval-queue/:id/reject`, `POST /approval-queue/:id/unsnooze`, `DELETE /approval-queue/:id`, `POST /approval-queue/clear` |
+| **Deletion Queue** | `GET /deletion-queue`, `DELETE /deletion-queue`, `POST /deletion-queue/snooze`, `POST /deletion-queue/clear`, `GET /deletion-queue/grace-period`, `POST /delete` |
 | **Audit Log** | `GET /audit-log`, `GET /audit-log/recent`, `GET /audit-log/grouped` |
 | **Activity** | `GET /activity/recent` |
 | **SSE** | `GET /events` |
 | **Preferences** | `GET /preferences`, `PUT /preferences` |
 | **Preview** | `GET /preview` |
-| **Metrics** | `GET /metrics/worker`, `GET /worker/stats`, `GET /metrics/history` |
+| **Metrics** | `GET /metrics/history`, `GET /worker/stats` |
 | **Dashboard** | `GET /dashboard-stats`, `GET /lifetime-stats` |
-| **Notifications** | `GET /notifications/channels`, `POST /notifications/channels`, `PUT /notifications/channels/:id`, `DELETE /notifications/channels/:id`, `POST /notifications/channels/:id/test`, `GET /notifications`, `GET /notifications/unread-count`, `PUT /notifications/:id/read`, `PUT /notifications/read-all`, `DELETE /notifications` |
+| **Notifications** | `GET /notifications/channels`, `POST /notifications/channels`, `PUT /notifications/channels/:id`, `DELETE /notifications/channels/:id`, `POST /notifications/channels/:id/test` |
+| **Analytics** | `GET /analytics/dead-content`, `GET /analytics/stale-content`, `GET /analytics/forecast` |
+| **Migration** | `GET /migration/status`, `POST /migration/execute`, `POST /migration/dismiss` |
+| **Settings Backup** | `GET /settings/export`, `POST /settings/import`, `POST /settings/import/preview`, `POST /settings/import/commit` |
+| **Version Check** | `GET /version/check`, `POST /version/check` |
 | **Data** | `DELETE /data/reset` |
 
 ## Further Reading

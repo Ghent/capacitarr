@@ -66,7 +66,7 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 Note the `id` in the response — you need it for the next steps.
 
-### Step 5: Test the connection
+### Step 6: Test the connection
 
 ```bash
 curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
@@ -81,7 +81,7 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 A successful response confirms Capacitarr can reach your Sonarr instance. If it fails, verify the URL and API key.
 
-### Step 6: Trigger the first engine run
+### Step 7: Trigger the first engine run
 
 ```bash
 curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
@@ -124,40 +124,51 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
 - **thresholdPct (90):** Engine activates when disk usage exceeds 90%
 - **targetPct (80):** Engine removes media until usage drops to 80%
 
-### Step 3: Configure scoring weights
+### Step 3: Configure scoring factor weights
 
 Adjust how media is ranked for deletion. Higher weights give that factor more influence on the final score:
 
 ```bash
 curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/scoring-factor-weights" \
+  -d '{
+    "watch_history": 10,
+    "file_size": 6,
+    "rating": 5,
+    "time_in_library": 4
+  }' | jq
+```
+
+### Step 4: Set execution mode
+
+Configure the engine execution mode and other preferences. Start with `dry-run` so nothing is deleted while you tune the configuration:
+
+```bash
+curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
   "$CAPACITARR_URL/preferences" \
   -d '{
-    "watchHistoryWeight": 10,
-    "fileSizeWeight": 6,
-    "ratingWeight": 5,
     "executionMode": "dry-run",
     "tiebreakerMethod": "size_desc"
   }' | jq
 ```
 
-Start with `executionMode: "dry-run"` so nothing is deleted while you tune the configuration.
-
-### Step 4: Add custom rules
+### Step 5: Add custom rules
 
 Protect media that should never be deleted:
 
 ```bash
-# Protect anything with "Star Wars" in the title
+# Protect anything with "Firefly" in the title
 curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
   "$CAPACITARR_URL/custom-rules" \
   -d '{
     "field": "title",
     "operator": "contains",
-    "value": "Star Wars",
+    "value": "Firefly",
     "effect": "always_keep",
-    "integrationId": null
+    "integrationId": 1
   }' | jq
 ```
 
@@ -168,7 +179,7 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
   "$CAPACITARR_URL/rule-fields" | jq
 ```
 
-### Step 5: Preview the results
+### Step 6: Preview the results
 
 ```bash
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
@@ -237,7 +248,25 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 Activity events capture all operational events (engine runs, config changes, logins) and are retained for 7 days.
 
-### Step 6: Export metrics history
+### Step 6: Review analytics
+
+Check for dead content (never watched) and stale content (not watched recently):
+
+```bash
+# Dead content — items never watched after 90+ days in library
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/dead-content" | jq
+
+# Stale content — items not watched in 180+ days
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/stale-content" | jq
+
+# Capacity forecast — when will disk space run out?
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/forecast" | jq
+```
+
+### Step 7: Export metrics history
 
 Pull historical disk usage data for analysis or external dashboards:
 
@@ -340,13 +369,13 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ### Step 4: Re-enable when ready
 
-Once you have reviewed and adjusted your configuration, switch back to live mode:
+Once you have reviewed and adjusted your configuration, switch back to auto mode:
 
 ```bash
 curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
   "$CAPACITARR_URL/preferences" \
-  -d '{"executionMode":"live"}' | jq
+  -d '{"executionMode":"auto"}' | jq
 ```
 
 ---
@@ -392,6 +421,15 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ```
 
 The item returns to `pending` status in the queue.
+
+### Step 5: Clear the queue
+
+Remove all items from the approval queue:
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/approval-queue/clear" | jq
+```
 
 ---
 

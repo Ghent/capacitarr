@@ -94,12 +94,27 @@ The 2.0.0 release includes the following breaking changes from the pre-release (
 | `POST /api/v1/audit/:id/reject` | `POST /api/v1/approval-queue/:id/reject` | Reject (snooze) a queued item |
 | `POST /api/v1/audit/:id/unsnooze` | `POST /api/v1/approval-queue/:id/unsnooze` | Requeue a snoozed item |
 | *(none)* | `GET /api/v1/approval-queue` | List queued items |
+| *(none)* | `DELETE /api/v1/approval-queue/:id` | Remove a specific queued item |
+| *(none)* | `POST /api/v1/approval-queue/clear` | Clear all queued items |
 | *(none)* | `GET /api/v1/events` | SSE real-time event stream |
+
+### New v2 Endpoint Groups
+
+| Group | Endpoints | Description |
+|---|---|---|
+| **Libraries** | `GET`, `POST`, `PUT`, `DELETE /api/v1/libraries` | Per-library threshold management |
+| **Analytics** | `GET /api/v1/analytics/dead-content`, `stale-content`, `forecast` | Watch intelligence and capacity forecast |
+| **Factor Weights** | `GET`, `PUT /api/v1/scoring-factor-weights` | Pluggable scoring factor weight registry |
+| **Migration** | `GET /api/v1/migration/status`, `POST /execute`, `/dismiss` | v1→v2 database migration |
+| **Deletion Queue** | `GET`, `DELETE /api/v1/deletion-queue`, `POST /snooze`, `/clear`, `GET /grace-period` | Deletion queue management |
+| **Settings Backup** | `GET /api/v1/settings/export`, `POST /import`, `/import/preview`, `/import/commit` | Settings export/import with section-level granularity |
 
 ### Response Schema Changes
 
 - `AuditLog` → `AuditLogEntry`: removed `snoozedUntil` field, `action` restricted to `deleted`/`dry_run`/`dry_delete`
 - New `ApprovalQueueItem` type with `status` field (`pending`/`approved`/`rejected`) instead of overloaded `action`
+- `PreferenceSet`: scoring weight fields (`watchHistoryWeight`, `fileSizeWeight`, etc.) moved to separate `ScoringFactorWeight` table and `/scoring-factor-weights` endpoint
+- `IntegrationConfig`: new `libraryId` and `collectionDeletion` fields; `overseerr` type renamed to `seerr`
 - Activity events are now streamed via SSE in addition to the REST endpoint
 
 ### Architecture

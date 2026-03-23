@@ -63,7 +63,7 @@ curl -s -X POST "$CAPACITARR_URL/auth/login" \
 
 The response also sets a `jwt` cookie for browser-based clients.
 
-> **Rate limit:** 5 attempts per 15 minutes per IP.
+> **Rate limit:** 10 attempts per 15 minutes per IP.
 
 ### Change password
 
@@ -128,11 +128,11 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 [
   {
     "id": 1,
-    "name": "media",
+    "mountPath": "/mnt/media",
     "totalBytes": 2000000000000,
     "usedBytes": 1800000000000,
-    "thresholdPct": 90,
-    "targetPct": 80
+    "thresholdPct": 85,
+    "targetPct": 75
   }
 ]
 ```
@@ -146,6 +146,72 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
   "$CAPACITARR_URL/disk-groups/1" \
   -d '{"thresholdPct":90,"targetPct":80}' | jq
+```
+
+---
+
+## Libraries
+
+### List all libraries
+
+```bash
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/libraries" | jq
+```
+
+```json
+[
+  {
+    "id": 1,
+    "name": "TV Shows",
+    "diskGroupId": 1,
+    "thresholdPct": 90,
+    "targetPct": 80,
+    "createdAt": "2026-03-06T12:00:00Z",
+    "updatedAt": "2026-03-06T12:00:00Z"
+  }
+]
+```
+
+### Get a library
+
+```bash
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/libraries/1" | jq
+```
+
+### Create a library
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/libraries" \
+  -d '{
+    "name": "Movies",
+    "diskGroupId": 1,
+    "thresholdPct": 85,
+    "targetPct": 75
+  }' | jq
+```
+
+### Update a library
+
+```bash
+curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/libraries/1" \
+  -d '{
+    "name": "Movies (updated)",
+    "thresholdPct": 90,
+    "targetPct": 80
+  }' | jq
+```
+
+### Delete a library
+
+```bash
+curl -s -X DELETE -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/libraries/1" | jq
 ```
 
 ---
@@ -182,15 +248,6 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ```bash
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
   "$CAPACITARR_URL/worker/stats" | jq
-```
-
-This is an alias for `/metrics/worker`.
-
-### Get worker metrics
-
-```bash
-curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/metrics/worker" | jq
 ```
 
 ---
@@ -293,6 +350,8 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "url": "http://sonarr:8989",
     "apiKey": "abc123...",
     "enabled": true,
+    "libraryId": 1,
+    "collectionDeletion": false,
     "lastSync": "2026-03-06T12:00:00Z"
   }
 ]
@@ -309,7 +368,8 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "name": "Sonarr Main",
     "url": "http://sonarr:8989",
     "apiKey": "your-sonarr-api-key",
-    "enabled": true
+    "enabled": true,
+    "libraryId": 1
   }' | jq
 ```
 
@@ -331,7 +391,8 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "name": "Sonarr Main (updated)",
     "url": "http://sonarr:8989",
     "apiKey": "your-sonarr-api-key",
-    "enabled": true
+    "enabled": true,
+    "libraryId": 1
   }' | jq
 ```
 
@@ -407,9 +468,11 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "id": 1,
     "field": "title",
     "operator": "contains",
-    "value": "Star Wars",
+    "value": "Firefly",
     "effect": "always_keep",
-    "integrationId": null
+    "integrationId": 1,
+    "enabled": true,
+    "sortOrder": 0
   }
 ]
 ```
@@ -423,9 +486,9 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -d '{
     "field": "title",
     "operator": "contains",
-    "value": "Star Wars",
+    "value": "Firefly",
     "effect": "always_keep",
-    "integrationId": null
+    "integrationId": 1
   }' | jq
 ```
 
@@ -440,7 +503,7 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "operator": "contains",
     "value": "Firefly",
     "effect": "always_keep",
-    "integrationId": null
+    "integrationId": 1
   }' | jq
 ```
 
@@ -459,6 +522,72 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
 curl -s -X DELETE -H "X-Api-Key: $CAPACITARR_API_KEY" \
   "$CAPACITARR_URL/custom-rules/1" | jq
 ```
+
+### Get rule impact analysis
+
+```bash
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/custom-rules/1/impact" | jq
+```
+
+### Get rule context
+
+```bash
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/custom-rules/1/context" | jq
+```
+
+---
+
+## Factor Weights
+
+### List scoring factor weights
+
+Returns all scoring factors with current weights and metadata.
+
+```bash
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/scoring-factor-weights" | jq
+```
+
+```json
+[
+  {
+    "key": "watch_history",
+    "name": "Watch History",
+    "description": "Number of times the media has been watched",
+    "weight": 10,
+    "defaultWeight": 10
+  },
+  {
+    "key": "file_size",
+    "name": "File Size",
+    "description": "Total size of media files",
+    "weight": 6,
+    "defaultWeight": 6
+  }
+]
+```
+
+### Update scoring factor weights
+
+Pass a map of factor keys to weight values (0–10 scale).
+
+```bash
+curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/scoring-factor-weights" \
+  -d '{
+    "watch_history": 10,
+    "file_size": 6,
+    "rating": 5,
+    "time_in_library": 4
+  }' | jq
+```
+
+---
+
+## Settings Backup
 
 ### Export settings
 
@@ -508,6 +637,40 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 > **Note:** Sensitive credentials (API keys, webhook URLs) are stripped from exports. After importing integrations or notification channels, re-enter credentials manually.
 
+### Preview import
+
+Preview what an import would change before applying.
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/settings/import/preview" \
+  -d "{
+    \"envelope\": $(cat capacitarr-settings.json),
+    \"sections\": {
+      \"preferences\": true,
+      \"rules\": true
+    }
+  }" | jq
+```
+
+### Commit import
+
+Apply a previously previewed import.
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/settings/import/commit" \
+  -d "{
+    \"envelope\": $(cat capacitarr-settings.json),
+    \"sections\": {
+      \"preferences\": true,
+      \"rules\": true
+    }
+  }" | jq
+```
+
 ---
 
 ## Preview
@@ -524,7 +687,7 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ```json
 [
   {
-    "title": "Example Show S01",
+    "title": "Firefly S01",
     "sizeBytes": 42949672960,
     "score": 87.5,
     "factors": {
@@ -554,15 +717,19 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ```json
 {
-  "watchHistoryWeight": 10,
-  "lastWatchedWeight": 8,
-  "fileSizeWeight": 6,
-  "ratingWeight": 5,
-  "timeInLibraryWeight": 4,
-  "seriesStatusWeight": 3,
+  "id": 1,
+  "logLevel": "info",
+  "auditLogRetentionDays": 30,
+  "pollIntervalSeconds": 300,
   "executionMode": "dry-run",
   "tiebreakerMethod": "size_desc",
-  "deletionsEnabled": true
+  "deletionsEnabled": true,
+  "snoozeDurationHours": 24,
+  "checkForUpdates": true,
+  "deletionQueueDelaySeconds": 30,
+  "deadContentMinDays": 90,
+  "staleContentDays": 180,
+  "updatedAt": "2026-03-06T12:00:00Z"
 }
 ```
 
@@ -573,17 +740,21 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
   "$CAPACITARR_URL/preferences" \
   -d '{
-    "watchHistoryWeight": 10,
-    "lastWatchedWeight": 8,
-    "fileSizeWeight": 6,
-    "ratingWeight": 5,
-    "timeInLibraryWeight": 4,
-    "seriesStatusWeight": 3,
+    "logLevel": "info",
+    "auditLogRetentionDays": 30,
+    "pollIntervalSeconds": 300,
     "executionMode": "dry-run",
     "tiebreakerMethod": "size_desc",
-    "deletionsEnabled": true
+    "deletionsEnabled": true,
+    "snoozeDurationHours": 24,
+    "checkForUpdates": true,
+    "deletionQueueDelaySeconds": 30,
+    "deadContentMinDays": 90,
+    "staleContentDays": 180
   }' | jq
 ```
+
+> **Note:** Scoring factor weights are managed separately via the `/scoring-factor-weights` endpoint.
 
 ---
 
@@ -600,14 +771,15 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 [
   {
     "id": 1,
-    "mediaName": "Example Show S01",
+    "mediaName": "Firefly S01",
     "mediaType": "season",
-    "reason": "Score: 0.85",
     "scoreDetails": "[{\"factor\":\"watchHistory\",\"rawScore\":1.0,\"weight\":10}]",
     "sizeBytes": 42949672960,
+    "score": 87.5,
     "integrationId": 1,
     "externalId": "12345",
     "status": "pending",
+    "trigger": "engine",
     "createdAt": "2026-03-06T12:00:00Z",
     "updatedAt": "2026-03-06T12:00:00Z"
   }
@@ -643,6 +815,95 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
   "$CAPACITARR_URL/approval-queue/1/unsnooze" | jq
 ```
 
+### Remove an item from the queue
+
+```bash
+curl -s -X DELETE -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/approval-queue/1" | jq
+```
+
+### Clear all approval queue items
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/approval-queue/clear" | jq
+```
+
+---
+
+## Deletion Queue
+
+### List deletion queue items
+
+```bash
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/deletion-queue" | jq
+```
+
+### Cancel a deletion
+
+Remove a specific item from the deletion queue by name. The item is snoozed in the approval queue.
+
+```bash
+curl -s -X DELETE -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/deletion-queue" \
+  -d '{"mediaName":"Firefly S01","mediaType":"season"}' | jq
+```
+
+### Snooze a deletion queue item
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/deletion-queue/snooze" \
+  -d '{"mediaName":"Firefly S01","mediaType":"season"}' | jq
+```
+
+### Clear the deletion queue
+
+Cancel all pending deletions.
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/deletion-queue/clear" | jq
+```
+
+### Get grace period state
+
+```bash
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/deletion-queue/grace-period" | jq
+```
+
+```json
+{
+  "active": true,
+  "remainingSeconds": 15,
+  "queueSize": 3
+}
+```
+
+### Manually queue items for deletion
+
+Queue one or more media items for deletion, bypassing the normal engine evaluation.
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/delete" \
+  -d '[{
+    "mediaName": "Serenity",
+    "mediaType": "movie",
+    "integrationId": 1,
+    "externalId": "42",
+    "sizeBytes": 5069636198,
+    "posterUrl": "",
+    "score": 85.0,
+    "scoreDetails": "[]"
+  }]' | jq
+```
+
 ---
 
 ## Audit Log
@@ -661,11 +922,12 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
   "data": [
     {
       "id": 42,
-      "mediaName": "Example Show S01",
+      "mediaName": "Firefly S01",
       "mediaType": "season",
-      "reason": "Score: 0.85",
       "action": "deleted",
       "sizeBytes": 42949672960,
+      "score": 87.5,
+      "trigger": "engine",
       "integrationId": 1,
       "createdAt": "2026-03-06T12:00:00Z"
     }
@@ -743,7 +1005,7 @@ data: {"message":"Engine run completed: evaluated 97, flagged 12","evaluated":97
 
 id: 1741199826-003
 event: deletion_success
-data: {"message":"Deleted: Beacon 23 (4.72 GB freed)","title":"Beacon 23","sizeBytes":5069636198}
+data: {"message":"Deleted: Serenity (4.72 GB freed)","title":"Serenity","sizeBytes":5069636198}
 ```
 
 To resume from a specific event after disconnection, pass the `Last-Event-ID` header:
@@ -780,7 +1042,12 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "enabled": true,
     "onThresholdBreach": true,
     "onCycleDigest": true,
-    "onError": true
+    "onError": true,
+    "onModeChanged": true,
+    "onServerStarted": true,
+    "onUpdateAvailable": true,
+    "onApprovalActivity": true,
+    "onIntegrationStatus": true
   }' | jq
 ```
 
@@ -811,7 +1078,7 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -d '{
     "name": "My Discord (updated)",
     "enabled": true,
-    "onEngineComplete": true
+    "onCycleDigest": false
   }' | jq
 ```
 
@@ -829,39 +1096,81 @@ curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
   "$CAPACITARR_URL/notifications/channels/1/test" | jq
 ```
 
-### List in-app notifications
+---
+
+## Analytics
+
+### Get dead content
+
+Returns media items that have never been watched since being added to the library.
 
 ```bash
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/notifications" | jq
+  "$CAPACITARR_URL/analytics/dead-content" | jq
+
+# With custom minimum days in library
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/dead-content?minDays=60" | jq
+
+# Filter by disk group
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/dead-content?disk_group_id=1" | jq
 ```
 
-### Get unread notification count
+### Get stale content
+
+Returns media items that haven't been watched in a long time.
 
 ```bash
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/notifications/unread-count" | jq
+  "$CAPACITARR_URL/analytics/stale-content" | jq
+
+# With custom stale threshold
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/stale-content?staleDays=120" | jq
 ```
 
-### Mark a notification as read
+### Get capacity forecast
+
+Returns a capacity forecast based on linear regression of recent usage history.
 
 ```bash
-curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/notifications/1/read" | jq
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/forecast" | jq
+
+# For a specific disk group
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/analytics/forecast?disk_group_id=1" | jq
 ```
 
-### Mark all notifications as read
+---
+
+## Migration
+
+### Check migration status
+
+Check whether a v1 database migration is available. This endpoint is public (no auth required).
 
 ```bash
-curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/notifications/read-all" | jq
+curl -s "$CAPACITARR_URL/migration/status" | jq
 ```
 
-### Clear all notifications
+### Execute migration
+
+Perform the v1-to-v2 database migration.
 
 ```bash
-curl -s -X DELETE -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/notifications" | jq
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/migration/execute" | jq
+```
+
+### Dismiss migration
+
+Dismiss the migration prompt without executing.
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/migration/dismiss" | jq
 ```
 
 ---
@@ -889,3 +1198,10 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 ```
 
 Results are cached for 6 hours.
+
+### Force a fresh update check
+
+```bash
+curl -s -X POST -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/version/check" | jq
+```

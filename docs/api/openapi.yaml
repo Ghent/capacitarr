@@ -1,11 +1,11 @@
 openapi: 3.1.0
 info:
   title: Capacitarr API
-  version: 1.0.0
+  version: 2.0.0
   description: |
     Capacitarr is a capacity management tool for media servers. It monitors disk
     usage across Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli,
-    and Overseerr integrations, scores media items for potential cleanup based on
+    and Seerr integrations, scores media items for potential cleanup based on
     configurable weights and rules, and can automatically (or via approval) free
     disk space when thresholds are breached.
 
@@ -48,11 +48,33 @@ tags:
   - name: Rules
     description: Protection/targeting rules and rule field metadata
   - name: Preferences
-    description: Global preference management (weights, execution mode, etc.)
+    description: Global preference management (execution mode, tiebreaker, etc.)
+  - name: Factor Weights
+    description: Scoring factor weight registry (read + update)
   - name: Preview
     description: Score preview with evaluated items and disk context
   - name: Audit
     description: Audit log listing, activity summary, and grouped view
+  - name: Approval Queue
+    description: Approval queue management (approve, reject, snooze, clear)
+  - name: Deletion Queue
+    description: Deletion queue management (list, cancel, snooze, clear, grace period)
+  - name: Libraries
+    description: Library entity CRUD with per-library threshold management
+  - name: Analytics
+    description: Watch intelligence — dead content, stale content, capacity forecast
+  - name: Migration
+    description: V1-to-v2 database migration status, execute, and dismiss
+  - name: Activity
+    description: Recent activity event feed
+  - name: Notifications
+    description: Notification channel CRUD and testing
+  - name: Events
+    description: Server-Sent Events (SSE) real-time stream
+  - name: Settings Backup
+    description: Settings export/import with section-level granularity
+  - name: Version Check
+    description: Update check with cache
   - name: Data
     description: Data reset / clear operations
 
@@ -514,7 +536,7 @@ paths:
         Creates a new integration configuration. The `type`, `name`, `url`, and
         `apiKey` fields are required. The URL must use HTTP or HTTPS scheme.
         Valid types: `plex`, `sonarr`, `radarr`, `lidarr`, `readarr`, `tautulli`,
-        `overseerr`, `jellyfin`, `emby`.
+        `seerr`, `jellyfin`, `emby`.
       requestBody:
         required: true
         content:
@@ -1408,16 +1430,16 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /force-delete:
+  /delete:
     post:
-      operationId: forceDelete
-      tags: [Approval Queue]
-      summary: Force-delete media items regardless of threshold
+      operationId: manualDelete
+      tags: [Deletion Queue]
+      summary: Manually queue media items for deletion
       description: |
-        Queues one or more media items for immediate deletion, bypassing the
-        normal disk threshold check. Items are processed during the next engine
-        cycle. Requires deletions to be enabled and execution mode to not be
-        dry-run.
+        Queues one or more media items for deletion, bypassing the normal engine
+        evaluation. In auto/dry-run mode, items are queued to the deletion
+        service immediately. In approval mode, items are upserted as pending
+        approval queue entries.
       requestBody:
         required: true
         content:
@@ -1460,7 +1482,7 @@ paths:
                     description: URL to the item's poster image
       responses:
         "200":
-          description: Items queued for force-delete
+          description: Items queued for deletion
           content:
             application/json:
               schema:
@@ -1760,6 +1782,460 @@ paths:
                 $ref: "#/components/schemas/StatusResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
+         "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ===========================================================================
+  # Custom Rules — Impact & Context
+  # ===========================================================================
+  /custom-rules/{id}/impact:
+    get:
+      operationId: getRuleImpact
+      tags: [Rules]
+      summary: Get rule impact analysis
+      description: Returns the impact analysis for a specific custom rule.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rule impact data
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /custom-rules/{id}/context:
+    get:
+      operationId: getRuleContext
+      tags: [Rules]
+      summary: Get rule context
+      description: Returns contextual information for a specific custom rule.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Rule context data
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Approval Queue — Delete & Clear
+  # ===========================================================================
+  /approval-queue/{id}:
+    delete:
+      operationId: deleteApprovalQueueItem
+      tags: [Approval Queue]
+      summary: Remove an item from the approval queue
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Item removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /approval-queue/clear:
+    post:
+      operationId: clearApprovalQueue
+      tags: [Approval Queue]
+      summary: Clear all approval queue items
+      responses:
+        "200":
+          description: Queue cleared
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ===========================================================================
+  # Deletion Queue
+  # ===========================================================================
+  /deletion-queue:
+    get:
+      operationId: listDeletionQueue
+      tags: [Deletion Queue]
+      summary: List items in the deletion queue
+      responses:
+        "200":
+          description: List of items pending deletion
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: cancelDeletion
+      tags: [Deletion Queue]
+      summary: Cancel a pending deletion
+      description: Remove a specific item from the deletion queue and snooze it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mediaName, mediaType]
+              properties:
+                mediaName:
+                  type: string
+                mediaType:
+                  type: string
+      responses:
+        "200":
+          description: Deletion cancelled and item snoozed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /deletion-queue/snooze:
+    post:
+      operationId: snoozeDeletion
+      tags: [Deletion Queue]
+      summary: Snooze a deletion queue item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mediaName, mediaType]
+              properties:
+                mediaName:
+                  type: string
+                mediaType:
+                  type: string
+      responses:
+        "200":
+          description: Item snoozed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /deletion-queue/clear:
+    post:
+      operationId: clearDeletionQueue
+      tags: [Deletion Queue]
+      summary: Clear all pending deletions
+      responses:
+        "200":
+          description: Queue cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /deletion-queue/grace-period:
+    get:
+      operationId: getGracePeriodState
+      tags: [Deletion Queue]
+      summary: Get deletion grace period state
+      responses:
+        "200":
+          description: Grace period state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active:
+                    type: boolean
+                  remainingSeconds:
+                    type: number
+                  queueSize:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ===========================================================================
+  # Libraries
+  # ===========================================================================
+  /libraries:
+    get:
+      operationId: listLibraries
+      tags: [Libraries]
+      summary: List all libraries
+      responses:
+        "200":
+          description: List of libraries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Library"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createLibrary
+      tags: [Libraries]
+      summary: Create a new library
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryCreate"
+      responses:
+        "201":
+          description: Library created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Library"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /libraries/{id}:
+    get:
+      operationId: getLibrary
+      tags: [Libraries]
+      summary: Get a library by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Library details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Library"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: updateLibrary
+      tags: [Libraries]
+      summary: Update a library
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LibraryCreate"
+      responses:
+        "200":
+          description: Library updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Library"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteLibrary
+      tags: [Libraries]
+      summary: Delete a library
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Library deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ===========================================================================
+  # Analytics
+  # ===========================================================================
+  /analytics/dead-content:
+    get:
+      operationId: getDeadContent
+      tags: [Analytics]
+      summary: Get dead content (never watched)
+      description: Returns media items that have never been watched since being added to the library.
+      parameters:
+        - name: minDays
+          in: query
+          schema:
+            type: integer
+            default: 90
+          description: Minimum days in library
+        - name: disk_group_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by disk group
+      responses:
+        "200":
+          description: List of dead content items
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /analytics/stale-content:
+    get:
+      operationId: getStaleContent
+      tags: [Analytics]
+      summary: Get stale content (not watched recently)
+      description: Returns media items that haven't been watched in a long time.
+      parameters:
+        - name: staleDays
+          in: query
+          schema:
+            type: integer
+            default: 180
+          description: Days since last watch
+        - name: disk_group_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by disk group
+      responses:
+        "200":
+          description: List of stale content items
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /analytics/forecast:
+    get:
+      operationId: getCapacityForecast
+      tags: [Analytics]
+      summary: Get capacity forecast
+      description: Returns capacity forecast based on linear regression of recent usage history.
+      parameters:
+        - name: disk_group_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by disk group (defaults to most degraded)
+      responses:
+        "200":
+          description: Capacity forecast data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  daysUntilThreshold:
+                    type: integer
+                    description: Estimated days until threshold breach (-1 if no data)
+                  daysUntilFull:
+                    type: integer
+                    description: Estimated days until disk is full (-1 if no data)
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ===========================================================================
+  # Scoring Factor Weights
+  # ===========================================================================
+  /scoring-factor-weights:
+    get:
+      operationId: listFactorWeights
+      tags: [Factor Weights]
+      summary: List all scoring factor weights
+      description: Returns all scoring factors with current weights and metadata from the engine's factor registry.
+      responses:
+        "200":
+          description: List of factor weights
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScoringFactorWeight"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateFactorWeights
+      tags: [Factor Weights]
+      summary: Update scoring factor weights
+      description: Pass a map of factor keys to weight values (0–10 scale).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                type: integer
+                minimum: 0
+                maximum: 10
+              example:
+                watch_history: 10
+                file_size: 6
+                rating: 5
+      responses:
+        "200":
+          description: Weights updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScoringFactorWeight"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ===========================================================================
+  # Migration
+  # ===========================================================================
+  /migration/status:
+    get:
+      operationId: getMigrationStatus
+      tags: [Migration]
+      summary: Check migration status (public)
+      description: Check whether a v1 database migration is available. This endpoint is public (no auth required).
+      security: []
+      responses:
+        "200":
+          description: Migration status
+
+  /migration/execute:
+    post:
+      operationId: executeMigration
+      tags: [Migration]
+      summary: Execute v1-to-v2 migration
+      responses:
+        "200":
+          description: Migration completed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /migration/dismiss:
+    post:
+      operationId: dismissMigration
+      tags: [Migration]
+      summary: Dismiss migration prompt
+      responses:
+        "200":
+          description: Migration dismissed
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -1984,6 +2460,84 @@ components:
           example: 75.0
       required: [thresholdPct, targetPct]
 
+    # ---- Library ----
+    Library:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "TV Shows"
+        diskGroupId:
+          type: ["integer", "null"]
+          description: FK to DiskGroup (ON DELETE SET NULL)
+          example: 1
+        thresholdPct:
+          type: ["number", "null"]
+          format: double
+          description: Override disk group threshold; null = inherit
+          example: 90.0
+        targetPct:
+          type: ["number", "null"]
+          format: double
+          description: Override disk group target; null = inherit
+          example: 80.0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, name]
+
+    LibraryCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Movies"
+        diskGroupId:
+          type: ["integer", "null"]
+        thresholdPct:
+          type: ["number", "null"]
+          format: double
+        targetPct:
+          type: ["number", "null"]
+          format: double
+      required: [name]
+
+    # ---- Scoring Factor Weight ----
+    ScoringFactorWeight:
+      type: object
+      properties:
+        key:
+          type: string
+          description: Unique factor key from the engine's factor registry
+          example: "watch_history"
+        name:
+          type: string
+          description: Human-readable factor name
+          example: "Watch History"
+        description:
+          type: string
+          description: Factor description
+          example: "Number of times the media has been watched"
+        weight:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Current weight (0–10 scale)
+          example: 10
+        defaultWeight:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: Default weight from the engine
+          example: 10
+      required: [key, name, weight, defaultWeight]
+
     # ---- Integration ----
     IntegrationConfig:
       type: object
@@ -1993,7 +2547,7 @@ components:
           example: 1
         type:
           type: string
-          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, overseerr, jellyfin, emby]
+          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby]
           example: sonarr
         name:
           type: string
@@ -2009,6 +2563,15 @@ components:
         enabled:
           type: boolean
           example: true
+        libraryId:
+          type: ["integer", "null"]
+          description: FK to Library (ON DELETE SET NULL)
+          example: 1
+        collectionDeletion:
+          type: boolean
+          description: When enabled, deleting one collection member deletes all
+          default: false
+          example: false
         mediaSizeBytes:
           type: integer
           format: int64
@@ -2035,7 +2598,7 @@ components:
       properties:
         type:
           type: string
-          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, overseerr, jellyfin, emby]
+          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby]
         name:
           type: string
         url:
@@ -2066,7 +2629,7 @@ components:
       properties:
         type:
           type: string
-          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, overseerr, jellyfin, emby]
+          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby]
         url:
           type: string
           format: uri
@@ -2152,40 +2715,10 @@ components:
           example: 30
         pollIntervalSeconds:
           type: integer
-          description: Polling interval in seconds (minimum 30, default 300)
-          minimum: 30
+          description: Polling interval in seconds (minimum 60, default 300)
+          minimum: 60
           default: 300
           example: 300
-        watchHistoryWeight:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 10
-        lastWatchedWeight:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 8
-        fileSizeWeight:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 6
-        ratingWeight:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 5
-        timeInLibraryWeight:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 4
-        seriesStatusWeight:
-          type: integer
-          minimum: 0
-          maximum: 10
-          default: 3
         executionMode:
           type: string
           enum: [dry-run, approval, auto]
@@ -2198,6 +2731,32 @@ components:
           type: boolean
           description: Whether actual deletion execution is enabled
           example: false
+        snoozeDurationHours:
+          type: integer
+          description: Hours to snooze rejected items before re-evaluation
+          default: 24
+          example: 24
+        checkForUpdates:
+          type: boolean
+          description: Enable outbound update checks
+          default: true
+        deletionQueueDelaySeconds:
+          type: integer
+          description: Grace period before processing queued deletions (10-300)
+          minimum: 10
+          maximum: 300
+          default: 30
+          example: 30
+        deadContentMinDays:
+          type: integer
+          description: Minimum days in library for dead content report
+          default: 90
+          example: 90
+        staleContentDays:
+          type: integer
+          description: Days since last watch for stale content report
+          default: 180
+          example: 180
         updatedAt:
           type: string
           format: date-time
@@ -2215,7 +2774,7 @@ components:
           example: 1
         integrationId:
           type: ["integer", "null"]
-          description: FK to IntegrationConfig; null for legacy global rules
+          description: FK to IntegrationConfig; required — every rule belongs to an integration
         field:
           type: string
           description: "The field to match (e.g., quality, tag, rating, genre)"
@@ -2344,7 +2903,7 @@ components:
           default: true
         integrationName:
           type: ["string", "null"]
-          description: Human-readable integration name, null for global rules
+          description: Human-readable integration name
           example: Main
         integrationType:
           type: ["string", "null"]
@@ -2552,13 +3111,13 @@ components:
           example: ["anime", "4k"]
         isRequested:
           type: boolean
-          description: Whether this item was user-requested (Overseerr)
+          description: Whether this item was user-requested (Seerr)
         requestedBy:
           type: string
-          description: Who requested the item (Overseerr)
+          description: Who requested the item (Seerr)
         requestCount:
           type: integer
-          description: Number of requests (Overseerr)
+          description: Number of requests (Seerr)
         tmdbId:
           type: integer
           description: TMDb ID for cross-referencing
