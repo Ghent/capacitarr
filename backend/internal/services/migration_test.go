@@ -56,6 +56,58 @@ func TestMigrationService_Execute_NoSource(t *testing.T) {
 	if result.Error == "" {
 		t.Error("expected non-empty error message")
 	}
+	if result.EngineRunTriggered {
+		t.Error("expected EngineRunTriggered=false on failed migration")
+	}
+}
+
+func TestMigrationService_SetEngineService(t *testing.T) {
+	dir := t.TempDir()
+	db := setupTestDB(t)
+	bus := events.NewEventBus()
+	defer bus.Close()
+
+	migSvc := NewMigrationService(db, bus, dir)
+	engineSvc := NewEngineService(db, bus)
+	migSvc.SetEngineService(engineSvc)
+
+	if migSvc.engineSvc != engineSvc {
+		t.Error("expected engineSvc to be wired after SetEngineService")
+	}
+}
+
+func TestMigrationService_Execute_TriggersEngineRun(t *testing.T) {
+	dir := t.TempDir()
+	db := setupTestDB(t)
+	bus := events.NewEventBus()
+	defer bus.Close()
+
+	// Subscribe to the event bus to verify no ManualRunTriggeredEvent fires
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	migSvc := NewMigrationService(db, bus, dir)
+	engineSvc := NewEngineService(db, bus)
+	migSvc.SetEngineService(engineSvc)
+
+	// Without a valid source, migration fails — engine should NOT be triggered
+	result := migSvc.Execute()
+	if result.Success {
+		t.Fatal("expected migration to fail with no source")
+	}
+	if result.EngineRunTriggered {
+		t.Error("expected EngineRunTriggered=false when migration fails")
+	}
+
+	// Verify no ManualRunTriggeredEvent was published
+	select {
+	case evt := <-ch:
+		if _, ok := evt.(events.ManualRunTriggeredEvent); ok {
+			t.Error("engine run should not be triggered on failed migration")
+		}
+	default:
+		// Good — no event
+	}
 }
 
 func TestMigrationService_Dismiss_NoBackup(t *testing.T) {

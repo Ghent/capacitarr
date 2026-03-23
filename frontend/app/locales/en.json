@@ -618,6 +618,8 @@
   "migration.resultRules": "Rules",
   "migration.resultPreferences": "Preferences",
   "migration.resultNotifications": "Notifications",
+  "migration.engineRunTitle": "Initial Data Sync in Progress",
+  "migration.engineRunNote": "An engine run has been triggered to populate your library data. Until this first run completes, the dashboard and library pages will appear empty. This typically takes a few minutes depending on the size of your library.",
   "migration.dryRunNote": "For safety, the execution mode has been set to Dry Run. Please verify your disk group thresholds and integration settings before switching to Approval or Auto mode.",
   "migration.continueToDashboard": "Continue to Dashboard",
   "migration.notAvailableTitle": "No Migration Available",

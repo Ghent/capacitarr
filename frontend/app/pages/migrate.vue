@@ -122,6 +122,14 @@
             </div>
           </div>
 
+          <UiAlert v-if="migrationResult?.engineRunTriggered" class="mt-3">
+            <component :is="AlertTriangleIcon" class="h-4 w-4" />
+            <UiAlertTitle>{{ $t('migration.engineRunTitle') }}</UiAlertTitle>
+            <UiAlertDescription class="text-xs">
+              {{ $t('migration.engineRunNote') }}
+            </UiAlertDescription>
+          </UiAlert>
+
           <UiAlert variant="default" class="mt-3">
             <component :is="InfoIcon" class="h-4 w-4" />
             <UiAlertDescription class="text-xs">
@@ -160,7 +168,13 @@
 </template>
 
 <script setup lang="ts">
-import { ArrowUpCircleIcon, InfoIcon, LoaderCircleIcon, CheckCircle2Icon } from 'lucide-vue-next';
+import {
+  ArrowUpCircleIcon,
+  InfoIcon,
+  LoaderCircleIcon,
+  CheckCircle2Icon,
+  AlertTriangleIcon,
+} from 'lucide-vue-next';
 import { ofetch } from 'ofetch';
 
 interface MigrationResultData {
@@ -170,6 +184,7 @@ interface MigrationResultData {
   rulesImported: number;
   preferencesImported: boolean;
   notificationsImported: number;
+  engineRunTriggered: boolean;
   error?: string;
 }
 

@@ -123,6 +123,10 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	// Wire DataService's preview dependency for cache clearing on data reset
 	reg.Data.SetPreviewService(previewSvc)
 
+	// Wire MigrationService's engine dependency so a successful 1.x → 2.0
+	// migration triggers an immediate engine run to populate the dashboard
+	reg.Migration.SetEngineService(engineSvc)
+
 	return reg
 }
 

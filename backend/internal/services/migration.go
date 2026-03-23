@@ -18,6 +18,15 @@ type MigrationService struct {
 	db        *gorm.DB
 	bus       *events.EventBus
 	configDir string
+	engineSvc *EngineService
+}
+
+// SetEngineService wires the cross-service dependency on EngineService.
+// Called after construction in NewRegistry to break the initialization cycle.
+// The engine is triggered after a successful migration so the dashboard
+// populates immediately instead of waiting for the next scheduled poll.
+func (s *MigrationService) SetEngineService(engine *EngineService) {
+	s.engineSvc = engine
 }
 
 // NewMigrationService creates a MigrationService.
@@ -53,6 +62,7 @@ type MigrationResult struct {
 	RulesImported         int    `json:"rulesImported"`
 	PreferencesImported   bool   `json:"preferencesImported"`
 	NotificationsImported int    `json:"notificationsImported"`
+	EngineRunTriggered    bool   `json:"engineRunTriggered"`
 	Error                 string `json:"error,omitempty"`
 }
 
@@ -92,6 +102,17 @@ func (s *MigrationService) Execute() MigrationResult {
 		})
 	}
 
+	// Trigger an engine run so the dashboard populates immediately with
+	// library data from the freshly imported integrations. Without this,
+	// the user would see an empty dashboard until the next scheduled poll.
+	engineTriggered := false
+	if s.engineSvc != nil {
+		status := s.engineSvc.TriggerRun()
+		engineTriggered = status == EngineStatusStarted
+		slog.Info("Triggered post-migration engine run",
+			"component", "migration", "status", status)
+	}
+
 	return MigrationResult{
 		Success:               true,
 		IntegrationsImported:  result.IntegrationsImported,
@@ -99,6 +120,7 @@ func (s *MigrationService) Execute() MigrationResult {
 		RulesImported:         result.RulesImported,
 		PreferencesImported:   result.PreferencesImported,
 		NotificationsImported: result.NotificationsImported,
+		EngineRunTriggered:    engineTriggered,
 	}
 }
 
