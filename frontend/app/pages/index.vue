@@ -1020,7 +1020,7 @@ const sparklineEChartsOption = computed(() => {
       type: 'line',
       smooth: true,
       symbol: 'none',
-      lineStyle: { color: ghostColor, width: 1, type: 'dashed', opacity: 0.15 },
+      lineStyle: { color: ghostColor, width: 1, type: 'dashed', opacity: 0.35 },
       areaStyle: undefined,
       emphasis: { disabled: true },
       silent: true,
