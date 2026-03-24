@@ -54,6 +54,8 @@ const NAV_META_SUB = {
   'api/workflows.md': { order: 3 },
   'api/versioning.md': { order: 4 },
   'security/zap-baseline-20260310.md': { order: 2 },
+  'security/zap-baseline-20260316.md': { order: 3 },
+  'security/zap-baseline-20260323.md': { order: 4 },
 }
 
 /** Navigation metadata for root-level project files synced to the site. */
