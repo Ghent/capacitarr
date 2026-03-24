@@ -350,7 +350,7 @@ func (s *MetricsService) GetWorkerMetrics() map[string]any {
 	}
 
 	// Add deletion worker state
-	stats["queueDepth"] = 0 // Queue depth is internal to DeletionService
+	stats["queueDepth"] = s.deletion.QueueLen()
 	stats["currentlyDeleting"] = s.deletion.CurrentlyDeleting()
 	stats["processed"] = s.deletion.Processed()
 	stats["failed"] = s.deletion.Failed()

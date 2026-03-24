@@ -92,13 +92,18 @@ func (s *EngineService) CreateRunStats(mode string) (*db.EngineRunStats, error) 
 }
 
 // UpdateRunStats updates a run stats entry with the final evaluation results
-// and sets completed_at to the current time.
-func (s *EngineService) UpdateRunStats(id uint, evaluated, candidates, queued int, durationMs int64) error {
+// and sets completed_at to the current time. The freedBytes parameter records
+// the total bytes that would be freed (dry-run/approval) or were queued for
+// deletion (auto). In auto mode, callers should pass 0 here because
+// IncrementDeletedStats() accumulates actual freed bytes per-item to avoid
+// double-counting.
+func (s *EngineService) UpdateRunStats(id uint, evaluated, candidates, queued int, freedBytes, durationMs int64) error {
 	now := time.Now().UTC()
 	result := s.db.Model(&db.EngineRunStats{}).Where("id = ?", id).Updates(map[string]any{
 		"evaluated":    evaluated,
 		"candidates":   candidates,
 		"queued":       queued,
+		"freed_bytes":  freedBytes,
 		"duration_ms":  durationMs,
 		"completed_at": now,
 	})

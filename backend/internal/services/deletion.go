@@ -325,11 +325,17 @@ func (s *DeletionService) worker() {
 	}
 }
 
-// queueLen returns the number of queued items.
+// queueLen returns the number of queued items (internal).
 func (s *DeletionService) queueLen() int {
 	s.queuedMu.Lock()
 	defer s.queuedMu.Unlock()
 	return len(s.queuedItems)
+}
+
+// QueueLen returns the number of items currently waiting in the deletion queue.
+// Exported for use by MetricsService to report accurate queue depth in the REST API.
+func (s *DeletionService) QueueLen() int {
+	return s.queueLen()
 }
 
 // drainAll processes all items currently in the queue. Items added during

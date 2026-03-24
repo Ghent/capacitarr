@@ -90,21 +90,26 @@ export function useEngineControl() {
         candidates?: number;
         durationMs?: number;
         executionMode?: string;
+        freedBytes?: number;
         completedAtEpoch?: number;
       };
       const wasRunning = prevIsRunning.value;
 
       if (workerStats.value) {
-        // Note: freedBytes is NOT in the SSE event because deletions happen
-        // asynchronously in the backend DeletionService worker. The REST
-        // endpoint (/worker/stats) reads the real value from the DB after
-        // deletions complete. We keep the current value and let the next
-        // auto-refresh or explicit fetchStats() pick up the updated figure.
+        // freedBytes is now included in the SSE event for dry-run and approval
+        // modes (persisted by UpdateRunStats). For auto mode, the backend
+        // accumulates actual freed bytes per-item via IncrementDeletedStats(),
+        // so the SSE value may be 0 — keep the existing value in that case.
+        const newFreedBytes =
+          event.freedBytes && event.freedBytes > 0
+            ? event.freedBytes
+            : workerStats.value.lastRunFreedBytes;
         workerStats.value = {
           ...workerStats.value,
           isRunning: false,
           lastRunEvaluated: event.evaluated ?? workerStats.value.lastRunEvaluated,
           lastRunCandidates: event.candidates ?? workerStats.value.lastRunCandidates,
+          lastRunFreedBytes: newFreedBytes,
           lastRunEpoch: event.completedAtEpoch || Math.floor(Date.now() / 1000),
           executionMode: event.executionMode || workerStats.value.executionMode,
         };

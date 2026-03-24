@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"capacitarr/internal/db"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
@@ -307,7 +308,16 @@ func (p *Poller) poll() {
 	protected := atomic.LoadInt64(&p.lastRunProtected)
 	freedBytes := atomic.LoadInt64(&p.lastRunFreedBytes)
 
-	if err := p.reg.Engine.UpdateRunStats(runStatsID, int(evaluated), int(candidates), totalDeletionsQueued, time.Since(pollStart).Milliseconds()); err != nil {
+	// In auto mode, IncrementDeletedStats() accumulates actual freed bytes
+	// per-item as deletions complete. Writing freedBytes here would double-count.
+	// For dry-run and approval modes, the poller's accumulated freedBytes is the
+	// only source of truth — persist it now.
+	writeFreedBytes := freedBytes
+	if prefs.ExecutionMode == db.ModeAuto {
+		writeFreedBytes = 0
+	}
+
+	if err := p.reg.Engine.UpdateRunStats(runStatsID, int(evaluated), int(candidates), totalDeletionsQueued, writeFreedBytes, time.Since(pollStart).Milliseconds()); err != nil {
 		slog.Error("Failed to update engine run stats", "component", "poller", "error", err)
 	}
 

@@ -22,11 +22,7 @@
             v-if="lastUpdated"
             class="inline-flex items-center gap-1 ml-2 text-xs text-muted-foreground/70"
           >
-            <component
-              :is="RefreshCwIcon"
-              class="w-3 h-3"
-              :class="{ 'animate-spin': isAutoRefreshing }"
-            />
+            <component :is="RefreshCwIcon" class="w-3 h-3" />
             Updated <DateDisplay :date="lastUpdated.toISOString()" />
           </span>
         </p>
@@ -38,16 +34,6 @@
           </UiSelectTrigger>
           <UiSelectContent>
             <UiSelectItem v-for="opt in dateRangeOptions" :key="opt.value" :value="opt.value">
-              {{ opt.label }}
-            </UiSelectItem>
-          </UiSelectContent>
-        </UiSelect>
-        <UiSelect v-model="refreshIntervalStr">
-          <UiSelectTrigger class="h-9 w-[110px]">
-            <UiSelectValue placeholder="Refresh" />
-          </UiSelectTrigger>
-          <UiSelectContent>
-            <UiSelectItem v-for="opt in refreshOptions" :key="opt.value" :value="String(opt.value)">
               {{ opt.label }}
             </UiSelectItem>
           </UiSelectContent>
@@ -149,7 +135,7 @@
         </div>
 
         <!-- Sparkline: candidates + deleted/would-delete per engine run -->
-        <div v-if="candidatesSeries.length > 0 || deletedSeries.length > 0" class="mb-3">
+        <div v-if="engineHistoryData.length > 0" class="mb-3">
           <div class="flex items-center gap-3 mb-1">
             <span class="text-[11px] text-muted-foreground/70">
               {{ $t('dashboard.engineActivityTitle') }} · {{ dateRangeLabel }}
@@ -415,6 +401,7 @@ const {
   chart1Color,
   chart3Color,
   destructiveColor,
+  successColor,
   glowLineStyle,
   gradientArea,
   tooltipConfig,
@@ -447,7 +434,7 @@ const approvalQueueVisible = computed(() => isApprovalMode.value);
 // Pull-to-refresh for touch devices
 const { isRefreshing, pullProgress, pullDistance } = usePullToRefresh(async () => {
   await fetchDashboardData(true);
-  refreshKey.value++;
+  fetchEngineHistory();
 });
 
 const dateRangeOptions = [
@@ -459,21 +446,7 @@ const dateRangeOptions = [
   { label: 'All Time', value: 'all' },
 ];
 
-const refreshOptions = [
-  { label: '⏸ Paused', value: 0 },
-  { label: '↻ 1s', value: 1000 },
-  { label: '↻ 2s', value: 2000 },
-  { label: '↻ 5s', value: 5000 },
-  { label: '↻ 10s', value: 10000 },
-  { label: '↻ 15s', value: 15000 },
-  { label: '↻ 30s', value: 30000 },
-  { label: '↻ 1m', value: 60000 },
-  { label: '↻ 5m', value: 300000 },
-];
-
 const dateRange = ref('24h');
-const refreshIntervalStr = ref('15000');
-const refreshInterval = computed(() => Number(refreshIntervalStr.value));
 const diskGroups = ref<DiskGroup[]>([]);
 const allIntegrations = ref<IntegrationConfig[]>([]);
 const engineHistoryData = ref<
@@ -518,8 +491,6 @@ const activityVirtualItems = computed(() =>
 );
 const loading = ref(true);
 const lastUpdated = ref<Date | null>(null);
-const isAutoRefreshing = ref(false);
-const refreshKey = ref(0);
 
 // Icon component for activity events — covers all 39 typed event types
 function eventIcon(eventType: string) {
@@ -713,42 +684,16 @@ const countdownText = computed(() => {
   return t('dashboard.nextRunHourMin', { hour: hours, min: mins });
 });
 
-// --- Auto refresh (non-event data: disk groups, integrations, dashboard stats) ---
-// Engine stats (workerStats) are updated in real-time via SSE events:
-//   engine_start, engine_complete, engine_error, engine_mode_changed, deletion_progress.
-// The periodic fetchDashboardData() still calls engineFetchStats() as a reconciliation
-// fallback for fields not covered by SSE (e.g. lastRunFreedBytes, protectedCount).
-let autoRefreshTimer: ReturnType<typeof setInterval> | null = null;
-
-function startAutoRefresh() {
-  stopAutoRefresh();
-  if (refreshInterval.value > 0) {
-    autoRefreshTimer = setInterval(async () => {
-      isAutoRefreshing.value = true;
-      await fetchDashboardData(true);
-      refreshKey.value++;
-      isAutoRefreshing.value = false;
-    }, refreshInterval.value);
-  }
-}
-
-function stopAutoRefresh() {
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
-  }
-}
-
-watch(refreshInterval, () => {
-  startAutoRefresh();
-});
+// --- SSE-driven data refresh ---
+// All dashboard data is updated via SSE events. The auto-refresh timer was
+// removed because SSE covers all real-time state. Disk groups and integrations
+// are re-fetched on engine_complete (they change once per engine cycle).
 
 // When the engine finishes a run (detected via SSE engine_complete event),
-// immediately refresh all dashboard data so the UI reflects the latest state.
+// refresh disk groups, engine stats, and sparkline history.
 watch(engineRunCompletionCounter, () => {
   fetchDashboardData(true);
   fetchEngineHistory();
-  refreshKey.value++;
 });
 
 // --- SSE event subscriptions for real-time dashboard updates ---
@@ -817,14 +762,16 @@ const activityEventTypes = [
 // Keep handler refs so we can unsubscribe on unmount
 const _activityHandlers = new Map<string, (data: unknown) => void>();
 
-// Handler: deletion_progress SSE event — patch last sparkline data point in real-time
+// Handler: deletion_progress SSE event — patch last sparkline data point in real-time.
+// In dry-run mode, the sparkline shows the "queued" series (would-delete count),
+// so we patch that field. In auto/approval mode, it shows "deleted".
 function handleDeletionProgressSparkline(data: unknown) {
   const event = data as DeletionProgress;
   const history = engineHistoryData.value;
   const last = history.length > 0 ? history[history.length - 1] : undefined;
   if (last) {
-    // Mutate + reassign to trigger Vue reactivity on the sparkline computed properties
-    engineHistoryData.value = [...history.slice(0, -1), { ...last, deleted: event.succeeded }];
+    const patchField = isDryRunMode.value ? 'queued' : 'deleted';
+    engineHistoryData.value = [...history.slice(0, -1), { ...last, [patchField]: event.succeeded }];
   }
 }
 
@@ -832,7 +779,26 @@ function handleDeletionProgressSparkline(data: unknown) {
 function handleDeletionBatchCompleteRefresh() {
   fetchDashboardData(true);
   fetchEngineHistory();
-  refreshKey.value++;
+}
+
+// Handler: integration changes — refresh the integration list
+function handleIntegrationChange() {
+  api('/api/v1/integrations')
+    .then((data) => {
+      allIntegrations.value = data as IntegrationConfig[];
+      lastUpdated.value = new Date();
+    })
+    .catch((err) => console.warn('[Dashboard] integration refresh failed:', err));
+}
+
+// Handler: settings changes — refresh disk groups (threshold may have changed)
+function handleSettingsChange() {
+  api('/api/v1/disk-groups')
+    .then((data) => {
+      diskGroups.value = data as DiskGroup[];
+      lastUpdated.value = new Date();
+    })
+    .catch((err) => console.warn('[Dashboard] settings refresh failed:', err));
 }
 
 // Handler: approval queue changes — refresh the queue
@@ -841,8 +807,11 @@ function handleApprovalChange() {
 }
 
 onMounted(async () => {
+  // Initial hydration — fetch all data once
   await fetchDashboardData();
-  startAutoRefresh();
+  // Fetch sparkline history and recent activity (non-blocking, after initial data)
+  fetchEngineHistory();
+  fetchRecentActivity();
 
   // Subscribe to all activity event types for the real-time feed
   for (const eventType of activityEventTypes) {
@@ -864,11 +833,15 @@ onMounted(async () => {
 
   // When all deletions for a cycle finish, refresh dashboard stats — the numbers are now final
   sseOn(EVENT_DELETION_BATCH_COMPLETE, handleDeletionBatchCompleteRefresh);
+
+  // SSE-driven data refresh: integration and settings changes
+  sseOn('integration_added', handleIntegrationChange);
+  sseOn('integration_updated', handleIntegrationChange);
+  sseOn('integration_removed', handleIntegrationChange);
+  sseOn('settings_changed', handleSettingsChange);
 });
 
 onUnmounted(() => {
-  stopAutoRefresh();
-
   // Unsubscribe all activity event handlers
   for (const [eventType, handler] of _activityHandlers) {
     sseOff(eventType, handler);
@@ -886,6 +859,12 @@ onUnmounted(() => {
   sseOff('approval_bulk_unsnoozed', handleApprovalChange);
   sseOff('approval_orphans_recovered', handleApprovalChange);
   sseOff(EVENT_DELETION_SUCCESS, handleApprovalChange);
+
+  // Unsubscribe SSE-driven data refresh handlers
+  sseOff('integration_added', handleIntegrationChange);
+  sseOff('integration_updated', handleIntegrationChange);
+  sseOff('integration_removed', handleIntegrationChange);
+  sseOff('settings_changed', handleSettingsChange);
 });
 
 async function fetchDashboardData(silent = false) {
@@ -902,10 +881,9 @@ async function fetchDashboardData(silent = false) {
     await engineFetchStats();
     // Fetch approval queue (non-blocking, only runs in approval mode)
     fetchApprovalQueue();
-    // Fetch sparkline engine history data in parallel (non-blocking)
-    fetchEngineHistory();
-    // Fetch recent activity for the mini feed (non-blocking)
-    fetchRecentActivity();
+    // Note: fetchEngineHistory() and fetchRecentActivity() are NOT called here.
+    // They are fetched once on mount and updated via SSE events to avoid
+    // replacing the data array (which causes ECharts to replay animations).
     diskGroups.value = groups as DiskGroup[];
     allIntegrations.value = integrations as IntegrationConfig[];
     lastUpdated.value = new Date();
@@ -921,6 +899,7 @@ async function fetchDashboardData(silent = false) {
 // Bucket data points into hourly groups, summing values within each hour.
 // This reduces dense per-run data (hundreds of points) into a smaller set of
 // points that produce visually meaningful curves with visible gradient fill.
+// Only used for 7d+ ranges where point density is high.
 function bucketHourly(
   data: Array<{ timestamp: string }>,
   valueKey: string,
@@ -943,17 +922,38 @@ function bucketHourly(
     .map((b) => ({ x: b.ts, y: b.sum }));
 }
 
-const candidatesSeries = computed(() => bucketHourly(engineHistoryData.value, 'candidates'));
-const queuedSeries = computed(() => bucketHourly(engineHistoryData.value, 'queued'));
-const evaluatedSeries = computed(() => bucketHourly(engineHistoryData.value, 'evaluated'));
-const deletedSeries = computed(() => bucketHourly(engineHistoryData.value, 'deleted'));
+// Prepare series data with range-aware bucketing strategy.
+// For 24h and below, use raw data points to preserve individual engine runs.
+// For 7d+, bucket into hourly groups to reduce noise.
+function prepareSeriesData(
+  data: Array<{ timestamp: string }>,
+  valueKey: string,
+  range: string,
+): Array<{ x: number; y: number }> {
+  if (range === '1h' || range === '6h' || range === '24h' || data.length <= 24) {
+    return data.map((point) => ({
+      x: new Date(point.timestamp).getTime(),
+      y: (point as Record<string, unknown>)[valueKey] as number,
+    }));
+  }
+  return bucketHourly(data, valueKey);
+}
+
+const candidatesSeries = computed(() =>
+  prepareSeriesData(engineHistoryData.value, 'candidates', dateRange.value),
+);
+const queuedSeries = computed(() =>
+  prepareSeriesData(engineHistoryData.value, 'queued', dateRange.value),
+);
+const deletedSeries = computed(() =>
+  prepareSeriesData(engineHistoryData.value, 'deleted', dateRange.value),
+);
 const isDryRunMode = computed(() => engineExecutionMode.value === MODE_DRY_RUN);
 
 // --- ECharts sparkline options ---
 
 const sparklineEChartsOption = computed(() => {
   const candidates = candidatesSeries.value;
-  const evaluated = evaluatedSeries.value;
   const isDryRun = isDryRunMode.value;
   const secondSeriesData = isDryRun ? queuedSeries.value : deletedSeries.value;
   const ghostSeriesData = isDryRun ? deletedSeries.value : queuedSeries.value;
@@ -963,21 +963,9 @@ const sparklineEChartsOption = computed(() => {
   const ghostColor = isDryRun ? destructiveColor.value : chart3Color.value;
   const series: Array<Record<string, unknown>> = [];
 
-  // Background band: evaluated (faint area, no line)
-  if (evaluated.length > 0) {
-    series.push({
-      name: 'Evaluated',
-      type: 'line',
-      smooth: true,
-      symbol: 'none',
-      lineStyle: { width: 0 },
-      areaStyle: { color: chart1Color.value, opacity: 0.08 },
-      emphasis: { disabled: true },
-      silent: true,
-      data: evaluated.map((d) => [d.x, d.y]),
-      z: 0,
-    });
-  }
+  // Show symbols when data is sparse (≤ 3 points) so single points are visible
+  const sparseSymbol = (len: number) => (len <= 3 ? 'circle' : 'none');
+  const sparseSymbolSize = (len: number) => (len <= 3 ? 6 : 0);
 
   // Primary series: Candidates (always shown)
   if (candidates.length > 0) {
@@ -985,7 +973,9 @@ const sparklineEChartsOption = computed(() => {
       name: t('dashboard.candidates'),
       type: 'line',
       smooth: true,
-      symbol: 'none',
+      symbol: sparseSymbol(candidates.length),
+      symbolSize: sparseSymbolSize(candidates.length),
+      itemStyle: { color: chart1Color.value },
       lineStyle: glowLineStyle(chart1Color.value),
       areaStyle: gradientArea(chart1Color.value),
       emphasis: emphasisConfig(),
@@ -1000,7 +990,9 @@ const sparklineEChartsOption = computed(() => {
       name: secondName,
       type: 'line',
       smooth: true,
-      symbol: 'none',
+      symbol: sparseSymbol(secondSeriesData.length),
+      symbolSize: sparseSymbolSize(secondSeriesData.length),
+      itemStyle: { color: secondColor },
       lineStyle: glowLineStyle(secondColor),
       areaStyle: gradientArea(secondColor),
       emphasis: emphasisConfig(),
@@ -1040,8 +1032,23 @@ const sparklineEChartsOption = computed(() => {
     animation: true,
     animationDelay: (idx: number) => idx * 10,
     grid: { top: 4, right: 4, bottom: 4, left: 4 },
-    xAxis: { type: 'time', show: false },
-    yAxis: { type: 'value', show: false },
+    xAxis: {
+      type: 'time',
+      show: false,
+      axisPointer: {
+        label: {
+          formatter: (p: { value: number }) => new Date(p.value).toLocaleString(),
+        },
+      },
+    },
+    yAxis: {
+      type: 'value',
+      show: false,
+      minInterval: 1,
+      axisPointer: {
+        label: { formatter: (p: { value: number }) => Math.round(p.value).toString() },
+      },
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -1056,9 +1063,9 @@ const sparklineEChartsOption = computed(() => {
         const ts = new Date(params[0]!.value[0]).toLocaleString();
         let html = `<div style="font-weight:600">${ts}</div>`;
         for (const p of params) {
-          // Skip ghost and evaluated background series in tooltip
-          if (p.seriesName.includes('(historical)') || p.seriesName === 'Evaluated') continue;
-          html += `<div>${p.marker} ${p.seriesName}: <b>${p.value[1]}</b></div>`;
+          // Skip ghost series in tooltip
+          if (p.seriesName.includes('(historical)')) continue;
+          html += `<div>${p.marker} ${p.seriesName}: <b>${Math.round(p.value[1])}</b></div>`;
         }
         if (isDryRun) {
           html += `<div style="opacity:0.6;font-size:11px;margin-top:2px">dry-run — no deletions</div>`;
@@ -1085,7 +1092,9 @@ const maxDurationMs = computed(() => {
   return Math.max(...data.map((p) => p.durationMs));
 });
 
-// Duration sparkline ECharts option
+// Duration sparkline ECharts option — uses successColor (green) as the base
+// with a visualMap gradient from green → amber → red for
+// low → medium → high duration values.
 const durationSparklineEChartsOption = computed(() => ({
   animation: true,
   grid: { top: 4, right: 4, bottom: 4, left: 4 },
@@ -1106,7 +1115,7 @@ const durationSparklineEChartsOption = computed(() => ({
       show: false,
       min: 0,
       max: maxDurationMs.value || 1,
-      inRange: { color: [chart3Color.value, '#f59e0b', destructiveColor.value] },
+      inRange: { color: [successColor.value, chart3Color.value, destructiveColor.value] },
     },
   ],
   series: [
@@ -1115,8 +1124,8 @@ const durationSparklineEChartsOption = computed(() => ({
       type: 'line',
       smooth: true,
       symbol: 'none',
-      lineStyle: glowLineStyle(chart3Color.value),
-      areaStyle: gradientArea(chart3Color.value),
+      lineStyle: glowLineStyle(successColor.value),
+      areaStyle: gradientArea(successColor.value),
       emphasis: emphasisConfig(),
       data: engineHistoryData.value.map((p) => [new Date(p.timestamp).getTime(), p.durationMs]),
     },

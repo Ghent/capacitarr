@@ -9,6 +9,24 @@ const props = defineProps<{
 const { showExactDates, formatTimestamp } = useDisplayPrefs();
 const localOverride = ref<boolean | null>(null); // null = follow global pref
 
+// Tick counter that increments every 30s, used as a reactive dependency
+// to force relative timestamps ("1m ago" → "2m ago") to re-compute.
+const tick = ref(0);
+let tickTimer: ReturnType<typeof setInterval> | null = null;
+
+onMounted(() => {
+  tickTimer = setInterval(() => {
+    tick.value++;
+  }, 30_000);
+});
+
+onUnmounted(() => {
+  if (tickTimer) {
+    clearInterval(tickTimer);
+    tickTimer = null;
+  }
+});
+
 const showExact = computed(() => {
   if (props.alwaysExact) return true;
   if (localOverride.value !== null) return localOverride.value;
@@ -22,11 +40,15 @@ function toggleLocal() {
 
 const displayText = computed(() => {
   if (!props.date) return '';
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- reactive dependency for auto-refresh
+  tick.value;
   return showExact.value ? formatTimestamp(props.date) : formatRelativeTime(props.date);
 });
 
 const tooltipText = computed(() => {
   if (!props.date) return '';
+  // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- reactive dependency for auto-refresh
+  tick.value;
   return showExact.value ? formatRelativeTime(props.date) : formatTimestamp(props.date);
 });
 </script>

@@ -202,7 +202,7 @@ func TestEngineService_UpdateRunStats(t *testing.T) {
 
 	stats, _ := svc.CreateRunStats(db.ModeDryRun)
 
-	err := svc.UpdateRunStats(stats.ID, 100, 15, 8, 2500)
+	err := svc.UpdateRunStats(stats.ID, 100, 15, 8, 51200, 2500)
 	if err != nil {
 		t.Fatalf("UpdateRunStats error: %v", err)
 	}
@@ -217,6 +217,9 @@ func TestEngineService_UpdateRunStats(t *testing.T) {
 	}
 	if updated.Queued != 8 {
 		t.Errorf("expected queued 8, got %d", updated.Queued)
+	}
+	if updated.FreedBytes != 51200 {
+		t.Errorf("expected freedBytes 51200, got %d", updated.FreedBytes)
 	}
 	if updated.CompletedAt == nil {
 		t.Fatal("expected completed_at to be set after UpdateRunStats")
@@ -255,10 +258,10 @@ func TestEngineService_GetHistory(t *testing.T) {
 
 	// Create some run stats and update them
 	stats1, _ := svc.CreateRunStats(db.ModeDryRun)
-	_ = svc.UpdateRunStats(stats1.ID, 50, 10, 6, 1000)
+	_ = svc.UpdateRunStats(stats1.ID, 50, 10, 6, 25600, 1000)
 
 	stats2, _ := svc.CreateRunStats(db.ModeApproval)
-	_ = svc.UpdateRunStats(stats2.ID, 80, 20, 12, 1500)
+	_ = svc.UpdateRunStats(stats2.ID, 80, 20, 12, 40960, 1500)
 
 	points, err := svc.GetHistory(24 * time.Hour)
 	if err != nil {
