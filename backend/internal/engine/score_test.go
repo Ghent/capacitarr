@@ -9,6 +9,21 @@ import (
 	"capacitarr/internal/integrations"
 )
 
+// allActiveCtx returns an EvaluationContext with all integration types active.
+// Used by tests where applicability filtering should not exclude any factors.
+func allActiveCtx() *EvaluationContext {
+	return &EvaluationContext{
+		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypeSonarr:  true,
+			integrations.IntegrationTypeRadarr:  true,
+			integrations.IntegrationTypeSeerr:   true,
+			integrations.IntegrationTypePlex:    true,
+			integrations.IntegrationTypeLidarr:  true,
+			integrations.IntegrationTypeReadarr: true,
+		},
+	}
+}
+
 // isolatedWeights returns a weight map with all weights zeroed except the
 // named one, allowing a single scoring factor to be tested in isolation.
 func isolatedWeights(key string, value int) map[string]int { //nolint:unparam // value is always 10 in tests but the param documents intent
@@ -21,7 +36,7 @@ func TestCalculateScore_AllZeroWeights(t *testing.T) {
 	item := integrations.MediaItem{PlayCount: 5, SizeBytes: 10 * 1024 * 1024 * 1024}
 	weights := map[string]int{} // all zero
 
-	score, reason, factors := calculateScore(item, DefaultFactors(), weights)
+	score, reason, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 	if score != 0.0 {
 		t.Errorf("Expected 0.0 with zero weights, got %v", score)
 	}
@@ -52,13 +67,13 @@ func TestCalculateScore_WatchHistory(t *testing.T) {
 			item := integrations.MediaItem{PlayCount: tc.playCount}
 			weights := isolatedWeights("watch_history", 10)
 
-			score, _, factors := calculateScore(item, DefaultFactors(), weights)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
 			// Verify raw score bounds (0.0–1.0)
 			for _, f := range factors {
-				if f.Name == "Watch History" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
+				if f.Name == "Play History" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
 					t.Errorf("Watch History raw score out of bounds: %v", f.RawScore)
 				}
 			}
@@ -89,12 +104,12 @@ func TestCalculateScore_LastWatched(t *testing.T) {
 			item := integrations.MediaItem{LastPlayed: tc.lastPlayed}
 			weights := isolatedWeights("last_watched", 10)
 
-			score, _, factors := calculateScore(item, DefaultFactors(), weights)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
 			for _, f := range factors {
-				if f.Name == "Last Watched" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
+				if f.Name == "Last Played" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
 					t.Errorf("Last Watched raw score out of bounds: %v", f.RawScore)
 				}
 			}
@@ -122,7 +137,7 @@ func TestCalculateScore_FileSize(t *testing.T) {
 			item := integrations.MediaItem{SizeBytes: tc.sizeBytes}
 			weights := isolatedWeights("file_size", 10)
 
-			score, _, factors := calculateScore(item, DefaultFactors(), weights)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -157,7 +172,7 @@ func TestCalculateScore_Rating(t *testing.T) {
 			item := integrations.MediaItem{Rating: tc.rating}
 			weights := isolatedWeights("rating", 10)
 
-			score, _, factors := calculateScore(item, DefaultFactors(), weights)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 			if score < tc.minScore-0.001 || score > tc.maxScore+0.001 {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -193,7 +208,7 @@ func TestCalculateScore_TimeInLibrary(t *testing.T) {
 			item := integrations.MediaItem{AddedAt: tc.addedAt}
 			weights := isolatedWeights("time_in_library", 10)
 
-			score, _, factors := calculateScore(item, DefaultFactors(), weights)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 			if score < tc.minScore || score > tc.maxScore {
 				t.Errorf("Expected score in [%v, %v], got %v", tc.minScore, tc.maxScore, score)
 			}
@@ -219,7 +234,7 @@ func TestCalculateScore_SeriesStatus(t *testing.T) {
 		{"Continuing show (mixed case) = 0.2", integrations.MediaTypeShow, "Continuing", 0.2},
 		{"unknown status show = default 0.5", integrations.MediaTypeShow, "unknown", 0.5},
 		{"empty status show = default 0.5", integrations.MediaTypeShow, "", 0.5},
-		{"movie = default 0.5", integrations.MediaTypeMovie, "", 0.5},
+		{"movie = excluded (inapplicable)", integrations.MediaTypeMovie, "", 0.0},
 		{"season (ended) = 1.0", integrations.MediaTypeSeason, "ended", 1.0},
 		{"season (continuing) = 0.2", integrations.MediaTypeSeason, "continuing", 0.2},
 	}
@@ -232,12 +247,12 @@ func TestCalculateScore_SeriesStatus(t *testing.T) {
 			}
 			weights := isolatedWeights("series_status", 10)
 
-			score, _, factors := calculateScore(item, DefaultFactors(), weights)
+			score, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 			if score < tc.expected-0.001 || score > tc.expected+0.001 {
 				t.Errorf("Expected score ~%v, got %v", tc.expected, score)
 			}
 			for _, f := range factors {
-				if f.Name == "Series Status" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
+				if f.Name == "Show Status" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
 					t.Errorf("SeriesStatus raw score out of bounds: %v", f.RawScore)
 				}
 			}
@@ -264,7 +279,7 @@ func TestCalculateScore_CombinedWeights(t *testing.T) {
 		"series_status":   5,
 	}
 
-	score, _, factors := calculateScore(item, DefaultFactors(), weights)
+	score, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 
 	// Score should be high (most factors push toward deletion)
 	if score < 0.7 {
@@ -303,7 +318,7 @@ func TestCalculateScoreReasonFormat(t *testing.T) {
 		"request_popularity": 0,
 	}
 
-	_, reason, _ := calculateScore(item, DefaultFactors(), weights)
+	_, reason, _ := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 
 	// Reason should contain all seven factor keys
 	for _, label := range []string{"watch_history:", "last_watched:", "file_size:", "rating:", "time_in_library:", "series_status:", "request_popularity:"} {
@@ -336,7 +351,7 @@ func TestCalculateScore_FactorContributionsNormalized(t *testing.T) {
 		"request_popularity": 0,
 	}
 
-	_, _, factors := calculateScore(item, DefaultFactors(), weights)
+	_, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 
 	var totalContribution float64
 	for _, f := range factors {
@@ -347,7 +362,7 @@ func TestCalculateScore_FactorContributionsNormalized(t *testing.T) {
 	}
 
 	// Total contributions should approximately equal the final score
-	score, _, _ := calculateScore(item, DefaultFactors(), weights)
+	score, _, _ := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
 	if totalContribution < score-0.01 || totalContribution > score+0.01 {
 		t.Errorf("Sum of contributions (%v) doesn't match final score (%v)", totalContribution, score)
 	}
@@ -355,12 +370,12 @@ func TestCalculateScore_FactorContributionsNormalized(t *testing.T) {
 
 func TestEvaluateMedia_EmptyItemList(t *testing.T) {
 	weights := map[string]int{"watch_history": 5}
-	result := EvaluateMedia(nil, DefaultFactors(), weights, nil)
+	result := EvaluateMedia(nil, DefaultFactors(), weights, nil, allActiveCtx())
 	if len(result) != 0 {
 		t.Errorf("Expected empty result for nil items, got %d", len(result))
 	}
 
-	result = EvaluateMedia([]integrations.MediaItem{}, DefaultFactors(), weights, nil)
+	result = EvaluateMedia([]integrations.MediaItem{}, DefaultFactors(), weights, nil, allActiveCtx())
 	if len(result) != 0 {
 		t.Errorf("Expected empty result for empty items, got %d", len(result))
 	}
@@ -376,7 +391,7 @@ func TestEvaluateMedia_ProtectedItemHasZeroScore(t *testing.T) {
 		{Enabled: true, IntegrationID: &intID, Field: "title", Operator: "==", Value: "protected movie", Effect: "always_keep"},
 	}
 
-	result := EvaluateMedia(items, DefaultFactors(), weights, rules)
+	result := EvaluateMedia(items, DefaultFactors(), weights, rules, allActiveCtx())
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 result, got %d", len(result))
 	}
@@ -398,7 +413,7 @@ func TestEvaluateMedia_RuleModifiersApplied(t *testing.T) {
 		{Enabled: true, IntegrationID: &intID, Field: "rating", Operator: "<", Value: "5", Effect: "prefer_remove"}, // ×3.0
 	}
 
-	result := EvaluateMedia(items, DefaultFactors(), weights, rules)
+	result := EvaluateMedia(items, DefaultFactors(), weights, rules, allActiveCtx())
 	if len(result) != 1 {
 		t.Fatalf("Expected 1 result, got %d", len(result))
 	}

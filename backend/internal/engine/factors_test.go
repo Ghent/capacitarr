@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ func timePtr(t time.Time) *time.Time { return &t }
 
 func TestWatchHistoryFactor(t *testing.T) {
 	f := &WatchHistoryFactor{}
-	if f.Name() != "Watch History" {
+	if f.Name() != "Play History" {
 		t.Errorf("unexpected name: %s", f.Name())
 	}
 	if f.Key() != "watch_history" {
@@ -145,7 +146,7 @@ func TestRequestPopularityFactor(t *testing.T) {
 func TestDefaultFactors(t *testing.T) {
 	factors := DefaultFactors()
 	if len(factors) != 7 {
-		t.Errorf("expected 8 default factors, got %d", len(factors))
+		t.Errorf("expected 7 default factors, got %d", len(factors))
 	}
 
 	// Verify all keys are unique
@@ -155,5 +156,149 @@ func TestDefaultFactors(t *testing.T) {
 			t.Errorf("duplicate factor key: %s", f.Key())
 		}
 		keys[f.Key()] = true
+	}
+}
+
+// ─── Label rename tests ─────────────────────────────────────────────────────
+
+func TestFactorLabelRenames(t *testing.T) {
+	tests := []struct {
+		factor      ScoringFactor
+		wantName    string
+		wantKey     string
+		descContain string
+	}{
+		{&WatchHistoryFactor{}, "Play History", "watch_history", "Unplayed"},
+		{&RecencyFactor{}, "Last Played", "last_watched", "not played"},
+		{&SeriesStatusFactor{}, "Show Status", "series_status", "Ended or canceled"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.wantName, func(t *testing.T) {
+			if tc.factor.Name() != tc.wantName {
+				t.Errorf("Name() = %q, want %q", tc.factor.Name(), tc.wantName)
+			}
+			if tc.factor.Key() != tc.wantKey {
+				t.Errorf("Key() = %q, want %q (DB key must not change)", tc.factor.Key(), tc.wantKey)
+			}
+			if !strings.Contains(tc.factor.Description(), tc.descContain) {
+				t.Errorf("Description() = %q, expected it to contain %q", tc.factor.Description(), tc.descContain)
+			}
+		})
+	}
+}
+
+// ─── RequiresIntegration / MediaTypeScoped interface tests ──────────────────
+
+func TestRequestPopularityFactor_RequiresIntegration(t *testing.T) {
+	var f ScoringFactor = &RequestPopularityFactor{}
+	ri, ok := f.(RequiresIntegration)
+	if !ok {
+		t.Fatal("RequestPopularityFactor must implement RequiresIntegration")
+	}
+	if ri.RequiredIntegrationType() != integrations.IntegrationTypeSeerr {
+		t.Errorf("RequiredIntegrationType() = %q, want %q", ri.RequiredIntegrationType(), integrations.IntegrationTypeSeerr)
+	}
+}
+
+func TestSeriesStatusFactor_MediaTypeScoped(t *testing.T) {
+	var f ScoringFactor = &SeriesStatusFactor{}
+	mts, ok := f.(MediaTypeScoped)
+	if !ok {
+		t.Fatal("SeriesStatusFactor must implement MediaTypeScoped")
+	}
+	types := mts.ApplicableMediaTypes()
+	if len(types) != 2 {
+		t.Fatalf("expected 2 applicable media types, got %d", len(types))
+	}
+	hasShow, hasSeason := false, false
+	for _, mt := range types {
+		if mt == integrations.MediaTypeShow {
+			hasShow = true
+		}
+		if mt == integrations.MediaTypeSeason {
+			hasSeason = true
+		}
+	}
+	if !hasShow || !hasSeason {
+		t.Errorf("expected show and season types, got %v", types)
+	}
+}
+
+func TestUniversalFactors_DoNotImplementOptionalInterfaces(t *testing.T) {
+	universalFactors := []ScoringFactor{
+		&WatchHistoryFactor{},
+		&RecencyFactor{},
+		&FileSizeFactor{},
+		&RatingFactor{},
+		&LibraryAgeFactor{},
+	}
+
+	for _, f := range universalFactors {
+		if _, ok := f.(RequiresIntegration); ok {
+			t.Errorf("%s should not implement RequiresIntegration", f.Name())
+		}
+		if _, ok := f.(MediaTypeScoped); ok {
+			t.Errorf("%s should not implement MediaTypeScoped", f.Name())
+		}
+	}
+}
+
+func TestIsFactorApplicable(t *testing.T) {
+	allActive := &EvaluationContext{
+		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypeSeerr:  true,
+			integrations.IntegrationTypeSonarr: true,
+			integrations.IntegrationTypeRadarr: true,
+		},
+	}
+	noSeerr := &EvaluationContext{
+		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypeSonarr: true,
+			integrations.IntegrationTypeRadarr: true,
+		},
+	}
+
+	movieItem := integrations.MediaItem{Title: "Serenity", Type: integrations.MediaTypeMovie}
+	showItem := integrations.MediaItem{Title: "Firefly", Type: integrations.MediaTypeShow}
+
+	// RequestPopularityFactor: applicable with Seerr, not without
+	rpf := &RequestPopularityFactor{}
+	if !isFactorApplicable(rpf, movieItem, allActive) {
+		t.Error("RequestPopularityFactor should be applicable when Seerr is active")
+	}
+	if isFactorApplicable(rpf, movieItem, noSeerr) {
+		t.Error("RequestPopularityFactor should not be applicable when Seerr is absent")
+	}
+
+	// SeriesStatusFactor: applicable for shows, not for movies
+	ssf := &SeriesStatusFactor{}
+	if !isFactorApplicable(ssf, showItem, allActive) {
+		t.Error("SeriesStatusFactor should be applicable for show items")
+	}
+	if isFactorApplicable(ssf, movieItem, allActive) {
+		t.Error("SeriesStatusFactor should not be applicable for movie items")
+	}
+
+	// Universal factors: always applicable
+	whf := &WatchHistoryFactor{}
+	if !isFactorApplicable(whf, movieItem, allActive) {
+		t.Error("WatchHistoryFactor should always be applicable")
+	}
+	if !isFactorApplicable(whf, movieItem, noSeerr) {
+		t.Error("WatchHistoryFactor should always be applicable regardless of context")
+	}
+}
+
+func TestNewEvaluationContext(t *testing.T) {
+	ctx := NewEvaluationContext([]string{"sonarr", "radarr", "seerr"})
+	if !ctx.HasIntegrationType(integrations.IntegrationTypeSonarr) {
+		t.Error("expected sonarr to be active")
+	}
+	if !ctx.HasIntegrationType(integrations.IntegrationTypeSeerr) {
+		t.Error("expected seerr to be active")
+	}
+	if ctx.HasIntegrationType(integrations.IntegrationTypePlex) {
+		t.Error("expected plex to not be active")
 	}
 }

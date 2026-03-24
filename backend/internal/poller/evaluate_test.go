@@ -11,6 +11,7 @@ import (
 
 	"capacitarr/internal/config"
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
@@ -268,7 +269,7 @@ func TestEvaluateAndCleanDisk_BelowThreshold_NoLongerClearsQueue(t *testing.T) {
 	}
 
 	// Call evaluateAndCleanDisk — should NOT clear the queue
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 	if result != 0 {
 		t.Errorf("expected 0 deletions queued, got %d", result)
 	}
@@ -306,7 +307,7 @@ func TestEvaluateAndCleanDisk_WithOverride(t *testing.T) {
 	// Run with no items — it should still detect threshold breach and not return 0 early
 	// Since there are no media items, it won't actually queue anything, but the
 	// breach detection code path should be entered (checking for currentPct > threshold).
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 	// With no items, nothing to delete, but the important thing is it didn't
 	// short-circuit at the "below threshold" check.
 	if result != 0 {
@@ -331,7 +332,7 @@ func TestEvaluateAndCleanDisk_OverrideZeroUsesDetected(t *testing.T) {
 		TargetPct:          70.0,
 	}
 
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, db.PreferenceSet{}, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 	if result != 0 {
 		t.Errorf("expected 0 (below threshold), got %d", result)
 	}
@@ -485,7 +486,7 @@ func TestEvaluateAndCleanDisk_ReconcilesDismissesStaleItems(t *testing.T) {
 
 	// Run with no media items — no candidates will be generated, so
 	// neededKeys will be empty, and all pending items should be reconciled away
-	result := p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, map[string]int{}, nil)
+	result := p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 	if result != 0 {
 		t.Errorf("expected 0 deletions queued, got %d", result)
 	}
@@ -547,7 +548,7 @@ func TestEvaluateAndCleanDisk_ReconcileNoopInDryRun(t *testing.T) {
 
 	// Run in dry-run mode — reconciliation should NOT happen
 	prefs := db.PreferenceSet{ExecutionMode: db.ModeDryRun}
-	p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, map[string]int{}, nil)
+	p.evaluateAndCleanDisk(group, nil, nil, 0, prefs, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	// Verify: pending item is preserved (reconciliation didn't run)
 	var pendingCount int64
@@ -623,7 +624,7 @@ func TestEvaluateAndCleanDisk_IsSnoozed_AutoMode(t *testing.T) {
 		"series_status":   5,
 	}
 
-	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, weights, nil)
+	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, weights, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	// The item should be skipped because it's snoozed — 0 queued
 	if result != 0 {
@@ -693,7 +694,7 @@ func TestEvaluateAndCleanDisk_IsSnoozed_DryRunMode(t *testing.T) {
 		"series_status":   5,
 	}
 
-	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, weights, nil)
+	result := p.evaluateAndCleanDisk(group, items, nil, 0, prefs, weights, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	// The item should be skipped because it's snoozed — 0 queued
 	if result != 0 {

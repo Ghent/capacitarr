@@ -72,6 +72,7 @@ export interface ScoringFactorWeight {
   description: string;
   weight: number;
   defaultWeight: number;
+  integrationError?: boolean; // true when the required integration has a connection error
 }
 
 // ---------------------------------------------------------------------------

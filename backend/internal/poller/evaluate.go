@@ -18,7 +18,7 @@ import (
 // evaluateAndCleanDisk scores all media items on a disk group and, when the
 // threshold is breached, queues the highest-scoring candidates for deletion.
 // Returns the number of items queued to the DeletionService worker (auto and dry-run modes).
-func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, runStatsID uint, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule) int {
+func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, runStatsID uint, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule, evalCtx *engine.EvaluationContext) int {
 	effectiveTotal := group.EffectiveTotalBytes()
 	if effectiveTotal == 0 {
 		slog.Warn("Disk group effective total is 0, skipping evaluation",
@@ -75,7 +75,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 
 	// Use the extracted Evaluator for scoring + categorization
 	evaluator := engine.NewEvaluator()
-	evalResult := evaluator.Evaluate(diskItems, weights, rules, prefs.TiebreakerMethod)
+	evalResult := evaluator.Evaluate(diskItems, weights, rules, prefs.TiebreakerMethod, evalCtx)
 	atomic.AddInt64(&p.lastRunEvaluated, int64(evalResult.TotalCount))
 	atomic.AddInt64(&p.lastRunProtected, int64(len(evalResult.Protected)))
 

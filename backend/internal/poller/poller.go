@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
@@ -193,6 +194,15 @@ func (p *Poller) poll() {
 		return
 	}
 
+	// Build EvaluationContext from enabled integration types so the scoring
+	// engine can exclude factors whose prerequisites are not met (e.g.
+	// RequestPopularityFactor without Seerr, SeriesStatusFactor for movies).
+	configTypes := make([]string, len(configs))
+	for i, cfg := range configs {
+		configTypes[i] = cfg.Type
+	}
+	evalCtx := engine.NewEvaluationContext(configTypes)
+
 	// Fetch media items, disk space, and build registry+pipeline from all integrations
 	fetched := fetchAllIntegrations(p.reg.Integration)
 
@@ -270,7 +280,7 @@ func (p *Poller) poll() {
 		}
 
 		// Evaluate and trigger cleanup if threshold breached
-		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.registry, runStatsID, prefs, weights, rules)
+		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.registry, runStatsID, prefs, weights, rules, evalCtx)
 	}
 
 	// Clear the approval queue only when ALL disk groups are below threshold.
@@ -325,7 +335,7 @@ func (p *Poller) poll() {
 	p.reg.Engine.SetLastRunStats(int(evaluated), int(candidates), int(protected))
 
 	// Populate preview cache with already-fetched and enriched items
-	p.reg.Preview.SetPreviewCache(fetched.allItems, prefs, weights, rules)
+	p.reg.Preview.SetPreviewCache(fetched.allItems, prefs, weights, rules, evalCtx)
 
 	// Publish engine complete event
 	bus.Publish(events.EngineCompleteEvent{
