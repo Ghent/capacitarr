@@ -105,6 +105,20 @@ make lint format → make ci → commit → push
      (fix)         (verify)
 ```
 
+### Docker Image Pinning
+
+All Docker images in the `Makefile` and `.gitlab-ci.yml` are pinned to specific version tags (no `:latest`). This protects against supply chain attacks where a compromised upstream image could silently enter our pipeline.
+
+**When updating pinned versions:**
+
+1. Pull the new image version locally
+2. Run `make ci` to verify compatibility
+3. Update the version tag in **both** `Makefile` and `.gitlab-ci.yml` — they must always match
+4. Update the pinned versions table in `SECURITY.md`
+5. Commit with `chore(deps): bump <tool> to v<version>`
+
+**Never re-introduce `:latest` tags** or curl-pipe-to-shell install patterns in CI jobs.
+
 ### CI/CD Pipeline
 
 Every push and merge request triggers a GitLab CI pipeline with these stages:

@@ -31,7 +31,7 @@ stages:
 
 lint:go:
   stage: lint
-  image: golangci/golangci-lint:latest
+  image: golangci/golangci-lint:v2.11.4
   interruptible: true
   before_script:
     # Create placeholder for go:embed directive (frontend isn't built during lint)
@@ -77,10 +77,10 @@ test:frontend:
 
 build:docker:
   stage: build
-  image: docker:latest
+  image: docker:27
   interruptible: true
   services:
-    - docker:dind
+    - docker:27-dind
   before_script:
     - docker buildx create --use --driver docker-container
   script:
@@ -112,7 +112,7 @@ security:pnpm-audit:
 security:trivy:
   stage: security
   image:
-    name: ghcr.io/aquasecurity/trivy:latest
+    name: ghcr.io/aquasecurity/trivy:0.69.3
     entrypoint: [""]
   interruptible: true
   script:
@@ -122,23 +122,22 @@ security:trivy:
 
 security:trivy-image:
   stage: security
-  image: docker:latest
+  image: docker:27
   interruptible: true
   services:
-    - docker:dind
+    - docker:27-dind
   script:
     # Build image for current platform only (not multi-arch) and scan it.
     # Checks Alpine OS packages + Go binary for known CVEs.
     - docker build -t capacitarr:ci-scan .
-    - |
-      apk add --no-cache curl
-      curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-      trivy image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln capacitarr:ci-scan
+    - docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+        ghcr.io/aquasecurity/trivy:0.69.3
+        image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln capacitarr:ci-scan
 
 security:gitleaks:
   stage: security
   image:
-    name: zricethezav/gitleaks:latest
+    name: zricethezav/gitleaks:v8.30.1
     entrypoint: [""]
   interruptible: true
   variables:
@@ -149,7 +148,7 @@ security:gitleaks:
 security:semgrep:
   stage: security
   image:
-    name: semgrep/semgrep:latest
+    name: semgrep/semgrep:1.155.0
     entrypoint: [""]
   interruptible: true
   script:
@@ -161,7 +160,7 @@ security:semgrep:
 changelog:
   stage: release
   image:
-    name: orhunp/git-cliff:latest
+    name: orhunp/git-cliff:2.12.0
     entrypoint: [""]
   variables:
     GIT_DEPTH: 0
@@ -182,7 +181,7 @@ changelog:
 release:goreleaser:
   stage: release
   image:
-    name: goreleaser/goreleaser:latest
+    name: goreleaser/goreleaser:v2.14.1
     entrypoint: [""]
   needs:
     - job: changelog
@@ -203,9 +202,9 @@ release:goreleaser:
 # Build and push multi-arch Docker images to GitLab Container Registry
 release:docker:build:
   stage: release
-  image: docker:latest
+  image: docker:27
   services:
-    - docker:dind
+    - docker:27-dind
   before_script:
     - docker buildx create --use --driver docker-container
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
@@ -219,7 +218,7 @@ release:docker:build:
 # distroless (no shell) which prevents GitLab CI from executing scripts.
 release:docker:dockerhub:
   stage: release
-  image: alpine:latest
+  image: alpine:3.21
   needs:
     - job: release:docker:build
   before_script:
@@ -236,7 +235,7 @@ release:docker:dockerhub:
 # Mirror to GHCR (fault-isolated, runs after GitLab push succeeds)
 release:docker:ghcr:
   stage: release
-  image: alpine:latest
+  image: alpine:3.21
   needs:
     - job: release:docker:build
   before_script:
@@ -254,7 +253,7 @@ release:docker:ghcr:
 
 notify:discord:
   stage: notify
-  image: alpine:latest
+  image: alpine:3.21
   needs:
     - job: changelog
       artifacts: true

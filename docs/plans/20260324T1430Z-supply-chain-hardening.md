@@ -1,6 +1,6 @@
 # Supply Chain Hardening — Pin Docker Images & Eliminate curl-pipe-to-shell
 
-**Status:** 📋 Planned
+**Status:** ✅ Complete
 **Created:** 2026-03-24T14:30Z
 **Triggered by:** Trivy breach investigation — no compromise found, but audit revealed 8 unpinned `:latest` Docker images and 1 curl-pipe-to-shell install across CI and Makefile
 

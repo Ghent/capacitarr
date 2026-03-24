@@ -20,8 +20,8 @@ lint:
 	@echo "→ Linting backend (golangci-lint via Docker)..."
 	@echo "→ Ensuring go:embed directory exists..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
-		golangci/golangci-lint:latest golangci-lint run ./...
+	docker run --rm --pull missing -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+		golangci/golangci-lint:v2.11.4 golangci-lint run ./...
 	@echo "✓ Lint complete"
 
 ## Run Prettier (auto-fix)
@@ -43,8 +43,8 @@ check:
 	@echo "→ Ensuring go:embed directory exists..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
 	@echo "→ Checking backend (golangci-lint via Docker)..."
-	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
-		golangci/golangci-lint:latest golangci-lint run ./...
+	docker run --rm --pull missing -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+		golangci/golangci-lint:v2.11.4 golangci-lint run ./...
 	@echo "✓ All checks passed"
 
 # ─── CI-Equivalent Checks (Docker-based, matches CI exactly) ──────────────────
@@ -52,12 +52,12 @@ check:
 ## Lint all code (same Docker images + commands as CI pipeline)
 lint\:ci:
 	@echo "═══ CI Lint Stage ═══"
-	@echo "→ [lint:go] golangci-lint (Docker: golangci/golangci-lint:latest)..."
+	@echo "→ [lint:go] golangci-lint (Docker: golangci/golangci-lint:v2.11.4)..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
-		golangci/golangci-lint:latest golangci-lint run ./...
+	docker run --rm --pull missing -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+		golangci/golangci-lint:v2.11.4 golangci-lint run ./...
 	@echo "→ [lint:frontend] ESLint + Prettier (Docker: node:22-alpine)..."
-	docker run --rm --pull always -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
+	docker run --rm --pull missing -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
 		node:22-alpine sh -c "\
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
@@ -71,10 +71,10 @@ test\:ci:
 	@echo "═══ CI Test Stage ═══"
 	@echo "→ [test:go] go test (Docker: golang:1.26-alpine)..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+	docker run --rm --pull missing -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golang:1.26-alpine sh -c "cd /app && go test -v ./... -count=1"
 	@echo "→ [test:frontend] vitest (Docker: node:22-alpine)..."
-	docker run --rm --pull always -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
+	docker run --rm --pull missing -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
 		node:22-alpine sh -c "\
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
@@ -86,26 +86,26 @@ security\:ci:
 	@echo "═══ CI Security Stage ═══"
 	@echo "→ [security:govulncheck] (Docker: golang:1.26-alpine)..."
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
-	docker run --rm --pull always -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
+	docker run --rm --pull missing -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golang:1.26-alpine sh -c "\
 			go install golang.org/x/vuln/cmd/govulncheck@latest && \
 			cd /app && govulncheck ./..."
 	@echo "→ [security:pnpm-audit] (Docker: node:22-alpine)..."
-	docker run --rm --pull always -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
+	docker run --rm --pull missing -e CI=true -v $(CURDIR)/frontend:/app $(NODE_CACHE_VOLS) -w /app \
 		node:22-alpine sh -c "\
 			corepack enable && \
 			pnpm install --frozen-lockfile && \
 			pnpm audit"
-	@echo "→ [security:trivy] Filesystem vulnerability scan (Docker: ghcr.io/aquasecurity/trivy)..."
-	docker run --rm --pull always -v $(CURDIR)/backend:/src ghcr.io/aquasecurity/trivy:latest \
+	@echo "→ [security:trivy] Filesystem vulnerability scan (Docker: ghcr.io/aquasecurity/trivy:0.69.3)..."
+	docker run --rm --pull missing -v $(CURDIR)/backend:/src ghcr.io/aquasecurity/trivy:0.69.3 \
 		fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln /src
-	docker run --rm --pull always -v $(CURDIR)/frontend:/src ghcr.io/aquasecurity/trivy:latest \
+	docker run --rm --pull missing -v $(CURDIR)/frontend:/src ghcr.io/aquasecurity/trivy:0.69.3 \
 		fs --exit-code 1 --severity HIGH,CRITICAL --scanners vuln /src
-	@echo "→ [security:gitleaks] Secret scanning (Docker: zricethezav/gitleaks)..."
-	docker run --rm --pull always -v $(CURDIR):/src zricethezav/gitleaks:latest \
+	@echo "→ [security:gitleaks] Secret scanning (Docker: zricethezav/gitleaks:v8.30.1)..."
+	docker run --rm --pull missing -v $(CURDIR):/src zricethezav/gitleaks:v8.30.1 \
 		detect --source /src --config /src/.gitleaks.toml --verbose
-	@echo "→ [security:semgrep] SAST scan (Docker: semgrep/semgrep)..."
-	docker run --rm --pull always -v $(CURDIR):/src semgrep/semgrep:latest \
+	@echo "→ [security:semgrep] SAST scan (Docker: semgrep/semgrep:1.155.0)..."
+	docker run --rm --pull missing -v $(CURDIR):/src semgrep/semgrep:1.155.0 \
 		semgrep scan --config=auto --error /src
 	@echo "✓ CI security stage passed"
 
@@ -136,9 +136,9 @@ security\:zap:
 ## Scan the built Docker image for OS-level and binary CVEs (requires prior `make build`)
 security\:image:
 	@echo "═══ Container Image Scan ═══"
-	@echo "→ [security:trivy-image] Scanning Docker image (Docker: ghcr.io/aquasecurity/trivy)..."
-	docker run --rm --pull always -v /var/run/docker.sock:/var/run/docker.sock \
-		ghcr.io/aquasecurity/trivy:latest image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln \
+	@echo "→ [security:trivy-image] Scanning Docker image (Docker: ghcr.io/aquasecurity/trivy:0.69.3)..."
+	docker run --rm --pull missing -v /var/run/docker.sock:/var/run/docker.sock \
+		ghcr.io/aquasecurity/trivy:0.69.3 image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln \
 		capacitarr-capacitarr:latest
 	@echo "✓ Container image scan passed"
 
