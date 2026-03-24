@@ -107,7 +107,7 @@ Gitleaks scans the entire git history for accidentally committed secrets. The fo
 
 #### Semgrep Configuration (`.semgrepignore` and `nosemgrep`)
 
-Semgrep scans **581 files** (every file tracked by git except the marketing site). Test files, utility files, and all production code are scanned.
+Semgrep scans **590 files** (every file tracked by git except the marketing site). Test files, utility files, and all production code are scanned.
 
 **`.semgrepignore` exclusion — 1 directory:**
 
@@ -134,6 +134,7 @@ Semgrep scans **581 files** (every file tracked by git except the marketing site
 | `backend/internal/integrations/seerr_test.go` | 205, 223 | `no-direct-write-to-responsewriter` | Mock HTTP server in test code returns canned JSON responses for Seerr pagination testing. Not production code — `httptest.NewServer` handlers are test-only. |
 | `backend/internal/services/version_test.go` | 26 | `no-direct-write-to-responsewriter` | Mock HTTP server returns canned GitLab release API responses for version check tests. Not production code. |
 | `backend/routes/version_test.go` | 22 | `no-direct-write-to-responsewriter` | Mock HTTP server returns canned version API responses. Not production code. |
+| `backend/internal/db/migrate.go` | 94 | `go.lang.security.audit.database.string-formatted-query` | `hasColumn` uses `PRAGMA table_info(engine_run_stats)` with a hardcoded table name, not user input. The `nosemgrep` annotation is on the line above the query to suppress the false positive. |
 | `frontend/app/composables/useEventStream.ts` | 180 | `unsafe-formatstring` | Template literal in `console.warn` uses `eventType` which is an internal SSE event type name from the server's event bus, not user-supplied input. |
 
 **Inline `nolint` annotations — every suppressed golangci-lint finding with rationale:**
@@ -154,8 +155,9 @@ Semgrep scans **581 files** (every file tracked by git except the marketing site
 | `backend/internal/integrations/sonarr.go` | 247 | gosec G107 | URL is from admin-configured integration settings, not user-tainted |
 | `backend/internal/notifications/httpclient.go` | 52 | gosec G107 | URL is from admin-configured webhook notification settings |
 | `backend/internal/services/auth.go` | 213 | gosec G706 | Username is from a trusted reverse proxy header, not user-supplied |
-| `backend/internal/services/deletion.go` | 371 | errcheck | `rate.Limiter.Wait` with `context.Background()` never returns non-nil error |
+| `backend/internal/services/deletion.go` | 377 | errcheck | `rate.Limiter.Wait` with `context.Background()` never returns non-nil error |
 | `backend/internal/services/notification_dispatch_test.go` | 347 | dupl | Test structure intentionally similar to related dispatch tests |
+| `backend/internal/services/notification_dispatch_test.go` | 382 | dupl | Test structure intentionally similar to related dispatch tests |
 | `backend/internal/services/version.go` | 161 | gosec G107 | URL is set at construction time (`DefaultGitLabReleasesURL`), not user-tainted |
 | `backend/internal/services/version.go` | 173 | gosec G706 | Status code is a server-side integer, not user-tainted input |
 | `backend/routes/auth.go` | 92 | gosec | `Secure` flag conditionally set via `cfg.SecureCookies` — not all self-hosted environments use HTTPS. Also suppresses Semgrep (see nosemgrep table above) |
