@@ -51,7 +51,7 @@ Capacitarr uses a layered architecture with clear separation of concerns:
 - **Enrichment Pipeline** — Composable enrichers auto-discovered from registry capabilities (watch data, requests, watchlists, collections, cross-references)
 - **Scoring Engine** — Pluggable `ScoringFactor` interface for each scoring dimension. New factors can be added without modifying the evaluator.
 - **Event Bus** — A typed pub/sub system with fan-out to three subscribers: activity persister (dashboard feed), notification dispatcher (Discord/Apprise), and SSE broadcaster (real-time browser updates)
-- **Data Layer** — SQLite via GORM with a single baseline migration
+- **Data Layer** — SQLite via GORM with SQL migrations
 
 For the full architecture documentation with diagrams, see [docs/architecture.md](docs/architecture.md).
 

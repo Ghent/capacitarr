@@ -71,7 +71,7 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 
 		// Validate type
 		if !db.ValidIntegrationTypes[config.Type] {
-			return apiError(c, http.StatusBadRequest, "type must be one of: plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby")
+			return apiError(c, http.StatusBadRequest, "type must be one of: plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby, jellystat")
 		}
 
 		config.ID = 0 // Ensure auto-increment

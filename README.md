@@ -21,7 +21,7 @@ Capacitarr scores every media item across seven pluggable dimensions — watch h
 - **Visual Rule Builder** — Protect content with `always_keep`, `prefer_keep`, `prefer_delete`, and `always_delete` rules with impact previews
 - **10 Integrations** — Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli, Jellystat, Seerr (Overseerr/Jellyseerr)
 - **Approval Queue** — Review and approve deletions before they happen
-- **Real-Time Dashboard** — 44+ granular SSE event types push everything to the browser instantly
+- **Real-Time Dashboard** — 53 granular SSE event types push everything to the browser instantly
 - **Library Management** — Per-library threshold management with independent disk usage triggers
 - **Capacity Forecast** — Linear regression predicts when disk thresholds will be reached
 - **Watch Intelligence** — Dead content detection, stale content analysis, multi-user watch aggregation, and watchlist/favorites enrichment

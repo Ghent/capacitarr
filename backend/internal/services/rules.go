@@ -10,6 +10,7 @@ import (
 	"capacitarr/internal/db"
 	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
+	"capacitarr/internal/integrations"
 )
 
 // ErrRuleNotFound is returned when a rule cannot be found by ID.
@@ -18,18 +19,15 @@ var ErrRuleNotFound = errors.New("rule not found")
 // ErrRuleValidation is returned when a rule fails input validation.
 var ErrRuleValidation = errors.New("rule validation failed")
 
-// Service type constants for rule field definitions.
-const serviceTypeSonarr = "sonarr"
-
 // Rule field name constants (shared across services to satisfy goconst linter).
 const ruleFieldSeriesStatus = "seriesstatus"
 
 // arrServiceTypes maps *arr integration type strings to true for quick lookup.
 var arrServiceTypes = map[string]bool{
-	serviceTypeSonarr: true,
-	"radarr":          true,
-	"lidarr":          true,
-	"readarr":         true,
+	string(integrations.IntegrationTypeSonarr):  true,
+	string(integrations.IntegrationTypeRadarr):  true,
+	string(integrations.IntegrationTypeLidarr):  true,
+	string(integrations.IntegrationTypeReadarr): true,
 }
 
 // IntegrationContextProvider provides integration metadata needed for
@@ -283,7 +281,7 @@ func (s *RulesService) GetFieldDefinitions(serviceType string, enrichment Enrich
 		{Field: "episodecount", Label: "Episode Count", Type: "number", Operators: []string{"==", "!=", ">", ">=", "<", "<="}},
 	}
 
-	if serviceType == serviceTypeSonarr {
+	if serviceType == string(integrations.IntegrationTypeSonarr) {
 		fields = append(fields, sonarrFields...)
 	} else if serviceType == "" && enrichment.HasSonarr {
 		fields = append(fields, sonarrFields...)
