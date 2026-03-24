@@ -144,7 +144,7 @@ func TestPreviewService_SetPreviewCache(t *testing.T) {
 	prefs := db.PreferenceSet{}
 	var rules []db.CustomRule
 
-	svc.SetPreviewCache(items, prefs, map[string]int{}, rules)
+	svc.SetPreviewCache(items, prefs, map[string]int{}, rules, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	// Verify cache is populated
 	result, err := svc.GetPreview(false)
@@ -177,7 +177,7 @@ func TestPreviewService_CacheHit(t *testing.T) {
 
 	// Populate cache
 	items := []integrations.MediaItem{{Title: "Firefly"}}
-	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil)
+	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	// Should return cached result without error
 	result, err := svc.GetPreview(false)
@@ -202,7 +202,7 @@ func TestPreviewService_InvalidatePreviewCache(t *testing.T) {
 
 	// Populate cache
 	items := []integrations.MediaItem{{Title: "Firefly"}}
-	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil)
+	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -244,7 +244,7 @@ func TestPreviewService_ForceBypassesCache(t *testing.T) {
 
 	// Populate cache with items
 	items := []integrations.MediaItem{{Title: "Firefly"}, {Title: "Serenity"}}
-	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil)
+	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	// Force=true should bypass cache and recompute from scratch (0 items — no integrations)
 	result, err := svc.GetPreview(true)
@@ -308,7 +308,7 @@ func TestPreviewService_CacheInvalidationOnEvents(t *testing.T) {
 
 	// Populate cache
 	items := []integrations.MediaItem{{Title: "Firefly"}}
-	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil)
+	svc.SetPreviewCache(items, db.PreferenceSet{}, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 
 	// Verify cache is populated
 	svc.previewMu.RLock()

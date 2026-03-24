@@ -39,7 +39,11 @@ type EvaluatedItem struct {
 // The factors slice determines which scoring dimensions are active, and the
 // weights map provides the user-configured weight (0-10) for each factor key.
 // Factors whose key is missing from the weights map use 0 (disabled).
-func EvaluateMedia(items []integrations.MediaItem, factors []ScoringFactor, weights map[string]int, rules []db.CustomRule) []EvaluatedItem {
+//
+// The EvaluationContext carries the set of active integration types so that
+// factors implementing RequiresIntegration or MediaTypeScoped can be excluded
+// when their prerequisites are not met.
+func EvaluateMedia(items []integrations.MediaItem, factors []ScoringFactor, weights map[string]int, rules []db.CustomRule, ctx *EvaluationContext) []EvaluatedItem {
 	evaluated := make([]EvaluatedItem, 0, len(items))
 
 	for _, item := range items {
@@ -57,7 +61,7 @@ func EvaluateMedia(items []integrations.MediaItem, factors []ScoringFactor, weig
 			continue
 		}
 
-		score, scoreReason, scoreFactors := calculateScore(item, factors, weights)
+		score, scoreReason, scoreFactors := calculateScore(item, factors, weights, ctx)
 		finalScore := score * modifier
 
 		// Merge weight factors with rule factors
@@ -86,11 +90,15 @@ func EvaluateMedia(items []integrations.MediaItem, factors []ScoringFactor, weig
 
 // calculateScore iterates over the registered scoring factors, calculates each
 // factor's raw score, applies the user-configured weight, and normalizes the
-// result to 0.0–1.0. This replaces the previous hardcoded per-factor logic.
-func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weights map[string]int) (float64, string, []ScoreFactor) {
-	// Sum total weight for normalization
+// result to 0.0–1.0. Inapplicable factors (per RequiresIntegration /
+// MediaTypeScoped) are excluded from both weight normalization and scoring.
+func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weights map[string]int, ctx *EvaluationContext) (float64, string, []ScoreFactor) {
+	// Sum total weight for normalization — only applicable factors
 	var totalWeight float64
 	for _, f := range factors {
+		if !isFactorApplicable(f, item, ctx) {
+			continue
+		}
 		totalWeight += float64(weights[f.Key()])
 	}
 	if totalWeight == 0 {
@@ -102,6 +110,9 @@ func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weight
 	reasonParts := make([]string, 0, len(factors))
 
 	for _, f := range factors {
+		if !isFactorApplicable(f, item, ctx) {
+			continue
+		}
 		w := weights[f.Key()]
 		rawScore := f.Calculate(item)
 		contribution := rawScore * float64(w)

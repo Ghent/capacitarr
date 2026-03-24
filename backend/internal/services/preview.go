@@ -166,8 +166,8 @@ func (s *PreviewService) GetPreview(force bool) (*PreviewResult, error) {
 // Called by the poller at the end of each cycle. The service runs
 // EvaluateMedia + SortEvaluated + DiskContext assembly internally.
 // The result is also persisted to the database for restart recovery.
-func (s *PreviewService) SetPreviewCache(items []integrations.MediaItem, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule) {
-	result := s.buildPreview(items, prefs, weights, rules)
+func (s *PreviewService) SetPreviewCache(items []integrations.MediaItem, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule, evalCtx *engine.EvaluationContext) {
+	result := s.buildPreview(items, prefs, weights, rules, evalCtx)
 
 	s.previewMu.Lock()
 	s.previewCache = result
@@ -260,8 +260,8 @@ func (s *PreviewService) runInvalidationListener() {
 
 // buildPreview evaluates and scores pre-fetched items. Used by
 // SetPreviewCache (poller-driven population).
-func (s *PreviewService) buildPreview(items []integrations.MediaItem, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule) *PreviewResult {
-	evaluated := engine.EvaluateMedia(items, engine.DefaultFactors(), weights, rules)
+func (s *PreviewService) buildPreview(items []integrations.MediaItem, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule, evalCtx *engine.EvaluationContext) *PreviewResult {
+	evaluated := engine.EvaluateMedia(items, engine.DefaultFactors(), weights, rules, evalCtx)
 	engine.SortEvaluated(evaluated, prefs.TiebreakerMethod)
 	s.EnrichWithQueueStatus(evaluated)
 
@@ -343,7 +343,19 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 		return nil, err
 	}
 
-	return s.buildPreview(allItems, prefs, weights, rules), nil
+	// Build EvaluationContext from enabled integrations so the scoring engine
+	// can exclude factors whose prerequisites are not met.
+	enabledConfigs, err := s.integrations.ListEnabled()
+	if err != nil {
+		return nil, err
+	}
+	configTypes := make([]string, len(enabledConfigs))
+	for i, cfg := range enabledConfigs {
+		configTypes[i] = cfg.Type
+	}
+	evalCtx := engine.NewEvaluationContext(configTypes)
+
+	return s.buildPreview(allItems, prefs, weights, rules, evalCtx), nil
 }
 
 // EnrichWithQueueStatus annotates each EvaluatedItem with its current queue

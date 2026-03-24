@@ -603,7 +603,7 @@ func TestApplyRules_WeightFactorsHaveNilRuleID(t *testing.T) {
 		"request_popularity": 0,
 	}
 
-	evaluated := EvaluateMedia([]integrations.MediaItem{item}, DefaultFactors(), weights, nil)
+	evaluated := EvaluateMedia([]integrations.MediaItem{item}, DefaultFactors(), weights, nil, allActiveCtx())
 	if len(evaluated) != 1 {
 		t.Fatalf("Expected 1 evaluated item, got %d", len(evaluated))
 	}

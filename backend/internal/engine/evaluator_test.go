@@ -30,7 +30,7 @@ func TestEvaluator_Evaluate(t *testing.T) {
 	weights := defaultWeights()
 	rules := []db.CustomRule{}
 
-	result := eval.Evaluate(items, weights, rules, db.TiebreakerSizeDesc)
+	result := eval.Evaluate(items, weights, rules, db.TiebreakerSizeDesc, allActiveCtx())
 
 	if result.TotalCount != 2 {
 		t.Errorf("expected TotalCount 2, got %d", result.TotalCount)
@@ -65,7 +65,7 @@ func TestEvaluator_EvaluateWithProtection(t *testing.T) {
 		{ID: 1, IntegrationID: &intID, Field: "title", Operator: "==", Value: "Firefly", Effect: "always_keep", Enabled: true},
 	}
 
-	result := eval.Evaluate(items, weights, rules, db.TiebreakerSizeDesc)
+	result := eval.Evaluate(items, weights, rules, db.TiebreakerSizeDesc, allActiveCtx())
 
 	if len(result.Protected) != 1 {
 		t.Fatalf("expected 1 protected item, got %d", len(result.Protected))
@@ -88,7 +88,7 @@ func TestEvaluationResult_CandidatesForDeletion(t *testing.T) {
 	}
 
 	weights := defaultWeights()
-	result := eval.Evaluate(items, weights, []db.CustomRule{}, db.TiebreakerSizeDesc)
+	result := eval.Evaluate(items, weights, []db.CustomRule{}, db.TiebreakerSizeDesc, allActiveCtx())
 
 	// Request 15GB freed
 	candidates := result.CandidatesForDeletion(15 * 1024 * 1024 * 1024)

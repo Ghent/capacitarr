@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/integrations"
 	"capacitarr/internal/services"
 	"capacitarr/internal/testutil"
@@ -74,7 +75,7 @@ func seedPreviewCache(t *testing.T, reg *services.Registry, items []integrations
 		"series_status":      3,
 		"request_popularity": 0,
 	}
-	reg.Preview.SetPreviewCache(items, prefs, weights, nil)
+	reg.Preview.SetPreviewCache(items, prefs, weights, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
 }
 
 func TestAnalyticsE2E_DeadContentEndpoint(t *testing.T) {

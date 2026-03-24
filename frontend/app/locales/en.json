@@ -522,6 +522,7 @@
   "dashboard.errorBanner.action": "View in Settings",
   "rules.diskThresholdsEmpty": "Threshold settings will appear here once disk groups are detected from your *arr services.",
   "rules.ratingTooltip": "Rating sources by integration: Sonarr uses TheTVDB community rating, Radarr uses IMDb (TMDb fallback), Lidarr uses MusicBrainz, and Readarr uses GoodReads. All ratings are normalized to a 0–10 scale.",
+  "rules.integrationErrorTooltip": "The integration required for this factor has a connection error. Scoring data may be incomplete until the issue is resolved.",
   "help.dataSources": "Data Sources",
   "help.dataSources.intro": "Capacitarr pulls metadata from each connected *arr integration. The data used for scoring comes from the following sources:",
   "help.dataSources.ratingsTitle": "Ratings",

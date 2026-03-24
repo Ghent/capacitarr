@@ -31,6 +31,73 @@ type ScoringFactor interface {
 	Calculate(item integrations.MediaItem) float64
 }
 
+// ─── Optional capability interfaces ─────────────────────────────────────────
+
+// RequiresIntegration is optionally implemented by scoring factors that
+// depend on a specific enrichment integration being connected. When the
+// required integration type is absent, the factor is excluded from scoring
+// and hidden from the factor weights API.
+type RequiresIntegration interface {
+	RequiredIntegrationType() integrations.IntegrationType
+}
+
+// MediaTypeScoped is optionally implemented by scoring factors that are
+// only meaningful for certain media types. For items of non-applicable
+// types, the factor is skipped per-item and its weight excluded from
+// that item's normalization.
+type MediaTypeScoped interface {
+	ApplicableMediaTypes() []integrations.MediaType
+}
+
+// ─── EvaluationContext ──────────────────────────────────────────────────────
+
+// EvaluationContext carries the set of active integration types through the
+// evaluation pipeline. Built from the enabled integrations at the start of
+// each poll cycle and passed to the evaluator.
+type EvaluationContext struct {
+	ActiveIntegrationTypes map[integrations.IntegrationType]bool
+}
+
+// HasIntegrationType returns true if the given integration type is active.
+func (ctx *EvaluationContext) HasIntegrationType(t integrations.IntegrationType) bool {
+	return ctx.ActiveIntegrationTypes[t]
+}
+
+// NewEvaluationContext builds an EvaluationContext from a list of integration
+// type strings (as stored in db.IntegrationConfig.Type). Duplicate types are
+// deduplicated automatically via the map.
+func NewEvaluationContext(typeStrings []string) *EvaluationContext {
+	active := make(map[integrations.IntegrationType]bool, len(typeStrings))
+	for _, t := range typeStrings {
+		active[integrations.IntegrationType(t)] = true
+	}
+	return &EvaluationContext{ActiveIntegrationTypes: active}
+}
+
+// isFactorApplicable checks whether a factor should participate in scoring
+// for the given item and evaluation context. Factors that don't implement
+// RequiresIntegration or MediaTypeScoped are always applicable.
+func isFactorApplicable(f ScoringFactor, item integrations.MediaItem, ctx *EvaluationContext) bool {
+	if ri, ok := f.(RequiresIntegration); ok {
+		if !ctx.HasIntegrationType(ri.RequiredIntegrationType()) {
+			return false
+		}
+	}
+	if mts, ok := f.(MediaTypeScoped); ok {
+		typeMatch := false
+		for _, mt := range mts.ApplicableMediaTypes() {
+			if item.Type == mt {
+				typeMatch = true
+				break
+			}
+		}
+		if !typeMatch {
+			return false
+		}
+	}
+	return true
+}
+
 // ─── Default scoring factors ────────────────────────────────────────────────
 
 // DefaultFactors returns the standard set of scoring factors in priority order.
@@ -53,14 +120,14 @@ func DefaultFactors() []ScoringFactor {
 type WatchHistoryFactor struct{}
 
 // Name returns the display name.
-func (f *WatchHistoryFactor) Name() string { return "Watch History" }
+func (f *WatchHistoryFactor) Name() string { return "Play History" }
 
 // Key returns the preference key.
 func (f *WatchHistoryFactor) Key() string { return "watch_history" }
 
 // Description returns the UI description.
 func (f *WatchHistoryFactor) Description() string {
-	return "Unwatched items score higher for deletion. More plays = more protected."
+	return "Unplayed items score higher for deletion. More plays = more protected."
 }
 
 // DefaultWeight returns the initial weight.
@@ -81,14 +148,14 @@ func (f *WatchHistoryFactor) Calculate(item integrations.MediaItem) float64 {
 type RecencyFactor struct{}
 
 // Name returns the display name.
-func (f *RecencyFactor) Name() string { return "Last Watched" }
+func (f *RecencyFactor) Name() string { return "Last Played" }
 
 // Key returns the preference key.
 func (f *RecencyFactor) Key() string { return "last_watched" }
 
 // Description returns the UI description.
 func (f *RecencyFactor) Description() string {
-	return "Media not watched in a long time scores higher for deletion."
+	return "Media not played in a long time scores higher for deletion."
 }
 
 // DefaultWeight returns the initial weight.
@@ -201,10 +268,11 @@ func (f *LibraryAgeFactor) Calculate(item integrations.MediaItem) float64 {
 // ─── SeriesStatusFactor ─────────────────────────────────────────────────────
 
 // SeriesStatusFactor scores TV shows by series status. Ended = more deletable.
+// Implements MediaTypeScoped — only applies to show and season items.
 type SeriesStatusFactor struct{}
 
 // Name returns the display name.
-func (f *SeriesStatusFactor) Name() string { return "Series Status" }
+func (f *SeriesStatusFactor) Name() string { return "Show Status" }
 
 // Key returns the preference key.
 func (f *SeriesStatusFactor) Key() string { return "series_status" }
@@ -217,15 +285,21 @@ func (f *SeriesStatusFactor) Description() string {
 // DefaultWeight returns the initial weight.
 func (f *SeriesStatusFactor) DefaultWeight() int { return 3 }
 
-// Calculate returns 1.0 for ended shows, 0.2 for continuing, 0.5 for non-TV or unknown.
+// ApplicableMediaTypes returns the media types this factor applies to.
+// Only TV shows and seasons have a meaningful series status.
+func (f *SeriesStatusFactor) ApplicableMediaTypes() []integrations.MediaType {
+	return []integrations.MediaType{integrations.MediaTypeShow, integrations.MediaTypeSeason}
+}
+
+// Calculate returns 1.0 for ended shows, 0.2 for continuing, 0.5 for unknown.
+// Items of non-applicable types are excluded by the engine via MediaTypeScoped,
+// so this method only receives show/season items.
 func (f *SeriesStatusFactor) Calculate(item integrations.MediaItem) float64 {
-	if item.Type == integrations.MediaTypeShow || item.Type == integrations.MediaTypeSeason {
-		switch strings.ToLower(item.SeriesStatus) {
-		case "ended":
-			return 1.0
-		case "continuing":
-			return 0.2
-		}
+	switch strings.ToLower(item.SeriesStatus) {
+	case "ended":
+		return 1.0
+	case "continuing":
+		return 0.2
 	}
 	return 0.5
 }
@@ -234,6 +308,7 @@ func (f *SeriesStatusFactor) Calculate(item integrations.MediaItem) float64 {
 
 // RequestPopularityFactor scores items by whether they were user-requested.
 // Requested items get a lower deletion score (more protected).
+// Implements RequiresIntegration — requires Seerr to be connected.
 type RequestPopularityFactor struct{}
 
 // Name returns the display name.
@@ -249,6 +324,12 @@ func (f *RequestPopularityFactor) Description() string {
 
 // DefaultWeight returns the initial weight.
 func (f *RequestPopularityFactor) DefaultWeight() int { return 2 }
+
+// RequiredIntegrationType returns the integration type that must be active
+// for this factor to participate in scoring.
+func (f *RequestPopularityFactor) RequiredIntegrationType() integrations.IntegrationType {
+	return integrations.IntegrationTypeSeerr
+}
 
 // Calculate returns 0.1 for requested items (protect), 0.5 for unrequested.
 func (f *RequestPopularityFactor) Calculate(item integrations.MediaItem) float64 {

@@ -130,36 +130,32 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const FACTOR_COLORS: Record<string, string> = {
-  'Watch History': '#8b5cf6',
-  'Last Watched': '#3b82f6',
+  'Play History': '#8b5cf6',
+  'Last Played': '#3b82f6',
   'File Size': '#f59e0b',
   Rating: '#10b981',
   'Time in Library': '#f97316',
-  'Series Status': '#ec4899',
-  // Legacy short names
-  Watch: '#8b5cf6',
-  Recency: '#3b82f6',
-  Size: '#f59e0b',
-  Age: '#f97316',
-  Status: '#ec4899',
+  'Show Status': '#ec4899',
+  'Request Popularity': '#06b6d4',
 };
 
 const FACTOR_ABBRS: Record<string, string> = {
-  'Watch History': 'W:',
-  'Last Watched': 'R:',
+  'Play History': 'P:',
+  'Last Played': 'LP:',
   'File Size': 'S:',
   Rating: 'Rt:',
   'Time in Library': 'A:',
-  'Series Status': 'St:',
+  'Show Status': 'Sh:',
+  'Request Popularity': 'Rq:',
 };
 
 const LEGACY_LABELS: Record<string, string> = {
-  Watch: 'Watch History',
-  Recency: 'Last Watched',
+  Watch: 'Play History',
+  Recency: 'Last Played',
   Size: 'File Size',
   Rating: 'Rating',
   Age: 'Time in Library',
-  Status: 'Series Status',
+  Status: 'Show Status',
 };
 
 function factorColor(name: string): string {

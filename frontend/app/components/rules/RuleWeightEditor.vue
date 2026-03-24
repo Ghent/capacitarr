@@ -67,6 +67,16 @@
                   </UiTooltipContent>
                 </UiTooltip>
               </UiTooltipProvider>
+              <UiTooltipProvider v-if="factor.integrationError">
+                <UiTooltip>
+                  <UiTooltipTrigger as-child>
+                    <AlertTriangleIcon class="w-3.5 h-3.5 text-amber-500 cursor-help" />
+                  </UiTooltipTrigger>
+                  <UiTooltipContent side="top" class="max-w-xs text-xs">
+                    {{ $t('rules.integrationErrorTooltip') }}
+                  </UiTooltipContent>
+                </UiTooltip>
+              </UiTooltipProvider>
             </span>
             <span class="text-muted-foreground font-mono tabular-nums"
               >{{ factor.weight }} / 10</span
@@ -94,7 +104,7 @@
 </template>
 
 <script setup lang="ts">
-import { InfoIcon } from 'lucide-vue-next';
+import { AlertTriangleIcon, InfoIcon } from 'lucide-vue-next';
 import type { ScoringFactorWeight } from '~/types/api';
 
 const props = defineProps<{
@@ -168,6 +178,9 @@ const presetDescriptions: Record<string, string> = {
 };
 
 function isActivePreset(values: Record<string, number>): boolean {
+  // Only compare keys that exist in both the preset AND the current factor set.
+  // Presets may include keys for inapplicable factors (e.g. series_status without
+  // Sonarr) — those are ignored when determining if the preset is active.
   return Object.entries(values).every(([key, val]) => {
     const factor = props.factors.find((f) => f.key === key);
     return factor ? factor.weight === val : true;
@@ -182,6 +195,12 @@ const activePresetDescription = computed(() => {
 });
 
 function applyPreset(values: Record<string, number>) {
-  emit('apply-preset', values);
+  // Only emit keys that exist in the current factor set. Preset values for
+  // inapplicable factors (e.g. request_popularity without Seerr) are filtered
+  // out so the API doesn't receive keys for hidden factors.
+  const filtered = Object.fromEntries(
+    Object.entries(values).filter(([key]) => props.factors.some((f) => f.key === key)),
+  );
+  emit('apply-preset', filtered);
 }
 </script>

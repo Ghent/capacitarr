@@ -43,8 +43,12 @@ type EvaluationResult struct {
 //
 // The weights map provides the user-configured weight (0-10) for each factor key.
 // If a factor's key is missing from the map, it defaults to 0 (disabled).
-func (e *Evaluator) Evaluate(items []integrations.MediaItem, weights map[string]int, rules []db.CustomRule, tiebreakerMethod string) *EvaluationResult {
-	evaluated := EvaluateMedia(items, e.factors, weights, rules)
+//
+// The EvaluationContext carries active integration types so that factors
+// implementing RequiresIntegration or MediaTypeScoped are excluded when
+// their prerequisites are not met.
+func (e *Evaluator) Evaluate(items []integrations.MediaItem, weights map[string]int, rules []db.CustomRule, tiebreakerMethod string, ctx *EvaluationContext) *EvaluationResult {
+	evaluated := EvaluateMedia(items, e.factors, weights, rules, ctx)
 	SortEvaluated(evaluated, tiebreakerMethod)
 
 	result := &EvaluationResult{
