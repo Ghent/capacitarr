@@ -1,6 +1,6 @@
 # Broken Integration Scoring — Factor Exclusion
 
-**Status:** 📋 Planned
+**Status:** ✅ Complete
 **Branch:** `fix/broken-integration-scoring`
 **Depends on:** None
 **Commit prefix:** `fix(engine):`
