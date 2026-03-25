@@ -3,7 +3,7 @@
 **Date:** 2026-03-02
 **Status:** ✅ Complete — OpenAPI 3.1 specification, API examples, workflows guide, and versioning documentation all implemented.
 **Effort:** M (medium)
-**Relates to:** [Frontend/Backend Decoupling Plan](20260301T1548Z-frontend-backend-decoupling.md)
+**Relates to:** [Frontend/Backend Decoupling Plan](../01-architecture/20260301T1548Z-frontend-backend-decoupling.md)
 
 ## Goal
 

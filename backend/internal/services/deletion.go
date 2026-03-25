@@ -524,7 +524,7 @@ func (s *DeletionService) processJob(job DeleteJob, deferredAuditEntries *[]db.A
 	// Re-read DeletionsEnabled at processing time (not enqueue time) as a safety net.
 	// If the user disabled deletions while items were in the grace period, this
 	// catches it and forces dry-run. This is intentional — see
-	// docs/plans/20260324T1740Z-deletion-queue-mode-change-safety.md.
+	// docs/plans/02-features/20260324T1740Z-deletion-queue-mode-change-safety.md.
 	deletionsEnabled := false
 	if prefs, err := s.settings.GetPreferences(); err == nil {
 		deletionsEnabled = prefs.DeletionsEnabled
