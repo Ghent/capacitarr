@@ -77,8 +77,22 @@ const dedupedItems = computed(() => {
 });
 
 /**
+ * Map from media item type to the integration type(s) that produce it.
+ * Used to suppress filter buttons for types with no configured integration.
+ */
+const MEDIA_TYPE_TO_INTEGRATION: Record<string, string[]> = {
+  movie: ['radarr'],
+  show: ['sonarr'],
+  season: ['sonarr'],
+  artist: ['lidarr'],
+  book: ['readarr'],
+};
+
+/**
  * Available media type filter buttons, derived from deduped items.
- * Only types actually present in the current data set generate buttons.
+ * Only types actually present in the current data set AND backed by at
+ * least one configured integration generate buttons. This prevents
+ * phantom buttons from stale cached items when an integration is removed.
  * The "show" type is synthetic — it appears when season items exist
  * (representing the grouped show view) OR when show items exist
  * (showLevelOnly mode).
@@ -90,7 +104,20 @@ const mediaTypes = computed(() => {
   if (types.has('season')) {
     types.add('show');
   }
-  return [...types].sort();
+
+  // Build set of configured integration types for cross-reference
+  const configuredIntegrationTypes = new Set(props.integrations.map((i) => i.type));
+
+  // Filter out media types that have no configured integration
+  return [...types]
+    .filter((mt) => {
+      const requiredIntegrations = MEDIA_TYPE_TO_INTEGRATION[mt];
+      // If no mapping exists (unknown type), keep the button
+      if (!requiredIntegrations) return true;
+      // Keep only if at least one required integration type is configured
+      return requiredIntegrations.some((it) => configuredIntegrationTypes.has(it));
+    })
+    .sort();
 });
 
 const integrationMap = computed(() => {
