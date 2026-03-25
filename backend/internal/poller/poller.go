@@ -194,21 +194,15 @@ func (p *Poller) poll() {
 		return
 	}
 
-	// Build EvaluationContext from enabled integration types so the scoring
-	// engine can exclude factors whose prerequisites are not met (e.g.
-	// RequestPopularityFactor without Seerr, SeriesStatusFactor for movies).
-	configTypes := make([]string, len(configs))
-	for i, cfg := range configs {
-		configTypes[i] = cfg.Type
-	}
-	evalCtx := engine.NewEvaluationContext(configTypes)
-
-	// Fetch media items, disk space, and build registry+pipeline from all integrations
+	// Fetch media items, disk space, and build registry+pipeline from all integrations.
+	// Connection testing happens inside fetchAllIntegrations, which populates
+	// fetched.brokenTypes for integrations that failed connection tests.
 	fetched := fetchAllIntegrations(p.reg.Integration)
 
 	// Enrich items using the pluggable enrichment pipeline
+	var enrichStats integrations.EnrichmentStats
 	if fetched.pipeline != nil {
-		enrichStats := fetched.pipeline.Run(fetched.allItems)
+		enrichStats = fetched.pipeline.Run(fetched.allItems)
 
 		// Publish enrichment summary event
 		bus.Publish(events.EnrichmentCompleteEvent{
@@ -218,6 +212,23 @@ func (p *Poller) poll() {
 			ZeroMatchers:   enrichStats.ZeroMatchers,
 			Timestamp:      time.Now().UTC(),
 		})
+	}
+
+	// Build EvaluationContext AFTER fetch + enrichment so it includes:
+	// - Active integration types (from enabled configs)
+	// - Broken integration types (from connection test failures in fetch)
+	// - Failed enrichment capabilities (from enrichment pipeline results)
+	configTypes := make([]string, len(configs))
+	for i, cfg := range configs {
+		configTypes[i] = cfg.Type
+	}
+	evalCtx := engine.NewEvaluationContext(configTypes, fetched.brokenTypes)
+	if len(enrichStats.FailedCapabilities) > 0 {
+		failedCaps := make(map[string]bool, len(enrichStats.FailedCapabilities))
+		for _, cap := range enrichStats.FailedCapabilities {
+			failedCaps[cap] = true
+		}
+		evalCtx.FailedEnrichmentCapabilities = failedCaps
 	}
 
 	// Find the most specific mount for each root folder

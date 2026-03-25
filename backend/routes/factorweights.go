@@ -73,10 +73,27 @@ func RegisterFactorWeightRoutes(protected *echo.Group, reg *services.Registry) {
 	}
 
 	// hasIntegrationError returns true if the factor's required integration
-	// type has a non-empty LastError on any enabled instance.
+	// type(s) have a non-empty LastError on any enabled instance.
+	// For RequiresIntegration (single type): true if that type is erroring.
+	// For RequiresAnyIntegration (multiple types): true only if ALL configured
+	// types in the set are erroring.
 	hasIntegrationError := func(f engine.ScoringFactor, state integrationState) bool {
 		if ri, ok := f.(engine.RequiresIntegration); ok {
 			return state.erroring[ri.RequiredIntegrationType()]
+		}
+		if rai, ok := f.(engine.RequiresAnyIntegration); ok {
+			anyConfigured := false
+			anyHealthy := false
+			for _, t := range rai.RequiredIntegrationTypes() {
+				if state.active[t] {
+					anyConfigured = true
+					if !state.erroring[t] {
+						anyHealthy = true
+						break
+					}
+				}
+			}
+			return anyConfigured && !anyHealthy
 		}
 		return false
 	}

@@ -357,7 +357,7 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 	pipeline := integrations.BuildEnrichmentPipeline(registry)
 	integrations.RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
 	integrations.RegisterJellystatEnrichers(pipeline, registry, jellyfinIDToTMDbID)
-	_ = pipeline.Run(allItems)
+	enrichStats := pipeline.Run(allItems)
 
 	prefs, err := s.preferences.GetPreferences()
 	if err != nil {
@@ -376,12 +376,24 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 
 	// Build EvaluationContext from enabled integrations so the scoring engine
 	// can exclude factors whose prerequisites are not met.
-	// Reuse enabledCfgs fetched earlier for ShowLevelOnly filtering.
-	configTypes := make([]string, len(enabledCfgs))
-	for i, cfg := range enabledCfgs {
-		configTypes[i] = cfg.Type
+	// Layer 1: Derive broken types from LastError on enabled integration configs.
+	// Layer 2: Capture failed enrichment capabilities from the pipeline run.
+	configTypes := make([]string, 0, len(enabledCfgs))
+	var brokenTypes []string
+	for _, cfg := range enabledCfgs {
+		configTypes = append(configTypes, cfg.Type)
+		if cfg.LastError != "" {
+			brokenTypes = append(brokenTypes, cfg.Type)
+		}
 	}
-	evalCtx := engine.NewEvaluationContext(configTypes)
+	evalCtx := engine.NewEvaluationContext(configTypes, brokenTypes)
+	if len(enrichStats.FailedCapabilities) > 0 {
+		failedCaps := make(map[string]bool, len(enrichStats.FailedCapabilities))
+		for _, cap := range enrichStats.FailedCapabilities {
+			failedCaps[cap] = true
+		}
+		evalCtx.FailedEnrichmentCapabilities = failedCaps
+	}
 
 	return s.buildPreview(allItems, prefs, weights, rules, evalCtx), nil
 }

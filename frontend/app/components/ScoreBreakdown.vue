@@ -43,6 +43,18 @@
         <span>{{ factorAbbr(f.name) }}{{ f.contribution.toFixed(2) }}</span>
       </span>
     </div>
+    <div v-if="skippedFactors.length > 0" class="flex flex-wrap gap-x-2 gap-y-0.5">
+      <span
+        v-for="f in skippedFactors"
+        :key="f.name"
+        class="inline-flex items-center gap-1 text-[10px] text-amber-500/70"
+        :title="`${f.name}: ${f.skipReason}`"
+      >
+        <span>⚠</span>
+        <span class="line-through">{{ factorAbbr(f.name) }}</span>
+        <span class="no-underline">{{ f.skipReason }}</span>
+      </span>
+    </div>
     <div v-if="ruleFactors.length > 0" class="flex flex-wrap gap-1 mt-0.5">
       <span
         v-for="f in ruleFactors"
@@ -186,7 +198,12 @@ const factors = computed<ScoreFactor[]>(() => {
   return [];
 });
 
-const weightFactors = computed(() => factors.value.filter((f) => f.type === 'weight'));
+const weightFactors = computed(() =>
+  factors.value.filter((f) => f.type === 'weight' && !f.skipped),
+);
+const skippedFactors = computed(() =>
+  factors.value.filter((f) => f.type === 'weight' && f.skipped),
+);
 const ruleFactors = computed(() => factors.value.filter((f) => f.type === 'rule'));
 
 const totalContrib = computed(() =>

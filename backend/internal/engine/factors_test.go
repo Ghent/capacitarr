@@ -226,9 +226,9 @@ func TestSeriesStatusFactor_MediaTypeScoped(t *testing.T) {
 }
 
 func TestUniversalFactors_DoNotImplementOptionalInterfaces(t *testing.T) {
+	// Factors with no integration dependency — no RequiresIntegration,
+	// RequiresAnyIntegration, or MediaTypeScoped.
 	universalFactors := []ScoringFactor{
-		&WatchHistoryFactor{},
-		&RecencyFactor{},
 		&FileSizeFactor{},
 		&RatingFactor{},
 		&LibraryAgeFactor{},
@@ -238,8 +238,56 @@ func TestUniversalFactors_DoNotImplementOptionalInterfaces(t *testing.T) {
 		if _, ok := f.(RequiresIntegration); ok {
 			t.Errorf("%s should not implement RequiresIntegration", f.Name())
 		}
+		if _, ok := f.(RequiresAnyIntegration); ok {
+			t.Errorf("%s should not implement RequiresAnyIntegration", f.Name())
+		}
 		if _, ok := f.(MediaTypeScoped); ok {
 			t.Errorf("%s should not implement MediaTypeScoped", f.Name())
+		}
+	}
+}
+
+func TestWatchDataFactors_ImplementRequiresAnyIntegration(t *testing.T) {
+	watchDataFactors := []ScoringFactor{
+		&WatchHistoryFactor{},
+		&RecencyFactor{},
+	}
+
+	for _, f := range watchDataFactors {
+		// Must implement RequiresAnyIntegration, NOT RequiresIntegration
+		if _, ok := f.(RequiresIntegration); ok {
+			t.Errorf("%s should not implement RequiresIntegration (uses RequiresAnyIntegration)", f.Name())
+		}
+		rai, ok := f.(RequiresAnyIntegration)
+		if !ok {
+			t.Fatalf("%s must implement RequiresAnyIntegration", f.Name())
+		}
+		types := rai.RequiredIntegrationTypes()
+		if len(types) < 3 {
+			t.Errorf("%s.RequiredIntegrationTypes() returned %d types, want >= 3", f.Name(), len(types))
+		}
+		// Must include Plex and Tautulli
+		hasPlex, hasTautulli := false, false
+		for _, tt := range types {
+			if tt == integrations.IntegrationTypePlex {
+				hasPlex = true
+			}
+			if tt == integrations.IntegrationTypeTautulli {
+				hasTautulli = true
+			}
+		}
+		if !hasPlex || !hasTautulli {
+			t.Errorf("%s.RequiredIntegrationTypes() must include plex and tautulli, got %v", f.Name(), types)
+		}
+
+		// Must implement RequiresEnrichmentCapability
+		rec, ok := f.(RequiresEnrichmentCapability)
+		if !ok {
+			t.Fatalf("%s must implement RequiresEnrichmentCapability", f.Name())
+		}
+		if rec.RequiredEnrichmentCapability() != integrations.EnrichCapWatchData {
+			t.Errorf("%s.RequiredEnrichmentCapability() = %q, want %q",
+				f.Name(), rec.RequiredEnrichmentCapability(), integrations.EnrichCapWatchData)
 		}
 	}
 }
@@ -247,15 +295,18 @@ func TestUniversalFactors_DoNotImplementOptionalInterfaces(t *testing.T) {
 func TestIsFactorApplicable(t *testing.T) {
 	allActive := &EvaluationContext{
 		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
-			integrations.IntegrationTypeSeerr:  true,
-			integrations.IntegrationTypeSonarr: true,
-			integrations.IntegrationTypeRadarr: true,
+			integrations.IntegrationTypeSeerr:    true,
+			integrations.IntegrationTypeSonarr:   true,
+			integrations.IntegrationTypeRadarr:   true,
+			integrations.IntegrationTypePlex:     true,
+			integrations.IntegrationTypeTautulli: true,
 		},
 	}
 	noSeerr := &EvaluationContext{
 		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
 			integrations.IntegrationTypeSonarr: true,
 			integrations.IntegrationTypeRadarr: true,
+			integrations.IntegrationTypePlex:   true,
 		},
 	}
 
@@ -264,34 +315,129 @@ func TestIsFactorApplicable(t *testing.T) {
 
 	// RequestPopularityFactor: applicable with Seerr, not without
 	rpf := &RequestPopularityFactor{}
-	if !isFactorApplicable(rpf, movieItem, allActive) {
+	if ok, _ := isFactorApplicable(rpf, movieItem, allActive); !ok {
 		t.Error("RequestPopularityFactor should be applicable when Seerr is active")
 	}
-	if isFactorApplicable(rpf, movieItem, noSeerr) {
+	if ok, _ := isFactorApplicable(rpf, movieItem, noSeerr); ok {
 		t.Error("RequestPopularityFactor should not be applicable when Seerr is absent")
 	}
 
 	// SeriesStatusFactor: applicable for shows, not for movies
 	ssf := &SeriesStatusFactor{}
-	if !isFactorApplicable(ssf, showItem, allActive) {
+	if ok, _ := isFactorApplicable(ssf, showItem, allActive); !ok {
 		t.Error("SeriesStatusFactor should be applicable for show items")
 	}
-	if isFactorApplicable(ssf, movieItem, allActive) {
+	if ok, _ := isFactorApplicable(ssf, movieItem, allActive); ok {
 		t.Error("SeriesStatusFactor should not be applicable for movie items")
 	}
 
-	// Universal factors: always applicable
+	// WatchHistoryFactor: applicable when at least one watch-data integration active
 	whf := &WatchHistoryFactor{}
-	if !isFactorApplicable(whf, movieItem, allActive) {
-		t.Error("WatchHistoryFactor should always be applicable")
+	if ok, _ := isFactorApplicable(whf, movieItem, allActive); !ok {
+		t.Error("WatchHistoryFactor should be applicable with active watch-data integrations")
 	}
-	if !isFactorApplicable(whf, movieItem, noSeerr) {
-		t.Error("WatchHistoryFactor should always be applicable regardless of context")
+	// Still applicable without Seerr (Plex is active)
+	if ok, _ := isFactorApplicable(whf, movieItem, noSeerr); !ok {
+		t.Error("WatchHistoryFactor should be applicable when Plex is active")
+	}
+}
+
+func TestIsFactorApplicable_BrokenIntegrations(t *testing.T) {
+	// All watch-data integrations broken → skip WatchHistory/Recency
+	allWatchBroken := &EvaluationContext{
+		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypePlex:     true,
+			integrations.IntegrationTypeTautulli: true,
+		},
+		BrokenIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypePlex:     true,
+			integrations.IntegrationTypeTautulli: true,
+		},
+	}
+
+	movieItem := integrations.MediaItem{Title: "Serenity", Type: integrations.MediaTypeMovie}
+
+	whf := &WatchHistoryFactor{}
+	ok, reason := isFactorApplicable(whf, movieItem, allWatchBroken)
+	if ok {
+		t.Error("WatchHistoryFactor should be skipped when all watch-data integrations are broken")
+	}
+	if reason != skipReasonIntegrationError {
+		t.Errorf("skip reason = %q, want %q", reason, skipReasonIntegrationError)
+	}
+
+	// One healthy → applicable
+	oneHealthy := &EvaluationContext{
+		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypePlex:     true,
+			integrations.IntegrationTypeTautulli: true,
+		},
+		BrokenIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypeTautulli: true,
+		},
+	}
+	ok, reason = isFactorApplicable(whf, movieItem, oneHealthy)
+	if !ok {
+		t.Error("WatchHistoryFactor should be applicable when at least one watch-data integration is healthy")
+	}
+	if reason != "" {
+		t.Errorf("skip reason should be empty when applicable, got %q", reason)
+	}
+
+	// Single RequiresIntegration broken (Seerr)
+	seerrBroken := &EvaluationContext{
+		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypeSeerr: true,
+			integrations.IntegrationTypePlex:  true,
+		},
+		BrokenIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypeSeerr: true,
+		},
+	}
+	rpf := &RequestPopularityFactor{}
+	ok, reason = isFactorApplicable(rpf, movieItem, seerrBroken)
+	if ok {
+		t.Error("RequestPopularityFactor should be skipped when Seerr is broken")
+	}
+	if reason != skipReasonIntegrationError {
+		t.Errorf("skip reason = %q, want %q", reason, skipReasonIntegrationError)
+	}
+}
+
+func TestIsFactorApplicable_FailedEnrichmentCapabilities(t *testing.T) {
+	ctx := &EvaluationContext{
+		ActiveIntegrationTypes: map[integrations.IntegrationType]bool{
+			integrations.IntegrationTypePlex: true,
+		},
+		FailedEnrichmentCapabilities: map[string]bool{
+			integrations.EnrichCapWatchData: true,
+		},
+	}
+
+	movieItem := integrations.MediaItem{Title: "Serenity", Type: integrations.MediaTypeMovie}
+
+	whf := &WatchHistoryFactor{}
+	ok, reason := isFactorApplicable(whf, movieItem, ctx)
+	if ok {
+		t.Error("WatchHistoryFactor should be skipped when watch_data capability failed")
+	}
+	if reason != skipReasonNoEnrichmentData {
+		t.Errorf("skip reason = %q, want %q", reason, skipReasonNoEnrichmentData)
+	}
+
+	// FileSizeFactor has no enrichment requirement, should still be applicable
+	fsf := &FileSizeFactor{}
+	ok, reason = isFactorApplicable(fsf, movieItem, ctx)
+	if !ok {
+		t.Error("FileSizeFactor should be applicable regardless of enrichment failures")
+	}
+	if reason != "" {
+		t.Errorf("skip reason should be empty, got %q", reason)
 	}
 }
 
 func TestNewEvaluationContext(t *testing.T) {
-	ctx := NewEvaluationContext([]string{"sonarr", "radarr", "seerr"})
+	ctx := NewEvaluationContext([]string{"sonarr", "radarr", "seerr"}, nil)
 	if !ctx.HasIntegrationType(integrations.IntegrationTypeSonarr) {
 		t.Error("expected sonarr to be active")
 	}
@@ -300,5 +446,17 @@ func TestNewEvaluationContext(t *testing.T) {
 	}
 	if ctx.HasIntegrationType(integrations.IntegrationTypePlex) {
 		t.Error("expected plex to not be active")
+	}
+
+	// Test with broken types
+	ctx2 := NewEvaluationContext([]string{"plex", "tautulli"}, []string{"tautulli"})
+	if !ctx2.HasIntegrationType(integrations.IntegrationTypePlex) {
+		t.Error("expected plex to be active")
+	}
+	if !ctx2.IsIntegrationBroken(integrations.IntegrationTypeTautulli) {
+		t.Error("expected tautulli to be broken")
+	}
+	if ctx2.IsIntegrationBroken(integrations.IntegrationTypePlex) {
+		t.Error("expected plex to not be broken")
 	}
 }

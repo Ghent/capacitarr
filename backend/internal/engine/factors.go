@@ -35,10 +35,26 @@ type ScoringFactor interface {
 
 // RequiresIntegration is optionally implemented by scoring factors that
 // depend on a specific enrichment integration being connected. When the
-// required integration type is absent, the factor is excluded from scoring
-// and hidden from the factor weights API.
+// required integration type is absent or broken, the factor is excluded
+// from scoring and hidden from the factor weights API.
 type RequiresIntegration interface {
 	RequiredIntegrationType() integrations.IntegrationType
+}
+
+// RequiresAnyIntegration is optionally implemented by scoring factors that
+// depend on data from any one of several enrichment integrations. The factor
+// is excluded when ALL listed types are either absent or broken. If at least
+// one type is active and healthy, the factor participates normally.
+type RequiresAnyIntegration interface {
+	RequiredIntegrationTypes() []integrations.IntegrationType
+}
+
+// RequiresEnrichmentCapability is optionally implemented by scoring factors
+// that depend on a specific enrichment capability. When the required
+// capability is in the failed set (all enrichers for that capability
+// produced zero results or errored), the factor is excluded from scoring.
+type RequiresEnrichmentCapability interface {
+	RequiredEnrichmentCapability() string
 }
 
 // MediaTypeScoped is optionally implemented by scoring factors that are
@@ -51,11 +67,18 @@ type MediaTypeScoped interface {
 
 // ─── EvaluationContext ──────────────────────────────────────────────────────
 
-// EvaluationContext carries the set of active integration types through the
-// evaluation pipeline. Built from the enabled integrations at the start of
-// each poll cycle and passed to the evaluator.
+// EvaluationContext carries the set of active integration types and failure
+// state through the evaluation pipeline. Built from the enabled integrations
+// after connection testing and enrichment completes.
 type EvaluationContext struct {
+	// ActiveIntegrationTypes contains integration types that are configured and enabled.
 	ActiveIntegrationTypes map[integrations.IntegrationType]bool
+	// BrokenIntegrationTypes contains integration types that are configured but
+	// have a connection error (non-empty LastError).
+	BrokenIntegrationTypes map[integrations.IntegrationType]bool
+	// FailedEnrichmentCapabilities contains enrichment capabilities where ALL
+	// enrichers either errored or produced zero matches.
+	FailedEnrichmentCapabilities map[string]bool
 }
 
 // HasIntegrationType returns true if the given integration type is active.
@@ -63,26 +86,91 @@ func (ctx *EvaluationContext) HasIntegrationType(t integrations.IntegrationType)
 	return ctx.ActiveIntegrationTypes[t]
 }
 
-// NewEvaluationContext builds an EvaluationContext from a list of integration
-// type strings (as stored in db.IntegrationConfig.Type). Duplicate types are
-// deduplicated automatically via the map.
-func NewEvaluationContext(typeStrings []string) *EvaluationContext {
-	active := make(map[integrations.IntegrationType]bool, len(typeStrings))
-	for _, t := range typeStrings {
-		active[integrations.IntegrationType(t)] = true
-	}
-	return &EvaluationContext{ActiveIntegrationTypes: active}
+// IsIntegrationBroken returns true if the given integration type is in the broken set.
+func (ctx *EvaluationContext) IsIntegrationBroken(t integrations.IntegrationType) bool {
+	return ctx.BrokenIntegrationTypes[t]
 }
 
+// IsEnrichmentCapabilityFailed returns true if the given enrichment capability
+// is in the failed set.
+func (ctx *EvaluationContext) IsEnrichmentCapabilityFailed(capability string) bool {
+	return ctx.FailedEnrichmentCapabilities[capability]
+}
+
+// NewEvaluationContext builds an EvaluationContext from lists of active and
+// broken integration type strings (as stored in db.IntegrationConfig.Type).
+// Duplicate types are deduplicated automatically via the maps. brokenTypes
+// may be nil when no connection testing has been performed.
+func NewEvaluationContext(activeTypes []string, brokenTypes []string) *EvaluationContext {
+	active := make(map[integrations.IntegrationType]bool, len(activeTypes))
+	for _, t := range activeTypes {
+		active[integrations.IntegrationType(t)] = true
+	}
+	broken := make(map[integrations.IntegrationType]bool, len(brokenTypes))
+	for _, t := range brokenTypes {
+		broken[integrations.IntegrationType(t)] = true
+	}
+	return &EvaluationContext{
+		ActiveIntegrationTypes: active,
+		BrokenIntegrationTypes: broken,
+	}
+}
+
+// skipReasonIntegrationError is the skip reason when a factor's required
+// integration(s) have connection errors.
+const skipReasonIntegrationError = "integration connection error"
+
+// skipReasonNoEnrichmentData is the skip reason when a factor's required
+// enrichment capability produced no data.
+const skipReasonNoEnrichmentData = "no enrichment data received"
+
 // isFactorApplicable checks whether a factor should participate in scoring
-// for the given item and evaluation context. Factors that don't implement
-// RequiresIntegration or MediaTypeScoped are always applicable.
-func isFactorApplicable(f ScoringFactor, item integrations.MediaItem, ctx *EvaluationContext) bool {
+// for the given item and evaluation context. Returns (true, "") when the
+// factor is applicable, or (false, reason) when it should be skipped.
+// The skip reason distinguishes between integration errors, enrichment
+// failures, and media type mismatches (empty reason for silent exclusion).
+func isFactorApplicable(f ScoringFactor, item integrations.MediaItem, ctx *EvaluationContext) (bool, string) {
+	// RequiresIntegration: single type must be active AND not broken
 	if ri, ok := f.(RequiresIntegration); ok {
-		if !ctx.HasIntegrationType(ri.RequiredIntegrationType()) {
-			return false
+		t := ri.RequiredIntegrationType()
+		if !ctx.HasIntegrationType(t) {
+			return false, ""
+		}
+		if ctx.IsIntegrationBroken(t) {
+			return false, skipReasonIntegrationError
 		}
 	}
+
+	// RequiresAnyIntegration: at least one type must be active AND not broken
+	if rai, ok := f.(RequiresAnyIntegration); ok {
+		types := rai.RequiredIntegrationTypes()
+		anyHealthy := false
+		anyConfigured := false
+		for _, t := range types {
+			if ctx.HasIntegrationType(t) {
+				anyConfigured = true
+				if !ctx.IsIntegrationBroken(t) {
+					anyHealthy = true
+					break
+				}
+			}
+		}
+		if anyConfigured && !anyHealthy {
+			return false, skipReasonIntegrationError
+		}
+		if !anyConfigured {
+			return false, ""
+		}
+	}
+
+	// RequiresEnrichmentCapability: capability must not be in the failed set
+	if rec, ok := f.(RequiresEnrichmentCapability); ok {
+		if ctx.IsEnrichmentCapabilityFailed(rec.RequiredEnrichmentCapability()) {
+			return false, skipReasonNoEnrichmentData
+		}
+	}
+
+	// MediaTypeScoped: per-item check, silent exclusion
 	if mts, ok := f.(MediaTypeScoped); ok {
 		typeMatch := false
 		for _, mt := range mts.ApplicableMediaTypes() {
@@ -92,10 +180,20 @@ func isFactorApplicable(f ScoringFactor, item integrations.MediaItem, ctx *Evalu
 			}
 		}
 		if !typeMatch {
-			return false
+			return false, ""
 		}
 	}
-	return true
+	return true, ""
+}
+
+// watchDataIntegrationTypes lists all integration types that can provide
+// play count and last played data. Shared by WatchHistoryFactor and RecencyFactor.
+var watchDataIntegrationTypes = []integrations.IntegrationType{
+	integrations.IntegrationTypePlex,
+	integrations.IntegrationTypeTautulli,
+	integrations.IntegrationTypeJellyfin,
+	integrations.IntegrationTypeJellystat,
+	integrations.IntegrationTypeEmby,
 }
 
 // ─── Default scoring factors ────────────────────────────────────────────────
@@ -133,6 +231,19 @@ func (f *WatchHistoryFactor) Description() string {
 // DefaultWeight returns the initial weight.
 func (f *WatchHistoryFactor) DefaultWeight() int { return 10 }
 
+// RequiredIntegrationTypes returns the integration types that provide play
+// count data. At least one must be active and healthy for this factor to
+// participate in scoring.
+func (f *WatchHistoryFactor) RequiredIntegrationTypes() []integrations.IntegrationType {
+	return watchDataIntegrationTypes
+}
+
+// RequiredEnrichmentCapability returns the enrichment capability that must
+// have succeeded for this factor to produce meaningful data.
+func (f *WatchHistoryFactor) RequiredEnrichmentCapability() string {
+	return integrations.EnrichCapWatchData
+}
+
 // Calculate returns 1.0 for unwatched, decaying for more plays.
 func (f *WatchHistoryFactor) Calculate(item integrations.MediaItem) float64 {
 	if item.PlayCount > 0 {
@@ -160,6 +271,19 @@ func (f *RecencyFactor) Description() string {
 
 // DefaultWeight returns the initial weight.
 func (f *RecencyFactor) DefaultWeight() int { return 8 }
+
+// RequiredIntegrationTypes returns the integration types that provide last
+// played data. At least one must be active and healthy for this factor to
+// participate in scoring.
+func (f *RecencyFactor) RequiredIntegrationTypes() []integrations.IntegrationType {
+	return watchDataIntegrationTypes
+}
+
+// RequiredEnrichmentCapability returns the enrichment capability that must
+// have succeeded for this factor to produce meaningful data.
+func (f *RecencyFactor) RequiredEnrichmentCapability() string {
+	return integrations.EnrichCapWatchData
+}
 
 // Calculate returns 1.0 for never-watched or > 365 days, proportional for recent.
 func (f *RecencyFactor) Calculate(item integrations.MediaItem) float64 {
@@ -329,6 +453,12 @@ func (f *RequestPopularityFactor) DefaultWeight() int { return 2 }
 // for this factor to participate in scoring.
 func (f *RequestPopularityFactor) RequiredIntegrationType() integrations.IntegrationType {
 	return integrations.IntegrationTypeSeerr
+}
+
+// RequiredEnrichmentCapability returns the enrichment capability that must
+// have succeeded for this factor to produce meaningful data.
+func (f *RequestPopularityFactor) RequiredEnrichmentCapability() string {
+	return integrations.EnrichCapRequestData
 }
 
 // Calculate returns 0.1 for requested items (protect), 0.5 for unrequested.

@@ -20,6 +20,8 @@ type ScoreFactor struct {
 	Type         string  `json:"type"`                   // "weight" or "rule"
 	MatchedValue string  `json:"matchedValue,omitempty"` // actual item value that triggered a rule match
 	RuleID       *uint   `json:"ruleId,omitempty"`       // database ID of the matched custom rule (rule factors only)
+	Skipped      bool    `json:"skipped,omitempty"`      // true when the factor was excluded from scoring
+	SkipReason   string  `json:"skipReason,omitempty"`   // why the factor was skipped (e.g. "integration connection error")
 }
 
 // EvaluatedItem contains the media item, its deletion score, and explanation
@@ -90,43 +92,75 @@ func EvaluateMedia(items []integrations.MediaItem, factors []ScoringFactor, weig
 
 // calculateScore iterates over the registered scoring factors, calculates each
 // factor's raw score, applies the user-configured weight, and normalizes the
-// result to 0.0–1.0. Inapplicable factors (per RequiresIntegration /
-// MediaTypeScoped) are excluded from both weight normalization and scoring.
+// result to 0.0–1.0. Inapplicable factors are excluded from both weight
+// normalization and scoring. Factors skipped due to integration errors or
+// enrichment failures are included in the result with Skipped=true so the
+// UI can display them; silently excluded factors (MediaTypeScoped) are omitted.
 func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weights map[string]int, ctx *EvaluationContext) (float64, string, []ScoreFactor) {
-	// Sum total weight for normalization — only applicable factors
+	// First pass: classify factors as applicable, skipped (with reason), or silently excluded
+	type factorState struct {
+		factor     ScoringFactor
+		applicable bool
+		skipReason string
+	}
+	states := make([]factorState, 0, len(factors))
 	var totalWeight float64
 	for _, f := range factors {
-		if !isFactorApplicable(f, item, ctx) {
-			continue
+		applicable, reason := isFactorApplicable(f, item, ctx)
+		states = append(states, factorState{factor: f, applicable: applicable, skipReason: reason})
+		if applicable {
+			totalWeight += float64(weights[f.Key()])
 		}
-		totalWeight += float64(weights[f.Key()])
 	}
 	if totalWeight == 0 {
-		return 0.0, "All preference weights are zero", nil
+		// Still collect skipped factors for display even when all weights are zero
+		var skippedFactors []ScoreFactor
+		for _, s := range states {
+			if !s.applicable && s.skipReason != "" {
+				skippedFactors = append(skippedFactors, ScoreFactor{
+					Name:       s.factor.Name(),
+					Weight:     weights[s.factor.Key()],
+					Type:       "weight",
+					Skipped:    true,
+					SkipReason: s.skipReason,
+				})
+			}
+		}
+		return 0.0, "All preference weights are zero", skippedFactors
 	}
 
 	var totalScore float64
 	resultFactors := make([]ScoreFactor, 0, len(factors))
 	reasonParts := make([]string, 0, len(factors))
 
-	for _, f := range factors {
-		if !isFactorApplicable(f, item, ctx) {
-			continue
-		}
-		w := weights[f.Key()]
-		rawScore := f.Calculate(item)
-		contribution := rawScore * float64(w)
-		totalScore += contribution
+	for _, s := range states {
+		f := s.factor
+		if s.applicable {
+			w := weights[f.Key()]
+			rawScore := f.Calculate(item)
+			contribution := rawScore * float64(w)
+			totalScore += contribution
 
-		normalizedContrib := contribution / totalWeight
-		resultFactors = append(resultFactors, ScoreFactor{
-			Name:         f.Name(),
-			RawScore:     rawScore,
-			Weight:       w,
-			Contribution: normalizedContrib,
-			Type:         "weight",
-		})
-		reasonParts = append(reasonParts, fmt.Sprintf("%s:%.2f", f.Key(), normalizedContrib))
+			normalizedContrib := contribution / totalWeight
+			resultFactors = append(resultFactors, ScoreFactor{
+				Name:         f.Name(),
+				RawScore:     rawScore,
+				Weight:       w,
+				Contribution: normalizedContrib,
+				Type:         "weight",
+			})
+			reasonParts = append(reasonParts, fmt.Sprintf("%s:%.2f", f.Key(), normalizedContrib))
+		} else if s.skipReason != "" {
+			// Include skipped factors with reason in the output for UI display
+			resultFactors = append(resultFactors, ScoreFactor{
+				Name:       f.Name(),
+				Weight:     weights[f.Key()],
+				Type:       "weight",
+				Skipped:    true,
+				SkipReason: s.skipReason,
+			})
+		}
+		// Silently excluded factors (MediaTypeScoped, not configured) are omitted
 	}
 
 	// Normalize to 0.0 - 1.0

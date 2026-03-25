@@ -16,6 +16,7 @@ type fetchResult struct {
 	mountIntegrations map[string][]uint // mount path → integration IDs that reported it
 	registry          *integrations.IntegrationRegistry
 	pipeline          *integrations.EnrichmentPipeline
+	brokenTypes       []string // integration types that failed connection testing
 }
 
 // fetchAllIntegrations builds an IntegrationRegistry, fetches media items from
@@ -38,12 +39,19 @@ func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResu
 
 	// Test all connectable integrations and update sync status.
 	// Detect error→healthy transitions to publish recovery events.
+	// Collect broken integration types for EvaluationContext.
+	brokenSet := make(map[string]bool)
 	for id, conn := range registry.Connectors() {
 		now := time.Now()
 		if connErr := conn.TestConnection(); connErr != nil {
 			slog.Warn("Integration connection failed", "component", "poller",
 				"integrationID", id, "error", connErr)
 			_ = integrationSvc.UpdateSyncStatus(id, nil, connErr.Error())
+
+			// Look up the integration type for this broken connector
+			if cfg, cfgErr := integrationSvc.GetByID(id); cfgErr == nil {
+				brokenSet[cfg.Type] = true
+			}
 			continue
 		}
 
@@ -51,6 +59,9 @@ func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResu
 		integrationSvc.PublishRecoveryIfNeeded(id)
 
 		_ = integrationSvc.UpdateSyncStatus(id, &now, "")
+	}
+	for t := range brokenSet {
+		result.brokenTypes = append(result.brokenTypes, t)
 	}
 
 	// Fetch media items from all MediaSources

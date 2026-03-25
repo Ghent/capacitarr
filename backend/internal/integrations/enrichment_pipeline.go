@@ -5,9 +5,26 @@ import (
 	"sort"
 )
 
+// ─── Enrichment capability constants ────────────────────────────────────────
+
+const (
+	// EnrichCapWatchData identifies enrichers that provide play count / last played data.
+	EnrichCapWatchData = "watch_data"
+	// EnrichCapRequestData identifies enrichers that provide media request data.
+	EnrichCapRequestData = "request_data"
+	// EnrichCapWatchlist identifies enrichers that provide watchlist membership data.
+	EnrichCapWatchlist = "watchlist_data"
+)
+
+// ─── Enricher interfaces ────────────────────────────────────────────────────
+
 // Enricher is a composable enrichment step that augments media items with data
 // from external services. Each enricher wraps one or more integration clients.
 // Adding a new enrichment source = one file implementing Enricher.
+//
+// New enrichers should also implement EnrichmentCapabilityProvider to declare
+// which enrichment capability they contribute to. This enables the pipeline
+// to detect when all enrichers for a capability have failed.
 type Enricher interface {
 	// Name returns the human-readable name for logging.
 	Name() string
@@ -17,6 +34,14 @@ type Enricher interface {
 	// Enrich augments items in-place with data from the enricher's source.
 	// Non-fatal errors are logged and do not stop the pipeline.
 	Enrich(items []MediaItem) error
+}
+
+// EnrichmentCapabilityProvider is optionally implemented by enrichers to
+// declare which enrichment capability they contribute to. Used by the
+// pipeline to detect when all enrichers for a capability have failed or
+// produced zero matches. Use the EnrichCap* constants.
+type EnrichmentCapabilityProvider interface {
+	EnrichmentCapability() string
 }
 
 // EnrichmentPipeline runs a sequence of enrichers in priority order.
@@ -36,14 +61,17 @@ func (p *EnrichmentPipeline) Add(e Enricher) {
 
 // EnrichmentStats holds summary statistics from a pipeline run.
 type EnrichmentStats struct {
-	EnrichersRun   int      // Number of enrichers that executed
-	ItemsProcessed int      // Number of items passed to the pipeline
-	TotalMatches   int      // Estimated total matches (sum of per-item enrichment hits)
-	ZeroMatchers   []string // Enricher names that ran but produced zero matches
+	EnrichersRun       int      // Number of enrichers that executed successfully
+	ItemsProcessed     int      // Number of items passed to the pipeline
+	TotalMatches       int      // Estimated total matches (sum of per-item enrichment hits)
+	ZeroMatchers       []string // Enricher names that ran but produced zero matches
+	FailedEnrichers    []string // Enricher names that returned a non-nil error
+	FailedCapabilities []string // Capabilities where ALL enrichers failed or zero-matched
 }
 
 // Run executes all enrichers in priority order. Failures are logged but do not
-// stop the pipeline — subsequent enrichers still run. Returns enrichment stats.
+// stop the pipeline — subsequent enrichers still run. Returns enrichment stats
+// including capability-level failure detection.
 func (p *EnrichmentPipeline) Run(items []MediaItem) EnrichmentStats {
 	stats := EnrichmentStats{ItemsProcessed: len(items)}
 
@@ -58,7 +86,20 @@ func (p *EnrichmentPipeline) Run(items []MediaItem) EnrichmentStats {
 		return sorted[i].Priority() < sorted[j].Priority()
 	})
 
+	// Track per-capability enricher outcomes for failure detection.
+	// capTotal: number of enrichers registered for each capability.
+	// capFailed: number that errored or zero-matched.
+	capTotal := make(map[string]int)
+	capFailed := make(map[string]int)
+
 	for _, e := range sorted {
+		// Determine this enricher's capability (if declared)
+		var enrichCap string
+		if ecp, ok := e.(EnrichmentCapabilityProvider); ok {
+			enrichCap = ecp.EnrichmentCapability()
+			capTotal[enrichCap]++
+		}
+
 		// Snapshot enrichment state before this enricher runs to count its contributions
 		beforePlayCount := countItemsWithPlayCount(items)
 		beforeRequested := countItemsRequested(items)
@@ -69,6 +110,10 @@ func (p *EnrichmentPipeline) Run(items []MediaItem) EnrichmentStats {
 		if err := e.Enrich(items); err != nil {
 			slog.Warn("Enrichment failed", "component", "enrichment",
 				"enricher", e.Name(), "error", err)
+			stats.FailedEnrichers = append(stats.FailedEnrichers, e.Name())
+			if enrichCap != "" {
+				capFailed[enrichCap]++
+			}
 			continue
 		}
 		stats.EnrichersRun++
@@ -84,12 +129,25 @@ func (p *EnrichmentPipeline) Run(items []MediaItem) EnrichmentStats {
 		// so exclude it from zero-match detection
 		if delta == 0 && e.Priority() < 100 {
 			stats.ZeroMatchers = append(stats.ZeroMatchers, e.Name())
+			if enrichCap != "" {
+				capFailed[enrichCap]++
+			}
+		}
+	}
+
+	// Detect capabilities where ALL enrichers failed or zero-matched.
+	// Only flag capabilities that had at least one enricher registered.
+	for capability, total := range capTotal {
+		if total > 0 && capFailed[capability] >= total {
+			stats.FailedCapabilities = append(stats.FailedCapabilities, capability)
 		}
 	}
 
 	slog.Info("Enrichment pipeline complete", "component", "enrichment",
 		"enrichersRun", stats.EnrichersRun, "itemsProcessed", stats.ItemsProcessed,
-		"totalMatches", stats.TotalMatches, "zeroMatchers", len(stats.ZeroMatchers))
+		"totalMatches", stats.TotalMatches, "zeroMatchers", len(stats.ZeroMatchers),
+		"failedEnrichers", len(stats.FailedEnrichers),
+		"failedCapabilities", len(stats.FailedCapabilities))
 
 	return stats
 }

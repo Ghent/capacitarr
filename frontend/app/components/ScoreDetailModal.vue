@@ -81,6 +81,23 @@
               </span>
             </div>
           </div>
+          <!-- Skipped factors -->
+          <div
+            v-if="skippedFactors.length > 0"
+            class="space-y-1.5 pt-1.5 border-t border-border/30"
+          >
+            <div
+              v-for="f in skippedFactors"
+              :key="f.name"
+              class="flex items-center justify-between text-sm opacity-50"
+            >
+              <span class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full shrink-0 bg-amber-500/50" />
+                <span class="text-muted-foreground line-through">{{ f.name }}</span>
+              </span>
+              <span class="text-xs text-amber-500">⚠ {{ f.skipReason }}</span>
+            </div>
+          </div>
           <!-- Base score total -->
           <div class="flex items-center justify-between pt-2 border-t border-border/50">
             <span class="text-xs font-medium text-muted-foreground">Base Score</span>
@@ -269,7 +286,12 @@ const parsedFactors = computed<ScoreFactor[]>(() => {
   return [];
 });
 
-const weightFactors = computed(() => parsedFactors.value.filter((f) => f.type === 'weight'));
+const weightFactors = computed(() =>
+  parsedFactors.value.filter((f) => f.type === 'weight' && !f.skipped),
+);
+const skippedFactors = computed(() =>
+  parsedFactors.value.filter((f) => f.type === 'weight' && f.skipped),
+);
 const ruleFactors = computed(() => parsedFactors.value.filter((f) => f.type === 'rule'));
 
 const totalWeight = computed(() => weightFactors.value.reduce((sum, f) => sum + f.weight, 0));

@@ -243,6 +243,8 @@ export interface ScoreFactor {
   type: string;
   matchedValue?: string;
   ruleId?: number;
+  skipped?: boolean;
+  skipReason?: string;
 }
 
 export interface EvaluatedItem {

@@ -60,6 +60,9 @@ func (e *BulkWatchEnricher) Name() string { return e.name }
 // Priority implements Enricher.
 func (e *BulkWatchEnricher) Priority() int { return e.priority }
 
+// EnrichmentCapability implements EnrichmentCapabilityProvider.
+func (e *BulkWatchEnricher) EnrichmentCapability() string { return EnrichCapWatchData }
+
 // Enrich implements Enricher by fetching bulk watch data and merging by TMDb ID.
 func (e *BulkWatchEnricher) Enrich(items []MediaItem) error {
 	watchMap, err := e.provider.GetBulkWatchData()
@@ -116,6 +119,9 @@ func (e *TautulliEnricher) Name() string { return "Tautulli Watch History" }
 
 // Priority implements Enricher. Priority 10 is highest for watch data.
 func (e *TautulliEnricher) Priority() int { return 10 }
+
+// EnrichmentCapability implements EnrichmentCapabilityProvider.
+func (e *TautulliEnricher) EnrichmentCapability() string { return EnrichCapWatchData }
 
 // Enrich implements Enricher by querying Tautulli per item.
 // Uses the TMDb→RatingKey map to translate *arr TMDb IDs into Plex rating keys.
@@ -192,6 +198,9 @@ func (e *JellystatEnricher) Name() string { return "Jellystat Watch History" }
 // Priority implements Enricher. Priority 10 is highest for watch data.
 func (e *JellystatEnricher) Priority() int { return 10 }
 
+// EnrichmentCapability implements EnrichmentCapabilityProvider.
+func (e *JellystatEnricher) EnrichmentCapability() string { return EnrichCapWatchData }
+
 // Enrich implements Enricher by fetching bulk watch stats from Jellystat and
 // matching items by TMDb ID.
 func (e *JellystatEnricher) Enrich(items []MediaItem) error {
@@ -248,6 +257,9 @@ func (e *RequestEnricher) Name() string { return "Seerr Request Data" }
 // Priority implements Enricher.
 func (e *RequestEnricher) Priority() int { return 30 }
 
+// EnrichmentCapability implements EnrichmentCapabilityProvider.
+func (e *RequestEnricher) EnrichmentCapability() string { return EnrichCapRequestData }
+
 // Enrich implements Enricher by matching items to media requests via TMDb ID.
 func (e *RequestEnricher) Enrich(items []MediaItem) error {
 	requests, err := e.provider.GetRequestedMedia()
@@ -299,6 +311,9 @@ func (e *WatchlistEnricher) Name() string { return e.name }
 
 // Priority implements Enricher.
 func (e *WatchlistEnricher) Priority() int { return e.priority }
+
+// EnrichmentCapability implements EnrichmentCapabilityProvider.
+func (e *WatchlistEnricher) EnrichmentCapability() string { return EnrichCapWatchlist }
 
 // Enrich implements Enricher by applying watchlist flags to items via TMDb ID matching.
 func (e *WatchlistEnricher) Enrich(items []MediaItem) error {
