@@ -237,6 +237,7 @@ export interface MediaItem {
 
 export interface ScoreFactor {
   name: string;
+  key?: string; // stable machine identifier for color mapping
   rawScore: number;
   weight: number;
   contribution: number;

@@ -68,7 +68,7 @@
               <span class="flex items-center gap-2">
                 <span
                   class="w-2 h-2 rounded-full shrink-0"
-                  :style="{ backgroundColor: factorColor(f.name) }"
+                  :style="{ backgroundColor: factorColor(f.key) }"
                 />
                 <span class="text-muted-foreground">{{ f.name }}</span>
               </span>
@@ -230,6 +230,7 @@
 <script setup lang="ts">
 import { ClockIcon, LayersIcon } from 'lucide-vue-next';
 import { formatBytes } from '~/utils/format';
+import { factorColor } from '~/utils/factorColors';
 import type { ScoreFactor } from '~/types/api';
 
 const { listItem } = useMotionPresets();
@@ -249,20 +250,6 @@ interface Props {
 
 const props = defineProps<Props>();
 defineEmits<{ close: [] }>();
-
-const FACTOR_COLORS: Record<string, string> = {
-  'Play History': '#8b5cf6',
-  'Last Played': '#3b82f6',
-  'File Size': '#f59e0b',
-  Rating: '#10b981',
-  'Time in Library': '#f97316',
-  'Show Status': '#ec4899',
-  'Request Popularity': '#06b6d4',
-};
-
-function factorColor(name: string): string {
-  return FACTOR_COLORS[name] || '#6b7280';
-}
 
 function ruleIcon(name: string): string {
   if (name.includes('Always keep')) return '🛡️';

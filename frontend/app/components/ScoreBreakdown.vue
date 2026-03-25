@@ -22,7 +22,7 @@
           class="h-full transition-all duration-300"
           :style="{
             width: totalContrib > 0 ? `${(f.contribution / totalContrib) * 100}%` : '0%',
-            backgroundColor: factorColor(f.name),
+            backgroundColor: factorColor(f.key),
             minWidth: f.contribution > 0 ? '2px' : '0px',
           }"
           :title="`${f.name}: ${f.contribution.toFixed(2)}`"
@@ -38,9 +38,9 @@
       >
         <span
           class="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          :style="{ backgroundColor: factorColor(f.name) }"
+          :style="{ backgroundColor: factorColor(f.key) }"
         />
-        <span>{{ factorAbbr(f.name) }}{{ f.contribution.toFixed(2) }}</span>
+        <span>{{ factorAbbr(f.key) }}{{ f.contribution.toFixed(2) }}</span>
       </span>
     </div>
     <div v-if="skippedFactors.length > 0" class="flex flex-wrap gap-x-2 gap-y-0.5">
@@ -51,7 +51,7 @@
         :title="`${f.name}: ${f.skipReason}`"
       >
         <span>⚠</span>
-        <span class="line-through">{{ factorAbbr(f.name) }}</span>
+        <span class="line-through">{{ factorAbbr(f.key) }}</span>
         <span class="no-underline">{{ f.skipReason }}</span>
       </span>
     </div>
@@ -125,6 +125,7 @@
 
 <script setup lang="ts">
 import type { ScoreFactor } from '~/types/api';
+import { factorColor, factorAbbr } from '~/utils/factorColors';
 
 interface Props {
   reason?: string;
@@ -140,43 +141,6 @@ const props = withDefaults(defineProps<Props>(), {
   scoreDetails: '',
   factors: () => [],
 });
-
-const FACTOR_COLORS: Record<string, string> = {
-  'Play History': '#8b5cf6',
-  'Last Played': '#3b82f6',
-  'File Size': '#f59e0b',
-  Rating: '#10b981',
-  'Time in Library': '#f97316',
-  'Show Status': '#ec4899',
-  'Request Popularity': '#06b6d4',
-};
-
-const FACTOR_ABBRS: Record<string, string> = {
-  'Play History': 'P:',
-  'Last Played': 'LP:',
-  'File Size': 'S:',
-  Rating: 'Rt:',
-  'Time in Library': 'A:',
-  'Show Status': 'Sh:',
-  'Request Popularity': 'Rq:',
-};
-
-const LEGACY_LABELS: Record<string, string> = {
-  Watch: 'Play History',
-  Recency: 'Last Played',
-  Size: 'File Size',
-  Rating: 'Rating',
-  Age: 'Time in Library',
-  Status: 'Show Status',
-};
-
-function factorColor(name: string): string {
-  return FACTOR_COLORS[name] || '#6b7280';
-}
-
-function factorAbbr(name: string): string {
-  return FACTOR_ABBRS[name] || name.slice(0, 2) + ':';
-}
 
 // Parse structured factors from scoreDetails JSON or direct factors prop
 const factors = computed<ScoreFactor[]>(() => {
@@ -255,7 +219,7 @@ function parseLegacyReason(reason: string): LegacyParsed {
     const value = parseFloat(match[2]!);
     legacyFactors.push({
       name,
-      label: LEGACY_LABELS[name] || name,
+      label: name,
       abbr: name.slice(0, 1).toUpperCase() + ':',
       value,
     });

@@ -145,24 +145,24 @@ func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weight
 
 			normalizedContrib := contribution / totalWeight
 			resultFactors = append(resultFactors, ScoreFactor{
-					Name:         f.Name(),
-					Key:          f.Key(),
-					RawScore:     rawScore,
-					Weight:       w,
-					Contribution: normalizedContrib,
-					Type:         "weight",
-				})
+				Name:         f.Name(),
+				Key:          f.Key(),
+				RawScore:     rawScore,
+				Weight:       w,
+				Contribution: normalizedContrib,
+				Type:         "weight",
+			})
 			reasonParts = append(reasonParts, fmt.Sprintf("%s:%.2f", f.Key(), normalizedContrib))
 		} else if s.skipReason != "" {
 			// Include skipped factors with reason in the output for UI display
 			resultFactors = append(resultFactors, ScoreFactor{
-					Name:       f.Name(),
-					Key:        f.Key(),
-					Weight:     weights[f.Key()],
-					Type:       "weight",
-					Skipped:    true,
-					SkipReason: s.skipReason,
-				})
+				Name:       f.Name(),
+				Key:        f.Key(),
+				Weight:     weights[f.Key()],
+				Type:       "weight",
+				Skipped:    true,
+				SkipReason: s.skipReason,
+			})
 		}
 		// Silently excluded factors (MediaTypeScoped, not configured) are omitted
 	}
