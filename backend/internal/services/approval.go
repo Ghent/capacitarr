@@ -22,6 +22,7 @@ var (
 	ErrApprovalNotFound       = errors.New("approval queue entry not found")
 	ErrApprovalNotPending     = errors.New("entry is not in pending status")
 	ErrApprovalNotDismissable = errors.New("entry is not in a dismissable state")
+	ErrApprovalGroupEmpty     = errors.New("no pending items found for collection group")
 )
 
 // ApprovalService manages the approval queue lifecycle.
@@ -94,6 +95,76 @@ func (s *ApprovalService) Reject(entryID uint, snoozeDurationHours int) (*db.App
 
 	s.db.First(&entry, entryID) // Reload
 	return &entry, nil
+}
+
+// ApproveGroup approves all pending items sharing the given CollectionGroup.
+// Returns the updated entries. If no pending items are found, returns ErrApprovalGroupEmpty.
+func (s *ApprovalService) ApproveGroup(collectionGroup string) ([]db.ApprovalQueueItem, error) {
+	var entries []db.ApprovalQueueItem
+	if err := s.db.Where("collection_group = ? AND status = ?", collectionGroup, db.StatusPending).
+		Find(&entries).Error; err != nil {
+		return nil, fmt.Errorf("failed to query collection group: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrApprovalGroupEmpty, collectionGroup)
+	}
+
+	now := time.Now().UTC()
+	if err := s.db.Model(&db.ApprovalQueueItem{}).
+		Where("collection_group = ? AND status = ?", collectionGroup, db.StatusPending).
+		Updates(map[string]any{"status": db.StatusApproved, "updated_at": now}).Error; err != nil {
+		return nil, fmt.Errorf("failed to approve collection group: %w", err)
+	}
+
+	for _, entry := range entries {
+		s.bus.Publish(events.ApprovalApprovedEvent{
+			EntryID:   entry.ID,
+			MediaName: entry.MediaName,
+			MediaType: entry.MediaType,
+			SizeBytes: entry.SizeBytes,
+		})
+	}
+
+	// Reload updated entries
+	var updated []db.ApprovalQueueItem
+	s.db.Where("collection_group = ? AND status = ?", collectionGroup, db.StatusApproved).Find(&updated)
+	return updated, nil
+}
+
+// RejectGroup rejects all pending items sharing the given CollectionGroup and
+// sets the same snooze duration on each. Returns the updated entries.
+// If no pending items are found, returns ErrApprovalGroupEmpty.
+func (s *ApprovalService) RejectGroup(collectionGroup string, snoozeDurationHours int) ([]db.ApprovalQueueItem, error) {
+	var entries []db.ApprovalQueueItem
+	if err := s.db.Where("collection_group = ? AND status = ?", collectionGroup, db.StatusPending).
+		Find(&entries).Error; err != nil {
+		return nil, fmt.Errorf("failed to query collection group: %w", err)
+	}
+	if len(entries) == 0 {
+		return nil, fmt.Errorf("%w: %s", ErrApprovalGroupEmpty, collectionGroup)
+	}
+
+	now := time.Now().UTC()
+	snoozedUntil := now.Add(time.Duration(snoozeDurationHours) * time.Hour)
+	if err := s.db.Model(&db.ApprovalQueueItem{}).
+		Where("collection_group = ? AND status = ?", collectionGroup, db.StatusPending).
+		Updates(map[string]any{"status": db.StatusRejected, "snoozed_until": snoozedUntil, "updated_at": now}).Error; err != nil {
+		return nil, fmt.Errorf("failed to reject collection group: %w", err)
+	}
+
+	for _, entry := range entries {
+		s.bus.Publish(events.ApprovalRejectedEvent{
+			EntryID:        entry.ID,
+			MediaName:      entry.MediaName,
+			MediaType:      entry.MediaType,
+			SnoozeDuration: fmt.Sprintf("%dh", snoozeDurationHours),
+		})
+	}
+
+	// Reload updated entries
+	var updated []db.ApprovalQueueItem
+	s.db.Where("collection_group = ? AND status = ?", collectionGroup, db.StatusRejected).Find(&updated)
+	return updated, nil
 }
 
 // Unsnooze clears the snooze on a rejected item and resets it to pending.

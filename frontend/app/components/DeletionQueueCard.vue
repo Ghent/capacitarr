@@ -6,6 +6,7 @@ import {
   CheckCircle2Icon,
   XCircleIcon,
   BanIcon,
+  LayersIcon,
   LoaderCircleIcon,
   ClockIcon,
   Trash2Icon as ClearAllIcon,
@@ -142,8 +143,18 @@ const progressPercent = computed(() => {
             class="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2"
           >
             <div class="flex-1 min-w-0">
-              <span class="text-sm font-medium truncate block">{{ item.mediaName }}</span>
-              <span class="text-xs text-muted-foreground">
+              <span class="inline-flex items-center gap-1.5">
+                <span class="text-sm font-medium truncate">{{ item.mediaName }}</span>
+                <UiBadge
+                  v-if="item.collectionGroup"
+                  variant="outline"
+                  class="text-[10px] border-indigo-500/50 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0"
+                  :title="item.collectionGroup"
+                >
+                  <LayersIcon class="w-3 h-3" />
+                </UiBadge>
+              </span>
+              <span class="text-xs text-muted-foreground block">
                 {{ item.mediaType }} · {{ formatBytes(item.sizeBytes) }}
               </span>
             </div>

@@ -149,6 +149,92 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 		return c.JSON(http.StatusOK, map[string]string{"status": "dismissed"})
 	})
 
+	// Approve all pending items in a collection group
+	g.POST("/approval-queue/group/approve", func(c echo.Context) error {
+		var body struct {
+			CollectionGroup string `json:"collectionGroup"`
+		}
+		if err := c.Bind(&body); err != nil || body.CollectionGroup == "" {
+			return apiError(c, http.StatusBadRequest, "collectionGroup is required")
+		}
+
+		// Find pending items in this collection group
+		items, err := reg.Approval.ListQueue("pending", 200, nil)
+		if err != nil {
+			return apiError(c, http.StatusInternalServerError, "Failed to query approval queue")
+		}
+
+		var groupItems []uint
+		for _, item := range items {
+			if item.CollectionGroup == body.CollectionGroup {
+				groupItems = append(groupItems, item.ID)
+			}
+		}
+
+		if len(groupItems) == 0 {
+			return apiError(c, http.StatusNotFound, "No pending items found for collection group")
+		}
+
+		// Execute approval for each item in the group
+		deps := services.ExecuteApprovalDeps{
+			Integration: reg.Integration,
+			Deletion:    reg.Deletion,
+			Engine:      reg.Engine,
+			Settings:    reg.Settings,
+		}
+
+		var approved []any
+		var lastErr error
+		for _, entryID := range groupItems {
+			result, execErr := reg.Approval.ExecuteApproval(entryID, deps)
+			if execErr != nil {
+				slog.Error("Group approval: failed to approve entry", "entryID", entryID, "error", execErr)
+				lastErr = execErr
+				continue
+			}
+			approved = append(approved, result)
+		}
+
+		if len(approved) == 0 && lastErr != nil {
+			return apiError(c, http.StatusInternalServerError, "Failed to approve any items in collection group")
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"approved": len(approved),
+			"items":    approved,
+		})
+	})
+
+	// Reject all pending items in a collection group
+	g.POST("/approval-queue/group/reject", func(c echo.Context) error {
+		var body struct {
+			CollectionGroup string `json:"collectionGroup"`
+		}
+		if err := c.Bind(&body); err != nil || body.CollectionGroup == "" {
+			return apiError(c, http.StatusBadRequest, "collectionGroup is required")
+		}
+
+		// Load preferences for snooze duration
+		prefs, err := reg.Settings.GetPreferences()
+		if err != nil {
+			slog.Error("Failed to load preferences for snooze duration", "error", err)
+			return apiError(c, http.StatusInternalServerError, "Failed to load preferences")
+		}
+
+		rejected, err := reg.Approval.RejectGroup(body.CollectionGroup, prefs.SnoozeDurationHours)
+		if err != nil {
+			if errors.Is(err, services.ErrApprovalGroupEmpty) {
+				return apiError(c, http.StatusNotFound, "No pending items found for collection group")
+			}
+			return apiError(c, http.StatusInternalServerError, "Failed to reject collection group")
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"rejected": len(rejected),
+			"items":    rejected,
+		})
+	})
+
 	// Clear the entire approval queue (pending + rejected items)
 	g.POST("/approval-queue/clear", func(c echo.Context) error {
 		count, err := reg.Approval.ClearQueue()

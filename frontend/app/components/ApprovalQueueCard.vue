@@ -4,6 +4,7 @@ import {
   AlarmClockIcon,
   ClipboardListIcon,
   ChevronRightIcon,
+  LayersIcon,
   Trash2Icon,
   XIcon,
 } from 'lucide-vue-next';
@@ -462,6 +463,15 @@ onUnmounted(() => {
                         class="capitalize text-[10px] px-1.5 py-0 shrink-0"
                       >
                         {{ group.type }}
+                      </UiBadge>
+                      <UiBadge
+                        v-if="group.collectionGroup"
+                        variant="outline"
+                        class="text-[10px] border-indigo-500/50 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0"
+                        :title="group.collectionGroup"
+                      >
+                        <LayersIcon class="w-3 h-3 mr-0.5" />
+                        {{ group.collectionGroup }}
                       </UiBadge>
                     </span>
                     <span class="text-xs text-muted-foreground block">{{

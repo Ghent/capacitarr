@@ -141,13 +141,20 @@
             class="flex items-center justify-between gap-2"
           >
             <div class="flex items-center gap-1.5">
-              <LayersIcon class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-              <span class="text-xs">Collection Deletion</span>
+              <LayersIcon
+                class="w-3.5 h-3.5 shrink-0"
+                :class="integration.collectionDeletion ? 'text-destructive' : 'text-indigo-500'"
+              />
+              <span
+                class="text-xs"
+                :class="integration.collectionDeletion ? 'text-destructive font-medium' : ''"
+                >Collection Deletion</span
+              >
             </div>
             <UiSwitch
               :model-value="integration.collectionDeletion"
               @update:model-value="
-                (val: boolean) => toggleCardSetting(integration, 'collectionDeletion', val)
+                (val: boolean) => requestCollectionDeletionToggle(integration, val, 'card')
               "
             />
           </div>
@@ -267,14 +274,26 @@
           <div class="flex items-center justify-between gap-3">
             <div class="flex-1 min-w-0">
               <div class="flex items-center gap-1.5">
-                <LayersIcon class="w-4 h-4 text-indigo-500 shrink-0" />
-                <UiLabel class="cursor-pointer">Collection Deletion</UiLabel>
+                <LayersIcon
+                  class="w-4 h-4 shrink-0"
+                  :class="formState.collectionDeletion ? 'text-destructive' : 'text-indigo-500'"
+                />
+                <UiLabel
+                  class="cursor-pointer"
+                  :class="formState.collectionDeletion ? 'text-destructive font-medium' : ''"
+                  >Collection Deletion</UiLabel
+                >
               </div>
               <p class="text-xs text-muted-foreground mt-1">
                 {{ collectionDeletionDescriptions[formState.type] || '' }}
               </p>
             </div>
-            <UiSwitch v-model:checked="formState.collectionDeletion" />
+            <UiSwitch
+              :checked="formState.collectionDeletion"
+              @update:checked="
+                (val: boolean) => requestCollectionDeletionToggle(null, val, 'modal')
+              "
+            />
           </div>
           <NuxtLink
             to="/help#collection-deletion"
@@ -323,6 +342,47 @@
             {{ editingIntegration ? 'Save' : 'Add' }}
           </UiButton>
         </div>
+      </UiDialogFooter>
+    </UiDialogContent>
+  </UiDialog>
+
+  <!-- Collection Deletion Confirmation Dialog -->
+  <UiDialog
+    :open="showCollectionDeleteConfirm"
+    @update:open="
+      (val: boolean) => {
+        if (!val) cancelCollectionDeletionToggle();
+      }
+    "
+  >
+    <UiDialogContent class="max-w-md">
+      <UiDialogHeader>
+        <UiDialogTitle class="text-destructive">Enable Collection Deletion?</UiDialogTitle>
+        <UiDialogDescription class="space-y-3">
+          <p>
+            When a movie gets selected for deletion,
+            <strong>every other movie in its collection</strong>
+            will be deleted too. One low-scoring movie in a large franchise could trigger the
+            deletion of dozens of files.
+          </p>
+          <p>
+            This is permanent and cannot be undone. Consider using
+            <strong>dry-run mode</strong> first while you review how this feature behaves.
+          </p>
+          <NuxtLink
+            to="/help#collection-deletion"
+            class="text-xs text-primary hover:underline inline-flex items-center gap-1"
+          >
+            <InfoIcon class="w-3 h-3" />
+            Learn more about collection deletion and safety features
+          </NuxtLink>
+        </UiDialogDescription>
+      </UiDialogHeader>
+      <UiDialogFooter class="flex gap-2 justify-end">
+        <UiButton variant="outline" @click="cancelCollectionDeletionToggle()"> Cancel </UiButton>
+        <UiButton variant="destructive" @click="confirmCollectionDeletionToggle()">
+          Yes, enable collection deletion
+        </UiButton>
       </UiDialogFooter>
     </UiDialogContent>
   </UiDialog>
@@ -434,6 +494,56 @@ async function toggleCardSetting(
     integration[key] = previous;
     addToast(t('settings.integrationToggleFailed'), 'error');
   }
+}
+
+// ─── Collection Deletion confirmation dialog ─────────────────────────────────
+const showCollectionDeleteConfirm = ref(false);
+// Store the pending toggle context so we can apply it after confirmation
+const pendingCollectionToggle = ref<{
+  integration: IntegrationConfig | null;
+  source: 'card' | 'modal';
+} | null>(null);
+
+/**
+ * Intercept collection deletion toggle. If enabling, show confirmation dialog.
+ * If disabling, proceed immediately (no confirmation needed to turn OFF).
+ */
+function requestCollectionDeletionToggle(
+  integration: IntegrationConfig | null,
+  value: boolean,
+  source: 'card' | 'modal',
+) {
+  if (!value) {
+    // Turning OFF — no confirmation needed
+    if (source === 'card' && integration) {
+      toggleCardSetting(integration, 'collectionDeletion', false);
+    } else {
+      formState.collectionDeletion = false;
+    }
+    return;
+  }
+  // Turning ON — show confirmation dialog
+  pendingCollectionToggle.value = { integration, source };
+  showCollectionDeleteConfirm.value = true;
+}
+
+function confirmCollectionDeletionToggle() {
+  const ctx = pendingCollectionToggle.value;
+  if (!ctx) return;
+
+  if (ctx.source === 'card' && ctx.integration) {
+    toggleCardSetting(ctx.integration, 'collectionDeletion', true);
+  } else {
+    formState.collectionDeletion = true;
+  }
+
+  showCollectionDeleteConfirm.value = false;
+  pendingCollectionToggle.value = null;
+}
+
+function cancelCollectionDeletionToggle() {
+  showCollectionDeleteConfirm.value = false;
+  pendingCollectionToggle.value = null;
 }
 
 // ─── Plex OAuth ──────────────────────────────────────────────────────────────

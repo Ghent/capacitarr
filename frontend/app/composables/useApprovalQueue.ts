@@ -33,6 +33,8 @@ export interface ApprovalGroup {
   auditIds: readonly number[];
   snoozedUntil?: string;
   scoreDetails: string;
+  /** Collection group name if this item is part of a collection deletion */
+  collectionGroup?: string;
 }
 
 // Module-level flag: SSE handlers registered once globally.
@@ -175,6 +177,9 @@ export function useApprovalQueue() {
           state = 'approved';
         }
 
+        // Use the first item's collectionGroup — all items in the group should share it
+        const collectionGroup = group.items[0]?.collectionGroup || undefined;
+
         const approvalGroup: ApprovalGroup = {
           key,
           showTitle: group.showTitle,
@@ -188,6 +193,7 @@ export function useApprovalQueue() {
           auditIds,
           snoozedUntil: groupSnoozedUntil,
           scoreDetails: bestScoreDetails,
+          collectionGroup,
         };
 
         if (state === 'approved') {

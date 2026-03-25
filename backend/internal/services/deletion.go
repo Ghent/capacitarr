@@ -37,12 +37,13 @@ type DeleteJob struct {
 // suitable for API responses. It deliberately excludes the Integration
 // client to avoid exposing internal state.
 type DeleteJobSummary struct {
-	MediaName     string  `json:"mediaName"`
-	MediaType     string  `json:"mediaType"`
-	SizeBytes     int64   `json:"sizeBytes"`
-	IntegrationID uint    `json:"integrationId"`
-	Score         float64 `json:"score"`
-	PosterURL     string  `json:"posterUrl,omitempty"`
+	MediaName       string  `json:"mediaName"`
+	MediaType       string  `json:"mediaType"`
+	SizeBytes       int64   `json:"sizeBytes"`
+	IntegrationID   uint    `json:"integrationId"`
+	Score           float64 `json:"score"`
+	PosterURL       string  `json:"posterUrl,omitempty"`
+	CollectionGroup string  `json:"collectionGroup,omitempty"`
 }
 
 // DeletionService manages the background deletion worker and queue.
@@ -800,12 +801,13 @@ func (s *DeletionService) FindQueuedItem(mediaName, mediaType string) *DeleteJob
 	for _, job := range s.queuedItems {
 		if job.Item.Title == mediaName && string(job.Item.Type) == mediaType {
 			return &DeleteJobSummary{
-				MediaName:     job.Item.Title,
-				MediaType:     string(job.Item.Type),
-				SizeBytes:     job.Item.SizeBytes,
-				IntegrationID: job.Item.IntegrationID,
-				Score:         job.Score,
-				PosterURL:     job.Item.PosterURL,
+				MediaName:       job.Item.Title,
+				MediaType:       string(job.Item.Type),
+				SizeBytes:       job.Item.SizeBytes,
+				IntegrationID:   job.Item.IntegrationID,
+				Score:           job.Score,
+				PosterURL:       job.Item.PosterURL,
+				CollectionGroup: job.CollectionGroup,
 			}
 		}
 	}
@@ -821,12 +823,13 @@ func (s *DeletionService) ListQueuedItems() []DeleteJobSummary {
 	out := make([]DeleteJobSummary, 0, len(s.queuedItems))
 	for _, job := range s.queuedItems {
 		out = append(out, DeleteJobSummary{
-			MediaName:     job.Item.Title,
-			MediaType:     string(job.Item.Type),
-			SizeBytes:     job.Item.SizeBytes,
-			IntegrationID: job.Item.IntegrationID,
-			Score:         job.Score,
-			PosterURL:     job.Item.PosterURL,
+			MediaName:       job.Item.Title,
+			MediaType:       string(job.Item.Type),
+			SizeBytes:       job.Item.SizeBytes,
+			IntegrationID:   job.Item.IntegrationID,
+			Score:           job.Score,
+			PosterURL:       job.Item.PosterURL,
+			CollectionGroup: job.CollectionGroup,
 		})
 	}
 	return out

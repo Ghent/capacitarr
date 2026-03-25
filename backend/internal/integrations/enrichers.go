@@ -353,14 +353,17 @@ var _ Enricher = (*WatchlistEnricher)(nil)
 // Only populates items that don't already have collections so native collection
 // data from *arr sources (e.g., Radarr's TMDb collections) takes precedence.
 type CollectionEnricher struct {
-	name     string
-	priority int
-	provider CollectionDataProvider
+	name          string
+	priority      int
+	integrationID uint // Source integration that provides this collection data
+	provider      CollectionDataProvider
 }
 
 // NewCollectionEnricher creates an enricher wrapping a CollectionDataProvider.
-func NewCollectionEnricher(name string, priority int, provider CollectionDataProvider) *CollectionEnricher {
-	return &CollectionEnricher{name: name, priority: priority, provider: provider}
+// integrationID identifies which integration provides this collection data,
+// used by CollectionSources tracking for per-source collection deletion toggles.
+func NewCollectionEnricher(name string, priority int, integrationID uint, provider CollectionDataProvider) *CollectionEnricher {
+	return &CollectionEnricher{name: name, priority: priority, integrationID: integrationID, provider: provider}
 }
 
 // Name implements Enricher.
@@ -370,6 +373,8 @@ func (e *CollectionEnricher) Name() string { return e.name }
 func (e *CollectionEnricher) Priority() int { return e.priority }
 
 // Enrich implements Enricher by fetching collection memberships and merging by TMDb ID.
+// Merges collections from this source with any existing collections (e.g., Radarr's native
+// TMDb data), deduplicating by name. Tracks CollectionSources for per-source toggle checks.
 func (e *CollectionEnricher) Enrich(items []MediaItem) error {
 	collectionMap, err := e.provider.GetCollectionMemberships()
 	if err != nil {
@@ -384,15 +389,34 @@ func (e *CollectionEnricher) Enrich(items []MediaItem) error {
 		if item.TMDbID == 0 {
 			continue
 		}
-		// Only enrich if no higher-priority source already set collections
-		// (e.g., Radarr's native TMDb collection data)
-		if len(item.Collections) > 0 {
+		collections, ok := collectionMap[item.TMDbID]
+		if !ok || len(collections) == 0 {
 			continue
 		}
-		if collections, ok := collectionMap[item.TMDbID]; ok {
-			item.Collections = collections
-			matched++
+
+		// Initialize CollectionSources if needed
+		if item.CollectionSources == nil {
+			item.CollectionSources = make(map[string]uint)
 		}
+
+		// Build a set of existing collection names for dedup
+		existing := make(map[string]bool, len(item.Collections))
+		for _, c := range item.Collections {
+			existing[c] = true
+		}
+
+		// Merge new collections, deduplicating names
+		for _, col := range collections {
+			if !existing[col] {
+				item.Collections = append(item.Collections, col)
+				existing[col] = true
+			}
+			// Always set source attribution for this provider's collections,
+			// even if the name already existed (last writer wins for source).
+			// This means the media server source takes precedence for shared names.
+			item.CollectionSources[col] = e.integrationID
+		}
+		matched++
 	}
 	logEnrichmentResult(e.name, len(items), len(collectionMap), matched)
 	return nil
@@ -467,8 +491,8 @@ func BuildEnrichmentPipeline(registry *IntegrationRegistry) *EnrichmentPipeline 
 	}
 
 	// Collection enrichers (priority 50 — after watch data, before cross-reference)
-	for _, provider := range registry.CollectionDataProviders() {
-		pipeline.Add(NewCollectionEnricher("Collection Data", 50, provider))
+	for id, provider := range registry.CollectionDataProviders() {
+		pipeline.Add(NewCollectionEnricher("Collection Data", 50, id, provider))
 	}
 
 	// Cross-reference enricher always added last (priority 100)

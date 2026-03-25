@@ -76,6 +76,14 @@ func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResu
 		for i := range items {
 			items[i].IntegrationID = id
 			items[i].Path = normalizePath(items[i].Path)
+			// Attribute native collection data to the item's own integration.
+			// Media-server enrichment will add its own sources later.
+			if len(items[i].Collections) > 0 {
+				items[i].CollectionSources = make(map[string]uint, len(items[i].Collections))
+				for _, col := range items[i].Collections {
+					items[i].CollectionSources[col] = id
+				}
+			}
 		}
 
 		// When ShowLevelOnly is enabled for this integration, drop season-level

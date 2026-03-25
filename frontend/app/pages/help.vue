@@ -508,75 +508,140 @@
           <h3 class="font-semibold text-primary">Collection Deletion</h3>
         </summary>
         <div class="px-5 pb-5 text-sm text-muted-foreground leading-relaxed space-y-4">
+          <!-- Danger callout -->
+          <div class="rounded-lg border border-destructive/50 bg-destructive/5 p-3 text-sm">
+            <p class="font-semibold text-destructive">
+              ⚠️ This is a dangerous feature. Use with caution.
+            </p>
+            <p class="mt-1">
+              When a single movie gets selected for deletion, every other movie in its collection
+              gets deleted too. One low-scoring movie in a 30-movie franchise could wipe out the
+              entire franchise in a single cycle.
+            </p>
+          </div>
+
           <p>
             <span class="font-medium text-foreground">What it does:</span> When enabled on an
             integration, deleting any item that belongs to a collection automatically deletes
             <em>all other items</em> in that collection. For example, if "Serenity" is part of the
-            "Firefly Collection" and gets selected for deletion, all movies in the Firefly
-            Collection are deleted together.
+            "Firefly Collection" and gets selected for deletion, every movie in the Firefly
+            Collection is deleted together.
           </p>
 
           <div class="space-y-2">
-            <p class="font-medium text-foreground">How collections are defined:</p>
+            <p class="font-medium text-foreground">Where collections come from:</p>
             <ul class="list-disc pl-5 space-y-1">
               <li>
                 <span class="text-foreground font-medium">Radarr</span> — Uses TMDb movie
-                collections (curated franchise groupings like "The Lord of the Rings Collection").
-                These are well-defined and predictable.
+                collections. These are curated franchise groupings like "The Lord of the Rings
+                Collection." They're well-defined and typically contain 2–6 movies.
+                <span class="text-emerald-600 dark:text-emerald-400 font-medium">Lower risk.</span>
               </li>
               <li>
                 <span class="text-foreground font-medium">Plex</span> — Uses Plex library
-                collections. These can be automatic (TMDb-based) or user-created. Custom collections
-                may group unrelated media — use with caution.
+                collections. These can be automatic or <strong>user-created</strong>. A custom
+                "Family Movie Night" collection might group 50 completely unrelated movies together.
+                <span class="text-amber-600 dark:text-amber-400 font-medium">Higher risk.</span>
               </li>
               <li>
-                <span class="text-foreground font-medium">Jellyfin</span> — Uses Box Sets. These are
-                groups of related movies that were auto-detected or manually organized.
-              </li>
-              <li>
-                <span class="text-foreground font-medium">Emby</span> — Uses Box Sets, same as
-                Jellyfin.
+                <span class="text-foreground font-medium">Jellyfin / Emby</span> — Uses Box Sets.
+                Usually auto-detected from TMDb, but can be manually created with any grouping.
+                <span class="text-amber-600 dark:text-amber-400 font-medium">Medium risk.</span>
               </li>
             </ul>
           </div>
 
           <div class="space-y-2">
-            <p class="font-medium text-foreground">⚠️ Important warnings:</p>
+            <p class="font-medium text-foreground">Multiple sources:</p>
+            <p>
+              Each integration has its own collection deletion toggle. A movie can belong to
+              collections from different sources — for example, a TMDb collection from Radarr
+              <em>and</em> a custom Plex collection. Only collections whose source integration has
+              the toggle enabled will trigger group deletion. If a movie matches multiple enabled
+              collections, <strong>all members from every matching collection</strong> are deleted
+              together.
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            <p class="font-medium text-foreground">⚠️ Things to watch out for:</p>
             <ul class="list-disc pl-5 space-y-1">
               <li>
-                <span class="text-foreground font-medium">Overshoot:</span> The engine may need to
-                free 5 GB, but a collection totals 50 GB. All members are deleted regardless — there
-                is no partial collection deletion.
+                <span class="text-foreground font-medium">More than you expect:</span> The engine
+                might only need to free 5 GB, but a collection totals 50 GB. The entire collection
+                is deleted regardless — there's no way to delete just part of a collection.
               </li>
               <li>
-                <span class="text-foreground font-medium">Large collections:</span> A movie in a
-                large collection (e.g., "Marvel Cinematic Universe" — 30+ movies) could trigger a
-                massive cascade of deletions.
+                <span class="text-foreground font-medium">Large franchises:</span> A movie in the
+                "Marvel Cinematic Universe" collection (30+ movies) could trigger the deletion of
+                every MCU movie at once.
               </li>
               <li>
-                <span class="text-foreground font-medium">Plex custom collections:</span> Unlike
-                TMDb collections (curated), Plex collections can be user-created and arbitrary. A
-                "Family Movie Night" collection might group otherwise unrelated movies.
+                <span class="text-foreground font-medium"
+                  >Custom collections are unpredictable:</span
+                >
+                Unlike TMDb collections, Plex/Jellyfin/Emby collections can be user-created.
+                Enabling this on a media server means <em>any</em> collection — including ones you
+                may have forgotten about — can trigger group deletion.
               </li>
               <li>
-                <span class="text-foreground font-medium">Protected members:</span> If any item in a
-                collection has an "always keep" rule, the entire collection is protected.
+                <span class="text-foreground font-medium">Multiple collections stack:</span> If a
+                movie is in both a Radarr collection and a Plex collection, and both toggles are on,
+                the members of <em>both</em> collections are deleted together.
               </li>
               <li>
-                <span class="text-foreground font-medium">Snoozed members:</span> If any item in a
-                collection is snoozed, the entire collection is skipped for that cycle.
+                <span class="text-foreground font-medium">This is permanent:</span> Deleted files
+                cannot be recovered. This feature deletes an entire group of items at once.
+              </li>
+            </ul>
+          </div>
+
+          <div class="space-y-2">
+            <p class="font-medium text-foreground">Safety features:</p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>
+                If any movie in a collection has an
+                <strong>"always keep" rule</strong>, the entire collection is protected — nothing
+                gets deleted.
               </li>
               <li>
-                <span class="text-foreground font-medium">Irreversible:</span> Deleted files cannot
-                be recovered. This feature deletes an entire group of items at once.
+                If any movie in a collection is <strong>snoozed</strong>, the entire collection is
+                skipped for that cycle.
+              </li>
+              <li>
+                In <strong>approval mode</strong>, collection members appear grouped together. You
+                can approve or reject the entire group at once.
+              </li>
+            </ul>
+          </div>
+
+          <div class="space-y-2">
+            <p class="font-medium text-foreground">💡 Before you enable this:</p>
+            <ul class="list-disc pl-5 space-y-1">
+              <li>
+                Start with <strong>dry-run mode</strong> to see what would be deleted without
+                actually removing anything.
+              </li>
+              <li>
+                Add <strong>"always keep" rules</strong> to anything you never want deleted — this
+                protects the entire collection.
+              </li>
+              <li>
+                Use <strong>approval mode</strong> so you can review collection deletions before
+                they happen.
+              </li>
+              <li>
+                Check your Plex/Jellyfin/Emby collections for any unexpectedly large or forgotten
+                groupings before turning this on.
               </li>
             </ul>
           </div>
 
           <p>
             <span class="font-medium text-foreground">How to enable:</span> Go to Settings →
-            Integrations → Edit an integration (Radarr, Plex, Jellyfin, or Emby) → Toggle
-            "Collection Deletion" on. The toggle is off by default.
+            Integrations → Edit an integration (Radarr, Plex, Jellyfin, or Emby) → Enable
+            "Collection Deletion." The toggle is off by default and requires confirmation. Each
+            integration's toggle is independent.
           </p>
         </div>
       </details>

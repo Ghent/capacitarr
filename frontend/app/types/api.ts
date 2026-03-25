@@ -531,6 +531,7 @@ export interface DeletionQueueItem {
   integrationId: number;
   score: number;
   posterUrl?: string;
+  collectionGroup?: string;
 }
 
 export interface DeletionCompletedItem {

@@ -191,9 +191,10 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 			"size", ev.Item.SizeBytes, "reason", ev.Reason)
 
 		// ── Collection expansion ─────────────────────────────────────────
-		// When collection deletion is enabled on the item's integration,
-		// expand the single candidate into all collection members.
-		// The engine is unchanged — this is a post-selection expansion step.
+		// When collection deletion is enabled on ANY integration that sourced
+		// collection data for this item, expand the single candidate into all
+		// collection members. Multiple collections may trigger — the union of
+		// all resolved members is used.
 		type processItem struct {
 			item            integrations.MediaItem
 			score           float64
@@ -202,72 +203,137 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		}
 		itemsToProcess := []processItem{{item: ev.Item, score: ev.Score, factors: ev.Factors}}
 
-		cfg := getIntegrationConfig(ev.Item.IntegrationID)
-		if cfg != nil && cfg.CollectionDeletion && len(ev.Item.Collections) > 0 {
-			collectionName := ev.Item.Collections[0]
+		// Find all collections where the source integration has collectionDeletion ON.
+		var enabledCollections []string
+		for _, colName := range ev.Item.Collections {
+			sourceID, ok := ev.Item.CollectionSources[colName]
+			if !ok {
+				sourceID = ev.Item.IntegrationID // fallback: assume item's own integration
+			}
+			sourceCfg := getIntegrationConfig(sourceID)
+			if sourceCfg != nil && sourceCfg.CollectionDeletion {
+				enabledCollections = append(enabledCollections, colName)
+			}
+		}
 
-			// Skip if this collection was already expanded by a prior candidate
-			if expandedCollections[collectionName] {
+		if len(enabledCollections) > 0 {
+			// Check if ALL enabled collections were already expanded
+			allExpanded := true
+			for _, colName := range enabledCollections {
+				if !expandedCollections[colName] {
+					allExpanded = false
+					break
+				}
+			}
+			if allExpanded {
 				slog.Debug("Skipping already-expanded collection member", "component", "poller",
-					"media", ev.Item.Title, "collection", collectionName)
+					"media", ev.Item.Title, "collections", strings.Join(enabledCollections, ", "))
 				continue
 			}
 
-			if resolver, ok := registry.CollectionResolver(ev.Item.IntegrationID); ok {
-				members, resolveErr := resolver.ResolveCollectionMembers(ev.Item)
-				if resolveErr != nil {
-					slog.Warn("Collection resolution failed, proceeding with single item", "component", "poller",
-						"media", ev.Item.Title, "collection", collectionName, "error", resolveErr)
-				} else if len(members) > 1 {
-					// Check if any collection member is protected by always_keep rules
-					memberProtected := false
-					for _, member := range members {
-						isProtected, _, _, _ := engine.ApplyRulesExported(member, rules)
-						if isProtected {
-							slog.Info("Collection skipped — member has always_keep rule", "component", "poller",
-								"trigger", ev.Item.Title, "collection", collectionName, "protectedMember", member.Title)
-							memberProtected = true
-							break
-						}
-					}
-					if memberProtected {
-						skippedCollectionProtected++
-						expandedCollections[collectionName] = true
-						continue
-					}
+			// Resolve members for each enabled collection, merging results.
+			// Uses two strategies: (1) CollectionResolver for *arr items (TMDb-based),
+			// (2) allItems scan for media-server collections.
+			memberDedup := make(map[string]bool) // ExternalID+IntegrationID → seen
+			var allMembers []integrations.MediaItem
+			var resolvedCollections []string
 
-					// Check if any collection member is snoozed
-					memberSnoozed := false
-					for _, member := range members {
-						memberSnoozedKey := member.Title + "|" + string(member.Type)
-						if snoozedKeys[memberSnoozedKey] {
-							slog.Info("Collection skipped — member is snoozed", "component", "poller",
-								"trigger", ev.Item.Title, "collection", collectionName, "snoozedMember", member.Title)
-							memberSnoozed = true
-							break
-						}
-					}
-					if memberSnoozed {
-						skippedSnoozed++
-						expandedCollections[collectionName] = true
-						continue
-					}
-
-					// Expand: replace the single trigger item with all collection members
-					itemsToProcess = make([]processItem, 0, len(members))
-					for _, member := range members {
-						itemsToProcess = append(itemsToProcess, processItem{
-							item:            member,
-							score:           ev.Score, // Use the trigger item's score for all members
-							factors:         ev.Factors,
-							collectionGroup: collectionName,
-						})
-					}
-					expandedCollections[collectionName] = true
-
-					slog.Info("Collection expanded for deletion", "component", "poller",
-						"trigger", ev.Item.Title, "collection", collectionName, "memberCount", len(members))
+			for _, colName := range enabledCollections {
+				if expandedCollections[colName] {
+					continue
 				}
+
+				var members []integrations.MediaItem
+
+				// Strategy 1: Use CollectionResolver if the item's integration has one
+				if resolver, ok := registry.CollectionResolver(ev.Item.IntegrationID); ok {
+					resolved, resolveErr := resolver.ResolveCollectionMembers(ev.Item)
+					if resolveErr != nil {
+						slog.Warn("Collection resolution failed, falling back to allItems scan", "component", "poller",
+							"media", ev.Item.Title, "collection", colName, "error", resolveErr)
+					} else if len(resolved) > 1 {
+						members = resolved
+					}
+				}
+
+				// Strategy 2: Scan allItems for siblings with the same collection name.
+				// This handles media-server collections that have no dedicated resolver.
+				if len(members) == 0 {
+					for _, ai := range allItems {
+						for _, c := range ai.Collections {
+							if c == colName {
+								members = append(members, ai)
+								break
+							}
+						}
+					}
+				}
+
+				if len(members) <= 1 {
+					expandedCollections[colName] = true
+					continue // No siblings — nothing to expand
+				}
+
+				// Deduplicate into allMembers
+				for _, member := range members {
+					key := member.ExternalID + "|" + fmt.Sprintf("%d", member.IntegrationID)
+					if !memberDedup[key] {
+						memberDedup[key] = true
+						allMembers = append(allMembers, member)
+					}
+				}
+				resolvedCollections = append(resolvedCollections, colName)
+				expandedCollections[colName] = true
+			}
+
+			if len(allMembers) > 1 {
+				collectionGroupName := strings.Join(resolvedCollections, ", ")
+
+				// Check if any collection member is protected by always_keep rules
+				memberProtected := false
+				for _, member := range allMembers {
+					isProtected, _, _, _ := engine.ApplyRulesExported(member, rules)
+					if isProtected {
+						slog.Info("Collection skipped — member has always_keep rule", "component", "poller",
+							"trigger", ev.Item.Title, "collection", collectionGroupName, "protectedMember", member.Title)
+						memberProtected = true
+						break
+					}
+				}
+				if memberProtected {
+					skippedCollectionProtected++
+					continue
+				}
+
+				// Check if any collection member is snoozed
+				memberSnoozed := false
+				for _, member := range allMembers {
+					memberSnoozedKey := member.Title + "|" + string(member.Type)
+					if snoozedKeys[memberSnoozedKey] {
+						slog.Info("Collection skipped — member is snoozed", "component", "poller",
+							"trigger", ev.Item.Title, "collection", collectionGroupName, "snoozedMember", member.Title)
+						memberSnoozed = true
+						break
+					}
+				}
+				if memberSnoozed {
+					skippedSnoozed++
+					continue
+				}
+
+				// Expand: replace the single trigger item with all collection members
+				itemsToProcess = make([]processItem, 0, len(allMembers))
+				for _, member := range allMembers {
+					itemsToProcess = append(itemsToProcess, processItem{
+						item:            member,
+						score:           ev.Score, // Use the trigger item's score for all members
+						factors:         ev.Factors,
+						collectionGroup: collectionGroupName,
+					})
+				}
+
+				slog.Info("Collection expanded for deletion", "component", "poller",
+					"trigger", ev.Item.Title, "collections", collectionGroupName, "memberCount", len(allMembers))
 			}
 		}
 

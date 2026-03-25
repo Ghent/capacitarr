@@ -165,15 +165,16 @@ type MediaItem struct {
 	Tags []string `json:"tags,omitempty"`
 
 	// Enrichment data (from Tautulli, Overseerr, etc.)
-	IsRequested        bool     `json:"isRequested,omitempty"`    // Seerr: was this item user-requested?
-	RequestedBy        string   `json:"requestedBy,omitempty"`    // Seerr: who requested it
-	RequestCount       int      `json:"requestCount,omitempty"`   // Seerr: number of requests
-	TMDbID             int      `json:"tmdbId,omitempty"`         // TMDb ID for cross-referencing Seerr
-	Language           string   `json:"language,omitempty"`       // Original language from *arr
-	Collections        []string `json:"collections,omitempty"`    // Plex collection membership
-	WatchedByUsers     []string `json:"watchedByUsers,omitempty"` // Users who watched (from Tautulli)
-	WatchedByRequestor bool     `json:"watchedByRequestor"`       // Cross-ref: requestor watched it
-	OnWatchlist        bool     `json:"onWatchlist,omitempty"`    // Item is on a user's watchlist or favorited
+	IsRequested        bool            `json:"isRequested,omitempty"`    // Seerr: was this item user-requested?
+	RequestedBy        string          `json:"requestedBy,omitempty"`    // Seerr: who requested it
+	RequestCount       int             `json:"requestCount,omitempty"`   // Seerr: number of requests
+	TMDbID             int             `json:"tmdbId,omitempty"`         // TMDb ID for cross-referencing Seerr
+	Language           string          `json:"language,omitempty"`       // Original language from *arr
+	Collections        []string        `json:"collections,omitempty"`    // Collection membership (from *arr native + media server enrichment)
+	CollectionSources  map[string]uint `json:"-"`                        // Internal: collection name → source integration ID (not serialized)
+	WatchedByUsers     []string        `json:"watchedByUsers,omitempty"` // Users who watched (from Tautulli)
+	WatchedByRequestor bool            `json:"watchedByRequestor"`       // Cross-ref: requestor watched it
+	OnWatchlist        bool            `json:"onWatchlist,omitempty"`    // Item is on a user's watchlist or favorited
 }
 
 // MediaType represents different forms of media content
