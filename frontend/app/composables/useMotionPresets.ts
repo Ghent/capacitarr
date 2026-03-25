@@ -78,15 +78,20 @@ export function useMotionPresets() {
   }
 
   /**
-   * Staggered grid item entrance with scale + fade.
+   * Staggered grid item entrance with scale.
+   *
+   * NOTE: opacity is intentionally excluded from this preset. Animation
+   * libraries leave their final values as inline styles (`style="opacity:1"`)
+   * which permanently override Tailwind utility classes like `opacity-40`.
+   * Components that need conditional dimming (e.g. `isFlagged`) must be free
+   * to control opacity via classes without inline-style interference.
    *
    * @param delay - Delay in ms (e.g., `index * 30`, capped at 300)
    */
   function gridItem(delay = 0) {
     return {
-      initial: { opacity: 0, scale: 0.95 },
+      initial: { scale: 0.95 },
       enter: {
-        opacity: 1,
         scale: 1,
         transition: { ...spring, delay: Math.min(delay, 300) },
       },
