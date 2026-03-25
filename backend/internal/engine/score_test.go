@@ -302,6 +302,51 @@ func TestCalculateScore_CombinedWeights(t *testing.T) {
 	}
 }
 
+func TestCalculateScore_FactorKeysPopulated(t *testing.T) {
+	item := integrations.MediaItem{
+		PlayCount:    5,
+		SizeBytes:    10 * 1024 * 1024 * 1024,
+		Rating:       7.0,
+		Type:         integrations.MediaTypeShow,
+		SeriesStatus: "ended",
+	}
+	weights := map[string]int{
+		"watch_history":      5,
+		"last_watched":       5,
+		"file_size":          5,
+		"rating":             5,
+		"time_in_library":    5,
+		"series_status":      5,
+		"request_popularity": 5,
+	}
+
+	_, _, factors := calculateScore(item, DefaultFactors(), weights, allActiveCtx())
+
+	expectedKeys := map[string]string{
+		"Play History":       "watch_history",
+		"Last Played":        "last_watched",
+		"File Size":          "file_size",
+		"Rating":             "rating",
+		"Time in Library":    "time_in_library",
+		"Show Status":        "series_status",
+		"Request Popularity": "request_popularity",
+	}
+
+	for _, f := range factors {
+		if f.Type != "weight" {
+			continue
+		}
+		expectedKey, ok := expectedKeys[f.Name]
+		if !ok {
+			t.Errorf("Unexpected factor name %q", f.Name)
+			continue
+		}
+		if f.Key != expectedKey {
+			t.Errorf("Factor %q: expected key %q, got %q", f.Name, expectedKey, f.Key)
+		}
+	}
+}
+
 func TestCalculateScoreReasonFormat(t *testing.T) {
 	item := integrations.MediaItem{
 		PlayCount:    0,

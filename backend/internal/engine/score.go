@@ -14,6 +14,7 @@ import (
 // ScoreFactor represents a single dimension of the scoring breakdown
 type ScoreFactor struct {
 	Name         string  `json:"name"`                   // "Watch History", "File Size", etc.
+	Key          string  `json:"key"`                    // stable machine identifier (e.g. "watch_history") for frontend color mapping
 	RawScore     float64 `json:"rawScore"`               // 0.0-1.0 before weighting
 	Weight       int     `json:"weight"`                 // weight applied (0-10)
 	Contribution float64 `json:"contribution"`           // normalized contribution to final score
@@ -119,6 +120,7 @@ func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weight
 			if !s.applicable && s.skipReason != "" {
 				skippedFactors = append(skippedFactors, ScoreFactor{
 					Name:       s.factor.Name(),
+					Key:        s.factor.Key(),
 					Weight:     weights[s.factor.Key()],
 					Type:       "weight",
 					Skipped:    true,
@@ -143,22 +145,24 @@ func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weight
 
 			normalizedContrib := contribution / totalWeight
 			resultFactors = append(resultFactors, ScoreFactor{
-				Name:         f.Name(),
-				RawScore:     rawScore,
-				Weight:       w,
-				Contribution: normalizedContrib,
-				Type:         "weight",
-			})
+					Name:         f.Name(),
+					Key:          f.Key(),
+					RawScore:     rawScore,
+					Weight:       w,
+					Contribution: normalizedContrib,
+					Type:         "weight",
+				})
 			reasonParts = append(reasonParts, fmt.Sprintf("%s:%.2f", f.Key(), normalizedContrib))
 		} else if s.skipReason != "" {
 			// Include skipped factors with reason in the output for UI display
 			resultFactors = append(resultFactors, ScoreFactor{
-				Name:       f.Name(),
-				Weight:     weights[f.Key()],
-				Type:       "weight",
-				Skipped:    true,
-				SkipReason: s.skipReason,
-			})
+					Name:       f.Name(),
+					Key:        f.Key(),
+					Weight:     weights[f.Key()],
+					Type:       "weight",
+					Skipped:    true,
+					SkipReason: s.skipReason,
+				})
 		}
 		// Silently excluded factors (MediaTypeScoped, not configured) are omitted
 	}
