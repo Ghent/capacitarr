@@ -202,12 +202,18 @@ func (s *PreviewService) GetCachedItems() []integrations.MediaItem {
 	return items
 }
 
-// InvalidatePreviewCache clears the cached preview and publishes an
-// invalidation event so connected clients can show a stale indicator.
+// InvalidatePreviewCache clears both the in-memory and DB-persisted preview
+// cache and publishes an invalidation event so connected clients can show a
+// stale indicator. Clearing the persisted cache ensures that stale data
+// (e.g. seasons when showLevelOnly was later enabled) cannot be restored
+// from the database on next startup.
 func (s *PreviewService) InvalidatePreviewCache(reason string) {
 	s.previewMu.Lock()
 	s.previewCache = nil
 	s.previewMu.Unlock()
+
+	// Also clear the DB-persisted cache so stale data is not restored on restart.
+	s.ClearPersistedCache()
 
 	s.bus.Publish(events.PreviewInvalidatedEvent{
 		Reason: reason,

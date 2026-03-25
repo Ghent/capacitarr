@@ -116,6 +116,42 @@
             {{ $t('settings.integrationErrorHint') }}
           </p>
         </div>
+
+        <!-- Inline feature toggles (issue #9) -->
+        <div
+          v-if="integration.type === 'sonarr' || collectionDeletionTypes.has(integration.type)"
+          class="pt-2 space-y-2 border-t border-border mt-2"
+        >
+          <!-- Show-Level Evaluation (Sonarr only) -->
+          <div v-if="integration.type === 'sonarr'" class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <TvIcon class="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span class="text-xs">Show-Level Only</span>
+            </div>
+            <UiSwitch
+              :model-value="integration.showLevelOnly"
+              @update:model-value="
+                (val: boolean) => toggleCardSetting(integration, 'showLevelOnly', val)
+              "
+            />
+          </div>
+          <!-- Collection Deletion (supported types) -->
+          <div
+            v-if="collectionDeletionTypes.has(integration.type)"
+            class="flex items-center justify-between gap-2"
+          >
+            <div class="flex items-center gap-1.5">
+              <LayersIcon class="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span class="text-xs">Collection Deletion</span>
+            </div>
+            <UiSwitch
+              :model-value="integration.collectionDeletion"
+              @update:model-value="
+                (val: boolean) => toggleCardSetting(integration, 'collectionDeletion', val)
+              "
+            />
+          </div>
+        </div>
       </UiCardContent>
 
       <UiCardFooter class="border-t border-border flex items-center justify-between">
@@ -370,6 +406,32 @@ async function toggleEnabled(integration: IntegrationConfig, enabled: boolean) {
   } catch {
     // Revert on failure
     integration.enabled = previous;
+    addToast(t('settings.integrationToggleFailed'), 'error');
+  }
+}
+
+// ─── Card-level feature toggle (showLevelOnly, collectionDeletion) ───────────
+async function toggleCardSetting(
+  integration: IntegrationConfig,
+  key: 'showLevelOnly' | 'collectionDeletion',
+  value: boolean,
+) {
+  const previous = integration[key];
+  integration[key] = value;
+
+  try {
+    await api(`/api/v1/integrations/${integration.id}`, {
+      method: 'PUT',
+      body: { [key]: value },
+    });
+    addToast(
+      t('settings.integrationToggled', {
+        action: value ? t('common.enabled') : t('common.disabled'),
+      }),
+      'success',
+    );
+  } catch {
+    integration[key] = previous;
     addToast(t('settings.integrationToggleFailed'), 'error');
   }
 }

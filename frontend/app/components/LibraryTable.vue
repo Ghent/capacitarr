@@ -209,19 +209,74 @@ const displayRows = computed<DisplayRow[]>(() => {
 });
 
 // ---------------------------------------------------------------------------
+// Grid Items — aggregated show cards when Shows filter is active (issue #9)
+// ---------------------------------------------------------------------------
+/**
+ * Items for the grid view. When Shows filter is active, aggregates seasons
+ * into show-level cards (one card per show with season count and total size).
+ * Otherwise, returns filteredItems directly.
+ */
+const gridItems = computed<EvaluatedItem[]>(() => {
+  if (!isShowsFilter.value) return filteredItems.value;
+
+  // Group seasons by showTitle and create one synthetic entry per show
+  const showMap = new Map<string, EvaluatedItem[]>();
+  for (const entry of filteredItems.value) {
+    const key = entry.item.showTitle ?? entry.item.title;
+    const group = showMap.get(key);
+    if (group) {
+      group.push(entry);
+    } else {
+      showMap.set(key, [entry]);
+    }
+  }
+
+  const result: EvaluatedItem[] = [];
+  for (const [showTitle, seasons] of showMap) {
+    // Use the first season as the base for poster/year/metadata
+    const first = seasons[0]!;
+    const totalBytes = seasons.reduce((sum, s) => sum + s.item.sizeBytes, 0);
+    const avgScore = seasons.reduce((sum, s) => sum + s.score, 0) / seasons.length;
+    const anyProtected = seasons.some((s) => s.isProtected);
+
+    result.push({
+      item: {
+        ...first.item,
+        title: showTitle,
+        type: 'show',
+        sizeBytes: totalBytes,
+        seasonNumber: undefined,
+        episodeCount: seasons.reduce((sum, s) => sum + (s.item.episodeCount ?? 0), 0),
+      },
+      score: avgScore,
+      isProtected: anyProtected,
+      reason: anyProtected ? 'protected' : '',
+      factors: first.factors,
+      queueStatus: undefined,
+    });
+  }
+  return result;
+});
+
+/** Season count for a show-level grid card. */
+function gridSeasonCount(showTitle: string): number {
+  return filteredItems.value.filter((e) => (e.item.showTitle ?? e.item.title) === showTitle).length;
+}
+
+/** Type-safe access into gridItems for the grid virtualizer. */
+function getGridEntry(index: number): EvaluatedItem {
+  const entry = gridItems.value[index];
+  if (!entry) throw new Error(`Invalid grid index: ${index}`);
+  return entry;
+}
+
+// ---------------------------------------------------------------------------
 // Virtual Scrolling
 // ---------------------------------------------------------------------------
 const TABLE_ROW_HEIGHT = 41;
 const TABLE_HEADER_ROW_HEIGHT = 36;
 const GRID_ROW_HEIGHT = 280;
 const GRID_ROW_GAP = 12;
-
-/** Type-safe index access into filteredItems. The virtualizer guarantees valid indices. */
-function getEntry(index: number): EvaluatedItem {
-  const entry = filteredItems.value[index];
-  if (!entry) throw new Error(`Invalid virtualizer index: ${index}`);
-  return entry;
-}
 
 /** Access a display row by virtualizer index. */
 function getDisplayRow(index: number): DisplayRow {
@@ -263,7 +318,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', updateGridCols);
 });
 
-const gridRowCount = computed(() => Math.ceil(filteredItems.value.length / gridCols.value));
+const gridRowCount = computed(() => Math.ceil(gridItems.value.length / gridCols.value));
 
 const gridVirtualizer = useVirtualizer(
   computed(() => ({
@@ -575,36 +630,43 @@ const tableColumns = computed(() => [
             >
               <template v-for="col in gridCols" :key="col">
                 <MediaPosterCard
-                  v-if="vRow.index * gridCols + (col - 1) < filteredItems.length"
-                  :title="getEntry(vRow.index * gridCols + (col - 1)).item.title"
-                  :poster-url="getEntry(vRow.index * gridCols + (col - 1)).item.posterUrl"
-                  :year="getEntry(vRow.index * gridCols + (col - 1)).item.year"
-                  :media-type="getEntry(vRow.index * gridCols + (col - 1)).item.type"
+                  v-if="vRow.index * gridCols + (col - 1) < gridItems.length"
+                  :title="getGridEntry(vRow.index * gridCols + (col - 1)).item.title"
+                  :poster-url="getGridEntry(vRow.index * gridCols + (col - 1)).item.posterUrl"
+                  :year="getGridEntry(vRow.index * gridCols + (col - 1)).item.year"
+                  :media-type="getGridEntry(vRow.index * gridCols + (col - 1)).item.type"
                   :score="
-                    getEntry(vRow.index * gridCols + (col - 1)).isProtected
+                    getGridEntry(vRow.index * gridCols + (col - 1)).isProtected
                       ? undefined
-                      : getEntry(vRow.index * gridCols + (col - 1)).score
+                      : getGridEntry(vRow.index * gridCols + (col - 1)).score
                   "
-                  :size-bytes="getEntry(vRow.index * gridCols + (col - 1)).item.sizeBytes"
-                  :is-protected="getEntry(vRow.index * gridCols + (col - 1)).isProtected"
-                  :queue-status="getEntry(vRow.index * gridCols + (col - 1)).queueStatus"
+                  :size-bytes="getGridEntry(vRow.index * gridCols + (col - 1)).item.sizeBytes"
+                  :is-protected="getGridEntry(vRow.index * gridCols + (col - 1)).isProtected"
+                  :queue-status="getGridEntry(vRow.index * gridCols + (col - 1)).queueStatus"
+                  :season-count="
+                    isShowsFilter
+                      ? gridSeasonCount(getGridEntry(vRow.index * gridCols + (col - 1)).item.title)
+                      : undefined
+                  "
                   :collection-name="
-                    getEntry(vRow.index * gridCols + (col - 1)).item.collections?.[0]
+                    getGridEntry(vRow.index * gridCols + (col - 1)).item.collections?.[0]
                   "
-                  :selectable="selectionMode"
-                  :selected="selectedIds.has(itemKey(getEntry(vRow.index * gridCols + (col - 1))))"
+                  :selectable="selectionMode && !isShowsFilter"
+                  :selected="
+                    selectedIds.has(itemKey(getGridEntry(vRow.index * gridCols + (col - 1))))
+                  "
                   @click="
-                    selectionMode
+                    selectionMode && !isShowsFilter
                       ? toggleItem(
-                          getEntry(vRow.index * gridCols + (col - 1)),
+                          getGridEntry(vRow.index * gridCols + (col - 1)),
                           vRow.index * gridCols + (col - 1),
                           $event,
                         )
-                      : openDetail(getEntry(vRow.index * gridCols + (col - 1)))
+                      : openDetail(getGridEntry(vRow.index * gridCols + (col - 1)))
                   "
                   @select="
                     toggleItem(
-                      getEntry(vRow.index * gridCols + (col - 1)),
+                      getGridEntry(vRow.index * gridCols + (col - 1)),
                       vRow.index * gridCols + (col - 1),
                     )
                   "
@@ -619,7 +681,6 @@ const tableColumns = computed(() => [
           <UiTable>
             <UiTableHeader class="sticky top-0 z-10 bg-background">
               <UiTableRow>
-                <UiTableHead v-if="selectionMode" class="w-10" />
                 <UiTableHead
                   v-for="col in tableColumns"
                   :key="col.key"
@@ -644,6 +705,7 @@ const tableColumns = computed(() => [
                     />
                   </span>
                 </UiTableHead>
+                <UiTableHead v-if="selectionMode" class="w-10" />
               </UiTableRow>
             </UiTableHeader>
           </UiTable>
@@ -668,11 +730,7 @@ const tableColumns = computed(() => [
                     class="bg-muted/50 border-b"
                     :style="{ height: `${TABLE_HEADER_ROW_HEIGHT}px` }"
                   >
-                    <td v-if="selectionMode" class="w-10" />
-                    <td
-                      :colspan="selectionMode ? tableColumns.length : tableColumns.length"
-                      class="px-3 py-1.5"
-                    >
+                    <td :colspan="tableColumns.length" class="px-3 py-1.5">
                       <div class="flex items-center gap-2">
                         <TvIcon class="w-4 h-4 text-primary shrink-0" />
                         <span class="text-sm font-semibold">
@@ -693,6 +751,7 @@ const tableColumns = computed(() => [
                         </span>
                       </div>
                     </td>
+                    <td v-if="selectionMode" class="w-10" />
                   </tr>
                   <!-- Regular Item Row -->
                   <UiTableRow
@@ -708,28 +767,6 @@ const tableColumns = computed(() => [
                         : openDetail((getDisplayRow(vRow.index) as ItemRow).entry)
                     "
                   >
-                    <UiTableCell v-if="selectionMode" class="w-10 text-center">
-                      <component
-                        :is="
-                          (getDisplayRow(vRow.index) as ItemRow).entry.isProtected
-                            ? ShieldCheckIcon
-                            : selectedIds.has(itemKey((getDisplayRow(vRow.index) as ItemRow).entry))
-                              ? CheckSquareIcon
-                              : SquareIcon
-                        "
-                        class="w-4 h-4"
-                        :class="
-                          (getDisplayRow(vRow.index) as ItemRow).entry.isProtected
-                            ? 'text-emerald-500 cursor-not-allowed'
-                            : 'text-muted-foreground'
-                        "
-                        :title="
-                          (getDisplayRow(vRow.index) as ItemRow).entry.isProtected
-                            ? t('library.protectedTooltip')
-                            : undefined
-                        "
-                      />
-                    </UiTableCell>
                     <UiTableCell class="font-medium">
                       <div class="flex items-center gap-1.5 flex-wrap">
                         <span class="truncate">
@@ -829,6 +866,28 @@ const tableColumns = computed(() => [
                             : (getDisplayRow(vRow.index) as ItemRow).entry.score.toFixed(2)
                         }}
                       </span>
+                    </UiTableCell>
+                    <UiTableCell v-if="selectionMode" class="w-10 text-center">
+                      <component
+                        :is="
+                          (getDisplayRow(vRow.index) as ItemRow).entry.isProtected
+                            ? ShieldCheckIcon
+                            : selectedIds.has(itemKey((getDisplayRow(vRow.index) as ItemRow).entry))
+                              ? CheckSquareIcon
+                              : SquareIcon
+                        "
+                        class="w-4 h-4"
+                        :class="
+                          (getDisplayRow(vRow.index) as ItemRow).entry.isProtected
+                            ? 'text-emerald-500 cursor-not-allowed'
+                            : 'text-muted-foreground'
+                        "
+                        :title="
+                          (getDisplayRow(vRow.index) as ItemRow).entry.isProtected
+                            ? t('library.protectedTooltip')
+                            : undefined
+                        "
+                      />
                     </UiTableCell>
                   </UiTableRow>
                 </template>

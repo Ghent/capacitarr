@@ -220,7 +220,7 @@ const queueStatusLabel = computed(() => {
       v-if="seasonCount && seasonCount > 0"
       class="absolute bottom-1.5 right-1.5 rounded-full bg-black/50 backdrop-blur-sm px-1.5 py-0.5 text-[10px] font-medium text-white/80"
     >
-      ×{{ seasonCount }}
+      {{ seasonCount }} {{ seasonCount === 1 ? 'season' : 'seasons' }}
     </div>
 
     <!-- Bottom-left: Collection badge -->
