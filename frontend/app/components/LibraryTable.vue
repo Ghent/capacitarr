@@ -62,8 +62,34 @@ const search = ref('');
 const typeFilter = ref<string | null>(null);
 const integrationFilter = ref<number | null>(null);
 
+/**
+ * Deduped items: when season entries exist for a show, skip the show-level entry.
+ * This is the base data set for both mediaTypes and filteredItems.
+ */
+const dedupedItems = computed(() => {
+  const showsWithSeasons = new Set<string>();
+  for (const e of props.items) {
+    if (e.item.type === 'season' && e.item.showTitle) {
+      showsWithSeasons.add(e.item.showTitle);
+    }
+  }
+  return props.items.filter((e) => !(e.item.type === 'show' && showsWithSeasons.has(e.item.title)));
+});
+
+/**
+ * Available media type filter buttons, derived from deduped items.
+ * Only types actually present in the current data set generate buttons.
+ * The "show" type is synthetic — it appears when season items exist
+ * (representing the grouped show view) OR when show items exist
+ * (showLevelOnly mode).
+ */
 const mediaTypes = computed(() => {
-  const types = new Set(props.items.map((e) => e.item.type));
+  const types = new Set(dedupedItems.value.map((e) => e.item.type));
+  // When seasons exist (deduped show items removed), add "show" as a
+  // synthetic filter option for the grouped show view.
+  if (types.has('season')) {
+    types.add('show');
+  }
   return [...types].sort();
 });
 
@@ -102,17 +128,7 @@ function toggleSort(key: SortKey) {
 // Filtered + Sorted Items
 // ---------------------------------------------------------------------------
 const filteredItems = computed(() => {
-  // Dedup: when season entries exist for a show, skip the show-level entry.
-  // Season entries allow granular per-season actions (same logic as poller evaluate.go).
-  const showsWithSeasons = new Set<string>();
-  for (const e of props.items) {
-    if (e.item.type === 'season' && e.item.showTitle) {
-      showsWithSeasons.add(e.item.showTitle);
-    }
-  }
-  let result = props.items.filter(
-    (e) => !(e.item.type === 'show' && showsWithSeasons.has(e.item.title)),
-  );
+  let result = dedupedItems.value;
 
   if (search.value) {
     const q = search.value.toLowerCase();
@@ -125,8 +141,9 @@ const filteredItems = computed(() => {
 
   if (typeFilter.value) {
     if (typeFilter.value === 'show') {
-      // Shows filter: display all seasons grouped by parent show (issue #9)
-      result = result.filter((e) => e.item.type === 'season');
+      // Shows filter: display seasons grouped by show, or show-level items
+      // when showLevelOnly is enabled (issue #9)
+      result = result.filter((e) => e.item.type === 'season' || e.item.type === 'show');
     } else {
       result = result.filter((e) => e.item.type === typeFilter.value);
     }
@@ -400,6 +417,31 @@ function deselectAll() {
   selectedIds.value = new Set();
 }
 
+/** Toggle all seasons of a show in selection mode (for show-level grid cards and group headers). */
+function toggleShowSeasons(showTitle: string) {
+  const seasons = filteredItems.value.filter(
+    (e) => (e.item.showTitle ?? e.item.title) === showTitle && !e.isProtected,
+  );
+  const allSelected = seasons.every((s) => selectedIds.value.has(itemKey(s)));
+  const next = new Set(selectedIds.value);
+  for (const s of seasons) {
+    if (allSelected) {
+      next.delete(itemKey(s));
+    } else {
+      next.add(itemKey(s));
+    }
+  }
+  selectedIds.value = next;
+}
+
+/** Check if all seasons of a show are selected (for show-level selection indicators). */
+function isShowFullySelected(showTitle: string): boolean {
+  const seasons = filteredItems.value.filter(
+    (e) => (e.item.showTitle ?? e.item.title) === showTitle && !e.isProtected,
+  );
+  return seasons.length > 0 && seasons.every((s) => selectedIds.value.has(itemKey(s)));
+}
+
 const selectedItems = computed(() => props.items.filter((e) => selectedIds.value.has(itemKey(e))));
 
 const selectedTotalBytes = computed(() =>
@@ -651,24 +693,36 @@ const tableColumns = computed(() => [
                   :collection-name="
                     getGridEntry(vRow.index * gridCols + (col - 1)).item.collections?.[0]
                   "
-                  :selectable="selectionMode && !isShowsFilter"
+                  :selectable="selectionMode"
                   :selected="
-                    selectedIds.has(itemKey(getGridEntry(vRow.index * gridCols + (col - 1))))
+                    isShowsFilter
+                      ? isShowFullySelected(
+                          getGridEntry(vRow.index * gridCols + (col - 1)).item.title,
+                        )
+                      : selectedIds.has(itemKey(getGridEntry(vRow.index * gridCols + (col - 1))))
                   "
                   @click="
-                    selectionMode && !isShowsFilter
-                      ? toggleItem(
-                          getGridEntry(vRow.index * gridCols + (col - 1)),
-                          vRow.index * gridCols + (col - 1),
-                          $event,
-                        )
+                    selectionMode
+                      ? isShowsFilter
+                        ? toggleShowSeasons(
+                            getGridEntry(vRow.index * gridCols + (col - 1)).item.title,
+                          )
+                        : toggleItem(
+                            getGridEntry(vRow.index * gridCols + (col - 1)),
+                            vRow.index * gridCols + (col - 1),
+                            $event,
+                          )
                       : openDetail(getGridEntry(vRow.index * gridCols + (col - 1)))
                   "
                   @select="
-                    toggleItem(
-                      getGridEntry(vRow.index * gridCols + (col - 1)),
-                      vRow.index * gridCols + (col - 1),
-                    )
+                    isShowsFilter
+                      ? toggleShowSeasons(
+                          getGridEntry(vRow.index * gridCols + (col - 1)).item.title,
+                        )
+                      : toggleItem(
+                          getGridEntry(vRow.index * gridCols + (col - 1)),
+                          vRow.index * gridCols + (col - 1),
+                        )
                   "
                 />
               </template>
@@ -751,7 +805,24 @@ const tableColumns = computed(() => [
                         </span>
                       </div>
                     </td>
-                    <td v-if="selectionMode" class="w-10" />
+                    <td
+                      v-if="selectionMode"
+                      class="w-10 text-center cursor-pointer"
+                      @click.stop="
+                        toggleShowSeasons((getDisplayRow(vRow.index) as ShowGroupHeader).showTitle)
+                      "
+                    >
+                      <component
+                        :is="
+                          isShowFullySelected(
+                            (getDisplayRow(vRow.index) as ShowGroupHeader).showTitle,
+                          )
+                            ? CheckSquareIcon
+                            : SquareIcon
+                        "
+                        class="w-4 h-4 text-muted-foreground"
+                      />
+                    </td>
                   </tr>
                   <!-- Regular Item Row -->
                   <UiTableRow

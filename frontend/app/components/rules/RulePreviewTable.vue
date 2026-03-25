@@ -45,153 +45,14 @@
       </div>
 
       <div v-else>
-        <!-- Search & Filters -->
-        <div class="flex flex-col sm:flex-row gap-3 mb-4">
+        <!-- View mode toggle + item count -->
+        <div class="flex items-center gap-3 mb-4">
           <ViewModeToggle />
-          <div class="relative flex-1">
-            <SearchIcon
-              class="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none"
-            />
-            <UiInput
-              v-model="previewSearch"
-              aria-label="Search deletion priority by title"
-              placeholder="Search by title…"
-              class="pl-8"
-            />
-          </div>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <UiButton
-              v-for="mt in previewMediaTypes"
-              :key="mt"
-              :variant="previewTypeFilter === mt ? 'default' : 'outline'"
-              size="sm"
-              class="rounded-full h-7 px-3 text-xs capitalize"
-              @click="previewTypeFilter = previewTypeFilter === mt ? null : mt"
-            >
-              {{ mt }}
-            </UiButton>
-            <UiSeparator orientation="vertical" class="h-5 mx-1" />
-            <UiButton
-              :variant="previewStatusFilter === 'protected' ? 'default' : 'outline'"
-              size="sm"
-              class="rounded-full h-7 px-3 text-xs"
-              @click="
-                previewStatusFilter = previewStatusFilter === 'protected' ? 'all' : 'protected'
-              "
-            >
-              <ShieldCheckIcon class="w-3 h-3 mr-1" />
-              Protected
-            </UiButton>
-            <UiButton
-              :variant="previewStatusFilter === 'unprotected' ? 'default' : 'outline'"
-              size="sm"
-              class="rounded-full h-7 px-3 text-xs"
-              @click="
-                previewStatusFilter = previewStatusFilter === 'unprotected' ? 'all' : 'unprotected'
-              "
-            >
-              Unprotected
-            </UiButton>
-            <!-- Rule filter -->
-            <template v-if="enabledRules.length > 0">
-              <UiSeparator orientation="vertical" class="h-5 mx-1" />
-              <UiPopover v-model:open="ruleFilterOpen">
-                <UiPopoverTrigger as-child>
-                  <UiButton
-                    :variant="hasRuleFilter ? 'default' : 'outline'"
-                    size="sm"
-                    class="rounded-full h-7 px-3 text-xs"
-                  >
-                    <FilterIcon class="w-3 h-3 mr-1" />
-                    {{ t('rules.filterByRule') }}
-                    <span v-if="hasRuleFilter" class="ml-1 text-[10px] opacity-80"
-                      >({{ selectedRuleIds.length }})</span
-                    >
-                  </UiButton>
-                </UiPopoverTrigger>
-                <UiPopoverContent class="w-72 p-0" side="bottom" align="start">
-                  <div class="px-3 py-2 border-b flex items-center justify-between">
-                    <p class="text-sm font-medium">{{ t('rules.filterByRule') }}</p>
-                    <div class="flex items-center gap-1">
-                      <UiButton
-                        :variant="ruleFilterMode === 'any' ? 'default' : 'outline'"
-                        size="sm"
-                        class="h-5 px-2 text-[10px]"
-                        @click="ruleFilterMode = 'any'"
-                      >
-                        {{ t('rules.filterModeAny') }}
-                      </UiButton>
-                      <UiButton
-                        :variant="ruleFilterMode === 'all' ? 'default' : 'outline'"
-                        size="sm"
-                        class="h-5 px-2 text-[10px]"
-                        @click="ruleFilterMode = 'all'"
-                      >
-                        {{ t('rules.filterModeAll') }}
-                      </UiButton>
-                    </div>
-                  </div>
-                  <div class="max-h-60 overflow-y-auto">
-                    <div
-                      v-for="rule in enabledRules"
-                      :key="rule.id"
-                      class="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/50 transition-colors cursor-pointer"
-                      @click="toggleRuleFilter(rule.id)"
-                    >
-                      <UiCheckbox
-                        :model-value="selectedRuleIds.includes(rule.id)"
-                        class="pointer-events-none"
-                      />
-                      <span class="text-xs truncate flex-1">
-                        {{ formatRuleLabel(rule) }}
-                      </span>
-                      <UiBadge variant="secondary" class="text-[10px] shrink-0 capitalize">
-                        {{ rule.effect.replace('_', ' ') }}
-                      </UiBadge>
-                    </div>
-                  </div>
-                  <div v-if="hasRuleFilter" class="px-3 py-2 border-t">
-                    <UiButton
-                      variant="ghost"
-                      size="sm"
-                      class="w-full h-7 text-xs"
-                      @click="clearRuleFilter"
-                    >
-                      <XIcon class="w-3 h-3 mr-1" />
-                      {{ t('rules.clearRuleFilter') }}
-                    </UiButton>
-                  </div>
-                </UiPopoverContent>
-              </UiPopover>
-            </template>
-          </div>
-        </div>
-
-        <!-- Results count -->
-        <div class="text-xs text-muted-foreground mb-2">
-          <template
-            v-if="
-              previewSearch || previewTypeFilter || previewStatusFilter !== 'all' || hasRuleFilter
-            "
-          >
-            {{ filteredGroupedPreview.length }} of {{ groupedPreview.length }} items
-          </template>
-          <template v-else> {{ groupedPreview.length }} items </template>
-        </div>
-
-        <div
-          v-if="filteredGroupedPreview.length === 0"
-          class="text-center py-8 text-muted-foreground text-sm"
-        >
-          No items match filters.
+          <span class="text-xs text-muted-foreground"> {{ groupedPreview.length }} items </span>
         </div>
 
         <!-- Grid View -->
-        <div
-          v-else-if="viewMode === 'grid'"
-          ref="gridScrollRef"
-          class="max-h-[600px] overflow-y-auto"
-        >
+        <div v-if="viewMode === 'grid'" ref="gridScrollRef" class="max-h-[600px] overflow-y-auto">
           <div
             class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
           >
@@ -276,12 +137,11 @@
           </div>
           <!-- Progressive rendering indicator -->
           <div
-            v-if="renderedGroups.length < filteredGroupedPreview.length"
+            v-if="renderedGroups.length < groupedPreview.length"
             class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
           >
             <component :is="LoaderCircleIcon" class="w-3.5 h-3.5 animate-spin" />
-            Showing {{ renderedGroups.length }} of {{ filteredGroupedPreview.length }} — scroll for
-            more
+            Showing {{ renderedGroups.length }} of {{ groupedPreview.length }} — scroll for more
           </div>
         </div>
 
@@ -294,12 +154,7 @@
           <UiTable>
             <UiTableHeader class="sticky top-0 z-10 bg-background">
               <UiTableRow>
-                <UiTableHead
-                  v-for="col in tableColumns"
-                  :key="col.key"
-                  :class="[col.class, 'cursor-pointer select-none group']"
-                  @click="togglePreviewSort(col.key)"
-                >
+                <UiTableHead v-for="col in tableColumns" :key="col.key" :class="col.class">
                   <span
                     :class="[
                       'inline-flex items-center gap-1',
@@ -307,18 +162,6 @@
                     ]"
                   >
                     {{ col.label }}
-                    <ArrowUpIcon
-                      v-if="previewSortBy === col.key && previewSortDir === 'asc'"
-                      class="w-3 h-3"
-                    />
-                    <ArrowDownIcon
-                      v-else-if="previewSortBy === col.key && previewSortDir === 'desc'"
-                      class="w-3 h-3"
-                    />
-                    <ArrowUpDownIcon
-                      v-else
-                      class="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity"
-                    />
                   </span>
                 </UiTableHead>
               </UiTableRow>
@@ -477,26 +320,13 @@
 <script setup lang="ts">
 import { useInfiniteScroll } from '@vueuse/core';
 import { useVirtualizer } from '@tanstack/vue-virtual';
-import {
-  RefreshCwIcon,
-  LoaderCircleIcon,
-  CheckIcon,
-  ChevronRightIcon,
-  SearchIcon,
-  ShieldCheckIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  ArrowUpDownIcon,
-  FilterIcon,
-  XIcon,
-} from 'lucide-vue-next';
+import { RefreshCwIcon, LoaderCircleIcon, CheckIcon, ChevronRightIcon } from 'lucide-vue-next';
 import { formatBytes } from '~/utils/format';
 import { groupEvaluatedItems } from '~/utils/groupPreview';
 import type { PreviewGroup } from '~/utils/groupPreview';
 import type { EvaluatedItem, SelectedDetailItem, CustomRule } from '~/types/api';
 
 const { viewMode } = useDisplayPrefs();
-const { t } = useI18n();
 
 const props = defineProps<{
   preview: EvaluatedItem[];
@@ -516,69 +346,8 @@ defineEmits<{
   refresh: [];
 }>();
 
-// Preview filters & sorting
-const previewSearch = ref('');
-const previewTypeFilter = ref<string | null>(null);
-const previewStatusFilter = ref<'all' | 'protected' | 'unprotected'>('all');
-
-// Rule filter state
-const selectedRuleIds = ref<number[]>([]);
-const ruleFilterMode = ref<'any' | 'all'>('any');
-const ruleFilterOpen = ref(false);
-
-/** Enabled rules available for filtering */
-const enabledRules = computed(() => (props.rules ?? []).filter((r) => r.enabled));
-
-/** Whether any rule filters are active */
-const hasRuleFilter = computed(() => selectedRuleIds.value.length > 0);
-
-function toggleRuleFilter(ruleId: number) {
-  const idx = selectedRuleIds.value.indexOf(ruleId);
-  if (idx === -1) {
-    selectedRuleIds.value = [...selectedRuleIds.value, ruleId];
-  } else {
-    selectedRuleIds.value = selectedRuleIds.value.filter((id) => id !== ruleId);
-  }
-}
-
-function clearRuleFilter() {
-  selectedRuleIds.value = [];
-}
-
-/** Format a rule for display in the filter dropdown */
-function formatRuleLabel(rule: CustomRule): string {
-  return `${rule.field} ${rule.operator} ${rule.value}`;
-}
-
-/** Check if an EvaluatedItem matches the active rule filters */
-function itemMatchesRuleFilter(entry: EvaluatedItem): boolean {
-  if (selectedRuleIds.value.length === 0) return true;
-
-  const matchedRuleIds = (entry.factors ?? [])
-    .filter((f) => f.type === 'rule' && f.ruleId != null)
-    .map((f) => f.ruleId!);
-
-  if (ruleFilterMode.value === 'any') {
-    return selectedRuleIds.value.some((id) => matchedRuleIds.includes(id));
-  }
-  return selectedRuleIds.value.every((id) => matchedRuleIds.includes(id));
-}
-type PreviewSortColumn = 'rank' | 'score' | 'title' | 'type' | 'size';
-const previewSortBy = ref<PreviewSortColumn>('rank');
-const previewSortDir = ref<'asc' | 'desc'>('asc');
-
-function togglePreviewSort(column: PreviewSortColumn) {
-  if (previewSortBy.value === column) {
-    previewSortDir.value = previewSortDir.value === 'asc' ? 'desc' : 'asc';
-  } else {
-    previewSortBy.value = column;
-    previewSortDir.value = column === 'score' || column === 'size' ? 'desc' : 'asc';
-  }
-}
-
-const previewMediaTypes = ['movie', 'show', 'season', 'artist', 'book'] as const;
-
-const tableColumns: { key: PreviewSortColumn; label: string; class?: string }[] = [
+// Table column definitions (no sorting — always ranked by deletion score)
+const tableColumns: { key: string; label: string; class?: string }[] = [
   { key: 'rank', label: '#', class: 'w-12' },
   { key: 'score', label: 'Score' },
   { key: 'title', label: 'Title' },
@@ -608,117 +377,14 @@ function selectPreviewItem(entry: EvaluatedItem) {
 
 const groupedPreview = computed<PreviewGroup[]>(() => groupEvaluatedItems(props.preview));
 
-const filteredGroupedPreview = computed<PreviewGroup[]>(() => {
-  let groups = groupedPreview.value;
-  const search = previewSearch.value.trim().toLowerCase();
-  const typeFilter = previewTypeFilter.value;
-  const statusFilter = previewStatusFilter.value;
-
-  // Apply filters
-  if (search || typeFilter || statusFilter !== 'all') {
-    groups = groups.reduce<PreviewGroup[]>((result, group) => {
-      const entry = group.entry;
-      const entryType = entry.item?.type;
-      const entryTitle = (entry.item?.title || '').toLowerCase();
-      const entryProtected = !!entry.isProtected;
-
-      // For show groups, also check if any seasons match
-      if (group.seasons.length > 0) {
-        const filteredSeasons = group.seasons.filter((s) => {
-          const sTitle = (s.item?.title || '').toLowerCase();
-          const sType = s.item?.type;
-          const sProtected = !!s.isProtected;
-          const matchSearch = !search || sTitle.includes(search) || entryTitle.includes(search);
-          const matchType = !typeFilter || sType === typeFilter || entryType === typeFilter;
-          const matchStatus =
-            statusFilter === 'all' || (statusFilter === 'protected' ? sProtected : !sProtected);
-          return matchSearch && matchType && matchStatus;
-        });
-
-        // Also check if the parent entry matches
-        const parentMatchSearch = !search || entryTitle.includes(search);
-        const parentMatchType = !typeFilter || entryType === typeFilter;
-        const parentMatchStatus =
-          statusFilter === 'all' ||
-          (statusFilter === 'protected' ? entryProtected : !entryProtected);
-
-        if (filteredSeasons.length > 0) {
-          result.push({ ...group, seasons: filteredSeasons });
-        } else if (parentMatchSearch && parentMatchType && parentMatchStatus) {
-          result.push({ ...group, seasons: [] });
-        }
-      } else {
-        // Non-grouped entries (movies, artists, books, etc.)
-        const matchSearch = !search || entryTitle.includes(search);
-        const matchType = !typeFilter || entryType === typeFilter;
-        const matchStatus =
-          statusFilter === 'all' ||
-          (statusFilter === 'protected' ? entryProtected : !entryProtected);
-        if (matchSearch && matchType && matchStatus) {
-          result.push(group);
-        }
-      }
-      return result;
-    }, []);
-  }
-
-  // Apply rule filter
-  if (hasRuleFilter.value) {
-    groups = groups.filter((group) => {
-      // Check if the main entry matches
-      if (itemMatchesRuleFilter(group.entry)) return true;
-      // For show groups, check if any season matches
-      if (group.seasons.length > 0) {
-        return group.seasons.some((s) => itemMatchesRuleFilter(s));
-      }
-      return false;
-    });
-  }
-
-  // Apply sorting
-  const sortBy = previewSortBy.value;
-  const sortDir = previewSortDir.value;
-  if (sortBy === 'rank' && sortDir === 'asc') return groups; // natural order
-
-  const sorted = [...groups];
-  const dir = sortDir === 'asc' ? 1 : -1;
-
-  sorted.sort((a, b) => {
-    switch (sortBy) {
-      case 'rank':
-        return dir * (groupedPreview.value.indexOf(a) - groupedPreview.value.indexOf(b));
-      case 'score': {
-        const scoreA = a.entry.isProtected ? Infinity : (a.entry.score ?? 0);
-        const scoreB = b.entry.isProtected ? Infinity : (b.entry.score ?? 0);
-        return dir * (scoreA - scoreB);
-      }
-      case 'title': {
-        const titleA = (a.entry.item?.title || '').toLowerCase();
-        const titleB = (b.entry.item?.title || '').toLowerCase();
-        return dir * titleA.localeCompare(titleB);
-      }
-      case 'type': {
-        const typeA = (a.entry.item?.type || '').toLowerCase();
-        const typeB = (b.entry.item?.type || '').toLowerCase();
-        return dir * typeA.localeCompare(typeB);
-      }
-      case 'size': {
-        const sizeA = a.entry.item?.sizeBytes ?? 0;
-        const sizeB = b.entry.item?.sizeBytes ?? 0;
-        return dir * (sizeA - sizeB);
-      }
-      default:
-        return 0;
-    }
-  });
-
-  return sorted;
-});
+// Note: filtering and sorting removed from deletion priority view (issue #9).
+// The list shows items in exact engine scoring order. Users who want to
+// filter/search should use the Library page instead.
 const deletionLineIndex = computed<number | null>(() => {
   const ctx = props.diskContext;
   if (!ctx || ctx.bytesToFree <= 0) return null;
 
-  const groups = filteredGroupedPreview.value;
+  const groups = groupedPreview.value;
   let cumulative = 0;
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i];
@@ -751,7 +417,7 @@ type PreviewFlatRow =
 /** Flatten groups + expanded seasons + deletion line into a single row list */
 const previewFlatRows = computed<PreviewFlatRow[]>(() => {
   const rows: PreviewFlatRow[] = [];
-  const groups = filteredGroupedPreview.value;
+  const groups = groupedPreview.value;
   const delIdx = deletionLineIndex.value;
 
   for (let i = 0; i < groups.length; i++) {
@@ -788,41 +454,24 @@ const previewVirtualRows = computed(() =>
 // ─── Progressive Rendering (Grid View) ──────────────────────────────────────
 const gridScrollRef = ref<HTMLElement | null>(null);
 const gridVisibleCount = ref(100);
-const renderedGroups = computed(() =>
-  filteredGroupedPreview.value.slice(0, gridVisibleCount.value),
-);
+const renderedGroups = computed(() => groupedPreview.value.slice(0, gridVisibleCount.value));
 
 function gridLoadMore() {
-  if (gridVisibleCount.value < filteredGroupedPreview.value.length) {
-    gridVisibleCount.value = Math.min(
-      gridVisibleCount.value + 100,
-      filteredGroupedPreview.value.length,
-    );
+  if (gridVisibleCount.value < groupedPreview.value.length) {
+    gridVisibleCount.value = Math.min(gridVisibleCount.value + 100, groupedPreview.value.length);
   }
 }
 
 useInfiniteScroll(gridScrollRef, gridLoadMore, {
   distance: 200,
-  canLoadMore: () => gridVisibleCount.value < filteredGroupedPreview.value.length,
+  canLoadMore: () => gridVisibleCount.value < groupedPreview.value.length,
 });
 
-// Reset scroll/visible count when filters change
-watch(
-  [
-    previewSearch,
-    previewTypeFilter,
-    previewStatusFilter,
-    previewSortBy,
-    previewSortDir,
-    selectedRuleIds,
-    ruleFilterMode,
-    () => props.preview,
-  ],
-  () => {
-    gridVisibleCount.value = 100;
-    previewTableVirtualizer.value.scrollToIndex(0);
-  },
-);
+// Reset scroll/visible count when preview data changes
+watch([() => props.preview], () => {
+  gridVisibleCount.value = 100;
+  previewTableVirtualizer.value.scrollToIndex(0);
+});
 
 const expandedPreviewGroups = ref(new Set<string>());
 function togglePreviewGroup(key: string) {

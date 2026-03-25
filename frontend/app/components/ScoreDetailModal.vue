@@ -234,12 +234,13 @@ const props = defineProps<Props>();
 defineEmits<{ close: [] }>();
 
 const FACTOR_COLORS: Record<string, string> = {
-  'Watch History': '#8b5cf6',
-  'Last Watched': '#3b82f6',
+  'Play History': '#8b5cf6',
+  'Last Played': '#3b82f6',
   'File Size': '#f59e0b',
   Rating: '#10b981',
   'Time in Library': '#f97316',
-  'Series Status': '#ec4899',
+  'Show Status': '#ec4899',
+  'Request Popularity': '#06b6d4',
 };
 
 function factorColor(name: string): string {
