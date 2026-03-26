@@ -9,14 +9,14 @@ import (
 
 func TestSeerrClient_TestConnection_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/status" {
+		if r.URL.Path != "/api/v1/auth/me" {
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 		}
 		if r.Header.Get("X-Api-Key") != testTautulliAPIKey {
 			t.Errorf("Missing or wrong API key header")
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"version":"1.33.2"}`))
+		_, _ = w.Write([]byte(`{"id":1,"displayName":"Admin","email":"admin@example.com"}`))
 	}))
 	defer srv.Close()
 
@@ -52,17 +52,17 @@ func TestSeerrClient_TestConnection_ServerError(t *testing.T) {
 	}
 }
 
-func TestSeerrClient_TestConnection_EmptyVersion(t *testing.T) {
+func TestSeerrClient_TestConnection_InvalidUser(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"version":""}`))
+		_, _ = w.Write([]byte(`{"id":0}`))
 	}))
 	defer srv.Close()
 
 	client := NewSeerrClient(srv.URL, testTautulliAPIKey)
 	err := client.TestConnection()
 	if err == nil {
-		t.Fatal("TestConnection should fail when version is empty")
+		t.Fatal("TestConnection should fail when user ID is zero")
 	}
 }
 
@@ -274,11 +274,11 @@ func TestSeerrClient_GetRequestedMedia_MalformedJSON(t *testing.T) {
 
 func TestSeerrClient_URLTrailingSlash(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/status" {
-			t.Errorf("Expected /api/v1/status, got %s", r.URL.Path)
+		if r.URL.Path != "/api/v1/auth/me" {
+			t.Errorf("Expected /api/v1/auth/me, got %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"version":"1.33.2"}`))
+		_, _ = w.Write([]byte(`{"id":1,"displayName":"Admin"}`))
 	}))
 	defer srv.Close()
 

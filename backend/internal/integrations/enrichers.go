@@ -240,8 +240,16 @@ var _ Enricher = (*JellystatEnricher)(nil)
 
 // ─── RequestEnricher ────────────────────────────────────────────────────────
 
+// requestAgg accumulates request data for a single TMDb ID across
+// multiple Seerr requests (e.g. when several users request the same item).
+type requestAgg struct {
+	requestedBy string
+	count       int
+}
+
 // RequestEnricher enriches items with media request data from a RequestProvider
-// (Seerr/Overseerr/Jellyseerr). Matches by TMDb ID.
+// (Seerr/Overseerr/Jellyseerr). Matches by TMDb ID and aggregates request
+// counts when multiple users request the same item.
 type RequestEnricher struct {
 	provider RequestProvider
 }
@@ -261,24 +269,31 @@ func (e *RequestEnricher) Priority() int { return 30 }
 func (e *RequestEnricher) EnrichmentCapability() string { return EnrichCapRequestData }
 
 // Enrich implements Enricher by matching items to media requests via TMDb ID.
+// Aggregates multiple requests per TMDb ID so RequestCount reflects the true
+// number of Seerr requests and RequestedBy stores the first requestor.
 func (e *RequestEnricher) Enrich(items []MediaItem) error {
 	requests, err := e.provider.GetRequestedMedia()
 	if err != nil {
 		return err
 	}
-	// Build lookup by TMDb ID
-	requestMap := make(map[int]MediaRequest)
+	// Build aggregated lookup by TMDb ID — count requests and keep first requestor
+	requestMap := make(map[int]requestAgg)
 	for _, req := range requests {
-		requestMap[req.TMDbID] = req
+		agg := requestMap[req.TMDbID]
+		agg.count++
+		if agg.requestedBy == "" {
+			agg.requestedBy = req.RequestedBy
+		}
+		requestMap[req.TMDbID] = agg
 	}
 	matched := 0
 	for i := range items {
 		item := &items[i]
 		if item.TMDbID > 0 {
-			if req, ok := requestMap[item.TMDbID]; ok {
+			if agg, ok := requestMap[item.TMDbID]; ok {
 				item.IsRequested = true
-				item.RequestedBy = req.RequestedBy
-				item.RequestCount = 1
+				item.RequestedBy = agg.requestedBy
+				item.RequestCount = agg.count
 				matched++
 			}
 		}

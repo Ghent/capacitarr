@@ -28,26 +28,29 @@ func (o *SeerrClient) doRequest(endpoint string) ([]byte, error) {
 	return DoAPIRequest(fullURL, "X-Api-Key", o.APIKey)
 }
 
-// seerrStatusResponse maps the /api/v1/status endpoint response.
-type seerrStatusResponse struct {
-	Version string `json:"version"`
+// seerrAuthMeResponse maps the /api/v1/auth/me endpoint response.
+// This endpoint requires a valid API key, unlike /api/v1/status which is public.
+type seerrAuthMeResponse struct {
+	ID int `json:"id"`
 }
 
 // TestConnection verifies the Seerr URL and API key are valid
-// by calling the /api/v1/status endpoint.
+// by calling the /api/v1/auth/me endpoint. This endpoint requires
+// authentication, unlike /api/v1/status which is public and returns
+// 200 for any API key (including invalid ones).
 func (o *SeerrClient) TestConnection() error {
-	body, err := o.doRequest("/status")
+	body, err := o.doRequest("/auth/me")
 	if err != nil {
 		return err
 	}
 
-	var resp seerrStatusResponse
+	var resp seerrAuthMeResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
-		return fmt.Errorf("failed to parse Seerr status response: %w", err)
+		return fmt.Errorf("failed to parse Seerr auth response: %w", err)
 	}
 
-	if resp.Version == "" {
-		return fmt.Errorf("seerr returned empty version, unexpected response")
+	if resp.ID == 0 {
+		return fmt.Errorf("seerr returned invalid user, unexpected response")
 	}
 
 	return nil
