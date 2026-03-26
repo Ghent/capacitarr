@@ -1,0 +1,56 @@
+# Dependabot version updates for Capacitarr
+# 
+# Scope: Application-level dependencies only (gomod, npm).
+# Docker image pins and GitHub Actions tool versions are EXCLUDED because
+# they must stay in sync across Makefile, workflows, and Dockerfile.
+# Those use the manual 30-day review cycle documented in SECURITY.md.
+#
+# Security alerts (separate feature, enabled in repo Settings → Code security)
+# cover ALL ecosystems including Docker, regardless of this file.
+
+version: 2
+updates:
+  # ── Go modules (backend) ────────────────────────────
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: America/New_York
+    labels: [dependencies, go]
+    commit-message:
+      prefix: "chore(deps)"
+    allow:
+      - dependency-type: direct
+    groups:
+      go-minor-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  # ── npm/pnpm (frontend) ─────────────────────────────
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: America/New_York
+    labels: [dependencies, frontend]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+
+  # ── npm/pnpm (docs site) ────────────────────────────
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: monthly
+    labels: [dependencies, docs]
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      site-all:
+        patterns: ["*"]
+    open-pull-requests-limit: 3

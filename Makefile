@@ -204,7 +204,7 @@ help:
 	@echo "Capacitarr Development Commands"
 	@echo "================================"
 	@echo ""
-	@echo "CI Pipeline (Docker-based — matches GitLab CI exactly):"
+	@echo "CI Pipeline (Docker-based — matches GitHub Actions exactly):"
 	@echo "  make ci             - Run full CI pipeline locally (lint + test + security)"
 	@echo "  make lint:ci        - Lint all code (golangci-lint + ESLint + Prettier + typecheck)"
 	@echo "  make test:ci        - Run all tests (go test + vitest)"

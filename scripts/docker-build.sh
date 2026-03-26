@@ -1,18 +1,18 @@
 #!/bin/sh
-# scripts/docker-build.sh — Build and push multi-arch Docker image to GitLab Container Registry.
+# scripts/docker-build.sh — Build and push multi-arch Docker image to GHCR.
 #
 # This script builds the Capacitarr Docker image for linux/amd64 and linux/arm64,
-# then pushes it to GitLab Container Registry (the source of truth). External
-# registries (Docker Hub, GHCR) are populated by the separate docker-mirror.sh script.
+# then pushes it to GHCR (the source of truth). External registries (Docker Hub)
+# are populated by the separate docker-mirror.sh script.
 #
 # Required environment variables:
 #   CI_COMMIT_TAG       — Git tag (e.g., v1.0.0)
 #   CI_COMMIT_SHORT_SHA — Short commit SHA
-#   CI_REGISTRY_IMAGE   — GitLab registry image path
+#   CI_REGISTRY_IMAGE   — Registry image path (e.g., ghcr.io/ghent/capacitarr)
 #
 # Usage: scripts/docker-build.sh
 #
-# NOTE: Uses /bin/sh (not bash) for Alpine compatibility (docker:latest CI image).
+# NOTE: Uses /bin/sh (not bash) for Alpine compatibility in GitHub Actions.
 
 set -eu
 

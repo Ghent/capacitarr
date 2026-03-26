@@ -20,12 +20,12 @@ hideTitle: true
 
 | Section | Description |
 |---------|-------------|
-| [Quick Start](quick-start.md) | Get Capacitarr running in under 60 seconds |
-| [Architecture](architecture.md) | Service layer, event bus, SSE, and database schema |
-| [Deployment Guide](deployment.md) | Reverse proxy configuration, SSE proxy notes, subdirectory deployments, and authentication |
-| [Configuration Reference](configuration.md) | All environment variables with defaults and descriptions |
-| [Scoring Algorithm](scoring.md) | How items are ranked for deletion — factors, weights, rules, and tiebreakers |
-| [API Documentation](api/README.md) | REST API reference, examples, and workflows |
+| [Quick Start](getting-started/quick-start.md) | Get Capacitarr running in under 60 seconds |
+| [Architecture](reference/architecture.md) | Service layer, event bus, SSE, and database schema |
+| [Deployment Guide](getting-started/deployment.md) | Reverse proxy configuration, SSE proxy notes, subdirectory deployments, and authentication |
+| [Configuration Reference](getting-started/configuration.md) | All environment variables with defaults and descriptions |
+| [Scoring Algorithm](guides/scoring.md) | How items are ranked for deletion — factors, weights, rules, and tiebreakers |
+| [API Documentation](reference/api/README.md) | REST API reference, examples, and workflows |
 | [Release Workflow](releasing.md) | Semantic versioning, git-cliff changelog, and CI/CD release pipeline |
 
 ## Quick Start
@@ -54,7 +54,7 @@ Then open `http://localhost:2187` in your browser to complete setup.
 ## About
 
 **Capacitarr** is free, open-source software created by **Ghent Starshadow**.
-Licensed under [PolyForm Noncommercial 1.0.0](https://gitlab.com/starshadow/software/capacitarr/-/blob/main/LICENSE).
+Licensed under [PolyForm Noncommercial 1.0.0](https://github.com/Ghent/capacitarr/blob/main/LICENSE).
 Built with Go, Nuxt 4, and SQLite.
 
 ---

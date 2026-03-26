@@ -17,10 +17,10 @@ body = """
         - {% if commit.scope %}*({{ commit.scope }})* {% endif %}\
             {% if commit.breaking %}[**breaking**] {% endif %}\
             {{ commit.message | upper_first }} \
-            ([{{ commit.id | truncate(length=7, end="") }}](<REPO>/-/commit/{{ commit.id }}))\
+            ([{{ commit.id | truncate(length=7, end="") }}](<REPO>/commit/{{ commit.id }}))\
             {% for footer in commit.footers %}\
                 {% if footer.token == "Reported-by" %} — reported by {{ footer.value }}{% endif %}\
-                {% if footer.token == "Closes" %} ([#{{ footer.value | trim_start_matches(pat="#") }}](<REPO>/-/issues/{{ footer.value | trim_start_matches(pat="#") }})){% endif %}\
+                {% if footer.token == "Closes" %} ([#{{ footer.value | trim_start_matches(pat="#") }}](<REPO>/issues/{{ footer.value | trim_start_matches(pat="#") }})){% endif %}\
             {% endfor %}\
     {% endfor %}
 {% endfor %}
@@ -31,8 +31,8 @@ trim = true
 render_always = true
 # An array of regex based postprocessors to modify the changelog.
 postprocessors = [
-    # Replace the placeholder <REPO> with the GitLab project URL.
-    { pattern = '<REPO>', replace = "https://gitlab.com/starshadow/software/capacitarr" },
+    # Replace the placeholder <REPO> with the GitHub project URL.
+    { pattern = '<REPO>', replace = "https://github.com/Ghent/capacitarr" },
 ]
 # output file path
 # output = "test.md"

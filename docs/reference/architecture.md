@@ -276,7 +276,7 @@ flowchart LR
 
 **Instant alerts** fire immediately when their trigger event occurs — they are not batched. Alert types include engine errors, mode changes, server started, threshold breaches, update available, approval activity, and integration status (failure + recovery).
 
-See [notifications.md](notifications.md) for the full user-facing guide.
+See [notifications.md](../guides/notifications.md) for the full user-facing guide.
 
 ### Event Types (52 total)
 

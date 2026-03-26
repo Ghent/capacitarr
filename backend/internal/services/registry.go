@@ -139,7 +139,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 // after Registry construction, when the application version string is known.
 // It also wires the dispatch service's version checker and version string.
 func (r *Registry) InitVersion(appVersion string) {
-	r.Version = NewVersionService(r.Settings, r.Bus, appVersion, DefaultGitLabReleasesURL)
+	r.Version = NewVersionService(r.Settings, r.Bus, appVersion, DefaultGitHubReleasesURL)
 	r.NotificationDispatch.SetVersionChecker(r.Version)
 	r.NotificationDispatch.SetVersion(appVersion)
 }

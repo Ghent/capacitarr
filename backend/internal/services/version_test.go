@@ -19,8 +19,8 @@ func (m *mockPreferencesReader) GetPreferences() (db.PreferenceSet, error) {
 	return m.pref, m.err
 }
 
-// mockGitLabServer creates a test HTTP server that returns canned release JSON.
-func mockGitLabServer(t *testing.T, responseJSON string) string {
+// mockGitHubServer creates a test HTTP server that returns canned release JSON.
+func mockGitHubServer(t *testing.T, responseJSON string) string {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -101,7 +101,7 @@ func TestVersionService_CheckForUpdate_Enabled(t *testing.T) {
 	mock := &mockPreferencesReader{
 		pref: db.PreferenceSet{CheckForUpdates: true},
 	}
-	url := mockGitLabServer(t, `[{"tag_name":"v3.0.0"}]`)
+	url := mockGitHubServer(t, `[{"tag_name":"v3.0.0"}]`)
 
 	svc := NewVersionService(mock, nil, "v1.0.0", url)
 

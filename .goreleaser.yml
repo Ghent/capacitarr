@@ -5,7 +5,7 @@
 # - Cross-compilation for linux/amd64 and linux/arm64
 # - Archive packaging (.tar.gz with binary + README + LICENSE)
 # - Checksum generation
-# - GitLab release creation with asset uploads
+# - GitHub release creation with asset uploads
 #
 # Docker image building is NOT handled here — the existing multi-arch
 # Dockerfile + docker buildx setup in CI handles that separately.
@@ -59,8 +59,8 @@ changelog:
   disable: true
 
 release:
-  gitlab:
-    owner: starshadow/software
+  github:
+    owner: Ghent
     name: capacitarr
   # Release notes are provided by git-cliff via --release-notes in CI.
   # Do NOT set header/footer here — they override the --release-notes content.
