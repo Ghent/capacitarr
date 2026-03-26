@@ -29,6 +29,10 @@ const (
 	// Jellystat is to Jellyfin what Tautulli is to Plex — an analytics supplement
 	// that provides richer watch history, per-user stats, and activity tracking.
 	IntegrationTypeJellystat IntegrationType = "jellystat"
+	// IntegrationTypeTracearr identifies a Tracearr (multi-server analytics) integration.
+	// Tracearr is a unified alternative to Tautulli + Jellystat — it supports
+	// Plex, Jellyfin, and Emby from a single instance.
+	IntegrationTypeTracearr IntegrationType = "tracearr"
 )
 
 // ============================================================================
@@ -48,6 +52,7 @@ const (
 // Seerr:                            Connectable + RequestProvider
 // Jellyfin, Emby:                   Connectable + WatchDataProvider + WatchlistProvider + CollectionDataProvider
 // Jellystat:                        Connectable (enriches via JellystatEnricher, not WatchDataProvider)
+// Tracearr:                         Connectable (enriches via TracearrEnricher, not WatchDataProvider)
 // ============================================================================
 
 // Connectable is implemented by any integration that can verify its connection.

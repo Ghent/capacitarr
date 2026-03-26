@@ -12,7 +12,7 @@ func TestRegisterAllFactories(t *testing.T) {
 
 	expectedTypes := []string{
 		"sonarr", "radarr", "lidarr", "readarr",
-		"plex", "tautulli", "seerr", "jellyfin", "emby", "jellystat",
+		"plex", "tautulli", "seerr", "jellyfin", "emby", "jellystat", "tracearr",
 	}
 
 	if len(factoryRegistry) != len(expectedTypes) {
@@ -104,7 +104,7 @@ func TestRegisteredTypes(t *testing.T) {
 	RegisterAllFactories()
 
 	types := RegisteredTypes()
-	if len(types) != 10 {
-		t.Errorf("expected 10 registered types, got %d", len(types))
+	if len(types) != 11 {
+		t.Errorf("expected 11 registered types, got %d", len(types))
 	}
 }

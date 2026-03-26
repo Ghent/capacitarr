@@ -42,7 +42,7 @@ var ValidLogLevels = map[string]bool{
 var ValidIntegrationTypes = map[string]bool{
 	"plex": true, "sonarr": true, "radarr": true, "lidarr": true,
 	"readarr": true, "tautulli": true, "seerr": true,
-	"jellyfin": true, "emby": true, "jellystat": true,
+	"jellyfin": true, "emby": true, "jellystat": true, "tracearr": true,
 }
 
 // ValidNotificationChannelTypes defines the allowed notification channel types.

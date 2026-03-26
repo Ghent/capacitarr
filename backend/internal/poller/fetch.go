@@ -223,6 +223,40 @@ func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResu
 	}
 
 	integrations.RegisterJellystatEnrichers(pipeline, registry, jellyfinIDToTMDbID)
+
+	// Build Emby Item ID → TMDb ID map for Tracearr enrichment.
+	// Emby items use Emby Item IDs as rating keys in Tracearr.
+	embyIDToTMDbID := make(map[string]int)
+	for id := range registry.Connectors() {
+		if emby, ok := registry.EmbyClient(id); ok {
+			embyMap, mapErr := emby.GetItemIDToTMDbIDMap()
+			if mapErr != nil {
+				slog.Warn("Failed to build Emby ID→TMDb ID map",
+					"component", "poller", "integrationID", id, "error", mapErr)
+				continue
+			}
+			for itemID, tmdbID := range embyMap {
+				embyIDToTMDbID[itemID] = tmdbID
+			}
+			slog.Debug("Built Emby ID→TMDb ID map", "component", "poller",
+				"integrationID", id, "mappings", len(embyMap))
+		}
+	}
+
+	// Build unified ratingKey→TMDb ID map for Tracearr enrichment.
+	// Tracearr items use the media server's internal item ID as rating_key.
+	ratingKeyToTMDbID := make(map[string]int)
+	for tmdbID, ratingKey := range tmdbToRatingKey {
+		ratingKeyToTMDbID[ratingKey] = tmdbID
+	}
+	for itemID, tmdbID := range jellyfinIDToTMDbID {
+		ratingKeyToTMDbID[itemID] = tmdbID
+	}
+	for itemID, tmdbID := range embyIDToTMDbID {
+		ratingKeyToTMDbID[itemID] = tmdbID
+	}
+
+	integrations.RegisterTracearrEnrichers(pipeline, registry, ratingKeyToTMDbID)
 	result.pipeline = pipeline
 
 	return result

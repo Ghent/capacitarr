@@ -547,3 +547,113 @@ func RegisterJellystatEnrichers(pipeline *EnrichmentPipeline, registry *Integrat
 		}
 	}
 }
+
+// ─── TracearrEnricher ───────────────────────────────────────────────────────
+
+// TracearrEnricher enriches items with watch data from Tracearr (multi-server
+// analytics). Like TautulliEnricher and JellystatEnricher, it runs at priority
+// 10 (highest for watch data) and provides engagement-based play counts.
+//
+// Tracearr tracks items by media server rating key. Resolution to TMDb IDs
+// requires the ratingKeyToTMDbID map — built from all configured media servers
+// (Plex, Jellyfin, Emby) during the same poll cycle.
+type TracearrEnricher struct {
+	client            *TracearrClient
+	ratingKeyToTMDbID map[string]int // media server item ID -> TMDb ID
+}
+
+// NewTracearrEnricher creates an enricher wrapping a TracearrClient with a
+// unified rating key → TMDb ID lookup map for resolving Tracearr items.
+func NewTracearrEnricher(client *TracearrClient, ratingKeyToTMDbID map[string]int) *TracearrEnricher {
+	return &TracearrEnricher{client: client, ratingKeyToTMDbID: ratingKeyToTMDbID}
+}
+
+// Name implements Enricher.
+func (e *TracearrEnricher) Name() string { return "Tracearr Watch History" }
+
+// Priority implements Enricher. Priority 10 is highest for watch data.
+func (e *TracearrEnricher) Priority() int { return 10 }
+
+// EnrichmentCapability implements EnrichmentCapabilityProvider.
+func (e *TracearrEnricher) EnrichmentCapability() string { return EnrichCapWatchData }
+
+// Enrich implements Enricher by fetching top content from Tracearr and matching
+// items via the unified rating key → TMDb ID map.
+func (e *TracearrEnricher) Enrich(items []MediaItem) error {
+	if len(e.ratingKeyToTMDbID) == 0 {
+		slog.Debug("Tracearr enricher skipped — no rating key→TMDb ID mappings available",
+			"component", "enrichment")
+		return nil
+	}
+
+	content, err := e.client.GetTopContent("all")
+	if err != nil {
+		return err
+	}
+
+	// Build TMDb ID → WatchData from Tracearr content
+	watchMap := make(map[int]*WatchData)
+
+	for _, movie := range content.Movies {
+		tmdbID, ok := e.ratingKeyToTMDbID[movie.RatingKey]
+		if !ok || tmdbID == 0 {
+			continue
+		}
+		if movie.PlayCount == 0 {
+			continue
+		}
+		watchMap[tmdbID] = &WatchData{
+			PlayCount: movie.PlayCount,
+		}
+	}
+
+	for _, show := range content.Shows {
+		tmdbID, ok := e.ratingKeyToTMDbID[show.RatingKey]
+		if !ok || tmdbID == 0 {
+			continue
+		}
+		if show.PlayCount == 0 {
+			continue
+		}
+		watchMap[tmdbID] = &WatchData{
+			PlayCount: show.PlayCount,
+		}
+	}
+
+	matched := 0
+	for i := range items {
+		item := &items[i]
+		if item.TMDbID == 0 {
+			continue
+		}
+		if wd, ok := watchMap[item.TMDbID]; ok {
+			item.PlayCount = wd.PlayCount
+			item.LastPlayed = wd.LastPlayed
+			if len(wd.Users) > 0 {
+				item.WatchedByUsers = wd.Users
+			}
+			matched++
+		}
+	}
+
+	logEnrichmentResult("Tracearr Watch History", len(items), len(watchMap), matched,
+		"ratingKeyMappings", len(e.ratingKeyToTMDbID))
+	return nil
+}
+
+// Verify TracearrEnricher satisfies Enricher at compile time.
+var _ Enricher = (*TracearrEnricher)(nil)
+
+// RegisterTracearrEnrichers scans connectors for TracearrClient instances and
+// adds TracearrEnricher to the pipeline. Called separately because Tracearr
+// doesn't implement WatchDataProvider (it requires a unified rating key to
+// TMDb ID map built from all media server integrations).
+func RegisterTracearrEnrichers(pipeline *EnrichmentPipeline, registry *IntegrationRegistry, ratingKeyToTMDbID map[string]int) {
+	for id := range registry.Connectors() {
+		if tracearr, ok := registry.TracearrClient(id); ok {
+			pipeline.Add(NewTracearrEnricher(tracearr, ratingKeyToTMDbID))
+			slog.Debug("Added TracearrEnricher to pipeline", "component", "enrichment",
+				"integrationID", id, "ratingKeyMappings", len(ratingKeyToTMDbID))
+		}
+	}
+}

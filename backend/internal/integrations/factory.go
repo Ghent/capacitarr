@@ -78,6 +78,9 @@ func RegisterAllFactories() {
 	RegisterFactory(string(IntegrationTypeJellystat), func(url, apiKey string) interface{} {
 		return NewJellystatClient(url, apiKey)
 	})
+	RegisterFactory(string(IntegrationTypeTracearr), func(url, apiKey string) interface{} {
+		return NewTracearrClient(url, apiKey)
+	})
 
 	slog.Debug("All integration factories registered", "component", "factory",
 		"count", len(factoryRegistry), "types", fmt.Sprintf("%v", RegisteredTypes()))

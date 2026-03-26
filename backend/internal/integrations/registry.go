@@ -332,6 +332,34 @@ func (r *IntegrationRegistry) JellyfinClient(id uint) (*JellyfinClient, bool) {
 	return nil, false
 }
 
+// EmbyClient checks if the Connectable at the given ID is a *EmbyClient
+// and returns it. Used by the poller to build Emby ItemID→TMDbID maps for
+// Tracearr enrichment.
+func (r *IntegrationRegistry) EmbyClient(id uint) (*EmbyClient, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.connectors[id]; ok {
+		if ec, ok := c.(*EmbyClient); ok {
+			return ec, true
+		}
+	}
+	return nil, false
+}
+
+// TracearrClient checks if the Connectable at the given ID is a *TracearrClient
+// and returns it. Used by the enricher builder since Tracearr doesn't implement
+// WatchDataProvider (it uses the TracearrEnricher with ID resolution maps).
+func (r *IntegrationRegistry) TracearrClient(id uint) (*TracearrClient, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.connectors[id]; ok {
+		if tc, ok := c.(*TracearrClient); ok {
+			return tc, true
+		}
+	}
+	return nil, false
+}
+
 // HasWatchProviders returns true if at least one WatchDataProvider is registered.
 func (r *IntegrationRegistry) HasWatchProviders() bool {
 	r.mu.RLock()

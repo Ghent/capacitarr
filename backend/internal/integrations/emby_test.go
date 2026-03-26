@@ -3,6 +3,7 @@ package integrations
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -811,5 +812,78 @@ func TestEmbyClient_GetCollectionNames_SkipsBlankNames(t *testing.T) {
 	}
 	if names[1] != "Serenity Collection" {
 		t.Errorf("Expected names[1] = %q, got %q", "Serenity Collection", names[1])
+	}
+}
+
+// ─── GetItemIDToTMDbIDMap tests ─────────────────────────────────────────────
+
+func TestEmbyClient_GetItemIDToTMDbIDMap_Success(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/Users":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"Id":"admin-1","Name":"admin","Policy":{"IsAdministrator":true}}]`))
+		case strings.HasPrefix(r.URL.Path, "/Users/admin-1/Items"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{"Id": "emby-001", "Name": "Serenity", "Type": "Movie", "ProviderIds": {"Tmdb": "16320"}},
+					{"Id": "emby-002", "Name": "Firefly", "Type": "Series", "ProviderIds": {"Tmdb": "1437"}},
+					{"Id": "emby-003", "Name": "No TMDb", "Type": "Movie", "ProviderIds": {"Imdb": "tt9999999"}}
+				],
+				"TotalRecordCount": 3
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewEmbyClient(srv.URL, "test-key")
+	idMap, err := client.GetItemIDToTMDbIDMap()
+	if err != nil {
+		t.Fatalf("GetItemIDToTMDbIDMap should succeed: %v", err)
+	}
+
+	if len(idMap) != 2 {
+		t.Fatalf("Expected 2 mappings (item without TMDb skipped), got %d", len(idMap))
+	}
+	if idMap["emby-001"] != 16320 {
+		t.Errorf("Expected emby-001 → 16320, got %d", idMap["emby-001"])
+	}
+	if idMap["emby-002"] != 1437 {
+		t.Errorf("Expected emby-002 → 1437, got %d", idMap["emby-002"])
+	}
+}
+
+func TestEmbyClient_GetItemIDToTMDbIDMap_MissingTMDbProvider(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/Users":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`[{"Id":"admin-1","Name":"admin","Policy":{"IsAdministrator":true}}]`))
+		case strings.HasPrefix(r.URL.Path, "/Users/admin-1/Items"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+				"Items": [
+					{"Id": "emby-100", "Name": "No Providers", "Type": "Movie", "ProviderIds": {}},
+					{"Id": "emby-101", "Name": "Imdb Only", "Type": "Movie", "ProviderIds": {"Imdb": "tt1234567"}}
+				],
+				"TotalRecordCount": 2
+			}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewEmbyClient(srv.URL, "test-key")
+	idMap, err := client.GetItemIDToTMDbIDMap()
+	if err != nil {
+		t.Fatalf("GetItemIDToTMDbIDMap should succeed: %v", err)
+	}
+
+	if len(idMap) != 0 {
+		t.Errorf("Expected 0 mappings (no TMDb provider IDs), got %d", len(idMap))
 	}
 }

@@ -374,6 +374,56 @@ func (e *EmbyClient) GetWatchlistItems() (map[int]bool, error) {
 	return merged, nil
 }
 
+// GetItemIDToTMDbIDMap builds a map from Emby Item ID to TMDb ID for all
+// movies and series in the library. Used by the Tracearr enricher to resolve
+// Emby rating keys to TMDb IDs.
+func (e *EmbyClient) GetItemIDToTMDbIDMap() (map[string]int, error) {
+	adminID, err := e.GetAdminUserID()
+	if err != nil {
+		return nil, fmt.Errorf("emby item ID map: %w", err)
+	}
+
+	result := make(map[string]int)
+	startIndex := 0
+	pageSize := 500
+
+	for {
+		endpoint := fmt.Sprintf(
+			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=ProviderIds&StartIndex=%d&Limit=%d",
+			adminID, startIndex, pageSize,
+		)
+		body, err := e.doRequest(endpoint)
+		if err != nil {
+			return result, fmt.Errorf("failed to fetch Emby items for ID map: %w", err)
+		}
+
+		var resp struct {
+			Items            []embyItem `json:"Items"`
+			TotalRecordCount int        `json:"TotalRecordCount"`
+		}
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return result, fmt.Errorf("failed to parse Emby items for ID map: %w", err)
+		}
+
+		for _, item := range resp.Items {
+			tmdbID := extractTMDbID(item.ProviderIDs)
+			if tmdbID > 0 {
+				result[item.ID] = tmdbID
+			}
+		}
+
+		startIndex += len(resp.Items)
+		if startIndex >= resp.TotalRecordCount || len(resp.Items) == 0 {
+			break
+		}
+	}
+
+	slog.Debug("Built Emby Item ID → TMDb ID map", "component", "emby",
+		"mappings", len(result))
+
+	return result, nil
+}
+
 // GetCollectionNames returns a sorted, deduplicated list of Box Set names from
 // Emby. This is used by FetchCollectionValues() to provide autocomplete
 // options for collection-based rules. Emby's API is structurally identical to

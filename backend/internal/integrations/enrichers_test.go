@@ -1,6 +1,8 @@
 package integrations
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -381,5 +383,111 @@ func TestRequestEnricher_EmptyRequestList(t *testing.T) {
 		if item.RequestCount != 0 {
 			t.Errorf("Item %d (%s): expected RequestCount 0, got %d", i, item.Title, item.RequestCount)
 		}
+	}
+}
+
+// ─── TracearrEnricher tests ─────────────────────────────────────────────────
+
+func newTracearrTestServer(t *testing.T, response string) *TracearrClient {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(response))
+	}))
+	t.Cleanup(srv.Close)
+	return NewTracearrClient(srv.URL, "trr_pub_test")
+}
+
+func TestTracearrEnricher_EnrichMovies(t *testing.T) {
+	client := newTracearrTestServer(t, `{
+		"movies": [{"media_title": "Serenity", "year": 2005, "play_count": 15, "total_watch_ms": 7200000, "server_id": "srv-1", "rating_key": "12345"}],
+		"shows": []
+	}`)
+
+	ratingKeyMap := map[string]int{"12345": 16320}
+	enricher := NewTracearrEnricher(client, ratingKeyMap)
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 16320},
+		{Title: "Firefly", TMDbID: 1437, Type: MediaTypeShow},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	if items[0].PlayCount != 15 {
+		t.Errorf("Expected PlayCount 15 for Serenity, got %d", items[0].PlayCount)
+	}
+	if items[1].PlayCount != 0 {
+		t.Errorf("Expected PlayCount 0 for Firefly (no match), got %d", items[1].PlayCount)
+	}
+}
+
+func TestTracearrEnricher_EnrichShows(t *testing.T) {
+	client := newTracearrTestServer(t, `{
+		"movies": [],
+		"shows": [{"grandparent_title": "Firefly", "year": 2002, "play_count": 42, "total_watch_ms": 36000000, "server_id": "srv-1", "rating_key": "67890"}]
+	}`)
+
+	ratingKeyMap := map[string]int{"67890": 1437}
+	enricher := NewTracearrEnricher(client, ratingKeyMap)
+
+	items := []MediaItem{
+		{Title: "Firefly", TMDbID: 1437, Type: MediaTypeShow},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	if items[0].PlayCount != 42 {
+		t.Errorf("Expected PlayCount 42 for Firefly, got %d", items[0].PlayCount)
+	}
+}
+
+func TestTracearrEnricher_SkipsNoMappings(t *testing.T) {
+	client := newTracearrTestServer(t, `{"movies": [], "shows": []}`)
+
+	// Empty map — should skip gracefully
+	enricher := NewTracearrEnricher(client, map[string]int{})
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 16320},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich should not fail with empty mappings: %v", err)
+	}
+
+	if items[0].PlayCount != 0 {
+		t.Errorf("Expected PlayCount 0 (skipped), got %d", items[0].PlayCount)
+	}
+}
+
+func TestTracearrEnricher_SkipsAlreadyEnriched(t *testing.T) {
+	// Tracearr enricher at priority 10 overwrites — but if a higher-priority
+	// enricher already ran, the pipeline's priority sorting prevents overwrite.
+	// This test verifies the enricher itself does overwrite (by design at same
+	// priority tier — last writer wins within the same priority).
+	client := newTracearrTestServer(t, `{
+		"movies": [{"media_title": "Serenity", "year": 2005, "play_count": 5, "total_watch_ms": 3600000, "server_id": "srv-1", "rating_key": "12345"}],
+		"shows": []
+	}`)
+
+	ratingKeyMap := map[string]int{"12345": 16320}
+	enricher := NewTracearrEnricher(client, ratingKeyMap)
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 16320, PlayCount: 100},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	// Tracearr enricher sets its data (overwrite at same priority tier)
+	if items[0].PlayCount != 5 {
+		t.Errorf("Expected PlayCount 5 from Tracearr, got %d", items[0].PlayCount)
 	}
 }
