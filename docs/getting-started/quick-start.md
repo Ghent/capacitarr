@@ -14,10 +14,9 @@ Create a `docker-compose.yml` file:
 ```yaml
 services:
   capacitarr:
-    image: ghentstarshadow/capacitarr:stable
-    # Or use an alternative registry:
-    #   image: ghcr.io/ghent/capacitarr:stable
-    #   image: registry.gitlab.com/starshadow/software/capacitarr:stable
+    image: ghcr.io/ghent/capacitarr:stable
+    # Or use Docker Hub:
+    #   image: ghentstarshadow/capacitarr:stable
     container_name: capacitarr
     ports:
       - "2187:2187"
@@ -160,5 +159,5 @@ See the [Configuration Reference](configuration.md#settings-export--import) for 
 
 - [Deployment Guide](deployment.md) — Reverse proxy setup, subdirectory deployments, proxy authentication
 - [Configuration Reference](configuration.md) — All environment variables
-- [Scoring Algorithm](scoring.md) — How the scoring engine works
-- [Notifications](notifications.md) — Discord and Apprise notification setup
+- [Scoring Algorithm](../guides/scoring.md) — How the scoring engine works
+- [Notifications](../guides/notifications.md) — Discord and Apprise notification setup

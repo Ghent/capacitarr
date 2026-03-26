@@ -28,7 +28,7 @@ The simplest approach — no `BASE_URL` configuration required.
 ```yaml
 services:
   capacitarr:
-    image: ghentstarshadow/capacitarr:stable
+    image: ghcr.io/ghent/capacitarr:stable
     environment:
       - JWT_SECRET=your-secret-here
       - SECURE_COOKIES=true
@@ -70,7 +70,7 @@ When serving Capacitarr at a subdirectory (e.g. `https://example.com/capacitarr/
 ```yaml
 services:
   capacitarr:
-    image: ghentstarshadow/capacitarr:stable
+    image: ghcr.io/ghent/capacitarr:stable
     environment:
       - BASE_URL=/capacitarr/
       - JWT_SECRET=your-secret-here
@@ -185,7 +185,7 @@ Set `AUTH_HEADER` to the name of the header your auth proxy sets:
 ```yaml
 services:
   capacitarr:
-    image: ghentstarshadow/capacitarr:stable
+    image: ghcr.io/ghent/capacitarr:stable
     environment:
       - AUTH_HEADER=Remote-User
       - JWT_SECRET=your-secret-here

@@ -30,47 +30,65 @@ const EXCLUDED_DIRS = new Set(['plans'])
 // Files not listed here retain their title but get no explicit order
 // (Nuxt Content falls back to alphabetical).
 //
-// For files within directories (api/, security/), the order is relative
-// to siblings in that directory. The directory's position among top-level
-// pages is controlled by its _dir.yml file (generated below).
+// The order is relative to siblings within the same directory. Each
+// directory's position among its peers is controlled by its _dir.yml
+// file (generated below via DIR_NAV).
 
-/** Navigation metadata for top-level docs files (relative to docs/). */
+/** Navigation metadata for docs files (keyed by path relative to docs/). */
 const NAV_META = {
-  'quick-start.md': { order: 1 },
-  'configuration.md': { order: 2 },
-  'deployment.md': { order: 3 },
-  'scoring.md': { order: 4 },
-  'notifications.md': { order: 5 },
-  'troubleshooting.md': { order: 6 },
-  'architecture.md': { order: 7 },
-  // api/ and security/ are directories — positioned via _dir.yml
-  'releasing.md': { order: 10 },
+  // Getting Started group (dir order 1)
+  'getting-started/quick-start.md': { order: 1 },
+  'getting-started/configuration.md': { order: 2 },
+  'getting-started/deployment.md': { order: 3 },
+  // Guides group (dir order 2)
+  'guides/scoring.md': { order: 1 },
+  'guides/notifications.md': { order: 2 },
+  'guides/troubleshooting.md': { order: 3 },
+  // Reference group (dir order 3)
+  'reference/architecture.md': { order: 1 },
+  // Releasing (top-level, between Security and Project groups)
+  'releasing.md': { order: 5 },
 }
 
-/** Navigation metadata for files within subdirectories. */
+/** Navigation metadata for files within nested subdirectories. */
 const NAV_META_SUB = {
-  'api/README.md': { order: 1 },
-  'api/examples.md': { order: 2 },
-  'api/workflows.md': { order: 3 },
-  'api/versioning.md': { order: 4 },
+  'reference/api/README.md': { order: 1 },
+  'reference/api/examples.md': { order: 2 },
+  'reference/api/workflows.md': { order: 3 },
+  'reference/api/versioning.md': { order: 4 },
   'security/zap-baseline-20260310.md': { order: 2 },
   'security/zap-baseline-20260316.md': { order: 3 },
   'security/zap-baseline-20260323.md': { order: 4 },
+  'security/zap-baseline-20260324.md': { order: 5 },
 }
 
-/** Navigation metadata for root-level project files synced to the site. */
+/** Navigation metadata for root-level project files synced under project/. */
 const NAV_META_ROOT = {
-  'contributing.md': { order: 11 },
-  'contributors.md': { order: 12 },
+  'project/contributing.md': { order: 1 },
+  'project/contributors.md': { order: 2 },
 }
+
+/**
+ * Files that should be hidden from sidebar navigation (keyed by path
+ * relative to docs/). These are index/landing pages whose parent
+ * directory entry already provides the navigation link.
+ */
+const NAV_HIDDEN = new Set([
+  'index.md', // docs/ landing page — suppresses duplicate "Capacitarr" item
+  'reference/api/README.md', // synced as reference/api/index.md — _dir.yml covers the group
+])
 
 /**
  * Directory navigation config. Each entry generates a _dir.yml file
  * that positions the directory section in the sidebar.
  */
 const DIR_NAV = {
-  api: { title: 'API Reference', order: 8 },
-  security: { title: 'Security', order: 9 },
+  'getting-started': { title: 'Getting Started', order: 1 },
+  'guides': { title: 'Guides', order: 2 },
+  'reference': { title: 'Reference', order: 3 },
+  'reference/api': { title: 'API Reference', order: 2 },
+  'security': { title: 'Security', order: 4 },
+  'project': { title: 'Project', order: 6 },
 }
 
 // ── File discovery ─────────────────────────────────────────────────
@@ -107,8 +125,8 @@ function discoverMarkdownFiles(dir) {
  * Matches: [text](file.md) or [text](file.md#anchor)
  * Converts: (file.md) → (/docs/{subdir}/file)
  *
- * Parent-directory links (e.g., ../architecture.md from api/) resolve
- * naturally via URL path normalization in the browser.
+ * Parent-directory links (e.g., ../../guides/scoring.md from reference/api/)
+ * resolve naturally via URL path normalization in the browser.
  */
 function rewriteDocsLinks(content, contentSubdir) {
   const prefix = contentSubdir ? `/docs/${contentSubdir}` : '/docs'
@@ -128,17 +146,17 @@ function rewriteDocsLinks(content, contentSubdir) {
  * Rewrite markdown links within root-level project files.
  *
  * Root files reference paths relative to the project root:
- * - (CONTRIBUTORS.md)                      → (/docs/contributors)
- * - (docs/architecture.md)                 → (/docs/architecture)
- * - (docs/security/zap-baseline-20260310.md) → (/docs/security/zap-baseline-20260310)
+ * - (CONTRIBUTORS.md)                          → (/docs/project/contributors)
+ * - (docs/getting-started/quick-start.md)      → (/docs/getting-started/quick-start)
+ * - (docs/security/zap-baseline-20260310.md)   → (/docs/security/zap-baseline-20260310)
  */
 function rewriteRootLinks(content) {
   // Map of root-level file basenames (without .md) to their site paths
   const ROOT_FILE_MAP = {
     SECURITY: 'security',
-    CONTRIBUTING: 'contributing',
-    CONTRIBUTORS: 'contributors',
-    CHANGELOG: 'changelog',
+    CONTRIBUTING: 'project/contributing',
+    CONTRIBUTORS: 'project/contributors',
+    CHANGELOG: 'project/changelog',
     README: 'index',
     LICENSE: null, // Not synced — leave link unchanged
   }
@@ -171,20 +189,22 @@ function rewriteRootLinks(content) {
 // ── Navigation frontmatter injection ───────────────────────────────
 
 /**
- * Inject navigation ordering into file content via YAML frontmatter.
+ * Inject navigation ordering or visibility into file content via YAML
+ * frontmatter.
  *
  * If the file already has frontmatter (starts with ---), the navigation
  * block is inserted before the closing ---. Otherwise, a new frontmatter
  * block is created.
  *
  * @param {string} content - File content (after link rewriting)
- * @param {{ order: number }} navMeta - Navigation metadata
+ * @param {{ order: number }|null} navMeta - Navigation ordering metadata
+ * @param {boolean} hidden - If true, inject `navigation: false` to hide from sidebar
  * @returns {string} Content with navigation frontmatter
  */
-function injectNavigation(content, navMeta) {
-  if (!navMeta) return content
+function injectNavigation(content, navMeta, hidden = false) {
+  if (!navMeta && !hidden) return content
 
-  const navYaml = `navigation:\n  order: ${navMeta.order}`
+  const navYaml = hidden ? 'navigation: false' : `navigation:\n  order: ${navMeta.order}`
 
   if (content.startsWith('---\n')) {
     // Has existing frontmatter — inject before the closing ---
@@ -236,7 +256,7 @@ function extractLeadingHeading(content) {
  * Sync a single file: read, rewrite links, extract heading, optionally
  * add frontmatter and navigation ordering, write.
  */
-function syncFile(src, dest, { rewriter = rewriteDocsLinks, rewriterArg = '', frontmatter = null, navMeta = null } = {}) {
+function syncFile(src, dest, { rewriter = rewriteDocsLinks, rewriterArg = '', frontmatter = null, navMeta = null, navHidden = false } = {}) {
   mkdirSync(dirname(dest), { recursive: true })
 
   let content = readFileSync(src, 'utf-8')
@@ -256,8 +276,8 @@ function syncFile(src, dest, { rewriter = rewriteDocsLinks, rewriterArg = '', fr
     content = `---\ntitle: "${extractedTitle}"\n---\n\n${content}`
   }
 
-  // Inject navigation ordering into frontmatter
-  content = injectNavigation(content, navMeta)
+  // Inject navigation ordering or hide from sidebar
+  content = injectNavigation(content, navMeta, navHidden)
 
   writeFileSync(dest, content)
 }
@@ -276,13 +296,14 @@ for (const srcPath of discoveredFiles) {
   const destName = file === 'README.md' ? 'index.md' : file
   const destPath = join(CONTENT_DOCS, dir === '.' ? '' : dir, destName)
 
-  // Content subdir for link rewriting (e.g., 'api' for docs/api/*.md)
+  // Content subdir for link rewriting (e.g., 'getting-started' for docs/getting-started/*.md)
   const contentSubdir = dir === '.' ? '' : dir
 
   // Look up navigation metadata for this file
   const navMeta = NAV_META[relPath] || NAV_META_SUB[relPath] || null
+  const navHidden = NAV_HIDDEN.has(relPath)
 
-  syncFile(srcPath, destPath, { rewriter: rewriteDocsLinks, rewriterArg: contentSubdir, navMeta })
+  syncFile(srcPath, destPath, { rewriter: rewriteDocsLinks, rewriterArg: contentSubdir, navMeta, navHidden })
   docsCount++
 }
 
@@ -297,13 +318,13 @@ for (const [dirName, meta] of Object.entries(DIR_NAV)) {
 
 // ── Sync root-level project files ──────────────────────────────────
 //
-// SECURITY.md is routed to security/index.md to avoid a naming conflict
-// with the docs/security/ directory (which contains the ZAP baseline).
+// SECURITY.md is routed to security/index.md to serve as the intro
+// to the Security group. Other root files go under the project/ group.
 
 const rootFiles = [
   { src: 'SECURITY.md', dest: 'security/index.md', title: 'Security Policy', navMeta: { order: 1 } },
-  { src: 'CONTRIBUTING.md', dest: 'contributing.md', title: 'Contributing', navMeta: NAV_META_ROOT['contributing.md'] },
-  { src: 'CONTRIBUTORS.md', dest: 'contributors.md', title: 'Contributors', navMeta: NAV_META_ROOT['contributors.md'] },
+  { src: 'CONTRIBUTING.md', dest: 'project/contributing.md', title: 'Contributing', navMeta: NAV_META_ROOT['project/contributing.md'] },
+  { src: 'CONTRIBUTORS.md', dest: 'project/contributors.md', title: 'Contributors', navMeta: NAV_META_ROOT['project/contributors.md'] },
 ]
 
 let rootCount = 0
@@ -328,9 +349,10 @@ const changelogSrc = join(PROJECT_ROOT, 'CHANGELOG.md')
 let changelogSynced = false
 if (existsSync(changelogSrc)) {
   const changelogContent = readFileSync(changelogSrc, 'utf-8')
-  const changelogMd = `---\ntitle: Changelog\nnavigation:\n  order: 13\n---\n\n${changelogContent}`
-  mkdirSync(CONTENT_DOCS, { recursive: true })
-  writeFileSync(join(CONTENT_DOCS, 'changelog.md'), changelogMd)
+  const changelogDest = join(CONTENT_DOCS, 'project', 'changelog.md')
+  const changelogMd = `---\ntitle: Changelog\nnavigation:\n  order: 3\n---\n\n${changelogContent}`
+  mkdirSync(dirname(changelogDest), { recursive: true })
+  writeFileSync(changelogDest, changelogMd)
   changelogSynced = true
 }
 

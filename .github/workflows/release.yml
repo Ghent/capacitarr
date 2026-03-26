@@ -1,0 +1,149 @@
+# Capacitarr Release Pipeline (GitHub Actions)
+#
+# Triggered on version tag push (v*). Builds binaries, Docker images,
+# mirrors to Docker Hub, and sends a Discord notification.
+#
+# Required secrets:
+#   DOCKERHUB_USERNAME    — Docker Hub username for mirroring
+#   DOCKERHUB_TOKEN       — Docker Hub access token for mirroring
+#   DISCORD_WEBHOOK_URL   — Discord webhook URL for release notifications
+#
+# Automatic (no secret needed):
+#   GITHUB_TOKEN          — Used for GHCR auth, GoReleaser GitHub Releases
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  # ── Changelog ────────────────────────────────────────────────────────────────
+
+  changelog:
+    name: "Generate Release Notes"
+    runs-on: ubuntu-latest
+    container:
+      image: orhunp/git-cliff:2.12.0
+    steps:
+      - name: Install git
+        run: apt-get update -qq && apt-get install -y -qq git
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # git-cliff requires the repo to be owned by the current user
+      - name: Fix git ownership
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Generate release notes
+        run: |
+          git cliff --latest --strip header > release_notes.md
+          cat release_notes.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release_notes.md
+          retention-days: 7
+
+  # ── GoReleaser (binaries + GitHub Release) ──────────────────────────────────
+
+  goreleaser:
+    name: "GoReleaser"
+    runs-on: ubuntu-latest
+    needs: [changelog]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend dependencies
+        run: cd frontend && pnpm install --frozen-lockfile
+      - name: Display release notes
+        run: cat release_notes.md
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: v2.14.1
+          args: release --clean --release-notes release_notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Docker Build + Push to GHCR ─────────────────────────────────────────────
+
+  docker-build:
+    name: "Docker: Build & Push to GHCR"
+    runs-on: ubuntu-latest
+    needs: [changelog]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push multi-arch images to GHCR
+        run: |
+          export CI_COMMIT_SHORT_SHA="${GITHUB_SHA:0:8}"
+          scripts/docker-build.sh
+        env:
+          CI_COMMIT_TAG: ${{ github.ref_name }}
+          CI_REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
+
+  # ── Docker Mirror to Docker Hub ─────────────────────────────────────────────
+
+  docker-mirror-dockerhub:
+    name: "Docker: Mirror to Docker Hub"
+    runs-on: ubuntu-latest
+    needs: [docker-build]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install crane
+        run: |
+          curl -sSL "https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz" \
+            | sudo tar xzf - -C /usr/local/bin/ crane
+      - name: Login to GHCR (source)
+        run: crane auth login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
+      - name: Login to Docker Hub (target)
+        run: crane auth login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
+      - name: Mirror to Docker Hub
+        run: scripts/docker-mirror.sh "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/capacitarr"
+        env:
+          CI_COMMIT_TAG: ${{ github.ref_name }}
+          CI_REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
+
+  # ── Discord Notification ────────────────────────────────────────────────────
+
+  discord-notify:
+    name: "Notify: Discord"
+    runs-on: ubuntu-latest
+    needs: [changelog, goreleaser, docker-build]
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+      - name: Send Discord notification
+        run: scripts/discord-release-notify.sh
+        env:
+          DISCORD_RELEASE_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          CI_COMMIT_TAG: ${{ github.ref_name }}
+          CI_PROJECT_URL: https://github.com/${{ github.repository }}

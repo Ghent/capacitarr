@@ -21,7 +21,7 @@ Only the latest stable release receives security fixes. Pre-release versions (al
 
 If you discover a security vulnerability, please report it privately:
 
-1. **GitLab:** Open a [confidential issue](https://gitlab.com/starshadow/software/capacitarr/-/issues/new?confidential=true) with the `security` label
+1. **GitHub:** Open a [security advisory](https://github.com/Ghent/capacitarr/security/advisories/new) (private by default)
 2. **Email:** Send details to the project maintainer listed in [CONTRIBUTORS.md](CONTRIBUTORS.md)
 
 **Do not** open a public issue for security vulnerabilities.
@@ -79,7 +79,7 @@ Capacitarr is designed as a **self-hosted, single-instance** application for hom
 
 ### CI Security Scanning (SAST + SCA)
 
-Every push and merge request is scanned by 7 static security tools. **All are blocking** — failures prevent merge. Run all scans locally with: `make security:ci`
+Every push and pull request is scanned by 7 static security tools. **All are blocking** — failures prevent merge. Run all scans locally with: `make security:ci`
 
 #### Tool Inventory
 
@@ -282,9 +282,9 @@ All Docker images used in CI pipelines and local `Makefile` targets are **pinned
 
 #### Pinning Policy
 
-- **No `:latest` tags:** Every Docker image reference in `.gitlab-ci.yml` and `Makefile` must use a specific version tag (e.g., `:0.69.3`, `:v2.11.4`, `:3.21`)
+- **No `:latest` tags:** Every Docker image reference in CI workflows and `Makefile` must use a specific version tag (e.g., `:0.69.3`, `:v2.11.4`, `:3.21`)
 - **No curl-pipe-to-shell:** CI jobs must not download and execute scripts from external URLs at runtime. All tools must be consumed via their official Docker images
-- **Makefile ↔ CI parity:** Every image version in `.gitlab-ci.yml` must match the corresponding image in the `Makefile`. Both files are updated together
+- **Makefile ↔ CI parity:** Every image version in CI workflows must match the corresponding image in the `Makefile`. Both files are updated together
 - **Digest pinning for runtime image:** The production Dockerfile runtime base image (`alpine`) is pinned to a specific SHA-256 digest for reproducible, auditable builds
 
 #### Regular Re-evaluation
@@ -293,7 +293,7 @@ Pinned Docker image versions are **re-evaluated on a regular basis** to pick up 
 
 1. Check each pinned image for newer stable releases
 2. Pull and test updated versions locally with `make ci`
-3. Update version tags in both `Makefile` and `.gitlab-ci.yml`
+3. Update version tags in both `Makefile` and CI workflows
 4. Update the Dockerfile runtime base image digest if a new Alpine patch is available
 5. Commit with `chore(deps): bump <tool> to v<version>`
 

@@ -1,19 +1,19 @@
 #!/bin/sh
-# scripts/docker-mirror.sh — Mirror Docker image from GitLab Container Registry to a target registry.
+# scripts/docker-mirror.sh — Mirror Docker image from GHCR to a target registry.
 #
 # Uses `crane copy` to replicate multi-arch manifest lists between registries
 # at the API level — no layers are re-pulled or re-pushed.
 #
 # Required environment variables:
 #   CI_COMMIT_TAG     — Git tag (e.g., v1.0.0)
-#   CI_REGISTRY_IMAGE — GitLab registry image path (source)
+#   CI_REGISTRY_IMAGE — GHCR image path (source, e.g., ghcr.io/ghent/capacitarr)
 #
 # Arguments:
 #   $1 — Target registry image path (e.g., docker.io/ghentstarshadow/capacitarr)
 #
 # Usage: scripts/docker-mirror.sh docker.io/ghentstarshadow/capacitarr
 #
-# NOTE: Uses /bin/sh (not bash) for Alpine compatibility (crane CI image).
+# NOTE: Uses /bin/sh (not bash) for compatibility in GitHub Actions.
 
 set -eu
 

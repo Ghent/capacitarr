@@ -4,7 +4,7 @@ Thank you for your interest in contributing to Capacitarr! This document outline
 
 ## Contributor License Agreement (CLA)
 
-By submitting a merge request or otherwise contributing to this project, you agree to the following terms:
+By submitting a pull request or otherwise contributing to this project, you agree to the following terms:
 
 1. **License Grant**: You grant Starshadow Studios a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, reproduce, modify, distribute, and sublicense your contributions under any license terms, including the PolyForm Noncommercial 1.0.0 license or any successor license chosen by the project maintainers.
 
@@ -39,7 +39,7 @@ By submitting a merge request or otherwise contributing to this project, you agr
    docs: update installation guide
    ```
 5. Ensure all tests pass
-6. Submit a merge request with a clear description of your changes
+6. Submit a pull request with a clear description of your changes
 
 ### Architecture
 
@@ -53,7 +53,7 @@ Capacitarr uses a layered architecture with clear separation of concerns:
 - **Event Bus** — A typed pub/sub system with fan-out to three subscribers: activity persister (dashboard feed), notification dispatcher (Discord/Apprise), and SSE broadcaster (real-time browser updates)
 - **Data Layer** — SQLite via GORM with SQL migrations
 
-For the full architecture documentation with diagrams, see [docs/architecture.md](docs/architecture.md).
+For the full architecture documentation with diagrams, see [docs/reference/architecture.md](docs/reference/architecture.md).
 
 ### Code Standards
 
@@ -73,7 +73,7 @@ Run the full CI pipeline locally before pushing:
 make ci
 ```
 
-This runs lint, test, and security checks using the **same Docker images** as the GitLab CI pipeline. No additional tool installation required beyond Docker and pnpm.
+This runs lint, test, and security checks using the **same Docker images** as the GitHub Actions CI pipeline. No additional tool installation required beyond Docker and pnpm.
 
 Individual stages can be run separately:
 
@@ -107,13 +107,13 @@ make lint format → make ci → commit → push
 
 ### Docker Image Pinning
 
-All Docker images in the `Makefile` and `.gitlab-ci.yml` are pinned to specific version tags (no `:latest`). This protects against supply chain attacks where a compromised upstream image could silently enter our pipeline.
+All Docker images in the `Makefile` and CI workflows are pinned to specific version tags (no `:latest`). This protects against supply chain attacks where a compromised upstream image could silently enter our pipeline.
 
 **When updating pinned versions:**
 
 1. Pull the new image version locally
 2. Run `make ci` to verify compatibility
-3. Update the version tag in **both** `Makefile` and `.gitlab-ci.yml` — they must always match
+3. Update the version tag in **both** `Makefile` and CI workflows — they must always match
 4. Update the pinned versions table in `SECURITY.md`
 5. Commit with `chore(deps): bump <tool> to v<version>`
 
@@ -121,7 +121,7 @@ All Docker images in the `Makefile` and `.gitlab-ci.yml` are pinned to specific 
 
 ### CI/CD Pipeline
 
-Every push and merge request triggers a GitLab CI pipeline with these stages:
+Every push and pull request triggers a GitHub Actions CI pipeline with these stages:
 
 1. **Lint** — `golangci-lint` (Go), ESLint + Prettier format check + TypeScript typecheck (frontend)
 2. **Test** — `go test` and Vitest for the frontend
@@ -130,9 +130,9 @@ Every push and merge request triggers a GitLab CI pipeline with these stages:
 
 The `make ci` command runs the same checks using the same Docker images, so if it passes locally it will pass in CI. Ensure all CI checks pass before requesting review.
 
-### Merge Request Guidelines
+### Pull Request Guidelines
 
-- Keep MRs focused — one logical change per MR
+- Keep PRs focused — one logical change per PR
 - Include tests for new functionality where possible
 - Update documentation if your change affects user-facing behavior
 - Respond to review feedback promptly

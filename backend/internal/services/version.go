@@ -16,8 +16,8 @@ import (
 	"capacitarr/internal/events"
 )
 
-// DefaultGitLabReleasesURL is the GitLab API endpoint for Capacitarr releases.
-const DefaultGitLabReleasesURL = "https://gitlab.com/api/v4/projects/79833150/releases?per_page=1"
+// DefaultGitHubReleasesURL is the GitHub API endpoint for Capacitarr releases.
+const DefaultGitHubReleasesURL = "https://api.github.com/repos/Ghent/capacitarr/releases?per_page=1"
 
 // PreferencesReader provides read access to application preferences.
 // Satisfied by SettingsService.
@@ -34,7 +34,7 @@ type VersionCheckResult struct {
 	CheckedAt       time.Time `json:"checkedAt"`
 }
 
-// VersionService manages update checks against the GitLab releases API.
+// VersionService manages update checks against the GitHub releases API.
 type VersionService struct {
 	preferences         PreferencesReader
 	bus                 *events.EventBus
@@ -47,7 +47,7 @@ type VersionService struct {
 }
 
 // NewVersionService creates a new VersionService.
-// releasesURL is the GitLab releases API URL; pass DefaultGitLabReleasesURL for production.
+// releasesURL is the GitHub releases API URL; pass DefaultGitHubReleasesURL for production.
 func NewVersionService(preferences PreferencesReader, bus *events.EventBus, appVersion, releasesURL string) *VersionService {
 	return &VersionService{
 		preferences: preferences,
@@ -66,7 +66,7 @@ func (s *VersionService) SetAppVersion(v string) {
 	s.mu.Unlock()
 }
 
-// SetReleasesURL overrides the GitLab releases URL. Intended for use in tests only.
+// SetReleasesURL overrides the GitHub releases URL. Intended for use in tests only.
 func (s *VersionService) SetReleasesURL(url string) {
 	s.mu.Lock()
 	s.releasesURL = url
@@ -74,7 +74,7 @@ func (s *VersionService) SetReleasesURL(url string) {
 }
 
 // CheckForUpdate loads preferences, checks if updates are enabled, and returns
-// a cached result if fresh or fetches a new one from the GitLab releases API.
+// a cached result if fresh or fetches a new one from the GitHub releases API.
 func (s *VersionService) CheckForUpdate() (*VersionCheckResult, error) {
 	// Load preferences to check if update checks are enabled
 	pref, err := s.preferences.GetPreferences()
@@ -96,7 +96,7 @@ func (s *VersionService) CheckForUpdate() (*VersionCheckResult, error) {
 	}
 	s.mu.Unlock()
 
-	// Fetch latest release from GitLab
+	// Fetch latest release from GitHub
 	result := s.fetchLatestRelease()
 
 	// Cache the result
@@ -108,7 +108,7 @@ func (s *VersionService) CheckForUpdate() (*VersionCheckResult, error) {
 }
 
 // ForceCheck bypasses the cache and always fetches fresh data from the
-// GitLab releases API.
+// GitHub releases API.
 func (s *VersionService) ForceCheck() (*VersionCheckResult, error) {
 	// Load preferences to check if update checks are enabled
 	pref, err := s.preferences.GetPreferences()
@@ -139,7 +139,7 @@ func (s *VersionService) ResetCache() {
 	s.mu.Unlock()
 }
 
-// fetchLatestRelease queries the GitLab releases API and returns a VersionCheckResult.
+// fetchLatestRelease queries the GitHub releases API and returns a VersionCheckResult.
 // On any failure it returns a graceful degradation response with only the current version.
 func (s *VersionService) fetchLatestRelease() VersionCheckResult {
 	fallback := VersionCheckResult{
@@ -158,9 +158,9 @@ func (s *VersionService) fetchLatestRelease() VersionCheckResult {
 	req.Header.Set("User-Agent", fmt.Sprintf("Capacitarr/%s", s.appVersion))
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req) //nolint:gosec // URL is set at construction time (DefaultGitLabReleasesURL or test URL), not user-tainted
+	resp, err := client.Do(req) //nolint:gosec // URL is set at construction time (DefaultGitHubReleasesURL or test URL), not user-tainted
 	if err != nil {
-		slog.Warn("Failed to fetch latest release from GitLab", "component", "version", "error", err)
+		slog.Warn("Failed to fetch latest release from GitHub", "component", "version", "error", err)
 		return fallback
 	}
 	defer func() {
@@ -170,7 +170,7 @@ func (s *VersionService) fetchLatestRelease() VersionCheckResult {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		slog.Warn("GitLab releases API returned non-200 status", //nolint:gosec // G706: status code is a server-side integer, not user-tainted
+		slog.Warn("GitHub releases API returned non-200 status", //nolint:gosec // G706: status code is a server-side integer, not user-tainted
 			"component", "version",
 			"status", strconv.Itoa(resp.StatusCode))
 		return fallback
@@ -180,12 +180,12 @@ func (s *VersionService) fetchLatestRelease() VersionCheckResult {
 		TagName string `json:"tag_name"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
-		slog.Warn("Failed to parse GitLab releases response", "component", "version", "error", err)
+		slog.Warn("Failed to parse GitHub releases response", "component", "version", "error", err)
 		return fallback
 	}
 
 	if len(releases) == 0 {
-		slog.Warn("No releases found from GitLab API", "component", "version")
+		slog.Warn("No releases found from GitHub API", "component", "version")
 		return fallback
 	}
 
@@ -199,7 +199,7 @@ func (s *VersionService) fetchLatestRelease() VersionCheckResult {
 		Current:         s.appVersion,
 		Latest:          latestTag,
 		UpdateAvailable: updateAvailable,
-		ReleaseURL:      fmt.Sprintf("https://gitlab.com/starshadow/software/capacitarr/-/releases/%s", latestTag),
+		ReleaseURL:      fmt.Sprintf("https://github.com/Ghent/capacitarr/releases/tag/%s", latestTag),
 		CheckedAt:       time.Now(),
 	}
 

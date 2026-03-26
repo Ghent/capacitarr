@@ -1,9 +1,11 @@
 /**
- * Fetch GitLab repo stats at build time.
+ * Fetch GitHub repo stats at build time.
  * Writes stats to app/repo-stats.json for the RepoStats component.
  *
  * Run from the site/ directory: node scripts/fetch-repo-stats.mjs
  * Called automatically via the "pregenerate" script in package.json.
+ *
+ * Set GITHUB_TOKEN in the environment for higher rate limits (optional).
  */
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,11 +13,21 @@ import { join } from 'node:path'
 const ROOT = join(import.meta.dirname, '..')
 const OUTPUT = join(ROOT, 'app', 'repo-stats.json')
 
-const PROJECT_PATH = 'starshadow%2Fsoftware%2Fcapacitarr'
-const API_BASE = 'https://gitlab.com/api/v4'
+const API_BASE = 'https://api.github.com'
+const REPO = 'Ghent/capacitarr'
 
 async function fetchJSON(url) {
-  const res = await fetch(url)
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'capacitarr-site-build',
+  }
+
+  // Use GITHUB_TOKEN if available for higher rate limits
+  if (process.env.GITHUB_TOKEN) {
+    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`
+  }
+
+  const res = await fetch(url, { headers })
   if (!res.ok) {
     console.warn(`⚠ Failed to fetch ${url}: ${res.status} ${res.statusText}`)
     return null
@@ -31,19 +43,17 @@ async function main() {
     fetchedAt: new Date().toISOString(),
   }
 
-  // Fetch project metadata (stars, forks)
-  const project = await fetchJSON(`${API_BASE}/projects/${PROJECT_PATH}`)
-  if (project) {
-    stats.stars = project.star_count ?? 0
-    stats.forks = project.forks_count ?? 0
+  // Fetch repository metadata (stars, forks)
+  const repo = await fetchJSON(`${API_BASE}/repos/${REPO}`)
+  if (repo) {
+    stats.stars = repo.stargazers_count ?? 0
+    stats.forks = repo.forks_count ?? 0
   }
 
   // Fetch latest release tag
-  const releases = await fetchJSON(
-    `${API_BASE}/projects/${PROJECT_PATH}/releases?per_page=1&order_by=released_at&sort=desc`,
-  )
-  if (releases && releases.length > 0) {
-    stats.version = releases[0].tag_name ?? null
+  const release = await fetchJSON(`${API_BASE}/repos/${REPO}/releases/latest`)
+  if (release) {
+    stats.version = release.tag_name ?? null
   }
 
   writeFileSync(OUTPUT, JSON.stringify(stats, null, 2))

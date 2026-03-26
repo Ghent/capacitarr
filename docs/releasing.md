@@ -1,6 +1,6 @@
 # Release Workflow
 
-Capacitarr uses a tag-triggered release pipeline powered by [git-cliff](https://git-cliff.org/), [GoReleaser](https://goreleaser.com/), and GitLab CI/CD. Releases follow [Semantic Versioning](https://semver.org/) and are driven by [Conventional Commits](https://www.conventionalcommits.org/).
+Capacitarr uses a tag-triggered release pipeline powered by [git-cliff](https://git-cliff.org/), [GoReleaser](https://goreleaser.com/), and GitHub Actions. Releases follow [Semantic Versioning](https://semver.org/) and are driven by [Conventional Commits](https://www.conventionalcommits.org/).
 
 ## How It Works
 
@@ -10,8 +10,8 @@ Releases are created when you push a `v*` tag to the repository. The CI pipeline
 
 1. **Extracts release notes** — `git cliff --latest --strip header` generates notes for the tagged version
 2. **Builds cross-compiled binaries** — GoReleaser compiles `linux/amd64` and `linux/arm64` binaries with the frontend SPA embedded
-3. **Creates a GitLab release** — with binary archives and checksums attached as downloadable assets
-4. **Pushes Docker images** — multi-arch images (`linux/amd64` + `linux/arm64`) to GitLab Container Registry
+3. **Creates a GitHub release** — with binary archives and checksums attached as downloadable assets
+4. **Pushes Docker images** — multi-arch images (`linux/amd64` + `linux/arm64`) to GHCR
 5. **Rebuilds the project site** — the `pages` job picks up the committed changelog
 
 ### On Every Push and MR
@@ -118,7 +118,7 @@ The changelog is configured in [`cliff.toml`](../cliff.toml) at the project root
   - 🛡️ Security (commits with "security" in the body)
   - ◀️ Revert (`revert`)
 - **Skipped from changelog** — `docs`, `refactor`, `chore`, `test`, `ci`, `style`, `build`
-- **Commit links** — each changelog entry links to the commit on GitLab
+- **Commit links** — each changelog entry links to the commit on GitHub
 - **Sorted oldest-first** — commits within each group appear in chronological order
 
 ## CI Pipeline Jobs
@@ -144,10 +144,9 @@ The changelog is configured in [`cliff.toml`](../cliff.toml) at the project root
 | Job | Stage | Image | Purpose |
 |-----|-------|-------|---------|
 | `changelog` | release | `orhunp/git-cliff:latest` | Extract release notes for the tagged version |
-| `release:goreleaser` | release | `goreleaser/goreleaser:latest` | Cross-compile binaries, create GitLab release with assets |
-| `release:docker:build` | release | `docker:latest` | Build and push multi-arch Docker images to GitLab CR |
-| `release:docker:dockerhub` | release | `alpine` + `crane` | Mirror image from GitLab CR to Docker Hub |
-| `release:docker:ghcr` | release | `alpine` + `crane` | Mirror image from GitLab CR to GHCR |
+| `release:goreleaser` | release | `goreleaser/goreleaser:latest` | Cross-compile binaries, create GitHub release with assets |
+| `release:docker:build` | release | `docker:latest` | Build and push multi-arch Docker images to GHCR |
+| `release:docker:dockerhub` | release | `alpine` + `crane` | Mirror image from GHCR to Docker Hub |
 | `notify:discord` | notify | `alpine` | Send release notification to Discord |
 | `pages` | pages | `node:22-alpine` | Rebuild project site with latest changelog |
 
@@ -160,19 +159,18 @@ Each release produces:
 | `capacitarr_X.Y.Z_linux_amd64.tar.gz` | Linux x86_64 binary + README + LICENSE + CHANGELOG |
 | `capacitarr_X.Y.Z_linux_arm64.tar.gz` | Linux ARM64 binary + README + LICENSE + CHANGELOG |
 | `checksums.txt` | SHA-256 checksums for all archives |
-| Docker image (multi-arch) | Published to GitLab CR, Docker Hub, and GHCR (see below) |
+| Docker image (multi-arch) | Published to GHCR and Docker Hub (see below) |
 
 ### Docker Registries
 
-Docker images are published to three registries using a build-then-mirror pipeline:
+Docker images are published to two registries using a build-then-mirror pipeline:
 
 | Registry | Image Path | Role |
 |----------|-----------|------|
-| GitLab Container Registry | `registry.gitlab.com/starshadow/software/capacitarr` | Source of truth (built + pushed first) |
+| GHCR | `ghcr.io/ghent/capacitarr` | Source of truth (built + pushed first) |
 | Docker Hub | `ghentstarshadow/capacitarr` | Mirrored via `crane copy` |
-| GHCR | `ghcr.io/ghent/capacitarr` | Mirrored via `crane copy` |
 
-The build job pushes to GitLab Container Registry. Two parallel mirror jobs then use [`crane copy`](https://github.com/google/go-containerregistry/tree/main/cmd/crane) to replicate the multi-arch manifest to Docker Hub and GHCR. Mirror jobs have `allow_failure: true` — if an external registry is down, the pipeline shows a warning but does not fail.
+The build job pushes to GHCR. A mirror job then uses [`crane copy`](https://github.com/google/go-containerregistry/tree/main/cmd/crane) to replicate the multi-arch manifest to Docker Hub. The mirror job has `allow_failure: true` — if Docker Hub is down, the pipeline shows a warning but does not fail.
 
 ### Docker Image Tags
 
@@ -185,17 +183,14 @@ Every release (including pre-releases) is tagged as `:latest` along with the ful
 | `:stable` | Stable releases only | Most recent non-pre-release version (recommended) |
 | `:1`, `:1.0` | Stable releases only | Floating within stable release line |
 
-All tags are available on all three registries:
+All tags are available on both registries:
 
 ```
-# Docker Hub (no registry prefix needed)
-docker pull ghentstarshadow/capacitarr:stable
-
-# GHCR
+# GHCR (recommended)
 docker pull ghcr.io/ghent/capacitarr:stable
 
-# GitLab Container Registry
-docker pull registry.gitlab.com/starshadow/software/capacitarr:stable
+# Docker Hub (no registry prefix needed)
+docker pull ghentstarshadow/capacitarr:stable
 ```
 
 ## Prerequisites
@@ -205,12 +200,10 @@ For the release pipeline to work correctly:
 1. **Use Conventional Commits** — all commits on `main` must follow the [Conventional Commits](https://www.conventionalcommits.org/) format. Non-conventional commits are filtered out.
 2. **Tag from `main`** — releases are triggered by `v*` tags. Create tags only from the `main` branch.
 3. **Commit changelog and version before tagging** — the release prep step (see workflow above) must be committed before creating the tag. The CI pipeline reads from the committed files.
-4. **CI/CD variables** — the following variables must be configured in GitLab (Settings → CI/CD → Variables):
+4. **Repository secrets** — the following secrets must be configured in GitHub (Settings → Secrets and variables → Actions):
 
-| Variable | Purpose | Protected | Masked |
-|----------|---------|-----------|--------|
-| `CI_REGISTRY_*` | GitLab Container Registry (provided automatically) | — | — |
-| `DOCKERHUB_USERNAME` | Docker Hub login username | ✅ | ❌ |
-| `DOCKERHUB_TOKEN` | Docker Hub access token (Read & Write) | ✅ | ✅ |
-| `GHCR_USERNAME` | GitHub username | ✅ | ❌ |
-| `GHCR_TOKEN` | GitHub PAT with `write:packages` scope | ✅ | ✅ |
+| Secret | Purpose |
+|--------|---------|
+| `GHCR_TOKEN` | GitHub PAT with `write:packages` scope (or use `GITHUB_TOKEN` for GHCR) |
+| `DOCKERHUB_USERNAME` | Docker Hub login username |
+| `DOCKERHUB_TOKEN` | Docker Hub access token (Read & Write) |

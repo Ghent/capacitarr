@@ -189,7 +189,7 @@ docker logs capacitarr | grep -i "engine\|poller"
 
 ### Common Causes
 
-- **Reverse proxy buffering:** nginx and some other proxies buffer HTTP responses by default, which breaks Server-Sent Events streaming. See [deployment.md](deployment.md#sse-server-sent-events-proxy-configuration) for proxy configuration.
+- **Reverse proxy buffering:** nginx and some other proxies buffer HTTP responses by default, which breaks Server-Sent Events streaming. See [deployment.md](../getting-started/deployment.md#sse-server-sent-events-proxy-configuration) for proxy configuration.
 - **Proxy timeouts:** Long-lived SSE connections may be terminated by proxy read timeouts. Set `proxy_read_timeout` to a high value (86400s) for the SSE endpoint.
 - **Cloudflare buffering:** Cloudflare's free plan buffers HTTP responses, causing SSE latency. Use DNS-only mode for the SSE path.
 
@@ -197,7 +197,7 @@ docker logs capacitarr | grep -i "engine\|poller"
 
 1. Check your reverse proxy configuration — ensure response buffering is disabled for `/api/v1/events`
 2. The client automatically reconnects with exponential backoff — if the banner disappears on its own, the issue was transient
-3. See the [SSE proxy configuration](deployment.md#sse-server-sent-events-proxy-configuration) section in the deployment guide
+3. See the [SSE proxy configuration](../getting-started/deployment.md#sse-server-sent-events-proxy-configuration) section in the deployment guide
 
 ## Debug Logging
 

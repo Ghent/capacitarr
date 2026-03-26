@@ -20,10 +20,10 @@ export default defineAppConfig({
     search: true,
     colorMode: true,
     links: [{
-      icon: 'i-simple-icons-gitlab',
-      to: 'https://gitlab.com/starshadow/software/capacitarr',
+      icon: 'i-simple-icons-github',
+      to: 'https://github.com/Ghent/capacitarr',
       target: '_blank',
-      'aria-label': 'GitLab',
+      'aria-label': 'GitHub',
     }],
   },
   footer: {
@@ -35,9 +35,9 @@ export default defineAppConfig({
     bottom: {
       title: 'Resources',
       links: [{
-        icon: 'i-simple-icons-gitlab',
-        label: 'View on GitLab',
-        to: 'https://gitlab.com/starshadow/software/capacitarr',
+        icon: 'i-simple-icons-github',
+        label: 'View on GitHub',
+        to: 'https://github.com/Ghent/capacitarr',
         target: '_blank',
       }],
     },

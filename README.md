@@ -33,7 +33,7 @@ Capacitarr scores every media item across seven pluggable dimensions — watch h
 ```yaml
 services:
   capacitarr:
-    image: ghentstarshadow/capacitarr:stable
+    image: ghcr.io/ghent/capacitarr:stable
     container_name: capacitarr
     ports:
       - "2187:2187"
@@ -59,7 +59,7 @@ Open **http://localhost:2187** and create your admin account.
 
 Full docs at **[capacitarr.app](https://capacitarr.app/)** — or browse locally:
 
-[Quick Start](docs/quick-start.md) · [Configuration](docs/configuration.md) · [Scoring](docs/scoring.md) · [Architecture](docs/architecture.md) · [API Reference](docs/api/README.md) · [Deployment](docs/deployment.md)
+[Quick Start](docs/getting-started/quick-start.md) · [Configuration](docs/getting-started/configuration.md) · [Scoring](docs/guides/scoring.md) · [Architecture](docs/reference/architecture.md) · [API Reference](docs/reference/api/README.md) · [Deployment](docs/getting-started/deployment.md)
 
 ## 🔐 Security
 
@@ -87,10 +87,10 @@ If you still want to support development directly: [GitHub Sponsors](https://git
 [PolyForm Noncommercial 1.0.0](LICENSE) — free for any noncommercial use.
 
 <!-- Badge references -->
-[pipeline-badge]: https://img.shields.io/gitlab/pipeline-status/starshadow%2Fsoftware%2Fcapacitarr?branch=main&logo=gitlab&label=pipeline
-[pipeline-url]: https://gitlab.com/starshadow/software/capacitarr/-/pipelines
-[release-badge]: https://img.shields.io/gitlab/v/release/starshadow%2Fsoftware%2Fcapacitarr?logo=gitlab&label=release
-[release-url]: https://gitlab.com/starshadow/software/capacitarr/-/releases
+[pipeline-badge]: https://img.shields.io/github/actions/workflow/status/Ghent/capacitarr/ci.yml?branch=main&logo=github&label=CI
+[pipeline-url]: https://github.com/Ghent/capacitarr/actions
+[release-badge]: https://img.shields.io/github/v/release/Ghent/capacitarr?logo=github&label=release
+[release-url]: https://github.com/Ghent/capacitarr/releases
 [license-badge]: https://img.shields.io/badge/license-PolyForm%20NC%201.0-blue
 [license-url]: LICENSE
 [dockerhub-badge]: https://img.shields.io/docker/v/ghentstarshadow/capacitarr?label=Docker%20Hub&logo=docker&sort=semver
