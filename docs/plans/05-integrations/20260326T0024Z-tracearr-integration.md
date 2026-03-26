@@ -1,6 +1,6 @@
 # Tracearr Integration
 
-**Status:** 🔵 Planned
+**Status:** ✅ Complete
 **Issue:** [#10 — Tracearr support](https://gitlab.com/starshadow/software/capacitarr/-/work_items/10)
 **Reported-by:** @tomislavf
 **Branch:** `feature/tracearr-integration`

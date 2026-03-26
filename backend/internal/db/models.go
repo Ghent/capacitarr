@@ -62,7 +62,7 @@ type Library struct {
 // access to the host. Ensure the DB file permissions are restrictive (0600).
 type IntegrationConfig struct {
 	ID                 uint       `gorm:"primarykey" json:"id"`
-	Type               string     `gorm:"not null;index" json:"type"` // plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby
+	Type               string     `gorm:"not null;index" json:"type"` // plex, sonarr, radarr, lidarr, readarr, tautulli, jellystat, tracearr, seerr, jellyfin, emby
 	Name               string     `gorm:"not null" json:"name"`       // User-friendly name
 	URL                string     `gorm:"not null" json:"url"`
 	APIKey             string     `gorm:"not null" json:"apiKey"` // API key or Plex token

@@ -36,7 +36,7 @@ func (t *TracearrClient) doRequest(endpoint string) ([]byte, error) {
 // the dashboard stats endpoint. On 401, returns a descriptive error about the
 // API key format requirement.
 func (t *TracearrClient) TestConnection() error {
-	body, err := t.doRequest("/api/stats/dashboard")
+	body, err := t.doRequest("/api/v1/stats/dashboard")
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			return fmt.Errorf("tracearr auth failed (check your API key — generate a Public API key in Tracearr Settings, it must start with trr_pub_)")
@@ -75,7 +75,7 @@ type TracearrContentItem struct {
 // GetTopContent fetches the top movies and shows from Tracearr for the given
 // period. Use "all" for all-time data.
 func (t *TracearrClient) GetTopContent(period string) (*TracearrTopContent, error) {
-	body, err := t.doRequest("/api/stats/content/top-content?period=" + period)
+	body, err := t.doRequest("/api/v1/stats/top-content?period=" + period)
 	if err != nil {
 		return nil, fmt.Errorf("tracearr top content: %w", err)
 	}

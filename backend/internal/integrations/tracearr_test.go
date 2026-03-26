@@ -11,7 +11,7 @@ const testTracearrAPIKey = "test-key"
 
 func TestTracearrClient_TestConnection_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/stats/dashboard" {
+		if r.URL.Path != "/api/v1/stats/dashboard" {
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 		}
 		// Verify Bearer token auth
@@ -56,7 +56,7 @@ func TestTracearrClient_TestConnection_InvalidURL(t *testing.T) {
 
 func TestTracearrClient_GetTopContent_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/stats/content/top-content" {
+		if r.URL.Path != "/api/v1/stats/top-content" {
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 		}
 		period := r.URL.Query().Get("period")
