@@ -52,6 +52,8 @@ split_commits = false
 commit_preprocessors = [
     # Normalize git's default Revert "type: ..." format to conventional revert: type: ...
     { pattern = '^Revert "(.+)"', replace = "revert: ${1}" },
+    # Reclassify feat(docs) as docs — these are documentation changes, not user-facing features
+    { pattern = '^feat\(docs\)', replace = "docs" },
     # Replace issue numbers with link templates to be updated in `changelog.postprocessors`.
     #{ pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](<REPO>/issues/${2}))"},
 ]
