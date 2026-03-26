@@ -11,7 +11,7 @@ const faqs: FaqItem[] = [
   },
   {
     question: 'What integrations are supported?',
-    answer: 'Sonarr, Radarr, Lidarr, Readarr (content managers), Plex, Jellyfin, Emby (media servers), Tautulli (watch history), and Overseerr (requests). All integrations are optional — use as many or as few as you need.',
+    answer: 'Sonarr, Radarr, Lidarr, Readarr (content managers), Plex, Jellyfin, Emby (media servers), Tautulli, Jellystat, Tracearr (watch analytics), and Seerr (media requests). All integrations are optional — use as many or as few as you need.',
   },
   {
     question: 'Can I protect specific content from deletion?',

@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -202,7 +203,7 @@ func TestSeerrClient_GetRequestedMedia_Pagination(t *testing.T) {
 			}
 			results += `]`
 			page1 := `{"pageInfo": {"pages": 2, "page": 1, "results": 150}, ` + results + `}`
-			_, _ = w.Write([]byte(page1)) // nosemgrep — test-only mock HTTP server for Seerr pagination, not production code
+			_ = json.NewEncoder(w).Encode(json.RawMessage(page1))
 		} else {
 			// Second page: return remaining 50 results
 			results := `"results": [`
@@ -220,7 +221,7 @@ func TestSeerrClient_GetRequestedMedia_Pagination(t *testing.T) {
 			}
 			results += `]`
 			page2 := `{"pageInfo": {"pages": 2, "page": 2, "results": 150}, ` + results + `}`
-			_, _ = w.Write([]byte(page2)) // nosemgrep — test-only mock HTTP server for Seerr pagination, not production code
+			_ = json.NewEncoder(w).Encode(json.RawMessage(page2))
 		}
 	}))
 	defer srv.Close()

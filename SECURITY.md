@@ -107,7 +107,7 @@ Gitleaks scans the entire git history for accidentally committed secrets. The fo
 
 #### Semgrep Configuration (`.semgrepignore` and `nosemgrep`)
 
-Semgrep scans **599 files** (every file tracked by git except the marketing site). Test files, utility files, and all production code are scanned.
+Semgrep scans **614 files** (every file tracked by git except the marketing site). Test files, utility files, and all production code are scanned.
 
 **`.semgrepignore` exclusion — 1 directory:**
 
@@ -131,9 +131,6 @@ Semgrep scans **599 files** (every file tracked by git except the marketing site
 | `backend/routes/auth.go` | 106 | `cookie-missing-httponly`, `cookie-missing-secure` | The `authenticated` cookie is intentionally non-HttpOnly so the Vue SPA can detect auth state via JavaScript. It contains no secrets (just the string `"true"`). The JWT cookie (which holds the actual token) IS HttpOnly. `Secure` is conditional as above. |
 | `backend/routes/middleware_test.go` | 130 | `go.jwt-go.security.jwt.hardcoded-jwt-key` | Test intentionally signs a JWT with the wrong secret (`"wrong-secret"`) to verify the middleware rejects tokens signed with incorrect keys. |
 | `backend/routes/middleware_test.go` | 233 | `cookie-missing-httponly`, `cookie-missing-secure` | Test request attaches a JWT cookie to simulate browser behavior. HttpOnly/Secure are server-side attributes set when the cookie is issued by the login handler, not when the browser sends the cookie back. |
-| `backend/internal/integrations/seerr_test.go` | 205, 223 | `no-direct-write-to-responsewriter` | Mock HTTP server in test code returns canned JSON responses for Seerr pagination testing. Not production code — `httptest.NewServer` handlers are test-only. |
-| `backend/internal/services/version_test.go` | 26 | `no-direct-write-to-responsewriter` | Mock HTTP server returns canned GitLab release API responses for version check tests. Not production code. |
-| `backend/routes/version_test.go` | 22 | `no-direct-write-to-responsewriter` | Mock HTTP server returns canned version API responses. Not production code. |
 | `backend/internal/db/migrate.go` | 94 | `go.lang.security.audit.database.string-formatted-query` | `hasColumn` uses `PRAGMA table_info(engine_run_stats)` with a hardcoded table name, not user input. The `nosemgrep` annotation is on the line above the query to suppress the false positive. |
 | `frontend/app/composables/useEventStream.ts` | 180 | `unsafe-formatstring` | Template literal in `console.warn` uses `eventType` which is an internal SSE event type name from the server's event bus, not user-supplied input. |
 
@@ -155,7 +152,7 @@ Semgrep scans **599 files** (every file tracked by git except the marketing site
 | `backend/internal/integrations/sonarr.go` | 247 | gosec G107 | URL is from admin-configured integration settings, not user-tainted |
 | `backend/internal/notifications/httpclient.go` | 52 | gosec G107 | URL is from admin-configured webhook notification settings |
 | `backend/internal/services/auth.go` | 213 | gosec G706 | Username is from a trusted reverse proxy header, not user-supplied |
-| `backend/internal/services/deletion.go` | 394 | errcheck | `rate.Limiter.Wait` with `context.Background()` never returns non-nil error |
+| `backend/internal/services/deletion.go` | 395 | errcheck | `rate.Limiter.Wait` with `context.Background()` never returns non-nil error |
 | `backend/internal/services/notification_dispatch_test.go` | 347 | dupl | Test structure intentionally similar to related dispatch tests |
 | `backend/internal/services/notification_dispatch_test.go` | 382 | dupl | Test structure intentionally similar to related dispatch tests |
 | `backend/internal/services/version.go` | 161 | gosec G107 | URL is set at construction time (`DefaultGitLabReleasesURL`), not user-tainted |
@@ -211,11 +208,12 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 - Shipped Docker images contain patched dependency versions, not just silenced findings
 - The security posture is not weakened by `allow_failure` or audit `--ignore` flags
 
-**Current overrides** (as of 2026-03-24):
+**Current overrides** (as of 2026-03-26):
 
 | Package | Override | Advisory | Severity | Upstream Dep |
 |---------|----------|----------|----------|--------------|
 | `minimatch` | `>=5.1.8` / `>=9.0.7` / `>=10.2.3` (per-major) | [GHSA-7r86-cg39-jmmj](https://github.com/advisories/GHSA-7r86-cg39-jmmj), [GHSA-23c5-xmqv-rm74](https://github.com/advisories/GHSA-23c5-xmqv-rm74) | High | `nuxt > nitropack > @vercel/nft > glob`, `@nuxt/eslint` |
+| `picomatch` | `2.3.2` (for <2.3.2) / `4.0.4` (for >=4.0.0 <4.0.4) | [GHSA-c2c7-rcm5-vvqj](https://github.com/advisories/GHSA-c2c7-rcm5-vvqj), [GHSA-3v7f-55p6-f55p](https://github.com/advisories/GHSA-3v7f-55p6-f55p) | High / Moderate | `@vite-pwa/nuxt > workbox-build > @rollup/pluginutils`, `nuxt > unstorage > anymatch` |
 | `rollup` | `>=4.59.0` | [GHSA-mw96-cpmx-2vgc](https://github.com/advisories/GHSA-mw96-cpmx-2vgc) | High | `nuxt > vite` |
 | `serialize-javascript` | `>=7.0.3` | [GHSA-5c6j-r48x-rmvq](https://github.com/advisories/GHSA-5c6j-r48x-rmvq) | High | `nuxt > nitropack > @rollup/plugin-terser` |
 | `svgo` | `>=4.0.1` | [GHSA-xpqw-6gx7-v673](https://github.com/advisories/GHSA-xpqw-6gx7-v673) | High | `nuxt > @nuxt/vite-builder > cssnano > postcss-svgo` |
@@ -225,6 +223,7 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 | `devalue` | `>=5.6.4` | [GHSA-cfw5-2vxh-hr84](https://github.com/advisories/GHSA-cfw5-2vxh-hr84) | Moderate | `nuxt` |
 | `unhead` | `>=2.1.11` | [GHSA-g5xx-pwrp-g3fv](https://github.com/advisories/GHSA-g5xx-pwrp-g3fv) | Moderate | `nuxt > @unhead/vue` |
 | `h3` | `>=1.15.9` | SSE injection and path traversal CVEs | High | `nuxt > nitropack > h3` |
+| `yaml` | `>=2.8.3` | [GHSA-48c2-rrv3-qjmp](https://github.com/advisories/GHSA-48c2-rrv3-qjmp) | Moderate | `@nuxt/eslint > @nuxt/devtools-kit > vite > yaml` |
 
 **When to remove overrides:** After upstream packages release versions that natively depend on the patched versions, `pnpm audit` will pass without overrides. At that point, remove the override entries and verify. Overrides that remain after upstream updates are harmless (they match or are lower than the naturally resolved version) but should be cleaned up for hygiene.
 

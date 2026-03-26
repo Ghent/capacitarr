@@ -3,7 +3,7 @@ useSeoMeta({
   titleTemplate: '',
   title: 'Capacitarr — Intelligent Media Library Management',
   ogTitle: 'Capacitarr — Intelligent Media Library Management',
-  description: 'Automatically score, evaluate, and clean up your *arr stack. Connect Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli, and Overseerr.',
+  description: 'Automatically score, evaluate, and clean up your *arr stack. Connect Sonarr, Radarr, Lidarr, Readarr, Plex, Jellyfin, Emby, Tautulli, Jellystat, Tracearr, and Seerr.',
   ogDescription: 'Automatically score, evaluate, and clean up your *arr stack.',
 })
 

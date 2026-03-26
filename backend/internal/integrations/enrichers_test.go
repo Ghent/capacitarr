@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -393,11 +394,13 @@ func newTracearrHistoryServer(t *testing.T, movieResp, episodeResp string) *Trac
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		mediaType := r.URL.Query().Get("mediaType")
+		var resp json.RawMessage
 		if mediaType == "episode" {
-			_, _ = w.Write([]byte(episodeResp))
+			resp = json.RawMessage(episodeResp)
 		} else {
-			_, _ = w.Write([]byte(movieResp))
+			resp = json.RawMessage(movieResp)
 		}
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	t.Cleanup(srv.Close)
 	return NewTracearrClient(srv.URL, "test-key")

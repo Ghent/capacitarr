@@ -65,18 +65,16 @@ Open `http://localhost:2187` in your browser. On first launch you will be prompt
 4. Enter the URL and API key for your *arr instance
 5. Test the connection and save
 
-## 5. Configure Libraries & Thresholds
+## 5. Configure Thresholds
 
-Capacitarr automatically detects disk groups from the root folders reported by your *arr integrations. No manual setup is needed — disk groups appear on the Dashboard as soon as integrations are connected and the engine runs.
+Capacitarr automatically detects **disk groups** from the root folders reported by your *arr integrations. No manual setup is needed — disk groups appear on the Dashboard as soon as integrations are connected and the engine runs.
 
-To configure when cleanup triggers:
+Each disk group has two settings that control when cleanup triggers:
 
-1. Navigate to **Settings** → **Libraries**
-2. Create a library (e.g., "Movies", "TV Shows") and assign integrations to it
-3. Set a **threshold** — the disk usage percentage that triggers cleanup evaluation (e.g., 85%)
-4. Set a **target** — the disk usage percentage the engine tries to reach (e.g., 75%)
+- **Threshold** — the disk usage percentage that triggers cleanup evaluation (default: **85%**)
+- **Target** — the disk usage percentage the engine tries to reach (default: **75%**)
 
-Each library can have its own threshold and target, allowing independent cleanup triggers per library.
+To adjust these, navigate to the **Rules** page where you can set per-disk-group thresholds and targets.
 
 ## 6. Tune Your Weights
 
@@ -105,11 +103,15 @@ All environment variables are optional — sensible defaults are used when not s
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `2187` | HTTP listen port |
+| `BASE_URL` | `/` | Base URL path for subdirectory deployments (e.g., `/capacitarr/`) |
 | `PUID` | `1000` | Container process user ID |
 | `PGID` | `1000` | Container process group ID |
 | `JWT_SECRET` | *(auto-generated)* | Secret for JWT auth tokens (see below) |
 | `SECURE_COOKIES` | `false` | Set `true` when using HTTPS |
 | `DB_PATH` | `/config/capacitarr.db` | SQLite database location |
+| `AUTH_HEADER` | *(empty)* | Trusted reverse proxy auth header (e.g., `Remote-User`) |
+| `CORS_ORIGINS` | *(empty)* | Comma-separated allowed CORS origins |
+| `DEBUG` | `false` | Enable debug logging |
 
 ### About JWT_SECRET
 

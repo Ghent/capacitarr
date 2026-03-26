@@ -53,6 +53,7 @@ flowchart LR
         TAUTULLI["Tautulli"]
         JELLYSTAT["Jellystat"]
         SEERR["Seerr"]
+        TRACEARR["Tracearr"]
     end
 
     POLLER -->|"Fetch media + disk space"| ARR_APPS
@@ -199,15 +200,16 @@ flowchart LR
     BULK["BulkWatchEnricher<br/>Play counts + last played"]
     TAUTULLI_E["TautulliEnricher<br/>Per-user watch data"]
     JELLYSTAT_E["JellystatEnricher<br/>Per-user watch data"]
+    TRACEARR_E["TracearrEnricher<br/>Unified watch data"]
     REQUEST["RequestEnricher<br/>Seerr request status"]
     WATCHLIST["WatchlistEnricher<br/>Watchlist/favorites"]
     COLLECTION["CollectionEnricher<br/>Collection memberships"]
     XREF["CrossReferenceEnricher<br/>Requestor watched?"]
 
-    FETCH --> BULK --> TAUTULLI_E --> JELLYSTAT_E --> REQUEST --> WATCHLIST --> COLLECTION --> XREF
+    FETCH --> BULK --> TAUTULLI_E --> JELLYSTAT_E --> TRACEARR_E --> REQUEST --> WATCHLIST --> COLLECTION --> XREF
 ```
 
-Each enricher implements the `Enricher` interface (`Name()`, `Priority()`, `Enrich(items)`) and is auto-discovered from the registry's capabilities. The pipeline currently includes 7 enrichers.
+Each enricher implements the `Enricher` interface (`Name()`, `Priority()`, `Enrich(items)`) and is auto-discovered from the registry's capabilities. The pipeline currently includes 8 enrichers.
 
 ### Pluggable Scoring Factors
 
@@ -420,7 +422,7 @@ capacitarr/
 │   │   ├── db/                     # SQLite models, schema migrations
 │   │   ├── engine/                 # Scoring + rule evaluation
 │   │   ├── events/                 # Event bus, typed events, SSE broadcaster, activity persister
-│   │   ├── integrations/           # *arr, Plex, Jellyfin, Emby, Seerr, Tautulli, Jellystat clients + registry + enrichment pipeline
+│   │   ├── integrations/           # *arr, Plex, Jellyfin, Emby, Seerr, Tautulli, Jellystat, Tracearr clients + registry + enrichment pipeline
 │   │   ├── jobs/                   # Cron scheduling (retention cleanup, time-series rollups)
 │   │   ├── notifications/          # Discord, Apprise notification senders + HTTP client
 │   │   ├── poller/                 # Engine orchestrator (scheduled disk monitoring)

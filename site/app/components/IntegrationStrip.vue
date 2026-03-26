@@ -14,7 +14,9 @@ const integrations: Integration[] = [
   { name: 'Jellyfin', icon: 'i-simple-icons-jellyfin', color: '#00a4dc' },
   { name: 'Emby', icon: 'i-simple-icons-emby', color: '#52b54b' },
   { name: 'Tautulli', icon: 'i-lucide-activity', color: '#e5a00d' },
-  { name: 'Overseerr', icon: 'i-lucide-ticket', color: '#7b68ee' },
+  { name: 'Jellystat', icon: 'i-lucide-bar-chart-3', color: '#00a4dc' },
+  { name: 'Tracearr', icon: 'i-lucide-scan-line', color: '#4ade80' },
+  { name: 'Seerr', icon: 'i-lucide-ticket', color: '#7b68ee' },
 ]
 
 // Double the list for seamless infinite scroll
