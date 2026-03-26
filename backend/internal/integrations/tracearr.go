@@ -13,6 +13,10 @@ import (
 //
 // Authentication uses Bearer tokens: `Authorization: Bearer trr_pub_<token>`.
 // Tokens are generated in Tracearr Settings and require the `owner` role.
+//
+// The Public API lives under /api/v1/public/ (distinct from the internal
+// session-authenticated API at /api/v1/stats/). All Capacitarr calls use
+// the public API exclusively.
 type TracearrClient struct {
 	URL    string
 	APIKey string `json:"-"` // Tracearr Public API key (must start with trr_pub_)
@@ -33,10 +37,10 @@ func (t *TracearrClient) doRequest(endpoint string) ([]byte, error) {
 }
 
 // TestConnection verifies the Tracearr URL and API key are valid by calling
-// the dashboard stats endpoint. On 401, returns a descriptive error about the
+// the public health endpoint. On 401, returns a descriptive error about the
 // API key format requirement.
 func (t *TracearrClient) TestConnection() error {
-	body, err := t.doRequest("/api/v1/stats/dashboard")
+	body, err := t.doRequest("/api/v1/public/health")
 	if err != nil {
 		if strings.Contains(err.Error(), "unauthorized") {
 			return fmt.Errorf("tracearr auth failed (check your API key — generate a Public API key in Tracearr Settings, it must start with trr_pub_)")
@@ -44,8 +48,10 @@ func (t *TracearrClient) TestConnection() error {
 		return err
 	}
 
-	// Verify we got a valid JSON response
-	var result map[string]json.RawMessage
+	// Verify we got a valid JSON response with status field
+	var result struct {
+		Status string `json:"status"`
+	}
 	if err := json.Unmarshal(body, &result); err != nil {
 		return fmt.Errorf("failed to parse Tracearr response: %w", err)
 	}
@@ -53,39 +59,83 @@ func (t *TracearrClient) TestConnection() error {
 	return nil
 }
 
-// TracearrTopContent holds the top movies and shows from Tracearr's
-// top-content endpoint.
-type TracearrTopContent struct {
-	Movies []TracearrContentItem `json:"movies"`
-	Shows  []TracearrContentItem `json:"shows"`
+// tracearrHistoryResponse represents the paginated response from the
+// Tracearr Public API /history endpoint.
+type tracearrHistoryResponse struct {
+	Data       []TracearrHistoryItem `json:"data"`
+	Pagination struct {
+		Page     int `json:"page"`
+		PageSize int `json:"pageSize"`
+		Total    int `json:"total"`
+	} `json:"pagination"`
 }
 
-// TracearrContentItem represents a single movie or show from Tracearr's
-// top-content response. Movies use MediaTitle; shows use GrandparentTitle.
-type TracearrContentItem struct {
-	MediaTitle       string `json:"media_title"`
-	GrandparentTitle string `json:"grandparent_title"` // Shows use this instead of media_title
-	Year             int    `json:"year"`
-	PlayCount        int    `json:"play_count"`
-	TotalWatchMs     int64  `json:"total_watch_ms"`
-	ServerID         string `json:"server_id"`
-	RatingKey        string `json:"rating_key"`
+// TracearrHistoryItem represents a single session from Tracearr's
+// public /history endpoint. Each item is a play session — multiple
+// sessions for the same media title must be aggregated by the enricher.
+type TracearrHistoryItem struct {
+	MediaTitle string `json:"mediaTitle"`
+	ShowTitle  string `json:"showTitle"`  // For episodes: the series name (grandparent_title)
+	MediaType  string `json:"mediaType"`  // "movie", "episode", "track", "live"
+	Year       int    `json:"year"`       // Release year
+	Watched    bool   `json:"watched"`    // Whether session completed
+	DurationMs int64  `json:"durationMs"` // Watch duration in ms
+	User       struct {
+		Username string `json:"username"`
+	} `json:"user"`
 }
 
-// GetTopContent fetches the top movies and shows from Tracearr for the given
-// period. Use "all" for all-time data.
-func (t *TracearrClient) GetTopContent(period string) (*TracearrTopContent, error) {
-	body, err := t.doRequest("/api/v1/stats/top-content?period=" + period)
-	if err != nil {
-		return nil, fmt.Errorf("tracearr top content: %w", err)
+// GetWatchHistory fetches session history from the Tracearr Public API,
+// paginating through all results. Returns the raw session list — aggregation
+// into per-title play counts is done by the TracearrEnricher.
+func (t *TracearrClient) GetWatchHistory() ([]TracearrHistoryItem, error) {
+	var allItems []TracearrHistoryItem
+	page := 1
+	pageSize := 100
+
+	for {
+		endpoint := fmt.Sprintf("/api/v1/public/history?page=%d&pageSize=%d&mediaType=movie", page, pageSize)
+		body, err := t.doRequest(endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("tracearr history (movies page %d): %w", page, err)
+		}
+
+		var resp tracearrHistoryResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return nil, fmt.Errorf("failed to parse Tracearr history: %w", err)
+		}
+
+		allItems = append(allItems, resp.Data...)
+
+		if page*pageSize >= resp.Pagination.Total || len(resp.Data) == 0 {
+			break
+		}
+		page++
 	}
 
-	var content TracearrTopContent
-	if err := json.Unmarshal(body, &content); err != nil {
-		return nil, fmt.Errorf("failed to parse Tracearr top content: %w", err)
+	// Also fetch episode history (for show-level aggregation)
+	page = 1
+	for {
+		endpoint := fmt.Sprintf("/api/v1/public/history?page=%d&pageSize=%d&mediaType=episode", page, pageSize)
+		body, err := t.doRequest(endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("tracearr history (episodes page %d): %w", page, err)
+		}
+
+		var resp tracearrHistoryResponse
+		if err := json.Unmarshal(body, &resp); err != nil {
+			return nil, fmt.Errorf("failed to parse Tracearr episode history: %w", err)
+		}
+
+		allItems = append(allItems, resp.Data...)
+
+		if page*pageSize >= resp.Pagination.Total || len(resp.Data) == 0 {
+			break
+		}
+		page++
 	}
 
-	return &content, nil
+	return allItems, nil
 }
 
 // Verify TracearrClient satisfies capability interfaces at compile time.

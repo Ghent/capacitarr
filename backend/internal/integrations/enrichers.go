@@ -554,18 +554,16 @@ func RegisterJellystatEnrichers(pipeline *EnrichmentPipeline, registry *Integrat
 // analytics). Like TautulliEnricher and JellystatEnricher, it runs at priority
 // 10 (highest for watch data) and provides engagement-based play counts.
 //
-// Tracearr tracks items by media server rating key. Resolution to TMDb IDs
-// requires the ratingKeyToTMDbID map — built from all configured media servers
-// (Plex, Jellyfin, Emby) during the same poll cycle.
+// Tracearr's Public API exposes session history (individual play sessions).
+// The enricher fetches all history and aggregates play counts per title,
+// matching *arr items by normalized title + year comparison.
 type TracearrEnricher struct {
-	client            *TracearrClient
-	ratingKeyToTMDbID map[string]int // media server item ID -> TMDb ID
+	client *TracearrClient
 }
 
-// NewTracearrEnricher creates an enricher wrapping a TracearrClient with a
-// unified rating key → TMDb ID lookup map for resolving Tracearr items.
-func NewTracearrEnricher(client *TracearrClient, ratingKeyToTMDbID map[string]int) *TracearrEnricher {
-	return &TracearrEnricher{client: client, ratingKeyToTMDbID: ratingKeyToTMDbID}
+// NewTracearrEnricher creates an enricher wrapping a TracearrClient.
+func NewTracearrEnricher(client *TracearrClient) *TracearrEnricher {
+	return &TracearrEnricher{client: client}
 }
 
 // Name implements Enricher.
@@ -577,67 +575,72 @@ func (e *TracearrEnricher) Priority() int { return 10 }
 // EnrichmentCapability implements EnrichmentCapabilityProvider.
 func (e *TracearrEnricher) EnrichmentCapability() string { return EnrichCapWatchData }
 
-// Enrich implements Enricher by fetching top content from Tracearr and matching
-// items via the unified rating key → TMDb ID map.
+// Enrich implements Enricher by fetching session history from Tracearr's Public
+// API and aggregating play counts per title. Matches *arr items by normalized
+// title + year comparison (movies) or normalized title comparison (shows).
 func (e *TracearrEnricher) Enrich(items []MediaItem) error {
-	if len(e.ratingKeyToTMDbID) == 0 {
-		slog.Debug("Tracearr enricher skipped — no rating key→TMDb ID mappings available",
-			"component", "enrichment")
-		return nil
-	}
-
-	content, err := e.client.GetTopContent("all")
+	history, err := e.client.GetWatchHistory()
 	if err != nil {
 		return err
 	}
 
-	// Build TMDb ID → WatchData from Tracearr content
-	watchMap := make(map[int]*WatchData)
+	// Aggregate sessions into per-title play counts and user lists.
+	// Key: normalized "title|year" for movies, "showtitle" for episodes.
+	type watchAgg struct {
+		playCount int
+		users     map[string]bool
+	}
+	titleMap := make(map[string]*watchAgg)
 
-	for _, movie := range content.Movies {
-		tmdbID, ok := e.ratingKeyToTMDbID[movie.RatingKey]
-		if !ok || tmdbID == 0 {
+	for _, session := range history {
+		var key string
+		switch {
+		case session.MediaType == "episode" && session.ShowTitle != "":
+			key = strings.ToLower(strings.TrimSpace(session.ShowTitle))
+		case session.MediaTitle != "":
+			key = fmt.Sprintf("%s|%d", strings.ToLower(strings.TrimSpace(session.MediaTitle)), session.Year)
+		default:
 			continue
 		}
-		if movie.PlayCount == 0 {
-			continue
+
+		agg, ok := titleMap[key]
+		if !ok {
+			agg = &watchAgg{users: make(map[string]bool)}
+			titleMap[key] = agg
 		}
-		watchMap[tmdbID] = &WatchData{
-			PlayCount: movie.PlayCount,
+		agg.playCount++
+		if session.User.Username != "" {
+			agg.users[session.User.Username] = true
 		}
 	}
 
-	for _, show := range content.Shows {
-		tmdbID, ok := e.ratingKeyToTMDbID[show.RatingKey]
-		if !ok || tmdbID == 0 {
-			continue
-		}
-		if show.PlayCount == 0 {
-			continue
-		}
-		watchMap[tmdbID] = &WatchData{
-			PlayCount: show.PlayCount,
-		}
-	}
-
+	// Match against *arr items by normalized title
 	matched := 0
 	for i := range items {
 		item := &items[i]
-		if item.TMDbID == 0 {
-			continue
+
+		var key string
+		if item.Type == MediaTypeShow {
+			key = strings.ToLower(strings.TrimSpace(item.Title))
+		} else {
+			key = fmt.Sprintf("%s|%d", strings.ToLower(strings.TrimSpace(item.Title)), item.Year)
 		}
-		if wd, ok := watchMap[item.TMDbID]; ok {
-			item.PlayCount = wd.PlayCount
-			item.LastPlayed = wd.LastPlayed
-			if len(wd.Users) > 0 {
-				item.WatchedByUsers = wd.Users
+
+		if agg, ok := titleMap[key]; ok {
+			item.PlayCount = agg.playCount
+			users := make([]string, 0, len(agg.users))
+			for u := range agg.users {
+				users = append(users, u)
+			}
+			if len(users) > 0 {
+				item.WatchedByUsers = users
 			}
 			matched++
 		}
 	}
 
-	logEnrichmentResult("Tracearr Watch History", len(items), len(watchMap), matched,
-		"ratingKeyMappings", len(e.ratingKeyToTMDbID))
+	logEnrichmentResult("Tracearr Watch History", len(items), len(titleMap), matched,
+		"sessions", len(history))
 	return nil
 }
 
@@ -646,14 +649,14 @@ var _ Enricher = (*TracearrEnricher)(nil)
 
 // RegisterTracearrEnrichers scans connectors for TracearrClient instances and
 // adds TracearrEnricher to the pipeline. Called separately because Tracearr
-// doesn't implement WatchDataProvider (it requires a unified rating key to
-// TMDb ID map built from all media server integrations).
-func RegisterTracearrEnrichers(pipeline *EnrichmentPipeline, registry *IntegrationRegistry, ratingKeyToTMDbID map[string]int) {
+// doesn't implement WatchDataProvider (it uses the Public API's session history
+// with title-based matching instead of TMDb ID matching).
+func RegisterTracearrEnrichers(pipeline *EnrichmentPipeline, registry *IntegrationRegistry) {
 	for id := range registry.Connectors() {
 		if tracearr, ok := registry.TracearrClient(id); ok {
-			pipeline.Add(NewTracearrEnricher(tracearr, ratingKeyToTMDbID))
+			pipeline.Add(NewTracearrEnricher(tracearr))
 			slog.Debug("Added TracearrEnricher to pipeline", "component", "enrichment",
-				"integrationID", id, "ratingKeyMappings", len(ratingKeyToTMDbID))
+				"integrationID", id)
 		}
 	}
 }
