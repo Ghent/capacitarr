@@ -214,3 +214,172 @@ func TestCollectionEnricher_InitializesCollectionSourcesMap(t *testing.T) {
 		t.Errorf("Expected source 42, got %d", items[0].CollectionSources["Firefly Collection"])
 	}
 }
+
+// ─── Mock RequestProvider ───────────────────────────────────────────────────
+
+type mockRequestProvider struct {
+	requests []MediaRequest
+	err      error
+}
+
+func (m *mockRequestProvider) GetRequestedMedia() ([]MediaRequest, error) {
+	return m.requests, m.err
+}
+
+// ─── RequestEnricher tests ──────────────────────────────────────────────────
+
+func TestRequestEnricher_BasicMatch(t *testing.T) {
+	provider := &mockRequestProvider{
+		requests: []MediaRequest{
+			{MediaType: "movie", TMDbID: 16320, RequestedBy: "mal"},
+		},
+	}
+	enricher := NewRequestEnricher(provider)
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 16320},
+		{Title: "Firefly", TMDbID: 1437, Type: MediaTypeShow},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	// Item 0: should be marked as requested
+	if !items[0].IsRequested {
+		t.Error("Expected Serenity to be marked as requested")
+	}
+	if items[0].RequestedBy != "mal" {
+		t.Errorf("Expected RequestedBy 'mal', got %q", items[0].RequestedBy)
+	}
+	if items[0].RequestCount != 1 {
+		t.Errorf("Expected RequestCount 1, got %d", items[0].RequestCount)
+	}
+
+	// Item 1: no matching request — should not be requested
+	if items[1].IsRequested {
+		t.Error("Expected Firefly to not be marked as requested")
+	}
+	if items[1].RequestCount != 0 {
+		t.Errorf("Expected RequestCount 0 for unmatched, got %d", items[1].RequestCount)
+	}
+}
+
+func TestRequestEnricher_AggregatesMultipleRequests(t *testing.T) {
+	provider := &mockRequestProvider{
+		requests: []MediaRequest{
+			{MediaType: "movie", TMDbID: 16320, RequestedBy: "mal"},
+			{MediaType: "movie", TMDbID: 16320, RequestedBy: "wash"},
+			{MediaType: "movie", TMDbID: 16320, RequestedBy: "zoe"},
+		},
+	}
+	enricher := NewRequestEnricher(provider)
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 16320},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	if !items[0].IsRequested {
+		t.Error("Expected Serenity to be marked as requested")
+	}
+	if items[0].RequestCount != 3 {
+		t.Errorf("Expected RequestCount 3 (aggregated), got %d", items[0].RequestCount)
+	}
+	// First requestor is preserved
+	if items[0].RequestedBy != "mal" {
+		t.Errorf("Expected RequestedBy 'mal' (first requestor), got %q", items[0].RequestedBy)
+	}
+}
+
+func TestRequestEnricher_SkipsItemsWithoutTMDbID(t *testing.T) {
+	provider := &mockRequestProvider{
+		requests: []MediaRequest{
+			{MediaType: "movie", TMDbID: 16320, RequestedBy: "mal"},
+		},
+	}
+	enricher := NewRequestEnricher(provider)
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 0}, // No TMDb ID
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	if items[0].IsRequested {
+		t.Error("Expected item without TMDb ID to not be marked as requested")
+	}
+	if items[0].RequestCount != 0 {
+		t.Errorf("Expected RequestCount 0, got %d", items[0].RequestCount)
+	}
+}
+
+func TestRequestEnricher_NoMatchingRequests(t *testing.T) {
+	provider := &mockRequestProvider{
+		requests: []MediaRequest{
+			{MediaType: "movie", TMDbID: 99999, RequestedBy: "mal"},
+		},
+	}
+	enricher := NewRequestEnricher(provider)
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 16320},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	if items[0].IsRequested {
+		t.Error("Expected item with non-matching TMDb ID to not be requested")
+	}
+	if items[0].RequestedBy != "" {
+		t.Errorf("Expected empty RequestedBy, got %q", items[0].RequestedBy)
+	}
+	if items[0].RequestCount != 0 {
+		t.Errorf("Expected RequestCount 0, got %d", items[0].RequestCount)
+	}
+}
+
+func TestRequestEnricher_PropagatesProviderError(t *testing.T) {
+	provider := &mockRequestProvider{
+		err: errConnectionFailed,
+	}
+	enricher := NewRequestEnricher(provider)
+
+	items := []MediaItem{{Title: "Serenity", TMDbID: 16320}}
+
+	if err := enricher.Enrich(items); err == nil {
+		t.Fatal("Expected error from provider, got nil")
+	}
+}
+
+func TestRequestEnricher_EmptyRequestList(t *testing.T) {
+	provider := &mockRequestProvider{
+		requests: []MediaRequest{},
+	}
+	enricher := NewRequestEnricher(provider)
+
+	items := []MediaItem{
+		{Title: "Serenity", TMDbID: 16320},
+		{Title: "Firefly", TMDbID: 1437, Type: MediaTypeShow},
+	}
+
+	if err := enricher.Enrich(items); err != nil {
+		t.Fatalf("Enrich failed: %v", err)
+	}
+
+	for i, item := range items {
+		if item.IsRequested {
+			t.Errorf("Item %d (%s): expected not requested with empty request list", i, item.Title)
+		}
+		if item.RequestCount != 0 {
+			t.Errorf("Item %d (%s): expected RequestCount 0, got %d", i, item.Title, item.RequestCount)
+		}
+	}
+}
