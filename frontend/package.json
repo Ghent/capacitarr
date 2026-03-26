@@ -24,7 +24,7 @@
     "@radix-icons/vue": "^1.0.0",
     "@tanstack/vue-table": "^8.21.3",
     "@tanstack/vue-virtual": "^3.13.23",
-    "@vueuse/core": "^13.0.0",
+    "@vueuse/core": "^14.2.1",
     "@vueuse/motion": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
