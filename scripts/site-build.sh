@@ -13,8 +13,13 @@ set -eu
 
 echo "=== Site Build ==="
 
-# Enable corepack to make pnpm available (ships with Node.js)
-corepack enable
+# Make pnpm available.
+# In Cloudflare Pages, corepack isn't shimmed for asdf-installed Node versions,
+# so we fall back to npm install if corepack fails.
+if ! corepack enable 2>/dev/null; then
+  echo "corepack not available, installing pnpm via npm..."
+  npm install -g pnpm
+fi
 
 # Install dependencies
 cd site
