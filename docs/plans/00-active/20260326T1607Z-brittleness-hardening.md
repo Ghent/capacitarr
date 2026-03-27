@@ -23,13 +23,13 @@ Highest risk reduction, smallest changes. Ensures bugs surface at startup rather
 - `internal/services/deletion.go` — add `Wired() bool` checking `settings`, `engine`, `metrics`, `approvalReturner`
 - `internal/services/settings.go` — add `Wired() bool` checking `deletionClearer`
 - `internal/services/integration.go` — add `Wired() bool` checking `diskGroups`
-- `internal/services/diskgroup.go` — add `Wired() bool` checking `engineSvc`
-- `internal/services/backup.go` — add `Wired() bool` checking `diskGroupSvc`
-- `internal/services/metrics.go` — add `Wired() bool` checking `settingsSvc`
+- `internal/services/diskgroup.go` — add `Wired() bool` checking `engine`
+- `internal/services/backup.go` — add `Wired() bool` checking `diskGroups`
+- `internal/services/metrics.go` — add `Wired() bool` checking `settings`
 - `internal/services/preview.go` — add `Wired() bool` checking `integrations`, `preferences`, `rules`, `diskGroups`, `approvalQueue`, `deletionState`
-- `internal/services/rules.go` — add `Wired() bool` checking `previewSource`, `integrationProvider`
-- `internal/services/watch_analytics.go` — add `Wired() bool` checking `rulesSource`, `diskGroupLister`
-- `internal/services/data.go` — add `Wired() bool` checking `previewSvc`
+- `internal/services/rules.go` — add `Wired() bool` checking `preview`, `integrations`
+- `internal/services/watch_analytics.go` — add `Wired() bool` checking `rules`, `diskGroups`
+- `internal/services/data.go` — add `Wired() bool` checking `preview`
 - `internal/services/migration.go` — add `Wired() bool` checking `engineSvc`
 
 Each `Wired()` method returns `true` only when all lazily-injected dependencies are non-nil. Pattern:
