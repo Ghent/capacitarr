@@ -1,8 +1,8 @@
 # ── Stage 1: Frontend build ────────────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend-builder
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 WORKDIR /app/frontend
 
-RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
+RUN npm install -g pnpm@10.32.1
 
 # Copy dependency manifests first for layer caching
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./

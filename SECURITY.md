@@ -312,7 +312,7 @@ Pinned Docker image versions are **re-evaluated on a regular basis** to pick up 
 | `goreleaser/goreleaser` | `v2.14.1` | Cross-compiled release binary builds |
 | `docker` | `27` | Docker-in-Docker for image builds |
 | `alpine` | `3.21` | Lightweight base for CI utility jobs |
-| `node` | `22-alpine` | Frontend build and test |
+| `node` | `24-alpine` | Frontend build and test |
 | `golang` | `1.26-alpine` | Backend build and test |
 
 ### Important Caveats

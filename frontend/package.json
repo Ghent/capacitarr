@@ -57,7 +57,7 @@
     "vue": "^3.5.29",
     "vue-tsc": "^3.2.4"
   },
-  "packageManager": "pnpm@10.29.3",
+  "packageManager": "pnpm@10.32.1",
   "pnpm": {
     "overrides": {
       "minimatch@>=5.0.0 <5.1.8": ">=5.1.8",

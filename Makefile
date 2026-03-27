@@ -56,10 +56,10 @@ lint\:ci:
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
 	docker run --rm --pull missing -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golangci/golangci-lint:v2.11.4 sh -c "golangci-lint config verify && golangci-lint run ./..."
-	@echo "→ [lint:frontend] ESLint + Prettier (Docker: node:22-alpine)..."
+	@echo "→ [lint:frontend] ESLint + Prettier (Docker: node:24-alpine)..."
 	docker run --rm --pull missing -e CI=true -v $(CURDIR)/frontend:/app -v /app/node_modules $(NODE_CACHE_VOLS) -w /app \
-		node:22-alpine sh -c "\
-			corepack enable && \
+		node:24-alpine sh -c "\
+			npm install -g pnpm@10.32.1 --silent && \
 			pnpm install --frozen-lockfile && \
 			pnpm lint && \
 			pnpm format:check && \
@@ -73,10 +73,10 @@ test\:ci:
 	mkdir -p backend/frontend/dist && touch backend/frontend/dist/.gitkeep
 	docker run --rm --pull missing -v $(CURDIR)/backend:/app $(GO_CACHE_VOLS) -w /app \
 		golang:1.26-alpine sh -c "cd /app && go test -v ./... -count=1"
-	@echo "→ [test:frontend] vitest (Docker: node:22-alpine)..."
+	@echo "→ [test:frontend] vitest (Docker: node:24-alpine)..."
 	docker run --rm --pull missing -e CI=true -v $(CURDIR)/frontend:/app -v /app/node_modules $(NODE_CACHE_VOLS) -w /app \
-		node:22-alpine sh -c "\
-			corepack enable && \
+		node:24-alpine sh -c "\
+			npm install -g pnpm@10.32.1 --silent && \
 			pnpm install --frozen-lockfile && \
 			pnpm test"
 	@echo "✓ CI test stage passed"
@@ -90,10 +90,10 @@ security\:ci:
 		golang:1.26-alpine sh -c "\
 			go install golang.org/x/vuln/cmd/govulncheck@latest && \
 			cd /app && govulncheck ./..."
-	@echo "→ [security:pnpm-audit] (Docker: node:22-alpine)..."
+	@echo "→ [security:pnpm-audit] (Docker: node:24-alpine)..."
 	docker run --rm --pull missing -e CI=true -v $(CURDIR)/frontend:/app -v /app/node_modules $(NODE_CACHE_VOLS) -w /app \
-		node:22-alpine sh -c "\
-			corepack enable && \
+		node:24-alpine sh -c "\
+			npm install -g pnpm@10.32.1 --silent && \
 			pnpm install --frozen-lockfile && \
 			pnpm audit"
 	@echo "→ [security:trivy] Filesystem vulnerability scan (Docker: ghcr.io/aquasecurity/trivy:0.69.3)..."
