@@ -133,7 +133,7 @@ observe(ctaRef, ctaVisible)
 
         <div class="hero-actions">
           <UButton
-            to="/docs/quick-start"
+            to="/docs/getting-started/quick-start"
             size="xl"
             trailing-icon="i-lucide-arrow-right"
             class="hero-cta-primary"
@@ -342,7 +342,7 @@ observe(ctaRef, ctaVisible)
           </p>
           <div class="cta-actions">
             <UButton
-              to="/docs/quick-start"
+              to="/docs/getting-started/quick-start"
               size="xl"
               trailing-icon="i-lucide-arrow-right"
             >
