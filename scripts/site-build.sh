@@ -9,7 +9,7 @@
 #
 # NOTE: Uses /bin/sh (not bash) for compatibility with Cloudflare's build environment.
 
-set -eu
+set -eux
 
 echo "=== Site Build ==="
 
