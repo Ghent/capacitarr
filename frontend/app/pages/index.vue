@@ -394,6 +394,7 @@ import {
   EVENT_DELETION_PROGRESS,
   EVENT_DELETION_BATCH_COMPLETE,
 } from '~/constants';
+import { STORAGE_KEYS } from '~/utils/storageKeys';
 
 const { t } = useI18n();
 const api = useApi();
@@ -462,13 +463,11 @@ const engineHistoryData = ref<
   }>
 >([]);
 const showMiniSparklines = ref(
-  typeof localStorage !== 'undefined'
-    ? localStorage.getItem('capacitarr:showMiniSparklines') !== 'false'
-    : true,
+  import.meta.client ? localStorage.getItem(STORAGE_KEYS.sparklines) !== 'false' : true,
 );
 watch(showMiniSparklines, (val) => {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('capacitarr:showMiniSparklines', String(val));
+  if (import.meta.client) {
+    localStorage.setItem(STORAGE_KEYS.sparklines, String(val));
   }
 });
 const recentActivity = ref<ActivityEvent[]>([]);

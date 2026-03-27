@@ -464,5 +464,11 @@
   "library.filterProtected": "Protected",
   "library.filterActive": "Filtered: {name}",
   "audit.movedToLibrary": "The audit log has moved to Library → History",
-  "audit.goToLibraryHistory": "Go to Library → History"
+  "audit.goToLibraryHistory": "Go to Library → History",
+  "announcements.dismiss": "Dismiss",
+  "announcements.moreCount": "+{count} more",
+  "announcements.viewAll": "View all announcements",
+  "announcements.title": "Announcements",
+  "announcements.active": "Active",
+  "announcements.archived": "Archived"
 }

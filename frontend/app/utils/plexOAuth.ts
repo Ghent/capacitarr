@@ -8,10 +8,11 @@
  * Adapted from Maintainerr's PlexAuth.ts — rewritten without external
  * dependencies (no Bowser, no axios).
  */
+import { STORAGE_KEYS } from '~/utils/storageKeys';
 
 const PLEX_PIN_URL = 'https://plex.tv/api/v2/pins';
 const PLEX_AUTH_URL = 'https://app.plex.tv/auth';
-const CLIENT_ID_KEY = 'capacitarr_plexClientId';
+const CLIENT_ID_KEY = STORAGE_KEYS.plexClientId;
 const POLL_INTERVAL_MS = 1_000;
 const TIMEOUT_MS = 300_000; // 5 minutes
 const POPUP_WIDTH = 600;

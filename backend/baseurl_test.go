@@ -11,7 +11,7 @@ import (
 // It contains all the patterns that rewriteHTML must handle, including
 // inline scripts that require CSP nonce injection.
 const sampleHTML = `<!DOCTYPE html><html><head>` +
-	`<script type="text/javascript">(function(){var t=localStorage.getItem('capacitarr-theme')})()</script>` +
+	`<script type="text/javascript">(function(){var t=localStorage.getItem('capacitarr:theme')})()</script>` +
 	`<link rel="stylesheet" href="/_assets/entry.DeJAGcQG.css" crossorigin>` +
 	`<link rel="modulepreload" as="script" crossorigin href="/_assets/BZLeI64h.js">` +
 	`<script type="module" src="/_assets/BZLeI64h.js" crossorigin></script>` +

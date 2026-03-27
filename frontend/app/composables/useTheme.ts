@@ -1,8 +1,9 @@
 /**
  * Theme composable for multi-theme color system.
  * Manages 6 theme palettes via data-theme attribute on <html>,
- * persisted in localStorage under 'capacitarr-theme'.
+ * persisted in localStorage under the key defined in storageKeys.ts.
  */
+import { STORAGE_KEYS } from '~/utils/storageKeys';
 
 export type ThemeId = 'violet' | 'ocean' | 'emerald' | 'sunset' | 'rose' | 'slate';
 
@@ -55,7 +56,7 @@ export const THEMES: ThemeMeta[] = [
   },
 ];
 
-const STORAGE_KEY = 'capacitarr-theme';
+const STORAGE_KEY = STORAGE_KEYS.theme;
 const DEFAULT_THEME: ThemeId = 'violet';
 const VALID_THEMES = new Set<string>(THEMES.map((t) => t.id));
 

@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import tailwindcss from '@tailwindcss/vite';
+import viteAnnouncements from './build/vite-announcements';
 import pkg from './package.json';
 
 // Parse CONTRIBUTORS.md at build time to embed contributor names
@@ -50,7 +51,8 @@ export default defineNuxtConfig({
       title: 'Capacitarr',
       script: [
         {
-          innerHTML: `(function(){var t=localStorage.getItem('capacitarr-theme')||'violet';var m=localStorage.getItem('capacitarr-color-mode');document.documentElement.setAttribute('data-theme',t);if(m==='dark'||(!m&&matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}function showSplash(){var s=document.createElement('div');s.id='capacitarr-splash';s.innerHTML='<div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></div><span class="label">Loading Capacitarr\\u2026</span>';document.body.prepend(s)}if(document.body){showSplash()}else{document.addEventListener('DOMContentLoaded',showSplash)}})();`,
+          // Key names must match STORAGE_KEYS in app/utils/storageKeys.ts
+          innerHTML: `(function(){var t=localStorage.getItem('capacitarr:theme')||'violet';var m=localStorage.getItem('capacitarr:colorMode');document.documentElement.setAttribute('data-theme',t);if(m==='dark'||(!m&&matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark')}function showSplash(){var s=document.createElement('div');s.id='capacitarr-splash';s.innerHTML='<div class="icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg></div><span class="label">Loading Capacitarr\\u2026</span>';document.body.prepend(s)}if(document.body){showSplash()}else{document.addEventListener('DOMContentLoaded',showSplash)}})();`,
           type: 'text/javascript',
         },
       ],
@@ -115,7 +117,10 @@ export default defineNuxtConfig({
     // from its bundled vite types which differ from Nuxt's internal vite types
     // due to Rollup generic variance. The cast through unknown is the standard
     // TypeScript pattern for cross-package type alignment.
-    plugins: tailwindcss() as unknown as NonNullable<
+    plugins: [
+      ...(tailwindcss() as unknown as import('vite').Plugin[]),
+      viteAnnouncements(),
+    ] as unknown as NonNullable<
       Exclude<import('nuxt/schema').NuxtConfig['vite'], undefined>['plugins']
     >,
   },

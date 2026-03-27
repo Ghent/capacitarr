@@ -1,50 +1,52 @@
+import { STORAGE_KEYS } from '~/utils/storageKeys';
+
 export function useDisplayPrefs() {
   const timezone = useState('displayTimezone', () => {
     if (import.meta.client) {
-      return localStorage.getItem('capacitarr_timezone') || 'local';
+      return localStorage.getItem(STORAGE_KEYS.timezone) || 'local';
     }
     return 'local';
   });
 
   const clockFormat = useState('displayClockFormat', () => {
     if (import.meta.client) {
-      return localStorage.getItem('capacitarr_clockFormat') || '12h';
+      return localStorage.getItem(STORAGE_KEYS.clockFormat) || '12h';
     }
     return '12h';
   });
 
   function setTimezone(tz: string) {
     timezone.value = tz;
-    if (import.meta.client) localStorage.setItem('capacitarr_timezone', tz);
+    if (import.meta.client) localStorage.setItem(STORAGE_KEYS.timezone, tz);
   }
 
   const viewMode = useState<'list' | 'grid'>('displayViewMode', () => {
     if (import.meta.client) {
-      return (localStorage.getItem('capacitarr_viewMode') as 'list' | 'grid') || 'list';
+      return (localStorage.getItem(STORAGE_KEYS.viewMode) as 'list' | 'grid') || 'list';
     }
     return 'list';
   });
 
   function setViewMode(mode: 'list' | 'grid') {
     viewMode.value = mode;
-    if (import.meta.client) localStorage.setItem('capacitarr_viewMode', mode);
+    if (import.meta.client) localStorage.setItem(STORAGE_KEYS.viewMode, mode);
   }
 
   const showExactDates = useState('displayExactDates', () => {
     if (import.meta.client) {
-      return localStorage.getItem('capacitarr_exactDates') === 'true';
+      return localStorage.getItem(STORAGE_KEYS.exactDates) === 'true';
     }
     return false;
   });
 
   function setClockFormat(fmt: string) {
     clockFormat.value = fmt;
-    if (import.meta.client) localStorage.setItem('capacitarr_clockFormat', fmt);
+    if (import.meta.client) localStorage.setItem(STORAGE_KEYS.clockFormat, fmt);
   }
 
   function setShowExactDates(val: boolean) {
     showExactDates.value = val;
-    if (import.meta.client) localStorage.setItem('capacitarr_exactDates', String(val));
+    if (import.meta.client) localStorage.setItem(STORAGE_KEYS.exactDates, String(val));
   }
 
   function formatTimestamp(dateStr: string): string {

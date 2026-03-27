@@ -14,6 +14,7 @@
     <BottomToolbar v-if="isAuthenticated" />
   </div>
   <ClientOnly>
+    <AnnouncementBanner v-if="isAuthenticated" />
     <ConnectionBanner />
     <ToastContainer />
   </ClientOnly>
@@ -21,6 +22,8 @@
 
 <script setup lang="ts">
 import type { IntegrationConfig } from '~/types/api';
+import { runStorageCleanup } from '~/composables/useStorageCleanup';
+import { useAnnouncements } from '~/composables/useAnnouncements';
 
 const authenticated = useAuthCookie();
 const isAuthenticated = computed(() => !!authenticated.value);
@@ -104,6 +107,13 @@ onMounted(() => {
   if (splash) {
     splash.classList.add('fade-out');
     setTimeout(() => splash.remove(), 300);
+  }
+
+  // Migrate legacy localStorage keys and prune orphaned announcement dismissals.
+  // Runs before anything reads localStorage to ensure keys are current.
+  if (import.meta.client) {
+    const { activeIds } = useAnnouncements();
+    runStorageCleanup(activeIds);
   }
 
   if (isAuthenticated.value) {

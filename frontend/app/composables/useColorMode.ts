@@ -3,12 +3,14 @@
  * Persists user preference in localStorage and applies 'dark' class to <html>.
  * When set to 'system', follows the OS/browser prefers-color-scheme media query.
  */
+import { STORAGE_KEYS } from '~/utils/storageKeys';
+
 export type ColorModePreference = 'light' | 'dark' | 'system';
 
 export const useAppColorMode = () => {
   const preference = useState<ColorModePreference>('colorModePreference', () => {
     if (import.meta.client) {
-      const stored = localStorage.getItem('capacitarr-color-mode');
+      const stored = localStorage.getItem(STORAGE_KEYS.colorMode);
       if (stored === 'dark' || stored === 'light' || stored === 'system') return stored;
       return 'system'; // Default to system preference
     }
@@ -33,7 +35,7 @@ export const useAppColorMode = () => {
   function apply() {
     if (!import.meta.client) return;
     document.documentElement.classList.toggle('dark', isDark.value);
-    localStorage.setItem('capacitarr-color-mode', preference.value);
+    localStorage.setItem(STORAGE_KEYS.colorMode, preference.value);
   }
 
   // Apply on first client-side load

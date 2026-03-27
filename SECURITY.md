@@ -133,6 +133,7 @@ Semgrep scans **614 files** (every file tracked by git except the marketing site
 | `backend/routes/middleware_test.go` | 233 | `cookie-missing-httponly`, `cookie-missing-secure` | Test request attaches a JWT cookie to simulate browser behavior. HttpOnly/Secure are server-side attributes set when the cookie is issued by the login handler, not when the browser sends the cookie back. |
 | `backend/internal/db/migrate.go` | 94 | `go.lang.security.audit.database.string-formatted-query` | `hasColumn` uses `PRAGMA table_info(engine_run_stats)` with a hardcoded table name, not user input. The `nosemgrep` annotation is on the line above the query to suppress the false positive. |
 | `frontend/app/composables/useEventStream.ts` | 180 | `unsafe-formatstring` | Template literal in `console.warn` uses `eventType` which is an internal SSE event type name from the server's event bus, not user-supplied input. |
+| `frontend/app/pages/help.vue` | 66 | `avoid-v-html` | HTML is pre-rendered at build time by the Vite announcements plugin from developer-authored markdown files in `frontend/announcements/`. Content is never user-supplied; it ships with each release and is version-controlled. |
 
 **Inline `nolint` annotations — every suppressed golangci-lint finding with rationale:**
 

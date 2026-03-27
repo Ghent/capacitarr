@@ -11,6 +11,65 @@
     </div>
 
     <div class="space-y-4">
+      <!-- Announcements Archive -->
+      <div
+        v-if="allAnnouncements.length > 0"
+        v-motion
+        :initial="{ opacity: 0, y: 12 }"
+        :enter="{
+          opacity: 1,
+          y: 0,
+          transition: { type: 'spring', stiffness: 260, damping: 24, delay: 0 },
+        }"
+        data-slot="announcements-archive"
+        class="space-y-3 mb-2"
+      >
+        <h2 class="text-lg font-semibold tracking-tight flex items-center gap-2">
+          <MegaphoneIcon class="w-4.5 h-4.5 text-primary" />
+          {{ $t('announcements.title') }}
+        </h2>
+        <div
+          v-for="announcement in allAnnouncements"
+          :key="announcement.id"
+          data-slot="card"
+          class="rounded-xl border bg-card shadow-sm overflow-hidden"
+          :class="
+            announcement.active
+              ? 'border-l-4 border-l-primary border-border'
+              : 'border-border opacity-70'
+          "
+        >
+          <div class="px-5 py-4">
+            <div class="flex items-center gap-2.5 mb-2">
+              <UiBadge :variant="announcement.active ? 'default' : 'secondary'" class="text-[10px]">
+                {{
+                  announcement.active ? $t('announcements.active') : $t('announcements.archived')
+                }}
+              </UiBadge>
+              <UiBadge
+                variant="outline"
+                class="text-[10px]"
+                :class="typeBadgeClass(announcement.type)"
+              >
+                {{ announcement.type }}
+              </UiBadge>
+              <span class="text-xs text-muted-foreground">
+                {{ formatAnnouncementDate(announcement.date) }}
+              </span>
+            </div>
+            <h3 class="font-semibold text-sm text-foreground mb-1.5">
+              {{ announcement.title }}
+            </h3>
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <!-- nosemgrep: javascript.vue.security.audit.xss.templates.avoid-v-html.avoid-v-html — HTML is pre-rendered at build time from developer-authored markdown files in frontend/announcements/, not user input -->
+            <div
+              class="text-sm text-muted-foreground leading-relaxed prose-sm [&_a]:text-primary [&_a]:underline [&_strong]:text-foreground [&_strong]:font-medium"
+              v-html="announcement.body"
+            />
+          </div>
+        </div>
+      </div>
+
       <!-- How Scoring Works -->
       <details
         v-motion
@@ -918,11 +977,33 @@ import {
   ChevronRightIcon,
   ExternalLinkIcon,
   HeartIcon,
+  MegaphoneIcon,
   PawPrintIcon,
   ShieldIcon,
 } from 'lucide-vue-next';
+import { useAnnouncements } from '~/composables/useAnnouncements';
 
+const { allAnnouncements } = useAnnouncements();
 const { uiVersion, uiBuildDate, apiVersion, apiBuildDate } = useVersion();
+
+function typeBadgeClass(type: string): string {
+  switch (type) {
+    case 'critical':
+      return 'border-destructive/50 text-destructive';
+    case 'warning':
+      return 'border-warning/50 text-warning';
+    default:
+      return 'border-primary/50 text-primary';
+  }
+}
+
+function formatAnnouncementDate(dateStr: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 const config = useRuntimeConfig();
 const contributors = computed(() => (config.public.contributors as string[]) || []);
 

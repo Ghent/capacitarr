@@ -35,7 +35,7 @@ func TestGenerateCSPNonce_Unique(t *testing.T) {
 
 // sampleNuxtHTML mirrors the inline script structure of a real Nuxt build.
 const sampleNuxtHTML = `<!DOCTYPE html><html><head>` +
-	`<script type="text/javascript">(function(){var t=localStorage.getItem('capacitarr-theme')})()</script>` +
+	`<script type="text/javascript">(function(){var t=localStorage.getItem('capacitarr:theme')})()</script>` +
 	`<script type="module" src="/_assets/DmIJM9dq.js" crossorigin></script>` +
 	`<script>window.__NUXT__={};window.__NUXT__.config={public:{appVersion:"1.5.0"}}</script>` +
 	`<script type="application/json" data-nuxt-data="nuxt-app" id="__NUXT_DATA__">[{}]</script>` +
