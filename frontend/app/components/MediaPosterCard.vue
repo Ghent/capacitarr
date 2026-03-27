@@ -98,6 +98,23 @@ const accentClass = computed(() => {
   }
 });
 
+/** Media-type pill color class (static per-type for at-a-glance differentiation) */
+const mediaTypePillClass = computed(() => {
+  switch (props.mediaType) {
+    case 'movie':
+      return 'bg-blue-600 text-white';
+    case 'show':
+    case 'season':
+      return 'bg-purple-600 text-white';
+    case 'artist':
+      return 'bg-emerald-600 text-white';
+    case 'book':
+      return 'bg-amber-600 text-white';
+    default:
+      return 'bg-slate-600 text-white';
+  }
+});
+
 /** Score color badge class */
 const scoreBadgeClass = computed(() => {
   if (props.score == null) return 'bg-muted text-muted-foreground';
@@ -146,7 +163,7 @@ const queueStatusLabel = computed(() => {
       loading="lazy"
       decoding="async"
       :class="[objectFitClass, { 'opacity-100': imageLoaded, 'opacity-0': !imageLoaded }]"
-      class="absolute inset-0 h-full w-full transition-opacity duration-300"
+      class="absolute inset-0 h-full w-full transition-[opacity,transform] duration-300 group-hover:scale-105"
       @error="imageError = true"
       @load="imageLoaded = true"
     />
@@ -171,15 +188,18 @@ const queueStatusLabel = computed(() => {
     <!-- Bottom gradient overlay for text readability (over real posters) -->
     <div
       v-if="showImage && imageLoaded"
-      class="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent"
+      class="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/90 via-black/40 to-transparent"
     />
 
-    <!-- Title + Year (bottom) -->
-    <div v-if="showImage && imageLoaded" class="absolute inset-x-0 bottom-0 p-2">
-      <p class="text-xs font-medium text-white line-clamp-2 leading-tight">
+    <!-- Title + Year (bottom — frosted glass strip) -->
+    <div
+      v-if="showImage && imageLoaded"
+      class="absolute inset-x-0 bottom-0 p-2 backdrop-blur-md bg-black/30"
+    >
+      <p class="poster-title text-xs font-medium text-white line-clamp-2 leading-tight">
         {{ title }}
       </p>
-      <p v-if="year" class="text-[10px] text-white/70 mt-0.5">
+      <p v-if="year" class="poster-title text-[10px] text-white/90 mt-0.5">
         {{ year }}
       </p>
     </div>
@@ -187,13 +207,13 @@ const queueStatusLabel = computed(() => {
     <!-- Score badge or Protected shield (top-right) -->
     <div
       v-if="isProtected"
-      class="absolute top-1.5 right-1.5 rounded-full bg-emerald-500/90 px-1.5 py-0.5"
+      class="absolute top-1.5 right-1.5 rounded-full bg-emerald-500/90 px-1.5 py-0.5 shadow-md"
     >
       <ShieldCheck class="w-3 h-3 text-white" />
     </div>
     <div
       v-else-if="score != null"
-      class="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
+      class="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums shadow-md"
       :class="scoreBadgeClass"
     >
       {{ score.toFixed(2) }}
@@ -210,8 +230,10 @@ const queueStatusLabel = computed(() => {
     </button>
     <div
       v-else
-      class="absolute top-1.5 left-1.5 rounded-full bg-black/50 backdrop-blur-sm px-2 py-0.5 text-[10px] font-medium text-white/80 capitalize"
+      class="poster-pill absolute top-1.5 left-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize shadow-md ring-1 ring-primary/30 flex items-center gap-1"
+      :class="mediaTypePillClass"
     >
+      <component :is="mediaTypeIcon" class="w-2.5 h-2.5" />
       {{ mediaType }}
     </div>
 
@@ -252,3 +274,29 @@ const queueStatusLabel = computed(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Text-shadow for title/year readability against any poster background */
+.poster-title {
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.8),
+    0 0 8px rgba(0, 0, 0, 0.5);
+}
+
+/* Pill entrance stagger — lands slightly after card scale-in */
+.poster-pill {
+  animation: pill-land 0.25s ease-out both;
+  animation-delay: 0.15s;
+}
+
+@keyframes pill-land {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+</style>
