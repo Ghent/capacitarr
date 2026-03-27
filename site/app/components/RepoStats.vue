@@ -78,7 +78,11 @@ const repoUrl = 'https://github.com/Ghent/capacitarr'
 }
 
 .repo-stats-icon {
-  color: var(--color-orange-500);
+  color: var(--color-neutral-900);
+}
+
+:root.dark .repo-stats-icon {
+  color: var(--color-neutral-100);
 }
 
 .repo-stats-name {
