@@ -19,14 +19,14 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-const repoUrl = 'https://gitlab.com/starshadow/software/capacitarr'
+const repoUrl = 'https://github.com/Ghent/capacitarr'
 </script>
 
 <template>
   <div v-if="stats" class="repo-stats">
-    <NuxtLink :to="repoUrl" target="_blank" class="repo-stats-link" aria-label="Capacitarr on GitLab">
-      <UIcon name="i-simple-icons-gitlab" class="size-3.5 repo-stats-icon" />
-      <span class="repo-stats-name">starshadow/capacitarr</span>
+    <NuxtLink :to="repoUrl" target="_blank" class="repo-stats-link" aria-label="Capacitarr on GitHub">
+      <UIcon name="i-simple-icons-github" class="size-3.5 repo-stats-icon" />
+      <span class="repo-stats-name">Ghent/capacitarr</span>
     </NuxtLink>
 
     <span v-if="stats.version" class="repo-stats-item" :title="`Latest release: ${stats.version}`">

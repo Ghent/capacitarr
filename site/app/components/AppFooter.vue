@@ -83,14 +83,14 @@ const { footer } = useAppConfig()
 
         <span class="footer-group-divider">|</span>
 
-        <!-- GitLab -->
+        <!-- GitHub -->
         <UButton
-          icon="i-simple-icons-gitlab"
+          icon="i-simple-icons-github"
           color="neutral"
           variant="ghost"
-          to="https://gitlab.com/starshadow/software/capacitarr"
+          to="https://github.com/Ghent/capacitarr"
           target="_blank"
-          aria-label="Capacitarr on GitLab"
+          aria-label="Capacitarr on GitHub"
         />
       </div>
     </template>

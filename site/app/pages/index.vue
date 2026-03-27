@@ -141,14 +141,14 @@ observe(ctaRef, ctaVisible)
             Quick Start
           </UButton>
           <UButton
-            icon="i-simple-icons-gitlab"
+            icon="i-simple-icons-github"
             color="neutral"
             variant="outline"
             size="xl"
-            to="https://gitlab.com/starshadow/software/capacitarr"
+            to="https://github.com/Ghent/capacitarr"
             target="_blank"
           >
-            View on GitLab
+            View on GitHub
           </UButton>
         </div>
 

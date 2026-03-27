@@ -20,7 +20,7 @@ const copied = ref(false)
 
 const composeYaml = `services:
   capacitarr:
-    image: registry.gitlab.com/starshadow/software/capacitarr:latest
+    image: ghcr.io/ghent/capacitarr:latest
     ports:
       - "2187:2187"
     volumes:

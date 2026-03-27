@@ -129,7 +129,6 @@ function discoverMarkdownFiles(dir) {
  * resolve naturally via URL path normalization in the browser.
  */
 function rewriteDocsLinks(content, contentSubdir) {
-  const prefix = contentSubdir ? `/docs/${contentSubdir}` : '/docs'
   return content.replace(
     /\]\(([^)]+?)\.md(#[^)]*?)?\)/g,
     (_match, file, anchor = '') => {
@@ -137,7 +136,14 @@ function rewriteDocsLinks(content, contentSubdir) {
       if (file.startsWith('http') || file.startsWith('/')) return _match
       // README → index in any directory
       const name = file.replace(/(?:^|(?<=\/))README$/, 'index')
-      return `](${prefix}/${name}${anchor})`
+      // Resolve relative paths (e.g., ../guides/scoring) against the current
+      // file's directory to produce an absolute /docs/... path.
+      // This prevents Nuxt prerenderer 404s on relative URL paths.
+      const base = contentSubdir || ''
+      const resolved = join('/docs', base, name).split('\\').join('/')
+      // Normalize ../ segments (e.g., /docs/getting-started/../guides/scoring → /docs/guides/scoring)
+      const normalized = new URL(resolved, 'http://x').pathname
+      return `](${normalized}${anchor})`
     },
   )
 }
