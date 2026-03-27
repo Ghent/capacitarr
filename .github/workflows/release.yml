@@ -101,10 +101,10 @@ jobs:
       - name: Build and push multi-arch images to GHCR
         run: |
           export CI_COMMIT_SHORT_SHA="${GITHUB_SHA:0:8}"
+          export CI_REGISTRY_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
           scripts/docker-build.sh
         env:
           CI_COMMIT_TAG: ${{ github.ref_name }}
-          CI_REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
 
   # ── Docker Mirror to Docker Hub ─────────────────────────────────────────────
 
@@ -124,10 +124,11 @@ jobs:
       - name: Login to Docker Hub (target)
         run: crane auth login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
       - name: Mirror to Docker Hub
-        run: scripts/docker-mirror.sh "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/capacitarr"
+        run: |
+          export CI_REGISTRY_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          scripts/docker-mirror.sh "docker.io/${{ secrets.DOCKERHUB_USERNAME }}/capacitarr"
         env:
           CI_COMMIT_TAG: ${{ github.ref_name }}
-          CI_REGISTRY_IMAGE: ghcr.io/${{ github.repository }}
 
   # ── Discord Notification ────────────────────────────────────────────────────
 
