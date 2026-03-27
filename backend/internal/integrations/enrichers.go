@@ -540,8 +540,15 @@ func (e *CrossReferenceEnricher) Enrich(items []MediaItem) error {
 	return nil
 }
 
-// Verify CrossReferenceEnricher satisfies Enricher at compile time.
+// SkipZeroMatchTracking implements ZeroMatchExempt. The cross-reference
+// enricher reconciles data from other enrichers (requestor vs watched-by)
+// rather than contributing new field values, so it always produces zero
+// new matches and should not be flagged in zero-match diagnostics.
+func (e *CrossReferenceEnricher) SkipZeroMatchTracking() bool { return true }
+
+// Verify CrossReferenceEnricher satisfies Enricher and ZeroMatchExempt at compile time.
 var _ Enricher = (*CrossReferenceEnricher)(nil)
+var _ ZeroMatchExempt = (*CrossReferenceEnricher)(nil)
 
 // ─── Pipeline builder ───────────────────────────────────────────────────────
 

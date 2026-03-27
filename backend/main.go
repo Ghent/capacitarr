@@ -205,18 +205,27 @@ func main() {
 	// via the web UI.
 	legacyHandled := false
 	if migration.DetectLegacySchema(cfg.Database) {
-		slog.Info("1.x database detected — renaming to pre-migration backup before initializing 2.0 schema",
-			"component", "main", "dbPath", cfg.Database)
+		// Defense-in-depth: verify this is genuinely a 1.x database before
+		// renaming. If the detection logic has a bug, this prevents destroying
+		// a valid 2.0 database by checking for a 2.0-only table that the
+		// detection might have missed.
+		if migration.ConfirmNotV2(cfg.Database) {
+			slog.Info("1.x database detected — renaming to pre-migration backup before initializing 2.0 schema",
+				"component", "main", "dbPath", cfg.Database)
 
-		configDir := filepath.Dir(cfg.Database)
-		if err := migration.BackupSourceDatabase(configDir); err != nil {
-			slog.Error("Failed to rename 1.x database to pre-migration backup",
-				"component", "main", "error", err)
-			os.Exit(1)
+			configDir := filepath.Dir(cfg.Database)
+			if err := migration.BackupSourceDatabase(configDir); err != nil {
+				slog.Error("Failed to rename 1.x database to pre-migration backup",
+					"component", "main", "error", err)
+				os.Exit(1)
+			}
+			legacyHandled = true
+			slog.Info("1.x database renamed to pre-migration backup",
+				"component", "main", "backup", migration.BackupPath(configDir))
+		} else {
+			slog.Warn("DetectLegacySchema returned true but database contains 2.0 tables — skipping migration rename",
+				"component", "main", "dbPath", cfg.Database)
 		}
-		legacyHandled = true
-		slog.Info("1.x database renamed to pre-migration backup",
-			"component", "main", "backup", migration.BackupPath(configDir))
 	}
 
 	database, err := db.Init(cfg)
@@ -262,6 +271,18 @@ func main() {
 	// self-test (which calls CreateClient directly) and the poller's
 	// BuildIntegrationRegistry. RegisterAllFactories is idempotent.
 	integrations.RegisterAllFactories()
+
+	// Verify factory ↔ validation map consistency at startup. This catches
+	// missing factory registrations and stale validation map entries that
+	// would otherwise manifest as silent runtime failures.
+	validTypes := make([]string, 0, len(db.ValidIntegrationTypes))
+	for t := range db.ValidIntegrationTypes {
+		validTypes = append(validTypes, t)
+	}
+	if err := integrations.ValidateFactories(validTypes); err != nil {
+		slog.Error("Integration factory validation failed", "component", "startup", "error", err)
+		os.Exit(1)
+	}
 
 	// ─── Service Registry ──────────────────────────────────────────────────
 	reg := services.NewRegistry(database, bus, cfg)

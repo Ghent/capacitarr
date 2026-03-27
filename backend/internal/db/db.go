@@ -123,6 +123,52 @@ func Init(cfg *config.Config) (*gorm.DB, error) {
 	return database, nil
 }
 
+// InitReadOnly opens a read-only connection to the same database. In WAL mode,
+// SQLite supports concurrent readers alongside a single writer. Services that
+// are read-heavy (metrics, preview, analytics) can use this connection to avoid
+// blocking behind write transactions on the primary connection.
+//
+// The returned connection has mode=ro to prevent accidental writes. The pool
+// is sized to allow multiple concurrent readers (up to 4) since SQLite WAL
+// mode supports this without lock contention.
+//
+// For in-memory databases (used in tests), nil is returned because ":memory:"
+// databases do not support multiple connections — each connection gets its own
+// independent in-memory database.
+func InitReadOnly(cfg *config.Config) *gorm.DB {
+	if cfg.Database == ":memory:" || strings.HasPrefix(cfg.Database, "file::memory:") {
+		return nil
+	}
+
+	// Build a read-only DSN with mode=ro
+	params := url.Values{}
+	params.Add("_pragma", "journal_mode(wal)")
+	params.Add("_pragma", "busy_timeout(5000)")
+	params.Set("mode", "ro")
+
+	dsn := fmt.Sprintf("file:%s?%s", cfg.Database, params.Encode())
+
+	readDB, err := gorm.Open(gormlite.Open(dsn), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
+	})
+	if err != nil {
+		slog.Warn("Failed to open read-only database connection — falling back to shared connection",
+			"component", "db", "error", err)
+		return nil
+	}
+
+	sqlDB, err := readDB.DB()
+	if err != nil {
+		slog.Warn("Failed to configure read-only connection pool",
+			"component", "db", "error", err)
+		return nil
+	}
+	sqlDB.SetMaxOpenConns(4)
+
+	slog.Info("Read-only database connection initialized", "component", "db", "maxOpenConns", 4)
+	return readDB
+}
+
 // SeedFactorWeights ensures a scoring_factor_weights row exists for each
 // registered factor. Missing keys are inserted with their DefaultWeight;
 // existing rows are left unchanged so user customizations are preserved.

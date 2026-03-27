@@ -177,57 +177,11 @@ func fetchAllIntegrations(integrationSvc *services.IntegrationService) fetchResu
 		}
 	}
 
-	// Build enrichment pipeline from registry capabilities
-	pipeline := integrations.BuildEnrichmentPipeline(registry)
-
-	// Build TMDb→RatingKey map from Plex for Tautulli enrichment.
-	// Tautulli queries by Plex ratingKey, but *arr items have TMDb IDs.
-	// This map bridges the gap. Built per poll cycle — not cached.
-	tmdbToRatingKey := make(map[int]string)
-	for id := range registry.Connectors() {
-		if plex, ok := registry.PlexClient(id); ok {
-			plexMap, mapErr := plex.GetTMDbToRatingKeyMap()
-			if mapErr != nil {
-				slog.Warn("Failed to build TMDb→RatingKey map from Plex",
-					"component", "poller", "integrationID", id, "error", mapErr)
-				continue
-			}
-			for tmdbID, ratingKey := range plexMap {
-				tmdbToRatingKey[tmdbID] = ratingKey
-			}
-			slog.Debug("Built TMDb→RatingKey map from Plex", "component", "poller",
-				"integrationID", id, "mappings", len(plexMap))
-		}
-	}
-
-	integrations.RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
-
-	// Build Jellyfin Item ID → TMDb ID map for Jellystat enrichment.
-	// Jellystat stores items by Jellyfin Item ID, but *arr items use TMDb IDs.
-	// This map bridges the gap. Built per poll cycle — not cached.
-	jellyfinIDToTMDbID := make(map[string]int)
-	for id := range registry.Connectors() {
-		if jf, ok := registry.JellyfinClient(id); ok {
-			jfMap, mapErr := jf.GetItemIDToTMDbIDMap()
-			if mapErr != nil {
-				slog.Warn("Failed to build Jellyfin ID→TMDb ID map",
-					"component", "poller", "integrationID", id, "error", mapErr)
-				continue
-			}
-			for itemID, tmdbID := range jfMap {
-				jellyfinIDToTMDbID[itemID] = tmdbID
-			}
-			slog.Debug("Built Jellyfin ID→TMDb ID map", "component", "poller",
-				"integrationID", id, "mappings", len(jfMap))
-		}
-	}
-
-	integrations.RegisterJellystatEnrichers(pipeline, registry, jellyfinIDToTMDbID)
-
-	// Register Tracearr enrichers. Tracearr uses the Public API's session
-	// history with title-based matching — no rating key maps needed.
-	integrations.RegisterTracearrEnrichers(pipeline, registry)
-	result.pipeline = pipeline
+	// Build the full enrichment pipeline via the shared function. This is
+	// the single source of truth for pipeline construction — the cold-start
+	// preview path (PreviewService.buildPreviewFromScratch) uses the same
+	// function to avoid enrichment logic divergence.
+	result.pipeline = integrations.BuildFullPipeline(registry)
 
 	return result
 }

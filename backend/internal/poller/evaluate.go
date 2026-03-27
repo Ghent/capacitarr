@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync/atomic"
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/engine"
@@ -16,9 +15,10 @@ import (
 )
 
 // evaluateAndCleanDisk scores all media items on a disk group and, when the
-// threshold is breached, queues the highest-scoring candidates for deletion.
-// Returns the number of items queued to the DeletionService worker (auto and dry-run modes).
-func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, runStatsID uint, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule, evalCtx *engine.EvaluationContext) int {
+// disk is above threshold, queues candidates for deletion or approval.
+// Returns the number of items queued for deletion. The acc accumulator
+// collects per-run metrics across multiple disk group evaluations.
+func (p *Poller) evaluateAndCleanDisk(acc *RunAccumulator, group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, runStatsID uint, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule, evalCtx *engine.EvaluationContext) int {
 	effectiveTotal := group.EffectiveTotalBytes()
 	if effectiveTotal == 0 {
 		slog.Warn("Disk group effective total is 0, skipping evaluation",
@@ -76,8 +76,8 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 	// Use the extracted Evaluator for scoring + categorization
 	evaluator := engine.NewEvaluator()
 	evalResult := evaluator.Evaluate(diskItems, weights, rules, prefs.TiebreakerMethod, evalCtx)
-	atomic.AddInt64(&p.lastRunEvaluated, int64(evalResult.TotalCount))
-	atomic.AddInt64(&p.lastRunProtected, int64(len(evalResult.Protected)))
+	acc.Evaluated += int64(evalResult.TotalCount)
+	acc.Protected += int64(len(evalResult.Protected))
 
 	slog.Debug("Evaluation summary", "component", "poller",
 		"mount", group.MountPath,
@@ -179,7 +179,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 		// This check runs in ALL execution modes so items snoozed from the deletion queue
 		// in auto/dry-run mode are also respected by the engine.
 		// Uses pre-fetched snoozedKeys map for O(1) lookup instead of per-item DB query.
-		snoozedKey := ev.Item.Title + "|" + string(ev.Item.Type)
+		snoozedKey := db.MediaKey(ev.Item.Title, string(ev.Item.Type))
 		if snoozedKeys[snoozedKey] {
 			skippedSnoozed++
 			slog.Debug("Skipping snoozed item", "component", "poller", "media", ev.Item.Title)
@@ -308,7 +308,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 				// Check if any collection member is snoozed
 				memberSnoozed := false
 				for _, member := range allMembers {
-					memberSnoozedKey := member.Title + "|" + string(member.Type)
+					memberSnoozedKey := db.MediaKey(member.Title, string(member.Type))
 					if snoozedKeys[memberSnoozedKey] {
 						slog.Info("Collection skipped — member is snoozed", "component", "poller",
 							"trigger", ev.Item.Title, "collection", collectionGroupName, "snoozedMember", member.Title)
@@ -332,7 +332,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 					})
 				}
 
-				atomic.AddInt64(&p.lastRunCollections, 1)
+				acc.Collections++
 				slog.Info("Collection expanded for deletion", "component", "poller",
 					"trigger", ev.Item.Title, "collections", collectionGroupName, "memberCount", len(allMembers))
 			}
@@ -365,8 +365,8 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 					slog.Warn("Deletion queue full, skipping item", "component", "poller", "item", pi.item.Title)
 					continue
 				}
-				atomic.AddInt64(&p.lastRunCandidates, 1)
-				atomic.AddInt64(&p.lastRunFreedBytes, pi.item.SizeBytes)
+				acc.Candidates++
+				acc.FreedBytes += pi.item.SizeBytes
 				bytesFreed += pi.item.SizeBytes
 				deletionsQueued++
 			case db.ModeApproval:
@@ -392,11 +392,11 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 				})
 
 				// Track this item as still-needed for post-loop reconciliation
-				neededKeys[pi.item.Title+"|"+string(pi.item.Type)] = true
+				neededKeys[db.MediaKey(pi.item.Title, string(pi.item.Type))] = true
 
 				bytesFreed += pi.item.SizeBytes
-				atomic.AddInt64(&p.lastRunCandidates, 1)
-				atomic.AddInt64(&p.lastRunFreedBytes, pi.item.SizeBytes)
+				acc.Candidates++
+				acc.FreedBytes += pi.item.SizeBytes
 				slog.Info("Engine action taken", "component", "poller",
 					"media", pi.item.Title, "action", "queued_for_approval", "score", pi.score, "freed", pi.item.SizeBytes,
 					"collectionGroup", pi.collectionGroup)
@@ -421,8 +421,8 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 				}
 				bytesFreed += pi.item.SizeBytes
 				deletionsQueued++
-				atomic.AddInt64(&p.lastRunCandidates, 1)
-				atomic.AddInt64(&p.lastRunFreedBytes, pi.item.SizeBytes)
+				acc.Candidates++
+				acc.FreedBytes += pi.item.SizeBytes
 				slog.Info("Engine action taken", "component", "poller",
 					"media", pi.item.Title, "action", db.ActionDryDelete, "score", pi.score, "freed", pi.item.SizeBytes,
 					"collectionGroup", pi.collectionGroup)
@@ -458,7 +458,7 @@ func (p *Poller) evaluateAndCleanDisk(group db.DiskGroup, allItems []integration
 	}
 
 	// Diagnostic summary: log when candidates were found but all were skipped
-	if len(candidates) > 0 && deletionsQueued == 0 && atomic.LoadInt64(&p.lastRunCandidates) == 0 {
+	if len(candidates) > 0 && deletionsQueued == 0 && acc.Candidates == 0 {
 		slog.Warn("All candidates were skipped — nothing queued for approval/deletion",
 			"component", "poller", "mount", group.MountPath,
 			"executionMode", prefs.ExecutionMode,

@@ -60,6 +60,21 @@ func NewNotificationDispatchService(
 		"apprise": notifications.NewAppriseSender(),
 	}
 
+	// Verify that the sender map keys match db.ValidNotificationChannelTypes
+	// at construction time. A mismatch means a notification channel type was
+	// added to validation without a corresponding sender implementation (or
+	// vice versa), which would cause silent runtime failures.
+	for senderType := range senders {
+		if !db.ValidNotificationChannelTypes[senderType] {
+			panic(fmt.Sprintf("notification sender %q has no entry in db.ValidNotificationChannelTypes", senderType))
+		}
+	}
+	for channelType := range db.ValidNotificationChannelTypes {
+		if _, ok := senders[channelType]; !ok {
+			panic(fmt.Sprintf("db.ValidNotificationChannelTypes has %q but no sender is registered", channelType))
+		}
+	}
+
 	return &NotificationDispatchService{
 		bus:            bus,
 		channels:       channels,

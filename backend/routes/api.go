@@ -13,9 +13,15 @@ import (
 // RegisterAPIRoutes sets up all API routes: public endpoints, auth, and
 // protected resource endpoints.
 func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCommit, appBuildDate string, sseBroadcaster *events.SSEBroadcaster) {
-	// Health check
+	// Health check — returns basic health info including event bus diagnostics.
+	// The eventsDropped counter is a cumulative count of events that were dropped
+	// because a subscriber's buffer was full. A non-zero value may indicate a
+	// subscriber is processing events too slowly.
 	g.GET("/health", func(c echo.Context) error {
-		return c.String(http.StatusOK, "OK")
+		return c.JSON(http.StatusOK, map[string]any{
+			"status":        "ok",
+			"eventsDropped": reg.Bus.DroppedCount(),
+		})
 	})
 
 	// Version info (public — no auth required)

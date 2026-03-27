@@ -122,7 +122,7 @@ func (s *AuditLogService) BulkUpsertDryRun(entries []db.AuditLogEntry) error {
 		// Build lookup map: "name|type" → existing entry ID
 		existingMap := make(map[string]uint, len(existing))
 		for _, e := range existing {
-			existingMap[e.MediaName+"|"+e.MediaType] = e.ID
+			existingMap[db.MediaKey(e.MediaName, e.MediaType)] = e.ID
 		}
 
 		// Step 2: Partition into creates and updates
@@ -130,7 +130,7 @@ func (s *AuditLogService) BulkUpsertDryRun(entries []db.AuditLogEntry) error {
 		for _, entry := range entries {
 			entry.Action = db.ActionDryDelete
 			entry.CreatedAt = now
-			key := entry.MediaName + "|" + entry.MediaType
+			key := db.MediaKey(entry.MediaName, entry.MediaType)
 
 			if id, exists := existingMap[key]; exists {
 				// Update existing entry

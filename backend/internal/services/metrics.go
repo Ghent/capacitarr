@@ -235,6 +235,30 @@ func (s *MetricsService) PruneHistory(resolution string, before time.Time) (int6
 	return result.RowsAffected, nil
 }
 
+// ─── Rollup checkpoints ─────────────────────────────────────────────────────
+
+// GetRollupCheckpoint returns the last completed timestamp for a rollup
+// resolution tier. Returns the zero time if no checkpoint exists.
+func (s *MetricsService) GetRollupCheckpoint(resolution string) time.Time {
+	var state db.RollupState
+	if err := s.db.Where("resolution = ?", resolution).First(&state).Error; err != nil {
+		return time.Time{}
+	}
+	return state.LastCompleted
+}
+
+// SetRollupCheckpoint updates the last completed timestamp for a rollup
+// resolution tier. Creates the row if it doesn't exist.
+func (s *MetricsService) SetRollupCheckpoint(resolution string, completed time.Time) error {
+	result := s.db.Where("resolution = ?", resolution).
+		Assign(db.RollupState{Resolution: resolution, LastCompleted: completed}).
+		FirstOrCreate(&db.RollupState{})
+	if result.Error != nil {
+		return fmt.Errorf("failed to update rollup checkpoint: %w", result.Error)
+	}
+	return nil
+}
+
 // ─── Capacity forecast ──────────────────────────────────────────────────────
 
 // DiskGroupForForecast holds the disk group parameters needed for forecast computation.

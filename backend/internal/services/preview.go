@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -332,38 +333,11 @@ func (s *PreviewService) buildPreviewFromScratch() (*PreviewResult, error) {
 		allItems = append(allItems, items...)
 	}
 
-	// Build TMDb→RatingKey map from Plex for Tautulli enrichment
-	tmdbToRatingKey := make(map[int]string)
-	for id := range registry.Connectors() {
-		if plex, ok := registry.PlexClient(id); ok {
-			plexMap, mapErr := plex.GetTMDbToRatingKeyMap()
-			if mapErr != nil {
-				continue
-			}
-			for tmdbID, ratingKey := range plexMap {
-				tmdbToRatingKey[tmdbID] = ratingKey
-			}
-		}
-	}
-
-	// Build Jellyfin Item ID → TMDb ID map for Jellystat enrichment
-	jellyfinIDToTMDbID := make(map[string]int)
-	for id := range registry.Connectors() {
-		if jf, ok := registry.JellyfinClient(id); ok {
-			jfMap, mapErr := jf.GetItemIDToTMDbIDMap()
-			if mapErr != nil {
-				continue
-			}
-			for itemID, tmdbID := range jfMap {
-				jellyfinIDToTMDbID[itemID] = tmdbID
-			}
-		}
-	}
-
-	// Build and run the enrichment pipeline
-	pipeline := integrations.BuildEnrichmentPipeline(registry)
-	integrations.RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
-	integrations.RegisterJellystatEnrichers(pipeline, registry, jellyfinIDToTMDbID)
+	// Build and run the full enrichment pipeline via the shared function.
+	// This is the same pipeline construction used by the poller, ensuring
+	// all enrichers (Tautulli, Jellystat, Tracearr, etc.) are registered
+	// consistently across both paths.
+	pipeline := integrations.BuildFullPipeline(registry)
 	enrichStats := pipeline.Run(allItems)
 
 	prefs, err := s.preferences.GetPreferences()
@@ -429,7 +403,7 @@ func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
 			slog.Warn("Failed to fetch pending approval queue for enrichment", "component", "preview", "error", err)
 		} else {
 			for _, entry := range pending {
-				key := entry.MediaName + "|" + entry.MediaType
+				key := db.MediaKey(entry.MediaName, entry.MediaType)
 				lookup[key] = queueInfo{status: db.StatusPending, userInitiated: entry.UserInitiated, id: entry.ID}
 			}
 		}
@@ -440,7 +414,7 @@ func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
 			slog.Warn("Failed to fetch approved approval queue for enrichment", "component", "preview", "error", err)
 		} else {
 			for _, entry := range approved {
-				key := entry.MediaName + "|" + entry.MediaType
+				key := db.MediaKey(entry.MediaName, entry.MediaType)
 				lookup[key] = queueInfo{status: db.StatusApproved, userInitiated: entry.UserInitiated, id: entry.ID}
 			}
 		}
@@ -456,7 +430,7 @@ func (s *PreviewService) EnrichWithQueueStatus(items []engine.EvaluatedItem) {
 	for i := range items {
 		title := items[i].Item.Title
 		mediaType := string(items[i].Item.Type)
-		key := title + "|" + mediaType
+		key := db.MediaKey(title, mediaType)
 
 		// Check if currently being deleted (highest priority)
 		if currentlyDeleting != "" && currentlyDeleting == title {
@@ -583,14 +557,19 @@ func (s *PreviewService) PersistToDB() {
 		UpdatedAt:   time.Now().UTC(),
 	}
 
-	// Upsert: delete existing then create. SQLite doesn't support ON CONFLICT
-	// with CHECK constraints reliably, so explicit delete+create is safest.
-	if err := s.database.Where("id = ?", 1).Delete(&db.MediaCache{}).Error; err != nil {
-		slog.Error("Failed to clear old media cache row",
-			"component", "preview", "error", err)
-		return
-	}
-	if err := s.database.Create(&row).Error; err != nil {
+	// Upsert: delete existing then create inside a transaction so a crash
+	// between the two operations cannot leave the persisted cache empty.
+	// SQLite doesn't support ON CONFLICT with CHECK constraints reliably,
+	// so explicit delete+create within a single tx is the safest approach.
+	if err := s.database.Transaction(func(tx *gorm.DB) error {
+		if delErr := tx.Where("id = ?", 1).Delete(&db.MediaCache{}).Error; delErr != nil {
+			return fmt.Errorf("failed to clear old media cache row: %w", delErr)
+		}
+		if createErr := tx.Create(&row).Error; createErr != nil {
+			return fmt.Errorf("failed to persist media cache: %w", createErr)
+		}
+		return nil
+	}); err != nil {
 		slog.Error("Failed to persist media cache to database",
 			"component", "preview", "error", err)
 		return

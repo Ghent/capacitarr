@@ -79,7 +79,8 @@ type DeletionService struct {
 	batchFailed    atomic.Int64
 
 	// Cancellation skip-list. Items are added via CancelDeletion() and
-	// checked in processJob(). The map key is "mediaName:mediaType".
+	// checked in processJob(). The map key is produced by cancelKey() which
+	// delegates to db.MediaKey() for a consistent key format.
 	cancelled sync.Map
 
 	// Parallel tracking slice — holds queued items so callers can list and
@@ -91,11 +92,13 @@ type DeletionService struct {
 	// Grace period state
 	graceTimerMu  sync.Mutex
 	graceTimer    *time.Timer
-	graceDeadline time.Time     // absolute time when grace period expires
-	graceActive   atomic.Bool   // true while grace period is running
-	processing    atomic.Bool   // true while the worker is draining the queue
-	notify        chan struct{} // signals the worker that something happened
-	stopCh        chan struct{} // closed when Stop() is called
+	graceDeadline time.Time          // absolute time when grace period expires
+	graceActive   atomic.Bool        // true while grace period is running
+	processing    atomic.Bool        // true while the worker is draining the queue
+	notify        chan struct{}      // signals the worker that something happened
+	stopCh        chan struct{}      // closed when Stop() is called
+	stopCtx       context.Context    // cancelled when Stop() is called; passed to rate limiter
+	stopCancel    context.CancelFunc // cancels stopCtx
 }
 
 // SettingsReader provides read access to application preferences and scoring factor weights.
@@ -125,6 +128,7 @@ type ApprovalReturner interface {
 // The settings, engine, and metrics dependencies are injected via SetDependencies()
 // after registry construction to avoid circular initialization.
 func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *DeletionService {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &DeletionService{
 		bus:         bus,
 		auditLog:    auditLog,
@@ -132,15 +136,15 @@ func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *Deleti
 		done:        make(chan struct{}),
 		notify:      make(chan struct{}, 1),
 		stopCh:      make(chan struct{}),
+		stopCtx:     ctx,
+		stopCancel:  cancel,
 	}
 }
 
 // Wired returns true when all lazily-injected dependencies are non-nil.
 // Used by Registry.Validate() to catch missing wiring at startup.
-// Note: approvalReturner is excluded because it is nil-guarded at the call
-// site (processJob) and legitimately optional in tests without approval.
 func (s *DeletionService) Wired() bool {
-	return s.settings != nil && s.engine != nil && s.metrics != nil
+	return s.settings != nil && s.engine != nil && s.metrics != nil && s.approvalReturner != nil
 }
 
 // SetDependencies wires cross-service dependencies that cannot be injected
@@ -163,8 +167,11 @@ func (s *DeletionService) Start() {
 }
 
 // Stop signals the worker to finish and waits for completion.
+// The context cancellation ensures the rate limiter returns immediately
+// instead of blocking for up to 3s per remaining queued item.
 func (s *DeletionService) Stop() {
 	close(s.stopCh)
+	s.stopCancel()
 	<-s.done
 }
 
@@ -276,6 +283,10 @@ func (s *DeletionService) getGraceDelay() time.Duration {
 }
 
 // resetGracePeriod starts or resets the grace period timer.
+// The graceActive flag is set BEFORE the timer is created (under the same
+// lock) to prevent a race where a very short timer fires before
+// graceActive is set to true, causing subsequent Store(true) to overwrite
+// the timer callback's Store(false) and leave grace permanently active.
 func (s *DeletionService) resetGracePeriod(queueSize int) {
 	delay := s.getGraceDelay()
 
@@ -283,6 +294,7 @@ func (s *DeletionService) resetGracePeriod(queueSize int) {
 	if s.graceTimer != nil {
 		s.graceTimer.Stop()
 	}
+	s.graceActive.Store(true)
 	s.graceTimer = time.AfterFunc(delay, func() {
 		s.graceActive.Store(false)
 		// Publish grace period expired event
@@ -298,8 +310,6 @@ func (s *DeletionService) resetGracePeriod(queueSize int) {
 	})
 	s.graceDeadline = time.Now().Add(delay)
 	s.graceTimerMu.Unlock()
-
-	s.graceActive.Store(true)
 
 	// Publish grace period started/reset event
 	s.bus.Publish(events.DeletionGracePeriodEvent{
@@ -405,7 +415,11 @@ drainLoop:
 			}
 		}
 
-		_ = s.rateLimiter.Wait(context.Background()) //nolint:errcheck // Wait with background context never returns non-nil error
+		if err := s.rateLimiter.Wait(s.stopCtx); err != nil {
+			// Context cancelled during shutdown — process this final job then exit.
+			s.processJob(job, &deferredAuditEntries)
+			break drainLoop
+		}
 		s.processJob(job, &deferredAuditEntries)
 	}
 
@@ -466,7 +480,7 @@ func (s *DeletionService) processJob(job DeleteJob, deferredAuditEntries *[]db.A
 
 	// Check cancellation skip-list before doing any work.
 	if s.IsCancelled(job.Item.Title, string(job.Item.Type)) {
-		s.cancelled.Delete(job.Item.Title + ":" + string(job.Item.Type))
+		s.cancelled.Delete(cancelKey(job.Item.Title, string(job.Item.Type)))
 
 		s.processed.Add(1)
 		s.batchSucceeded.Add(1)
@@ -717,8 +731,9 @@ func (s *DeletionService) checkBatchComplete() {
 // ---------------------------------------------------------------------------
 
 // cancelKey builds the map key for the cancellation skip-list.
+// Delegates to db.MediaKey for a consistent key format across the codebase.
 func cancelKey(mediaName, mediaType string) string {
-	return mediaName + ":" + mediaType
+	return db.MediaKey(mediaName, mediaType)
 }
 
 // CancelDeletion marks a queued item for cancellation. When processJob

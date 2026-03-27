@@ -302,7 +302,7 @@ func (s *ApprovalService) BulkUpsertPending(items []db.ApprovalQueueItem) (creat
 		// Build lookup map: "name|type" → existing entry ID
 		existingMap := make(map[string]uint, len(existing))
 		for _, e := range existing {
-			existingMap[e.MediaName+"|"+e.MediaType] = e.ID
+			existingMap[db.MediaKey(e.MediaName, e.MediaType)] = e.ID
 		}
 
 		// Step 2: Partition items into creates and updates
@@ -310,7 +310,7 @@ func (s *ApprovalService) BulkUpsertPending(items []db.ApprovalQueueItem) (creat
 		var toUpdate []db.ApprovalQueueItem
 		for i := range items {
 			items[i].Status = db.StatusPending
-			key := items[i].MediaName + "|" + items[i].MediaType
+			key := db.MediaKey(items[i].MediaName, items[i].MediaType)
 			if _, exists := existingMap[key]; exists {
 				toUpdate = append(toUpdate, items[i])
 			} else {
@@ -330,7 +330,7 @@ func (s *ApprovalService) BulkUpsertPending(items []db.ApprovalQueueItem) (creat
 
 		// Step 4: Batch update existing entries (one UPDATE per item, but within the same tx)
 		for _, item := range toUpdate {
-			key := item.MediaName + "|" + item.MediaType
+			key := db.MediaKey(item.MediaName, item.MediaType)
 			id := existingMap[key]
 			if err := tx.Model(&db.ApprovalQueueItem{}).Where("id = ?", id).Updates(map[string]any{
 				"score_details":  item.ScoreDetails,
@@ -388,7 +388,7 @@ func (s *ApprovalService) ListSnoozedKeys(diskGroupID uint) (map[string]bool, er
 	}
 	keys := make(map[string]bool, len(rows))
 	for _, r := range rows {
-		keys[r.MediaName+"|"+r.MediaType] = true
+		keys[db.MediaKey(r.MediaName, r.MediaType)] = true
 	}
 	return keys, nil
 }
@@ -766,7 +766,7 @@ func (s *ApprovalService) ReconcileQueue(diskGroupID uint, neededKeys map[string
 
 	var dismissed int
 	for _, item := range pending {
-		key := item.MediaName + "|" + item.MediaType
+		key := db.MediaKey(item.MediaName, item.MediaType)
 		if neededKeys[key] {
 			continue
 		}

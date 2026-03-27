@@ -146,7 +146,7 @@ func TestDeletionService_BatchTracking_AllSuccess(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -191,7 +191,7 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1}, // actual deletions
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -249,7 +249,7 @@ func TestDeletionService_BatchTracking_CorrectCounts(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -300,7 +300,7 @@ func TestDeletionService_GracefulShutdown_DrainsQueue(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode for safety
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	svc.Start()
@@ -368,7 +368,7 @@ func TestDeletionService_ProgressEvent_DryRun(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -425,7 +425,7 @@ func TestDeletionService_ProgressEvent_ActualDeletion(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -482,7 +482,7 @@ func TestDeletionService_ForceDryRun_OverridesDeletionsEnabled(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1}, // deletions enabled, but ForceDryRun overrides
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -535,7 +535,7 @@ func TestDeletionService_NoDryRun_WhenDeletionsDisabled(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // deletions disabled
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -592,7 +592,7 @@ func TestDeletionService_CancelDeletion_ReturnsTrue_WhenItemInQueue(t *testing.T
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	// Queue an item (service NOT started — item stays in channel and tracking slice)
@@ -637,7 +637,7 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -802,7 +802,7 @@ func TestDeletionService_ProgressEvent_Failure(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -876,7 +876,7 @@ func TestDeletionService_UpsertAudit_UsesUpsertSemantics(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	svc.Start()
@@ -928,7 +928,7 @@ func TestDeletionService_UpsertAudit_False_AppendsMultiple(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	svc.Start()
@@ -969,7 +969,7 @@ func TestDeletionService_NilClient_DryRunSucceeds(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1}, // dry-run mode
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -1031,7 +1031,7 @@ func TestDeletionService_NilClient_ActualDeletion_Fails(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1}, // actual deletions enabled
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -1078,7 +1078,7 @@ func TestDeletionService_QueueDeletion_PublishesDeletionQueuedEvent(t *testing.T
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -1136,7 +1136,7 @@ func TestDeletionService_GracePeriod_StartsOnQueue(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 2},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 	svc.Start()
 	defer svc.Stop()
@@ -1167,7 +1167,7 @@ func TestDeletionService_GracePeriod_ExpiresAndProcesses(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	ch := bus.Subscribe()
@@ -1198,7 +1198,7 @@ func TestDeletionService_ClearQueue_CancelsAll(t *testing.T) {
 		&mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 30},
 		&mockEngineStatsWriter{},
 		&mockDeletionStatsWriter{},
-		nil,
+		&mockApprovalReturner{},
 	)
 
 	// Queue 3 items without starting the worker
@@ -1587,7 +1587,7 @@ func TestProcessJob_ModeChangeCancelsJob(t *testing.T) {
 		executionMode:             db.ModeApproval, // mode has already changed
 		deletionQueueDelaySeconds: 1,
 	}
-	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, nil)
+	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, &mockApprovalReturner{})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -1648,7 +1648,7 @@ func TestProcessJob_SameModeNotCancelled(t *testing.T) {
 		executionMode:             db.ModeAuto,
 		deletionQueueDelaySeconds: 1,
 	}
-	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, nil)
+	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, &mockApprovalReturner{})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -1704,7 +1704,7 @@ func TestProcessJob_EmptyEnqueuedModeSkipsCheck(t *testing.T) {
 		executionMode:             db.ModeApproval,
 		deletionQueueDelaySeconds: 1,
 	}
-	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, nil)
+	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, &mockApprovalReturner{})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -1761,7 +1761,7 @@ func TestProcessJob_AutoToDryRunCancelsJob(t *testing.T) {
 		executionMode:             db.ModeDryRun, // mode changed to dry-run
 		deletionQueueDelaySeconds: 1,
 	}
-	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, nil)
+	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, &mockApprovalReturner{})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -1826,7 +1826,7 @@ func TestProcessJob_DryRunToAutoCancelsJob(t *testing.T) {
 		executionMode:             db.ModeAuto, // mode changed to auto
 		deletionQueueDelaySeconds: 1,
 	}
-	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, nil)
+	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, &mockApprovalReturner{})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -1884,7 +1884,7 @@ func TestDrainAll_MultiplItemsModeChangeCancelsRemaining(t *testing.T) {
 		executionMode:             db.ModeApproval, // mode changed from auto to approval
 		deletionQueueDelaySeconds: 1,
 	}
-	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, nil)
+	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, &mockApprovalReturner{})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -1947,7 +1947,7 @@ func TestProcessJob_ModeChangeCancelsJob_PublishesCancelledEvent(t *testing.T) {
 		executionMode:             db.ModeApproval, // mode changed
 		deletionQueueDelaySeconds: 1,
 	}
-	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, nil)
+	svc.SetDependencies(settings, &mockEngineStatsWriter{}, &mockDeletionStatsWriter{}, &mockApprovalReturner{})
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)

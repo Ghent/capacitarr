@@ -149,6 +149,12 @@ type wireable interface {
 // wired. Panics with a descriptive message listing all unwired services.
 // Called at the end of NewRegistry() to catch wiring mistakes at startup
 // rather than at runtime (e.g., during a 3 AM deletion cycle).
+//
+// Note: VersionService is intentionally excluded because it is created via
+// InitVersion() after the registry is constructed (it depends on the app
+// version string). InitVersion() must be called before starting any
+// background workers that use Version — enforced by the startup sequence
+// in main.go.
 func (r *Registry) Validate() {
 	checks := []struct {
 		name    string

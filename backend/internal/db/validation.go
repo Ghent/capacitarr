@@ -53,6 +53,18 @@ var ValidNotificationChannelTypes = map[string]bool{
 	"discord": true, "apprise": true,
 }
 
+// MediaKey builds a composite lookup key from a media name and type. This is
+// the canonical key format used throughout the codebase for deduplication,
+// snooze checks, approval queue matching, and audit log upserts. Using a
+// single function ensures all call sites produce identical keys.
+//
+// The separator (\x00) is a NUL byte that cannot appear in user-visible media
+// titles or type strings, eliminating collision risk from titles that contain
+// common delimiter characters like "|" or ":".
+func MediaKey(name, mediaType string) string {
+	return name + "\x00" + mediaType
+}
+
 // FormatValidKeys returns a sorted, comma-separated string of keys from a
 // validation map. Use this in error messages instead of hardcoding the list
 // of valid values — when the map is updated, the error messages update too.

@@ -17,6 +17,9 @@
 // ---------------------------------------------------------------------------
 // Module-level singleton state (client-only)
 // ---------------------------------------------------------------------------
+// These plain JS data structures are safe for client-side use. During SSR,
+// all mutating functions (connect, on, off) bail early via import.meta.client
+// guards, so the structures remain empty and cannot leak state across requests.
 let _eventSource: EventSource | null = null;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _reconnectAttempts = 0;
@@ -77,6 +80,15 @@ function connect() {
 
   _eventSource = es;
 
+  // Register a system-level listener for replay_gap events. When the backend
+  // detects that the client's Last-Event-ID is older than the oldest entry in
+  // the ring buffer, it sends this event to signal that events were lost. We
+  // dispatch it through the normal handler system so consumers can react (e.g.,
+  // by refetching data).
+  es.addEventListener('replay_gap', ((event: Event) => {
+    handleEvent('replay_gap', event as MessageEvent);
+  }) as EventListener);
+
   // Register listeners for all currently-registered handler types
   for (const eventType of _handlers.keys()) {
     registerEventListener(es, eventType);
@@ -135,6 +147,8 @@ function on(
   handler: (data: unknown) => void,
   scope?: { onUnmounted: (fn: () => void) => void },
 ) {
+  if (!import.meta.client) return;
+
   if (!_handlers.has(eventType)) {
     _handlers.set(eventType, new Set());
   }
@@ -152,6 +166,8 @@ function on(
 }
 
 function off(eventType: string, handler: (data: unknown) => void) {
+  if (!import.meta.client) return;
+
   const set = _handlers.get(eventType);
   if (set) {
     set.delete(handler);

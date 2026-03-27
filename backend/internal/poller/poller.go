@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"capacitarr/internal/db"
@@ -15,18 +14,23 @@ import (
 	"capacitarr/internal/services"
 )
 
+// RunAccumulator collects per-cycle metrics across multiple disk group
+// evaluations within a single engine run. Passed by pointer to
+// evaluateAndCleanDisk so each disk group's results are aggregated.
+// Not shared across goroutines — the poller runs single-threaded.
+type RunAccumulator struct {
+	Evaluated   int64
+	Candidates  int64
+	Protected   int64
+	FreedBytes  int64
+	Collections int64 // distinct collection group expansions
+}
+
 // Poller orchestrates periodic media library polling and capacity evaluation.
 // All state is on the struct — no package-level globals.
 type Poller struct {
 	reg  *services.Registry
 	done chan struct{}
-
-	// Per-run metrics (reset each engine cycle, synced to EngineService at the end)
-	lastRunEvaluated   int64
-	lastRunCandidates  int64
-	lastRunProtected   int64
-	lastRunFreedBytes  int64
-	lastRunCollections int64 // distinct collection group expansions in this cycle
 }
 
 // New creates a new Poller bound to the given service registry.
@@ -147,12 +151,9 @@ func (p *Poller) poll() {
 		slog.Error("Failed to increment engine runs", "component", "poller", "error", err)
 	}
 
-	// Reset per-run counters at the start of each poll cycle
-	atomic.StoreInt64(&p.lastRunEvaluated, 0)
-	atomic.StoreInt64(&p.lastRunCandidates, 0)
-	atomic.StoreInt64(&p.lastRunProtected, 0)
-	atomic.StoreInt64(&p.lastRunFreedBytes, 0)
-	atomic.StoreInt64(&p.lastRunCollections, 0)
+	// RunAccumulator collects per-run metrics across disk group evaluations.
+	// Zero-valued at creation — no reset needed.
+	var acc RunAccumulator
 
 	configs, err := p.reg.Integration.ListEnabled()
 	if err != nil {
@@ -304,7 +305,7 @@ func (p *Poller) poll() {
 		}
 
 		// Evaluate and trigger cleanup if threshold breached
-		totalDeletionsQueued += p.evaluateAndCleanDisk(*group, fetched.allItems, fetched.registry, runStatsID, prefs, weights, rules, evalCtx)
+		totalDeletionsQueued += p.evaluateAndCleanDisk(&acc, *group, fetched.allItems, fetched.registry, runStatsID, prefs, weights, rules, evalCtx)
 	}
 
 	// Clear the approval queue only when ALL disk groups are below threshold.
@@ -336,12 +337,12 @@ func (p *Poller) poll() {
 	// completion of each item internally.
 	p.reg.Deletion.SignalBatchSize(totalDeletionsQueued)
 
-	// Load per-run stats from atomic counters
-	evaluated := atomic.LoadInt64(&p.lastRunEvaluated)
-	candidates := atomic.LoadInt64(&p.lastRunCandidates)
-	protected := atomic.LoadInt64(&p.lastRunProtected)
-	freedBytes := atomic.LoadInt64(&p.lastRunFreedBytes)
-	collections := atomic.LoadInt64(&p.lastRunCollections)
+	// Read per-run stats from the accumulator
+	evaluated := acc.Evaluated
+	candidates := acc.Candidates
+	protected := acc.Protected
+	freedBytes := acc.FreedBytes
+	collections := acc.Collections
 
 	// Flush the cycle digest notification directly from the poller's own
 	// counters, replacing the fragile two-gate event accumulation pattern.

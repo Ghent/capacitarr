@@ -76,6 +76,48 @@ func TestFormatValidKeys(t *testing.T) {
 	}
 }
 
+// TestMediaKey verifies the canonical media key function used for deduplication,
+// snooze checks, approval queue matching, and audit log upserts throughout the
+// codebase.
+func TestMediaKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		mediaName string
+		mediaType string
+	}{
+		{name: "basic", mediaName: "Firefly", mediaType: "show"},
+		{name: "movie", mediaName: "Serenity", mediaType: "movie"},
+		{name: "pipe in title", mediaName: "Foo|Bar", mediaType: "show"},
+		{name: "colon in title", mediaName: "Star Trek: Picard", mediaType: "show"},
+		{name: "empty name", mediaName: "", mediaType: "movie"},
+		{name: "unicode", mediaName: "日本語タイトル", mediaType: "movie"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			key := db.MediaKey(tc.mediaName, tc.mediaType)
+
+			// Key must contain the NUL separator
+			if !strings.Contains(key, "\x00") {
+				t.Errorf("MediaKey(%q, %q) = %q — missing NUL separator", tc.mediaName, tc.mediaType, key)
+			}
+
+			// Same inputs must produce the same key (deterministic)
+			if db.MediaKey(tc.mediaName, tc.mediaType) != key {
+				t.Errorf("MediaKey is not deterministic for (%q, %q)", tc.mediaName, tc.mediaType)
+			}
+		})
+	}
+
+	// Different (name, type) pairs must produce different keys
+	if db.MediaKey("Firefly", "show") == db.MediaKey("Firefly", "movie") {
+		t.Error("MediaKey should produce different keys for different media types")
+	}
+	if db.MediaKey("Firefly", "show") == db.MediaKey("Serenity", "show") {
+		t.Error("MediaKey should produce different keys for different media names")
+	}
+}
+
 // TestFormatValidKeys_RealMaps verifies that FormatValidKeys produces
 // non-empty, reasonable output for each real validation map. This catches
 // accidentally emptying a map.

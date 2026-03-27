@@ -14,13 +14,18 @@ import (
 func Start(reg *services.Registry) *cron.Cron {
 	c := cron.New()
 
-	// 1. Rollup "raw" to "hourly" every hour at minute 0
+	// 1. Rollup "raw" to "hourly" every hour at minute 0.
+	// Uses persisted checkpoints so rollups are idempotent and delay-tolerant.
 	_, err := c.AddFunc("@hourly", func() {
 		slog.Info("Running hourly rollup", "component", "jobs")
-		start := time.Now().Add(-time.Hour).Truncate(time.Hour)
-		end := time.Now().Truncate(time.Hour)
-		if rollupErr := reg.Metrics.RollupHistory("raw", "hourly", start, end); rollupErr != nil {
-			slog.Error("Hourly rollup failed", "component", "jobs", "error", rollupErr)
+		start := reg.Metrics.GetRollupCheckpoint("hourly")
+		end := time.Now().UTC().Truncate(time.Hour)
+		if !start.IsZero() && end.After(start) {
+			if rollupErr := reg.Metrics.RollupHistory("raw", "hourly", start, end); rollupErr != nil {
+				slog.Error("Hourly rollup failed", "component", "jobs", "error", rollupErr)
+			} else {
+				_ = reg.Metrics.SetRollupCheckpoint("hourly", end)
+			}
 		}
 		// Keep raw data for 2 hours (enough for real-time zooming)
 		if _, pruneErr := reg.Metrics.PruneHistory("raw", time.Now().Add(-2*time.Hour)); pruneErr != nil {
@@ -31,13 +36,17 @@ func Start(reg *services.Registry) *cron.Cron {
 		slog.Error("Failed to add hourly cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
-	// 2. Rollup "hourly" to "daily" every day at midnight
+	// 2. Rollup "hourly" to "daily" every day at midnight.
 	_, err = c.AddFunc("@daily", func() {
 		slog.Info("Running daily rollup", "component", "jobs")
-		start := time.Now().Add(-24 * time.Hour).Truncate(24 * time.Hour)
-		end := time.Now().Truncate(24 * time.Hour)
-		if rollupErr := reg.Metrics.RollupHistory("hourly", "daily", start, end); rollupErr != nil {
-			slog.Error("Daily rollup failed", "component", "jobs", "error", rollupErr)
+		start := reg.Metrics.GetRollupCheckpoint("daily")
+		end := time.Now().UTC().Truncate(24 * time.Hour)
+		if !start.IsZero() && end.After(start) {
+			if rollupErr := reg.Metrics.RollupHistory("hourly", "daily", start, end); rollupErr != nil {
+				slog.Error("Daily rollup failed", "component", "jobs", "error", rollupErr)
+			} else {
+				_ = reg.Metrics.SetRollupCheckpoint("daily", end)
+			}
 		}
 		// Keep hourly snapshots for 7 days
 		if _, pruneErr := reg.Metrics.PruneHistory("hourly", time.Now().Add(-7*24*time.Hour)); pruneErr != nil {
@@ -48,13 +57,17 @@ func Start(reg *services.Registry) *cron.Cron {
 		slog.Error("Failed to add daily cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
-	// 3. Rollup "daily" to "weekly" every week on Sunday at midnight
+	// 3. Rollup "daily" to "weekly" every week on Sunday at midnight.
 	_, err = c.AddFunc("@weekly", func() {
 		slog.Info("Running weekly rollup", "component", "jobs")
-		start := time.Now().Add(-7 * 24 * time.Hour).Truncate(24 * time.Hour)
-		end := time.Now().Truncate(24 * time.Hour)
-		if rollupErr := reg.Metrics.RollupHistory("daily", "weekly", start, end); rollupErr != nil {
-			slog.Error("Weekly rollup failed", "component", "jobs", "error", rollupErr)
+		start := reg.Metrics.GetRollupCheckpoint("weekly")
+		end := time.Now().UTC().Truncate(24 * time.Hour)
+		if !start.IsZero() && end.After(start) {
+			if rollupErr := reg.Metrics.RollupHistory("daily", "weekly", start, end); rollupErr != nil {
+				slog.Error("Weekly rollup failed", "component", "jobs", "error", rollupErr)
+			} else {
+				_ = reg.Metrics.SetRollupCheckpoint("weekly", end)
+			}
 		}
 		// Keep daily snapshots for 30 days
 		if _, pruneErr := reg.Metrics.PruneHistory("daily", time.Now().Add(-30*24*time.Hour)); pruneErr != nil {

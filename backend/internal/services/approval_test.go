@@ -1013,7 +1013,7 @@ func TestApprovalService_ReconcileQueue_DismissesStaleItems(t *testing.T) {
 
 	// Only "Firefly|show" is still needed — the other two should be dismissed
 	neededKeys := map[string]bool{
-		"Firefly|show": true,
+		db.MediaKey("Firefly", "show"): true,
 	}
 
 	dismissed, err := svc.ReconcileQueue(dgID, neededKeys)
@@ -1114,8 +1114,8 @@ func TestApprovalService_ReconcileQueue_NoopWhenAllNeeded(t *testing.T) {
 
 	// All items are still needed
 	neededKeys := map[string]bool{
-		"Firefly|show":   true,
-		"Serenity|movie": true,
+		db.MediaKey("Firefly", "show"):   true,
+		db.MediaKey("Serenity", "movie"): true,
 	}
 
 	dismissed, err := svc.ReconcileQueue(dgID, neededKeys)
@@ -1282,10 +1282,10 @@ func TestApprovalService_ListSnoozedKeys(t *testing.T) {
 		if len(keys) != 2 {
 			t.Fatalf("expected 2 snoozed keys, got %d: %v", len(keys), keys)
 		}
-		if !keys["Firefly|show"] {
+		if !keys[db.MediaKey("Firefly", "show")] {
 			t.Error("expected Firefly|show in snoozed keys")
 		}
-		if !keys["Serenity|movie"] {
+		if !keys[db.MediaKey("Serenity", "movie")] {
 			t.Error("expected Serenity|movie in snoozed keys")
 		}
 	})
@@ -1295,7 +1295,7 @@ func TestApprovalService_ListSnoozedKeys(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListSnoozedKeys returned error: %v", err)
 		}
-		if keys["Other Show|show"] {
+		if keys[db.MediaKey("Other Show", "show")] {
 			t.Error("should not include items from other disk group")
 		}
 	})
@@ -1305,7 +1305,7 @@ func TestApprovalService_ListSnoozedKeys(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListSnoozedKeys returned error: %v", err)
 		}
-		if keys["Pending Show|show"] {
+		if keys[db.MediaKey("Pending Show", "show")] {
 			t.Error("should not include pending items")
 		}
 	})
@@ -1315,7 +1315,7 @@ func TestApprovalService_ListSnoozedKeys(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ListSnoozedKeys returned error: %v", err)
 		}
-		if keys["Expired Snooze|movie"] {
+		if keys[db.MediaKey("Expired Snooze", "movie")] {
 			t.Error("should not include items with expired snooze")
 		}
 	})
@@ -1328,7 +1328,7 @@ func TestApprovalService_ListSnoozedKeys(t *testing.T) {
 		if len(keys) != 1 {
 			t.Fatalf("expected 1 snoozed key for other DG, got %d", len(keys))
 		}
-		if !keys["Other Show|show"] {
+		if !keys[db.MediaKey("Other Show", "show")] {
 			t.Error("expected Other Show|show in snoozed keys for other DG")
 		}
 	})

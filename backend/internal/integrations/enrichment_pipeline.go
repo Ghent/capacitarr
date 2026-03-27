@@ -44,6 +44,14 @@ type EnrichmentCapabilityProvider interface {
 	EnrichmentCapability() string
 }
 
+// ZeroMatchExempt is optionally implemented by enrichers that should not
+// be flagged when they produce zero new matches. This is appropriate for
+// enrichers that reconcile or cross-reference data from other enrichers
+// rather than contributing new field values (e.g., CrossReferenceEnricher).
+type ZeroMatchExempt interface {
+	SkipZeroMatchTracking() bool
+}
+
 // EnrichmentPipeline runs a sequence of enrichers in priority order.
 type EnrichmentPipeline struct {
 	enrichers []Enricher
@@ -128,9 +136,14 @@ func (p *EnrichmentPipeline) Run(items []MediaItem) EnrichmentStats {
 		delta := (afterPlayCount - beforePlayCount) + (afterRequested - beforeRequested) + (afterWatchlist - beforeWatchlist)
 		stats.TotalMatches += delta
 
-		// CrossReferenceEnricher always produces zero new matches (it just reconciles)
-		// so exclude it from zero-match detection
-		if delta == 0 && e.Priority() < 100 {
+		// Enrichers that implement ZeroMatchExempt (e.g., CrossReferenceEnricher)
+		// reconcile data from other enrichers rather than contributing new field
+		// values, so they are excluded from zero-match detection.
+		skipZeroTrack := false
+		if exempt, ok := e.(ZeroMatchExempt); ok {
+			skipZeroTrack = exempt.SkipZeroMatchTracking()
+		}
+		if delta == 0 && !skipZeroTrack {
 			stats.ZeroMatchers = append(stats.ZeroMatchers, e.Name())
 		}
 	}
@@ -190,4 +203,57 @@ func countItemsOnWatchlist(items []MediaItem) int {
 		}
 	}
 	return count
+}
+
+// BuildFullPipeline constructs an EnrichmentPipeline with all enrichers
+// registered: capability-based (Plex, Seerr, Jellyfin, Emby), ID-mapped
+// (Tautulli via TMDb→RatingKey, Jellystat via JellyfinID→TMDbID), and
+// title-matched (Tracearr). This is the single source of truth for
+// enrichment pipeline construction — both the poller and cold-start
+// preview path call this function to avoid logic divergence.
+func BuildFullPipeline(registry *IntegrationRegistry) *EnrichmentPipeline {
+	pipeline := BuildEnrichmentPipeline(registry)
+
+	// Build TMDb→RatingKey map from Plex for Tautulli enrichment.
+	tmdbToRatingKey := make(map[int]string)
+	for id := range registry.Connectors() {
+		if plex, ok := registry.PlexClient(id); ok {
+			plexMap, mapErr := plex.GetTMDbToRatingKeyMap()
+			if mapErr != nil {
+				slog.Warn("Failed to build TMDb→RatingKey map from Plex",
+					"component", "enrichment", "integrationID", id, "error", mapErr)
+				continue
+			}
+			for tmdbID, ratingKey := range plexMap {
+				tmdbToRatingKey[tmdbID] = ratingKey
+			}
+			slog.Debug("Built TMDb→RatingKey map from Plex",
+				"component", "enrichment", "integrationID", id, "mappings", len(plexMap))
+		}
+	}
+	RegisterTautulliEnrichers(pipeline, registry, tmdbToRatingKey)
+
+	// Build Jellyfin Item ID → TMDb ID map for Jellystat enrichment.
+	jellyfinIDToTMDbID := make(map[string]int)
+	for id := range registry.Connectors() {
+		if jf, ok := registry.JellyfinClient(id); ok {
+			jfMap, mapErr := jf.GetItemIDToTMDbIDMap()
+			if mapErr != nil {
+				slog.Warn("Failed to build Jellyfin ID→TMDb ID map",
+					"component", "enrichment", "integrationID", id, "error", mapErr)
+				continue
+			}
+			for itemID, tmdbID := range jfMap {
+				jellyfinIDToTMDbID[itemID] = tmdbID
+			}
+			slog.Debug("Built Jellyfin ID→TMDb ID map",
+				"component", "enrichment", "integrationID", id, "mappings", len(jfMap))
+		}
+	}
+	RegisterJellystatEnrichers(pipeline, registry, jellyfinIDToTMDbID)
+
+	// Register Tracearr enrichers (title-based matching, no ID maps needed).
+	RegisterTracearrEnrichers(pipeline, registry)
+
+	return pipeline
 }

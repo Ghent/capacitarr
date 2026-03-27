@@ -190,6 +190,18 @@ func (b *SSEBroadcaster) replay(client *sseClient, lastEventID string) {
 	b.ringMu.RLock()
 	defer b.ringMu.RUnlock()
 
+	// Check if the client's Last-Event-ID is older than the oldest entry in
+	// the ring buffer. If so, events were lost and the client should perform
+	// a full data refresh. Send a synthetic replay_gap event to signal this.
+	oldestID := b.oldestID()
+	if oldestID > 0 && lastID < oldestID {
+		gapMsg := fmt.Appendf(nil, "event: replay_gap\ndata: {\"oldestAvailable\":%d,\"requested\":%d}\n\n", oldestID, lastID)
+		select {
+		case client.events <- gapMsg:
+		default:
+		}
+	}
+
 	// Iterate the ring buffer in chronological order, starting from the oldest
 	// entry. When the buffer has wrapped, the oldest entry is at ringIdx (the
 	// next slot to be overwritten), so we start there and wrap around.
@@ -205,6 +217,19 @@ func (b *SSEBroadcaster) replay(client *sseClient, lastEventID string) {
 			}
 		}
 	}
+}
+
+// oldestID returns the lowest non-zero event ID in the ring buffer.
+// Must be called with ringMu held (at least read-locked).
+func (b *SSEBroadcaster) oldestID() int64 {
+	var oldest int64
+	for i := 0; i < ringBufferSize; i++ {
+		id := b.ring[i].id
+		if id > 0 && (oldest == 0 || id < oldest) {
+			oldest = id
+		}
+	}
+	return oldest
 }
 
 // ClientCount returns the number of connected SSE clients. Useful for monitoring.

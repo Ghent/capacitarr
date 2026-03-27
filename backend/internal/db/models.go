@@ -298,6 +298,16 @@ type ActivityEvent struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// RollupState persists the last successful rollup timestamp per resolution
+// tier (hourly, daily, weekly). Used by cron jobs to compute rollup windows
+// from the last checkpoint instead of from time.Now(), making rollups
+// idempotent and tolerant of scheduling delays.
+type RollupState struct {
+	ID            uint      `gorm:"primarykey" json:"id"`
+	Resolution    string    `gorm:"uniqueIndex;not null" json:"resolution"` // "hourly", "daily", "weekly"
+	LastCompleted time.Time `gorm:"not null" json:"lastCompleted"`
+}
+
 // MediaCache is a singleton row (id=1) storing a JSON snapshot of the scored
 // preview result. This allows the dashboard and analytics to have data
 // immediately on startup without waiting for the first engine run.

@@ -5,6 +5,7 @@ package events
 import (
 	"log/slog"
 	"sync"
+	"sync/atomic"
 )
 
 // Event is the interface all typed events implement.
@@ -26,6 +27,10 @@ type EventBus struct {
 	mu          sync.RWMutex
 	subscribers map[chan Event]struct{}
 	closed      bool
+
+	// Dropped tracks the total number of events dropped across all subscribers
+	// due to full buffers. Exposed via DroppedCount() for health monitoring.
+	dropped atomic.Int64
 }
 
 // NewEventBus creates a new EventBus ready for use.
@@ -50,6 +55,7 @@ func (b *EventBus) Publish(event Event) {
 		select {
 		case ch <- event:
 		default:
+			b.dropped.Add(1)
 			slog.Warn("Event bus subscriber buffer full, dropping event",
 				"component", "events",
 				"eventType", event.EventType(),
@@ -126,4 +132,11 @@ func (b *EventBus) SubscriberCount() int {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	return len(b.subscribers)
+}
+
+// DroppedCount returns the total number of events dropped across all subscribers
+// since the bus was created. Useful for health monitoring — a non-zero value
+// indicates that at least one subscriber's buffer was full and events were lost.
+func (b *EventBus) DroppedCount() int64 {
+	return b.dropped.Load()
 }

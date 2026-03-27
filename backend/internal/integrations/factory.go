@@ -89,3 +89,33 @@ func RegisterAllFactories() {
 	slog.Debug("All integration factories registered", "component", "factory",
 		"count", len(RegisteredTypes()), "types", fmt.Sprintf("%v", RegisteredTypes()))
 }
+
+// ValidateFactories verifies that every defined IntegrationTypeXxx constant
+// has a registered factory, and vice versa. Called at startup after
+// RegisterAllFactories() to catch missing registrations at boot time rather
+// than at runtime when a user tries to create an integration.
+//
+// The allTypes parameter should be the keys of db.ValidIntegrationTypes.
+// It is passed as a parameter rather than imported directly to avoid a
+// circular import (integrations → db → integrations).
+func ValidateFactories(allTypes []string) error {
+	// Every valid type must have a factory
+	for _, intType := range allTypes {
+		if !HasFactory(intType) {
+			return fmt.Errorf("integration type %q has no registered factory", intType)
+		}
+	}
+
+	// Every registered factory must be in the valid types list
+	validSet := make(map[string]bool, len(allTypes))
+	for _, t := range allTypes {
+		validSet[t] = true
+	}
+	for _, regType := range RegisteredTypes() {
+		if !validSet[regType] {
+			return fmt.Errorf("factory registered for unknown integration type %q", regType)
+		}
+	}
+
+	return nil
+}
