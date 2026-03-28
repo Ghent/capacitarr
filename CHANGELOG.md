@@ -1,9 +1,12 @@
-## [unreleased]
+## [2.3.0] - 2026-03-28
 
 ### 🚀 Features
 
 - Migrate from GitLab to GitHub ([73ea246](https://github.com/Ghent/capacitarr/commit/73ea246a22e83c48a7f7dadc429b73079392b608))
 - Migrate from GitLab to GitHub ([e390302](https://github.com/Ghent/capacitarr/commit/e39030251ed7e903b4ec8ff0be30cc3df3b6ecd4))
+- *(enrichment)* Add media server label enrichment ([2f5e911](https://github.com/Ghent/capacitarr/commit/2f5e911f6ed6d973f20b255ec5a36564d69f8888))
+- *(ui)* Improve poster card readability and visual polish ([3127155](https://github.com/Ghent/capacitarr/commit/3127155c4b255be0d5649a117e19e5968fcbd911))
+- *(ui)* Add announcement banner system and normalize localStorage keys ([e4b6edf](https://github.com/Ghent/capacitarr/commit/e4b6edf1f3c41f14cbef58f69dcd1b375735883e))
 
 ### 🐛 Bug Fixes
 
@@ -18,6 +21,16 @@
 - *(site)* Update remaining GitLab references and fix link rewriting ([7efefdf](https://github.com/Ghent/capacitarr/commit/7efefdfde0e7a8949f241e77868db316972ab9ec))
 - *(site)* Correct Quick Start link path on landing page ([31dc9ae](https://github.com/Ghent/capacitarr/commit/31dc9ae00e84a8b811ed1ad05bfd24e267e33daa))
 - *(site)* Use neutral color for GitHub icon in RepoStats ([b0b6b41](https://github.com/Ghent/capacitarr/commit/b0b6b41837ec4e91e96c219d3a3f0da525223445))
+- *(ci)* Lowercase GHCR repository name in release workflow ([1d4217e](https://github.com/Ghent/capacitarr/commit/1d4217e4b3df9506465ba0266d2a90d3c31b1b77))
+- *(deps)* Resolve node-forge and happy-dom security vulnerabilities ([d47680a](https://github.com/Ghent/capacitarr/commit/d47680aa754e2de812699b69673087f5ae85a263))
+- *(events)* Use structured JSON marshal for SSE, regex-based CSP nonce, sync.Map factory ([8c887fe](https://github.com/Ghent/capacitarr/commit/8c887fe8e24681b03f39a785c0c6f42c3b1ab933))
+- *(ci)* Prevent root-owned node_modules from Docker bind mounts ([5da7878](https://github.com/Ghent/capacitarr/commit/5da78785f403a41fcc87620936261f39727f894b))
+- *(ci)* Pin Gitleaks version to v8.30.1 for Makefile parity ([a20900b](https://github.com/Ghent/capacitarr/commit/a20900b465350fa6d6e89c6941a07874c6b13c89))
+
+### 🛡️ Security
+
+- Remove Dependabot version updates ([743a93d](https://github.com/Ghent/capacitarr/commit/743a93d23a4f1292c3e0aeee546a80db1e54b8d2))
+- *(deps)* Upgrade Node.js 22→24 and remove corepack ([c337fd8](https://github.com/Ghent/capacitarr/commit/c337fd870518fadfc69aaa6e90051f519e6db19f))
 ## [2.2.1] - 2026-03-26
 
 ### 🐛 Bug Fixes
@@ -86,6 +99,43 @@
 - *(frontend)* Add Insights page with three-tab layout (Phase 4) ([dbed697](https://github.com/Ghent/capacitarr/commit/dbed697b5c660445094776cc4545732ba72257dc))
 - *(frontend)* Add Insights nav link and i18n keys ([c64cff2](https://github.com/Ghent/capacitarr/commit/c64cff25b3331d62c8fa51a4282b9dfa31b1ca40))
 - *(migration)* Add 1.x → 2.0 one-way data import (Phase 7) ([cee90b7](https://github.com/Ghent/capacitarr/commit/cee90b709fcf2ef57b9286668c7afeeda976567a))
+- *(ui)* Add CreatableCombobox component with create-on-type ([5d802ce](https://github.com/Ghent/capacitarr/commit/5d802cee1b7847002151ac0a3130847da632a813))
+- *(frontend)* Add virtual scrolling to dashboard activity feed ([da1fb43](https://github.com/Ghent/capacitarr/commit/da1fb433c36b660dfedf1fdf58276172935f7e81))
+- *(events)* Add analytics_updated SSE event on preview cache refresh ([65123a5](https://github.com/Ghent/capacitarr/commit/65123a53cc178dc91a4a0f631827bc3bf97ef506))
+- *(frontend)* Complete Phase 4 frontend restructuring ([615ad0f](https://github.com/Ghent/capacitarr/commit/615ad0fc38d79de6fc07d84ebc441675315e8958))
+- *(frontend)* Wire Phase 6 frontend UI to backend APIs ([38cfa4b](https://github.com/Ghent/capacitarr/commit/38cfa4b05ad562229fefb00ba48b2c4378ed8fe0))
+- *(migration)* Wire Phase 7 migration CLI, API, and frontend ([1c03b82](https://github.com/Ghent/capacitarr/commit/1c03b82e920228c612b748e703b042ecf5b5d9bc))
+- *(dashboard)* Add score column, startup poll, deletion queue SSE, chart upgrades ([a603e76](https://github.com/Ghent/capacitarr/commit/a603e76f48b882671cf704ec6165a6335ab660a7))
+- *(insights)* Redesign insights page with capacity-focused visualizations ([d7f3fe9](https://github.com/Ghent/capacitarr/commit/d7f3fe9378214515fe21a7fea7c010a40aa653e5))
+- *(approval)* Add per-cycle queue reconciliation and threshold-triggered engine runs ([b52b43f](https://github.com/Ghent/capacitarr/commit/b52b43f25a451bcaa2936d376cfd5ed5efafab1b))
+- *(deletion)* Add grace period, snooze, and clear queue (Phase 3) ([a2f6811](https://github.com/Ghent/capacitarr/commit/a2f68119913e57c19eca86ddcd51f8706a78951b))
+- *(ui)* Always-visible deletion queue card with mode-specific empty states ([9ad5f89](https://github.com/Ghent/capacitarr/commit/9ad5f892c6a3822b49f4c9df8197e15ffb2ea728))
+- *(deletion)* Return dry-deleted approval items to pending status ([dce5533](https://github.com/Ghent/capacitarr/commit/dce55335c61ccc883304bc6e04991fc148e5198d))
+- *(rules)* Add combined rule context endpoint and extract field definitions ([6aaeef7](https://github.com/Ghent/capacitarr/commit/6aaeef73877fd3d85d0d70f0a303920c878a1014))
+- *(rules)* Add edit custom rules UI with card state-swap pattern ([71aa48b](https://github.com/Ghent/capacitarr/commit/71aa48b34d3fc95f7089c280226bdfa0f920b66a))
+- *(ui)* V-motion presets, virtual scrolling, disk group sparkline ([8e27ef6](https://github.com/Ghent/capacitarr/commit/8e27ef61129d61359596599d25e2ba5bdc77e5c1))
+- *(ui)* Replace disk group bar+sparkline with gauge arc ([347f391](https://github.com/Ghent/capacitarr/commit/347f39121536a77b1edf81080c1e23e990bd3d83))
+- *(ui)* Add target/threshold pointer markers on gauge arc ([417cca1](https://github.com/Ghent/capacitarr/commit/417cca1a3469eb3aa5cb5affad04d79f93ce9328))
+- *(ui)* Gauge pulse fix, responsive disk group grid ([93f768e](https://github.com/Ghent/capacitarr/commit/93f768e4213bd8b0822b665edef3eb5591281b47))
+- *(integrations)* Add Jellystat integration for Jellyfin analytics ([22efe4a](https://github.com/Ghent/capacitarr/commit/22efe4ad03ac9f987f90fc5c2f29a28852088c91))
+- *(enrichment)* Add enrichment observability and match rate logging ([d02d236](https://github.com/Ghent/capacitarr/commit/d02d236b4fe133f6b844c8d1a2114efd0b4cf416))
+- *(backup)* Rework import modes to merge/sync with per-item sync ([ef5791c](https://github.com/Ghent/capacitarr/commit/ef5791c10537b325b3b75ec95ba38ee130d5a76c))
+- *(backup)* Add full-section import preview with field-level diffs ([9151009](https://github.com/Ghent/capacitarr/commit/9151009ea995fe744eac1491a792181452323418))
+- *(backup)* Add stepper import flow with inline diff view ([9aa097a](https://github.com/Ghent/capacitarr/commit/9aa097a7cc035fdb19ccd3b3bc18a0dbf8f9f496))
+- *(collections)* Add collection deletion data model and Radarr resolver ([7bf240a](https://github.com/Ghent/capacitarr/commit/7bf240abc271dcb3b6d462ff21d8d5c6390ca0f5))
+- *(collections)* Add collection expansion in poller and deletion pipeline ([8e74e3a](https://github.com/Ghent/capacitarr/commit/8e74e3ab2b97c6ed6cccd93979b6d0a6b14ed642))
+- *(collections)* Add collection enrichment from Plex, Jellyfin, and Emby ([41472e6](https://github.com/Ghent/capacitarr/commit/41472e628193a361f6b1c9fbfd2c66d1e12d9b80))
+- *(collections)* Add collection indicators to frontend components ([3dce7f3](https://github.com/Ghent/capacitarr/commit/3dce7f3cdb2741e3fa1eac88ed2b7630a3280c63))
+- *(collections)* Add integration settings toggle for collection deletion ([ebd129d](https://github.com/Ghent/capacitarr/commit/ebd129d8c1b881095591905ab98e1803df90c3bd))
+- *(collections)* Add collection context to notification digest ([d59230a](https://github.com/Ghent/capacitarr/commit/d59230a27da0968427906f40fbabf48a866687ca))
+- *(migration)* Trigger engine run after 1.x → 2.0 migration ([b6e7be3](https://github.com/Ghent/capacitarr/commit/b6e7be358d8a20d729174459e0f88ca966d31333))
+- *(dashboard)* Reorder queue cards — deletion first ([c83ce18](https://github.com/Ghent/capacitarr/commit/c83ce187ddafbd24ceaab1b590ea96dfd7bd153c))
+- Mode-aware sparkline with ghost series, evaluated band, pulse ([4e173d0](https://github.com/Ghent/capacitarr/commit/4e173d04dc5a9c20d18d57406338ff17a01587b7))
+- *(sonarr)* Add show-level-only evaluation toggle ([e2e138c](https://github.com/Ghent/capacitarr/commit/e2e138c3a680b141b6fc677248f246580dc0aac0)) — reported by @tomislavf ([#8](https://github.com/Ghent/capacitarr/issues/8))
+- *(collections)* Multi-source collection deletion with approval grouping ([7dbbbfc](https://github.com/Ghent/capacitarr/commit/7dbbbfc144e4cdbb38ac195540ba3e318a765fc7))
+- *(integrations)* Add Tracearr integration support ([13088bc](https://github.com/Ghent/capacitarr/commit/13088bcdf4d79709b85569adcb1536fd179c1226)) — reported by @tomislavf ([#10](https://github.com/Ghent/capacitarr/issues/10))
+- Migrate from GitLab to GitHub ([0e11ecb](https://github.com/Ghent/capacitarr/commit/0e11ecb70a4dead7019f349204e09e6736e197d6))
+- Migrate from GitLab to GitHub ([9fc924b](https://github.com/Ghent/capacitarr/commit/9fc924be7f817854e834c30f0b3ca3e1893c5a4a))
 - *(ui)* Add CreatableCombobox component with create-on-type ([1b78b18](https://github.com/Ghent/capacitarr/commit/1b78b187b21e2b4d554666b1e0cc0148e3cf1d13))
 - *(frontend)* Add virtual scrolling to dashboard activity feed ([c169605](https://github.com/Ghent/capacitarr/commit/c169605108633b6d21eb2593a8bc1b1f49714fcf))
 - *(events)* Add analytics_updated SSE event on preview cache refresh ([a2dd0cf](https://github.com/Ghent/capacitarr/commit/a2dd0cfb6e98b742f8e0b2efc7ff1c76027937d7))
@@ -121,6 +171,74 @@
 
 ### 🐛 Bug Fixes
 
+- *(frontend)* Complete overseerr to seerr rename in frontend ([5ae3e16](https://github.com/Ghent/capacitarr/commit/5ae3e16b2c160b2d7ce2e3de41395fcfae6b6a3e))
+- *(migration)* Redesign 1.x → 2.0 migration workflow ([e5249cb](https://github.com/Ghent/capacitarr/commit/e5249cb2cc012014bc27657c9d6b8e0c21ed8409))
+- *(insights)* Resolve chart color parsing and remove unusable charts ([5a1dca4](https://github.com/Ghent/capacitarr/commit/5a1dca418aa38608fa94b127b9fcc944d9c94b95))
+- *(preview)* Persist media cache to database for restart recovery ([91531a4](https://github.com/Ghent/capacitarr/commit/91531a47f53eb7fee42a3c54ac4c95aaa5bbddb7))
+- *(poller)* Fix approval queue population and ClearQueue cross-contamination ([6ba18d9](https://github.com/Ghent/capacitarr/commit/6ba18d912fe7ae22f93a9b9d403c755e2cb85712))
+- *(poller)* Use EventBus for run triggers and reset timer on settings change ([9322636](https://github.com/Ghent/capacitarr/commit/932263640b735bfbbf8333ac78d114dd24d7302a))
+- *(db)* Merge media_cache migration into v2 baseline ([4d572b0](https://github.com/Ghent/capacitarr/commit/4d572b0f719dc36a68f0cd91e3ddecf7ceabf1cd))
+- *(rules)* Extract shared validation and fix Update() missing validation ([fc7446f](https://github.com/Ghent/capacitarr/commit/fc7446fd638028b7d5a3b1708610492e73cec16d))
+- Resolve goconst and prettier lint issues ([5ac40e6](https://github.com/Ghent/capacitarr/commit/5ac40e68f80d745a3ef9d6df42d21e24ebdcc5a6))
+- *(rules)* Remove global rules concept and add radio group component ([21da2a1](https://github.com/Ghent/capacitarr/commit/21da2a133018723d6ec3ae6422b183ab4171041b))
+- *(integrations)* Fix error display, add enable toggle, remove unfinished features ([a217649](https://github.com/Ghent/capacitarr/commit/a21764916db8d6ac9157cb94140427c6b2c90f61))
+- *(ui)* Adaptive sparkline y-axis, label collision, date range sync ([84c2222](https://github.com/Ghent/capacitarr/commit/84c2222fb71187092589384b503672c1a8c9596f))
+- *(ui)* Register GaugeChart in ECharts plugin ([e3a70b7](https://github.com/Ghent/capacitarr/commit/e3a70b78c3a3286a3575854a08a77171dd530f71))
+- *(ui)* Replace speedometer pointers with small triangle carets ([b9bd4f8](https://github.com/Ghent/capacitarr/commit/b9bd4f825ca0c53b99ce882f2fa84cc5ca9492ae))
+- *(ui)* Replace speedometer pointers with subtle arc nubs ([46fe3e5](https://github.com/Ghent/capacitarr/commit/46fe3e508294d2b1b7baecac2c819b84e4f162dd))
+- *(ui)* Space threshold markers on inner/outer edges of gauge arc ([f7b7f25](https://github.com/Ghent/capacitarr/commit/f7b7f25142308d8c2f038d373544dade6169caba))
+- *(ui)* Push outer threshold triangle further from arc edge ([bfb2a84](https://github.com/Ghent/capacitarr/commit/bfb2a84f0a1a8cd139936396b46c0a35eaaed338))
+- *(ui)* Remove threshold triangle markers from gauge ([88dac02](https://github.com/Ghent/capacitarr/commit/88dac0248713333d7df045d7f74c2b843e3b0e37))
+- *(ui)* Use rgba for gauge pulse animation instead of oklch var ([a539863](https://github.com/Ghent/capacitarr/commit/a53986386e4ead4a82050814fbd2a82d11939a21))
+- *(enrichment)* Aggregate watch data across all Jellyfin/Emby users and match by TMDb ID ([4baecbc](https://github.com/Ghent/capacitarr/commit/4baecbcf6efdf6789b7b86c178145433fb562765)) — reported by @Thundernerd ([#3](https://github.com/Ghent/capacitarr/issues/3))
+- *(enrichment)* Wire Tautulli enricher via TMDb→RatingKey map ([72ba1bf](https://github.com/Ghent/capacitarr/commit/72ba1bfc9760152a877da3eace7f939ec7cadc9e))
+- *(db)* Add missing TableName() for MediaCache singleton ([a2eb2e4](https://github.com/Ghent/capacitarr/commit/a2eb2e4ebd1bcd6b2bb0b3e57afc304a891f7d75))
+- *(rules)* Fix CreatableCombobox dropdown in edit mode ([d77e8be](https://github.com/Ghent/capacitarr/commit/d77e8be964332cf4e219c4829004f880d59f54f8))
+- *(rules)* Preserve enabled state when editing a rule ([9f95829](https://github.com/Ghent/capacitarr/commit/9f95829406e9b2fc2f542b284be4caad4ca01554))
+- *(engine)* Show run completion time instead of start time ([dcdf120](https://github.com/Ghent/capacitarr/commit/dcdf1204ff8d441bf4b4bf3ab98eefd5872409c6))
+- *(integrations)* Resolve poster URLs against *arr base URL ([d4b6582](https://github.com/Ghent/capacitarr/commit/d4b6582938bb761b7a46c4930b549a79f84b03ae))
+- *(approval)* Await engineFetchStats before fetching approval queue ([023fbce](https://github.com/Ghent/capacitarr/commit/023fbceb5f23f30baf13fe0a157f072b2e76c898))
+- *(enrichment)* Aggregate episode watch data into parent series for Jellyfin and Emby ([52a469a](https://github.com/Ghent/capacitarr/commit/52a469a45fb40422415ec33e5adc414248db9464)) — reported by @Thundernerd ([#4](https://github.com/Ghent/capacitarr/issues/4))
+- *(migration)* Persist 1.x scoring weights to scoring_factor_weights table ([80770d1](https://github.com/Ghent/capacitarr/commit/80770d1e0d82e197d508fee93669b848b21546b4))
+- *(ci)* Resolve noctx lint violations and Makefile CI parity ([733cbdf](https://github.com/Ghent/capacitarr/commit/733cbdfe8db280a4bb6c25385366907aaf5dd19f))
+- *(site)* Correct broken dashboard image reference ([8a0c5ab](https://github.com/Ghent/capacitarr/commit/8a0c5ab24470469aae377e73a1794d57dae22470))
+- *(ui)* Use invisible pseudo-element for switch touch targets ([9d3eb3e](https://github.com/Ghent/capacitarr/commit/9d3eb3e318a225ac28ebdbe3e93dbfa0d270ead0))
+- *(frontend)* Resolve browser console errors and warnings ([2b07205](https://github.com/Ghent/capacitarr/commit/2b0720551c8bd576728fbf13548069f12032aed2))
+- *(migration)* Overhaul 1.x→2.0 migration safety and correctness ([ea1be22](https://github.com/Ghent/capacitarr/commit/ea1be226508538892e48d34749e1e9de8fd1ce41))
+- *(dashboard)* Move axisPointer cross config to tooltip ([d04a85f](https://github.com/Ghent/capacitarr/commit/d04a85f227a50287d978b7426e6c12567c571b5f))
+- Add post-migration schema fixup for existing databases ([569d7e7](https://github.com/Ghent/capacitarr/commit/569d7e7485e59616f2a75327d3a2424ac22f8475))
+- *(dashboard)* Replace auto-refresh timer with SSE-driven updates ([f983140](https://github.com/Ghent/capacitarr/commit/f9831408bf150f0dd33b8a20ba87a7c38afc124c))
+- *(notifications)* Add dry-run digest subscription gate ([0348ba1](https://github.com/Ghent/capacitarr/commit/0348ba1513c47a185b53b41b6a5c581f2ec40b4f))
+- *(db)* Resolve SQLite 'database is locked' errors with WAL mode ([293ff6d](https://github.com/Ghent/capacitarr/commit/293ff6d2e1f7f58127aca005ef6d33b30692d316))
+- *(ci)* Use correct trivy image from ghcr.io ([343f618](https://github.com/Ghent/capacitarr/commit/343f618d891b738457dfac474e816c0ce66a6761))
+- *(deletion)* Clear queue on execution mode change ([ddb3575](https://github.com/Ghent/capacitarr/commit/ddb357599f3cb3cfa04649f47f8bbf994d0055a3))
+- *(engine)* Exclude inapplicable scoring factors from evaluation ([9f8e677](https://github.com/Ghent/capacitarr/commit/9f8e67730dbe5728931d4d5b17adafaa6b7e3503)) — reported by @tomislavf ([#6](https://github.com/Ghent/capacitarr/issues/6)) ([#7](https://github.com/Ghent/capacitarr/issues/7))
+- *(jellystat)* Use x-api-token header instead of Authorization Bearer ([dc4466e](https://github.com/Ghent/capacitarr/commit/dc4466eefa481b83b7653522e96ac8497fc3999f)) — reported by @tomislavf ([#5](https://github.com/Ghent/capacitarr/issues/5))
+- *(library)* Make Shows filter display seasons grouped by show ([d693205](https://github.com/Ghent/capacitarr/commit/d693205b7b1a55e0c58f103f549d9d9fee0c723f)) — reported by @tomislavf ([#9](https://github.com/Ghent/capacitarr/issues/9))
+- *(library)* Improve shows/seasons UX across library management ([2481a30](https://github.com/Ghent/capacitarr/commit/2481a308e89c8b12bed3960d927952465afbd8c9)) — reported by @tomislavf ([#9](https://github.com/Ghent/capacitarr/issues/9))
+- *(ui)* Misc UI fixes — filters, selection, score colors, deletion priority ([f7ee6ca](https://github.com/Ghent/capacitarr/commit/f7ee6caa4c3252c072132f9448b0283ce079af9f)) — reported by @tomislavf ([#9](https://github.com/Ghent/capacitarr/issues/9))
+- *(ui)* Resolve poster dimming in deletion priority grid view ([b1c4c5b](https://github.com/Ghent/capacitarr/commit/b1c4c5b8d7cc075fb14bafa8d9c24fd79fa609e6)) — reported by @tomislavf ([#10](https://github.com/Ghent/capacitarr/issues/10))
+- *(library)* Filter media type buttons by configured integrations ([63a306b](https://github.com/Ghent/capacitarr/commit/63a306bbbccace10d618090462aedef10edf4248)) — reported by @tomislavf ([#9](https://github.com/Ghent/capacitarr/issues/9))
+- *(engine)* Exclude scoring factors when integrations are broken ([e73b3f4](https://github.com/Ghent/capacitarr/commit/e73b3f4ec4810ab297d01486ef284412ec0f244a))
+- *(engine)* Only count enricher errors toward capability failure ([41f96b0](https://github.com/Ghent/capacitarr/commit/41f96b0644c4cc861ceb74746f191588ce20383a))
+- *(engine)* Remove Layer 2 from RequestPopularityFactor ([40554e6](https://github.com/Ghent/capacitarr/commit/40554e67c8493a7e2f898a7278b25e8057f89d8d))
+- *(seerr)* Fix connection test and request count aggregation ([d8fde58](https://github.com/Ghent/capacitarr/commit/d8fde58477594aca53eb8c73aefe364b8bcc0a2d))
+- *(integrations)* Add collection autocomplete for Jellyfin and Emby ([51293e4](https://github.com/Ghent/capacitarr/commit/51293e42a347fb88b5a5cc4dbd3942738946725e)) — reported by @tomislavf
+- *(tracearr)* Use correct Public API endpoints verified from source ([b6fe029](https://github.com/Ghent/capacitarr/commit/b6fe029fa631e6aefa43c368e84efc556818cf15)) — reported by @tomislavf
+- *(changelog)* Reclassify feat(docs) commits as docs in git-cliff ([93f5017](https://github.com/Ghent/capacitarr/commit/93f5017795cb5713846c88bd425c73e56d6e4ba2))
+- *(integrations)* Use correct v-model binding for modal switches ([e19149a](https://github.com/Ghent/capacitarr/commit/e19149aca2e6d7cc868f34cb3884f9fae3a5a5fe)) — reported by @tomislavf ([#8](https://github.com/Ghent/capacitarr/issues/8))
+- *(lint)* Remove invalid golangci-lint v2 config fields ([9d7cf60](https://github.com/Ghent/capacitarr/commit/9d7cf6071ba3273bc5f0eebd5e2b6cce29c390b9))
+- *(lint)* Add config verify to all golangci-lint Makefile targets ([1ee653f](https://github.com/Ghent/capacitarr/commit/1ee653f9cb82341f879cbeb12da70f53caf86bac))
+- *(ci)* Use correct trivy-action version tag ([66bfb7b](https://github.com/Ghent/capacitarr/commit/66bfb7bb4ee0ac55fa38351f33235b1d5fb474aa))
+- *(site)* Handle pnpm install in Cloudflare build environment ([3eec191](https://github.com/Ghent/capacitarr/commit/3eec1917d75f91bc8d59a44c61845528903195fc))
+- *(site)* Fix pnpm detection in Cloudflare build ([f40c0af](https://github.com/Ghent/capacitarr/commit/f40c0af935d851765c7a1155fa01ebe7982b3f5a))
+- *(site)* Use Cloudflare's built-in pnpm instead of corepack ([22792dd](https://github.com/Ghent/capacitarr/commit/22792dd47b06853ce613e68ffcff9e9583a087e0))
+- *(site)* Self-install pnpm when not available in build env ([ae25d56](https://github.com/Ghent/capacitarr/commit/ae25d56b4d700d32c58c1d1f7ffbf303c60f60ad))
+- *(site)* Simplify build script — install pnpm unconditionally ([4bb3eba](https://github.com/Ghent/capacitarr/commit/4bb3eba7cd2a7d18f933fa494a6030da7a3f3522))
+- *(site)* Update remaining GitLab references and fix link rewriting ([4ed55ef](https://github.com/Ghent/capacitarr/commit/4ed55efed7d64dc05d357d73bf006d8ed924b400))
+- *(site)* Correct Quick Start link path on landing page ([89bca13](https://github.com/Ghent/capacitarr/commit/89bca133f7e9e0a961cf79491957ed702776b0ab))
+- *(site)* Use neutral color for GitHub icon in RepoStats ([20fde09](https://github.com/Ghent/capacitarr/commit/20fde09a75599613fc06e22b646606ffde3fa64c))
+- *(site)* Remove npm install -g pnpm from site build script ([20733f1](https://github.com/Ghent/capacitarr/commit/20733f1e203bc8856b0365f3fc2475098516c1f8))
 - *(frontend)* Complete overseerr to seerr rename in frontend ([2e10f85](https://github.com/Ghent/capacitarr/commit/2e10f8562c91fb901e44d8a0a0e474cd20d68d3d))
 - *(migration)* Redesign 1.x → 2.0 migration workflow ([43c3a1e](https://github.com/Ghent/capacitarr/commit/43c3a1e4b1d61aa7e0bb5ec0ed26bef4e5a685ba))
 - *(insights)* Resolve chart color parsing and remove unusable charts ([729a7e8](https://github.com/Ghent/capacitarr/commit/729a7e82cde2b121eb0c8171abd18f6cea793503))
@@ -164,6 +282,11 @@
 
 ### 🛡️ Security
 
+- *(phase-8)* Complete Phase 8 polish, testing & documentation ([a7f68fa](https://github.com/Ghent/capacitarr/commit/a7f68fa62b52cd1dfe636c6ce83bb480f171c126))
+- *(security)* Add pre-release OWASP ZAP baseline for v2.0.0 ([2adadcf](https://github.com/Ghent/capacitarr/commit/2adadcf78082ba1e086ba5e8b738904cbce08e47))
+- *(deps)* Pin all Docker images and eliminate curl-pipe-to-shell ([4775b59](https://github.com/Ghent/capacitarr/commit/4775b599c1581607f4fc306829458380b11aedb0))
+- Comprehensive codebase audit ([8ad40b2](https://github.com/Ghent/capacitarr/commit/8ad40b215f54a46e11c567268c63e3a1445d98bc))
+- Full codebase audit — security, docs, and code quality ([b6eadc1](https://github.com/Ghent/capacitarr/commit/b6eadc19bc77d485e533a61959f66efdbb94ae3e))
 - *(phase-8)* Complete Phase 8 polish, testing & documentation ([2bbce07](https://github.com/Ghent/capacitarr/commit/2bbce07a775050ddb3211d08957e785115a4123c))
 - *(security)* Add pre-release OWASP ZAP baseline for v2.0.0 ([14a28fc](https://github.com/Ghent/capacitarr/commit/14a28fc36416916f54df3f16b4bf63f3c5dad1ba))
 
@@ -244,7 +367,7 @@
 - *(ui)* Move integration error banner below page titles ([a415390](https://github.com/Ghent/capacitarr/commit/a415390152a1667a5855bf60e5bfa1fa13691cb4))
 - *(poller)* Clean orphan disk groups when all integrations fail ([f4c134b](https://github.com/Ghent/capacitarr/commit/f4c134b2eebe00c20a845478ae6906a3e27f6069))
 - *(integrations)* Clear stale error on update, refresh banner via SSE ([b746345](https://github.com/Ghent/capacitarr/commit/b746345afaf5d57afe0618a41747c1cadb94205c))
-## [1.5.3-rc.3] - 2026-03-15
+## [1.5.3] - 2026-03-15
 
 ### 🐛 Bug Fixes
 
@@ -350,141 +473,6 @@
 
 ### 🚀 Features
 
-- *(notifications)* Make in-app notifications always-on ([735c234](https://github.com/Ghent/capacitarr/commit/735c2349c40e1ad7948b16744d803fa1059ca795))
-- Add features and polish (Phase 3) ([5705d53](https://github.com/Ghent/capacitarr/commit/5705d53b9fbfcd78a66b358bbaefb7e823066862))
-- Complete 1.0.0 pre-release cleanup (phases 2-5) ([08ed33f](https://github.com/Ghent/capacitarr/commit/08ed33f6d2f4ffab6d6eadf38e5537e4b87bbfc9))
-- Complete all remaining plan steps ([6b9907a](https://github.com/Ghent/capacitarr/commit/6b9907a309b23ecab3bd223c49ad22e6162f601a))
-
-### 🛡️ Security
-
-- 1.0.0 pre-release cleanup ([14cae5d](https://github.com/Ghent/capacitarr/commit/14cae5d162d19848332a695057f0676ee182d7f0))
-## [1.0.0-rc.12] - 2026-03-07
-
-### 🐛 Bug Fixes
-
-- *(notifications)* Gate approval-mode cycle digest by OnApprovalActivity ([53434a9](https://github.com/Ghent/capacitarr/commit/53434a932f0851b0ade8aca9e74ad795c8cc4137))
-## [1.0.0-rc.11] - 2026-03-07
-
-### 🚀 Features
-
-- *(notifications)* Add event system foundation for notification overhaul ([9a8e319](https://github.com/Ghent/capacitarr/commit/9a8e319faee65604768f0bfd5854555dd7445c86))
-- *(notifications)* Implement notification overhaul (Phase 1.6-7) ([a50a8e6](https://github.com/Ghent/capacitarr/commit/a50a8e644c4ab2a74f047b7ca33038b2e1c06825))
-- *(notifications)* Add approval activity toggle and toggle descriptions ([a5e7cf6](https://github.com/Ghent/capacitarr/commit/a5e7cf61db65d3f1b6907e3ab6c3ade6bf3d216b))
-
-### 🐛 Bug Fixes
-
-- *(frontend)* Remove @click.prevent on MediaPosterCard component emits ([a6aafb4](https://github.com/Ghent/capacitarr/commit/a6aafb4925d89c84784684dc1ad9c7ebcdf304d8))
-- *(notifications)* Persist OnApprovalActivity toggle and report freed bytes in approval mode ([94a4121](https://github.com/Ghent/capacitarr/commit/94a412124627e2174f266dd271f2d3ca4f8f1347))
-
-### 🛡️ Security
-
-- *(plans)* Mark service layer remediation plan as complete (Phases 7-10) ([b4a3d9d](https://github.com/Ghent/capacitarr/commit/b4a3d9d8250e34a6ebf850b82facb951dbbe9854))
-## [1.0.0-rc.9] - 2026-03-07
-
-### 🚀 Features
-
-- *(ui)* Add NumberField and Combobox shadcn-vue components ([805d893](https://github.com/Ghent/capacitarr/commit/805d893b4fca2e62520f27fa1d4e1088c4f877be))
-- *(rules)* Add custom rules import/export ([b3e8a35](https://github.com/Ghent/capacitarr/commit/b3e8a352cdb104f8a0cb3f2c4b681fe5e99c3393))
-
-### 🐛 Bug Fixes
-
-- *(ui)* Use zone colors on threshold slider instead of primary gradient ([50be5e4](https://github.com/Ghent/capacitarr/commit/50be5e45b3177b71baf697e7c9acbaa46090307c))
-- *(ui)* Raise slider thumb z-index above zone color overlays ([36c8f94](https://github.com/Ghent/capacitarr/commit/36c8f9470f8692f72fd399c00cc0cddc73016076))
-- *(ui)* Correct target thumb selector and enlarge threshold thumbs ([1669982](https://github.com/Ghent/capacitarr/commit/1669982560648c0fe6a6070d6e386e74acda313e))
-- *(security)* Upgrade Go 1.25 → 1.26 to resolve 4 stdlib vulnerabilities ([3ab190c](https://github.com/Ghent/capacitarr/commit/3ab190c990632a1214a205c0271fd57419af2a07))
-
-### ⚡ Performance
-
-- *(ci)* Add Docker volume caching for Go and Node dependencies ([7709e63](https://github.com/Ghent/capacitarr/commit/7709e6328cb285c7d57e336ba214ec19e081f1cb))
-
-### 🛡️ Security
-
-- Add make ci gate to release script ([1ad7882](https://github.com/Ghent/capacitarr/commit/1ad7882ceb9ba968d2a19618bbca1289752692bd))
-## [1.0.0-rc.8] - 2026-03-06
-
-### 🐛 Bug Fixes
-
-- *(lint)* Use NewRequestWithContext in test files ([277f558](https://github.com/Ghent/capacitarr/commit/277f55809d606350501ca672f75b412f16699b1f))
-## [1.0.0-rc.7] - 2026-03-06
-
-### 🚀 Features
-
-- Add poster URL plumbing for grid view (Phase 1) ([5f01060](https://github.com/Ghent/capacitarr/commit/5f01060c4e8099eaef832cea82d6d21e5cc317f9))
-- *(frontend)* Add grid/list view toggle with poster cards (Phase 2) ([72eedd8](https://github.com/Ghent/capacitarr/commit/72eedd8f4fc98273070cdfe954b7e199fa4ff4d9))
-- *(frontend)* Add selection checkboxes and season badges to grid cards (Phase 3) ([7fbcd58](https://github.com/Ghent/capacitarr/commit/7fbcd585e244c2d7ffb16a80256612164fdd11cb))
-- *(frontend)* Add season popover for show cards in grid view (Phase 3) ([dcc2e9d](https://github.com/Ghent/capacitarr/commit/dcc2e9db993ce4ddd896f7da16f605bd9d7221b3))
-- *(frontend)* Add deletion line divider and season popovers to preview grid ([50ecccb](https://github.com/Ghent/capacitarr/commit/50ecccbe18c43661b140645145eeae68c0b48a65))
-- *(enrichment)* Add Plex as watch history enrichment source ([31c44b4](https://github.com/Ghent/capacitarr/commit/31c44b41dcd40324ccbc4f03c064ef1de1dad8cf))
-- *(version)* Add Check Now button to update popup ([bf72c7a](https://github.com/Ghent/capacitarr/commit/bf72c7a4da4981ec0353d0c57f786139daa5d443))
-
-### 🐛 Bug Fixes
-
-- *(frontend)* Reposition card overlays to avoid title overlap ([605a817](https://github.com/Ghent/capacitarr/commit/605a81708c5530297d5a1a8fb243ca17ff886c34))
-- *(frontend)* Snoozed grid unsnooze actions and preview infinite scroll ([2fa8bf2](https://github.com/Ghent/capacitarr/commit/2fa8bf256fe52ecb114cabb4fbe652936e1d86b0))
-## [1.0.0-rc.6] - 2026-03-06
-
-### 🚀 Features
-
-- *(events)* Add event bus infrastructure and 34 typed event structs ([b284237](https://github.com/Ghent/capacitarr/commit/b28423748cf693e61dd910a5aa7d8a54ecce9fa7))
-- *(events)* Add activity persister subscriber ([f830168](https://github.com/Ghent/capacitarr/commit/f830168471e17fc74d4cf5acbbc5131e5516a039))
-- *(services)* Add core service layer — ApprovalService, DeletionService, AuditLogService, EngineService ([101082f](https://github.com/Ghent/capacitarr/commit/101082f62dc5d317c8789923408890b71c87c4c0))
-- *(services)* Add secondary services and registry ([6b91961](https://github.com/Ghent/capacitarr/commit/6b9196140eab1e54c0906ea506010aa25cb0e641))
-- *(events)* Add SSE broadcaster for real-time event streaming ([8905f0e](https://github.com/Ghent/capacitarr/commit/8905f0efc873b8e38f6de0b418cdfcac42a24fd9))
-- Add frontend SSE composable, activity pruning to 7-day retention ([86002a9](https://github.com/Ghent/capacitarr/commit/86002a9f2586a1f7ef659a9e033f7418a787125c))
-- *(notifications)* Add event bus subscriber for notification dispatch ([d1a9cc5](https://github.com/Ghent/capacitarr/commit/d1a9cc5552ab19d06d057e791b7ded8ebfd15074))
-- *(frontend)* Update types and API endpoints for new schema ([d00c7ad](https://github.com/Ghent/capacitarr/commit/d00c7adee79acf2ff6d2105772cf7a2a2e863eea))
-- *(frontend)* Add icon/color mapping for all 34 event types ([1e35936](https://github.com/Ghent/capacitarr/commit/1e35936a42be06ee24850d5501e6f644db5bfc0a))
-- *(approval)* Add section jump navigation to approval queue ([197d716](https://github.com/Ghent/capacitarr/commit/197d716abbf90f16c44ebcfc6fc02aeb08d3e676))
-
-### 🐛 Bug Fixes
-
-- *(events)* Fix deadlock in concurrency stress test ([00b50c1](https://github.com/Ghent/capacitarr/commit/00b50c18253464657b00f57800a35ebe4687db97))
-
-### Refactor
-
-- *(db)* [**breaking**] Replace 18 incremental migrations with single clean baseline ([fafa409](https://github.com/Ghent/capacitarr/commit/fafa4094bc073f6b8b36ede7dba8ff83485dcdf8))
-## [1.0.0-rc.5] - 2026-03-05
-
-### 🚀 Features
-
-- *(navbar)* Always-visible update icon with breathing animation ([b0c0980](https://github.com/Ghent/capacitarr/commit/b0c0980d5794371688fd531fb708724c017a02ad))
-
-### 🐛 Bug Fixes
-
-- *(test)* Resolve flaky test failures in routes package ([14d3e08](https://github.com/Ghent/capacitarr/commit/14d3e0827a3fcec725f5eeb9794bd03471bf3c92))
-- *(dashboard)* Shrink activity scroll area to match sparkline height ([65ebcfa](https://github.com/Ghent/capacitarr/commit/65ebcfa388900ba9ba83093717d59e3c36135e64))
-- *(dashboard)* Constrain activity scroll area height properly ([18f6579](https://github.com/Ghent/capacitarr/commit/18f6579cc0f92fdb530f8d9428a82a1075d11088))
-- *(plex)* Use getRandomValues for UUID in non-secure contexts ([d281d5a](https://github.com/Ghent/capacitarr/commit/d281d5a74e4a0d69a88f49a0ca18b889cf8be47e)) — reported by @wulfe ([#1](https://github.com/Ghent/capacitarr/issues/1))
-## [1.0.0-rc.4] - 2026-03-05
-
-### 🚀 Features
-
-- *(version)* Add update check endpoint with 6h cache ([2adf50c](https://github.com/Ghent/capacitarr/commit/2adf50ce762dfabf7ed34df3411273276746d09e))
-- *(navbar)* Add update check indicator and Serenity slogan ([01fc236](https://github.com/Ghent/capacitarr/commit/01fc236651e4a48f705d371748efd245810303f0))
-- *(engine)* Track deleted count per run with run-stats-ID approach ([a00b42e](https://github.com/Ghent/capacitarr/commit/a00b42efa1dea383214014dd6c94274bb19d1efe))
-- *(engine)* Add history endpoint, remove audit/activity ([7b6f708](https://github.com/Ghent/capacitarr/commit/7b6f7080e372ce56b96760ab7739768180d1aa4e))
-- *(dashboard)* Consolidate sparklines onto engine history data ([ba92422](https://github.com/Ghent/capacitarr/commit/ba92422611115ccd44930f05f5c73f216ed418df))
-- *(approval)* Block approvals when deletions disabled, add orphan recovery ([cf9a3e5](https://github.com/Ghent/capacitarr/commit/cf9a3e56f402d065e935bbf0be9ad092d24a64b7))
-
-### 🐛 Bug Fixes
-
-- *(deps)* Override svgo and tar to resolve pnpm audit vulnerabilities ([7c20356](https://github.com/Ghent/capacitarr/commit/7c203561e6e09b3a48f64aecea900214d62f6d70))
-- *(data)* Preserve disk group thresholds during data reset ([ea7f73b](https://github.com/Ghent/capacitarr/commit/ea7f73be287642ec5d76e8fee371b7a7f843e8af))
-- *(frontend)* Replace bare catch blocks with console.warn logging ([b653de0](https://github.com/Ghent/capacitarr/commit/b653de0a30c4a93a5a0b14bf325f4f30fe80757c))
-- Use Find+Limit instead of First for optional queries ([0c51f8b](https://github.com/Ghent/capacitarr/commit/0c51f8b2ef1cc8d41da0cf93a9ce448f881eea31))
-- *(dashboard)* Use dateRange dropdown for sparkline labels and improve color contrast ([9c03735](https://github.com/Ghent/capacitarr/commit/9c037353fbc14c97858c8c39f0821a9034df8102))
-- *(navbar)* Inline Serenity SVG so currentColor inherits text color ([837c651](https://github.com/Ghent/capacitarr/commit/837c651ad2a53103ef561443e005d633382a5eb4))
-- *(dashboard)* Display sparkline timestamps in browser local timezone ([43edd0d](https://github.com/Ghent/capacitarr/commit/43edd0d10d27c4ece21cf5277f07af6c62eca528))
-- Sparkline accuracy, tooltips, and visual quality ([e48d60c](https://github.com/Ghent/capacitarr/commit/e48d60c38cfe36e9de64cf9ba1322e2fbc4270c2))
-## [1.0.0-rc.3] - 2026-03-05
-
-### 🐛 Bug Fixes
-
-- Resolve golangci-lint issues and align local linting with CI ([975bf6d](https://github.com/Ghent/capacitarr/commit/975bf6d6d076e32eac5e770fdc601a897b8b3b7f))
-## [1.0.0-rc.2] - 2026-03-05
-
-### 🚀 Features
-
 - *(ui)* Truncate API keys and reposition effect badge ([23a98e4](https://github.com/Ghent/capacitarr/commit/23a98e43b744a8f13af808e776edc9098d8a427d))
 - *(auth)* Add auth status endpoint and first-login setup UX ([ec7f68a](https://github.com/Ghent/capacitarr/commit/ec7f68a112285af7e5a0724bd034f85ee2660edd))
 - *(ui)* Add DateDisplay component with date toggle and settings control ([c69af7e](https://github.com/Ghent/capacitarr/commit/c69af7eb1fa3ece45969e1d302e4ac3a7b703809))
@@ -498,9 +486,44 @@
 - *(approval)* Add approve/snooze buttons to individual season rows ([e045bc8](https://github.com/Ghent/capacitarr/commit/e045bc81b3bc1bf8273b0b32fa31dae4eb600e52))
 - *(engine)* Prefer season-level audit entries over show-level for granular approval ([148268c](https://github.com/Ghent/capacitarr/commit/148268c3bb0757b209b823339adbfac047315d52))
 - *(site)* Add GitLab repo stats widget to header ([df19889](https://github.com/Ghent/capacitarr/commit/df19889d90bc379a0871d8549ad34c0b9479d3d1))
+- *(version)* Add update check endpoint with 6h cache ([2adf50c](https://github.com/Ghent/capacitarr/commit/2adf50ce762dfabf7ed34df3411273276746d09e))
+- *(navbar)* Add update check indicator and Serenity slogan ([01fc236](https://github.com/Ghent/capacitarr/commit/01fc236651e4a48f705d371748efd245810303f0))
+- *(engine)* Track deleted count per run with run-stats-ID approach ([a00b42e](https://github.com/Ghent/capacitarr/commit/a00b42efa1dea383214014dd6c94274bb19d1efe))
+- *(engine)* Add history endpoint, remove audit/activity ([7b6f708](https://github.com/Ghent/capacitarr/commit/7b6f7080e372ce56b96760ab7739768180d1aa4e))
+- *(dashboard)* Consolidate sparklines onto engine history data ([ba92422](https://github.com/Ghent/capacitarr/commit/ba92422611115ccd44930f05f5c73f216ed418df))
+- *(approval)* Block approvals when deletions disabled, add orphan recovery ([cf9a3e5](https://github.com/Ghent/capacitarr/commit/cf9a3e56f402d065e935bbf0be9ad092d24a64b7))
+- *(navbar)* Always-visible update icon with breathing animation ([b0c0980](https://github.com/Ghent/capacitarr/commit/b0c0980d5794371688fd531fb708724c017a02ad))
+- *(events)* Add event bus infrastructure and 34 typed event structs ([b284237](https://github.com/Ghent/capacitarr/commit/b28423748cf693e61dd910a5aa7d8a54ecce9fa7))
+- *(events)* Add activity persister subscriber ([f830168](https://github.com/Ghent/capacitarr/commit/f830168471e17fc74d4cf5acbbc5131e5516a039))
+- *(services)* Add core service layer — ApprovalService, DeletionService, AuditLogService, EngineService ([101082f](https://github.com/Ghent/capacitarr/commit/101082f62dc5d317c8789923408890b71c87c4c0))
+- *(services)* Add secondary services and registry ([6b91961](https://github.com/Ghent/capacitarr/commit/6b9196140eab1e54c0906ea506010aa25cb0e641))
+- *(events)* Add SSE broadcaster for real-time event streaming ([8905f0e](https://github.com/Ghent/capacitarr/commit/8905f0efc873b8e38f6de0b418cdfcac42a24fd9))
+- Add frontend SSE composable, activity pruning to 7-day retention ([86002a9](https://github.com/Ghent/capacitarr/commit/86002a9f2586a1f7ef659a9e033f7418a787125c))
+- *(notifications)* Add event bus subscriber for notification dispatch ([d1a9cc5](https://github.com/Ghent/capacitarr/commit/d1a9cc5552ab19d06d057e791b7ded8ebfd15074))
+- *(frontend)* Update types and API endpoints for new schema ([d00c7ad](https://github.com/Ghent/capacitarr/commit/d00c7adee79acf2ff6d2105772cf7a2a2e863eea))
+- *(frontend)* Add icon/color mapping for all 34 event types ([1e35936](https://github.com/Ghent/capacitarr/commit/1e35936a42be06ee24850d5501e6f644db5bfc0a))
+- *(approval)* Add section jump navigation to approval queue ([197d716](https://github.com/Ghent/capacitarr/commit/197d716abbf90f16c44ebcfc6fc02aeb08d3e676))
+- Add poster URL plumbing for grid view (Phase 1) ([5f01060](https://github.com/Ghent/capacitarr/commit/5f01060c4e8099eaef832cea82d6d21e5cc317f9))
+- *(frontend)* Add grid/list view toggle with poster cards (Phase 2) ([72eedd8](https://github.com/Ghent/capacitarr/commit/72eedd8f4fc98273070cdfe954b7e199fa4ff4d9))
+- *(frontend)* Add selection checkboxes and season badges to grid cards (Phase 3) ([7fbcd58](https://github.com/Ghent/capacitarr/commit/7fbcd585e244c2d7ffb16a80256612164fdd11cb))
+- *(frontend)* Add season popover for show cards in grid view (Phase 3) ([dcc2e9d](https://github.com/Ghent/capacitarr/commit/dcc2e9db993ce4ddd896f7da16f605bd9d7221b3))
+- *(frontend)* Add deletion line divider and season popovers to preview grid ([50ecccb](https://github.com/Ghent/capacitarr/commit/50ecccbe18c43661b140645145eeae68c0b48a65))
+- *(enrichment)* Add Plex as watch history enrichment source ([31c44b4](https://github.com/Ghent/capacitarr/commit/31c44b41dcd40324ccbc4f03c064ef1de1dad8cf))
+- *(version)* Add Check Now button to update popup ([bf72c7a](https://github.com/Ghent/capacitarr/commit/bf72c7a4da4981ec0353d0c57f786139daa5d443))
+- *(ui)* Add NumberField and Combobox shadcn-vue components ([805d893](https://github.com/Ghent/capacitarr/commit/805d893b4fca2e62520f27fa1d4e1088c4f877be))
+- *(rules)* Add custom rules import/export ([b3e8a35](https://github.com/Ghent/capacitarr/commit/b3e8a352cdb104f8a0cb3f2c4b681fe5e99c3393))
+- *(notifications)* Add event system foundation for notification overhaul ([9a8e319](https://github.com/Ghent/capacitarr/commit/9a8e319faee65604768f0bfd5854555dd7445c86))
+- *(notifications)* Implement notification overhaul (Phase 1.6-7) ([a50a8e6](https://github.com/Ghent/capacitarr/commit/a50a8e644c4ab2a74f047b7ca33038b2e1c06825))
+- *(notifications)* Add approval activity toggle and toggle descriptions ([a5e7cf6](https://github.com/Ghent/capacitarr/commit/a5e7cf61db65d3f1b6907e3ab6c3ade6bf3d216b))
+- *(notifications)* Make in-app notifications always-on ([735c234](https://github.com/Ghent/capacitarr/commit/735c2349c40e1ad7948b16744d803fa1059ca795))
+- Add features and polish (Phase 3) ([5705d53](https://github.com/Ghent/capacitarr/commit/5705d53b9fbfcd78a66b358bbaefb7e823066862))
+- Complete 1.0.0 pre-release cleanup (phases 2-5) ([08ed33f](https://github.com/Ghent/capacitarr/commit/08ed33f6d2f4ffab6d6eadf38e5537e4b87bbfc9))
+- Complete all remaining plan steps ([6b9907a](https://github.com/Ghent/capacitarr/commit/6b9907a309b23ecab3bd223c49ad22e6162f601a))
 
 ### 🐛 Bug Fixes
 
+- *(deps)* Update golang.org/x/net to v0.51.0 (GO-2026-4559) ([164d22d](https://github.com/Ghent/capacitarr/commit/164d22d2a5c8779f326f89906ab117c8b54c1f08))
+- Include package-lock.json and frontend version in release script ([37eabc2](https://github.com/Ghent/capacitarr/commit/37eabc28c38b4bed4cfa609b5aed935ecfab5871))
 - Resolve TypeScript strict mode issues from Phase 7 review ([be6399d](https://github.com/Ghent/capacitarr/commit/be6399df4a27098beb277d566e3f47bc2322af4a))
 - *(i18n)* Disable optimizeTranslationDirective to suppress deprecation warning ([8a45e67](https://github.com/Ghent/capacitarr/commit/8a45e677cbc99164ef2efa52eeb15cfed3d4956e))
 - *(rules)* Include lastplayed in conflict detection and map date-aware operators ([3c76126](https://github.com/Ghent/capacitarr/commit/3c76126a6b471e6ca098f2c8b0ac789d77c50332))
@@ -515,12 +538,44 @@
 - *(approval)* Show season approve/snooze buttons and align size column ([87f13e3](https://github.com/Ghent/capacitarr/commit/87f13e357b0a23c25898c6d833691bb3b1793f26))
 - Correct site and docs content accuracy ([e116e51](https://github.com/Ghent/capacitarr/commit/e116e510f33a57f5f7bda2c842b44eced206cd23))
 - *(site)* Replace Nuxt UI Docs TOC link with GitLab repo link ([e7c262d](https://github.com/Ghent/capacitarr/commit/e7c262d2e42f5ad8855284f9c95a0cd563dc07a9))
-## [1.0.0-rc.1] - 2026-03-03
+- Resolve golangci-lint issues and align local linting with CI ([975bf6d](https://github.com/Ghent/capacitarr/commit/975bf6d6d076e32eac5e770fdc601a897b8b3b7f))
+- *(deps)* Override svgo and tar to resolve pnpm audit vulnerabilities ([7c20356](https://github.com/Ghent/capacitarr/commit/7c203561e6e09b3a48f64aecea900214d62f6d70))
+- *(data)* Preserve disk group thresholds during data reset ([ea7f73b](https://github.com/Ghent/capacitarr/commit/ea7f73be287642ec5d76e8fee371b7a7f843e8af))
+- *(frontend)* Replace bare catch blocks with console.warn logging ([b653de0](https://github.com/Ghent/capacitarr/commit/b653de0a30c4a93a5a0b14bf325f4f30fe80757c))
+- Use Find+Limit instead of First for optional queries ([0c51f8b](https://github.com/Ghent/capacitarr/commit/0c51f8b2ef1cc8d41da0cf93a9ce448f881eea31))
+- *(dashboard)* Use dateRange dropdown for sparkline labels and improve color contrast ([9c03735](https://github.com/Ghent/capacitarr/commit/9c037353fbc14c97858c8c39f0821a9034df8102))
+- *(navbar)* Inline Serenity SVG so currentColor inherits text color ([837c651](https://github.com/Ghent/capacitarr/commit/837c651ad2a53103ef561443e005d633382a5eb4))
+- *(dashboard)* Display sparkline timestamps in browser local timezone ([43edd0d](https://github.com/Ghent/capacitarr/commit/43edd0d10d27c4ece21cf5277f07af6c62eca528))
+- Sparkline accuracy, tooltips, and visual quality ([e48d60c](https://github.com/Ghent/capacitarr/commit/e48d60c38cfe36e9de64cf9ba1322e2fbc4270c2))
+- *(test)* Resolve flaky test failures in routes package ([14d3e08](https://github.com/Ghent/capacitarr/commit/14d3e0827a3fcec725f5eeb9794bd03471bf3c92))
+- *(dashboard)* Shrink activity scroll area to match sparkline height ([65ebcfa](https://github.com/Ghent/capacitarr/commit/65ebcfa388900ba9ba83093717d59e3c36135e64))
+- *(dashboard)* Constrain activity scroll area height properly ([18f6579](https://github.com/Ghent/capacitarr/commit/18f6579cc0f92fdb530f8d9428a82a1075d11088))
+- *(plex)* Use getRandomValues for UUID in non-secure contexts ([d281d5a](https://github.com/Ghent/capacitarr/commit/d281d5a74e4a0d69a88f49a0ca18b889cf8be47e)) — reported by @wulfe ([#1](https://github.com/Ghent/capacitarr/issues/1))
+- *(events)* Fix deadlock in concurrency stress test ([00b50c1](https://github.com/Ghent/capacitarr/commit/00b50c18253464657b00f57800a35ebe4687db97))
+- *(frontend)* Reposition card overlays to avoid title overlap ([605a817](https://github.com/Ghent/capacitarr/commit/605a81708c5530297d5a1a8fb243ca17ff886c34))
+- *(frontend)* Snoozed grid unsnooze actions and preview infinite scroll ([2fa8bf2](https://github.com/Ghent/capacitarr/commit/2fa8bf256fe52ecb114cabb4fbe652936e1d86b0))
+- *(lint)* Use NewRequestWithContext in test files ([277f558](https://github.com/Ghent/capacitarr/commit/277f55809d606350501ca672f75b412f16699b1f))
+- *(ui)* Use zone colors on threshold slider instead of primary gradient ([50be5e4](https://github.com/Ghent/capacitarr/commit/50be5e45b3177b71baf697e7c9acbaa46090307c))
+- *(ui)* Raise slider thumb z-index above zone color overlays ([36c8f94](https://github.com/Ghent/capacitarr/commit/36c8f9470f8692f72fd399c00cc0cddc73016076))
+- *(ui)* Correct target thumb selector and enlarge threshold thumbs ([1669982](https://github.com/Ghent/capacitarr/commit/1669982560648c0fe6a6070d6e386e74acda313e))
+- *(security)* Upgrade Go 1.25 → 1.26 to resolve 4 stdlib vulnerabilities ([3ab190c](https://github.com/Ghent/capacitarr/commit/3ab190c990632a1214a205c0271fd57419af2a07))
+- *(frontend)* Remove @click.prevent on MediaPosterCard component emits ([a6aafb4](https://github.com/Ghent/capacitarr/commit/a6aafb4925d89c84784684dc1ad9c7ebcdf304d8))
+- *(notifications)* Persist OnApprovalActivity toggle and report freed bytes in approval mode ([94a4121](https://github.com/Ghent/capacitarr/commit/94a412124627e2174f266dd271f2d3ca4f8f1347))
+- *(notifications)* Gate approval-mode cycle digest by OnApprovalActivity ([53434a9](https://github.com/Ghent/capacitarr/commit/53434a932f0851b0ade8aca9e74ad795c8cc4137))
 
-### 🐛 Bug Fixes
+### ⚡ Performance
 
-- *(deps)* Update golang.org/x/net to v0.51.0 (GO-2026-4559) ([164d22d](https://github.com/Ghent/capacitarr/commit/164d22d2a5c8779f326f89906ab117c8b54c1f08))
-- Include package-lock.json and frontend version in release script ([37eabc2](https://github.com/Ghent/capacitarr/commit/37eabc28c38b4bed4cfa609b5aed935ecfab5871))
+- *(ci)* Add Docker volume caching for Go and Node dependencies ([7709e63](https://github.com/Ghent/capacitarr/commit/7709e6328cb285c7d57e336ba214ec19e081f1cb))
+
+### 🛡️ Security
+
+- Add make ci gate to release script ([1ad7882](https://github.com/Ghent/capacitarr/commit/1ad7882ceb9ba968d2a19618bbca1289752692bd))
+- *(plans)* Mark service layer remediation plan as complete (Phases 7-10) ([b4a3d9d](https://github.com/Ghent/capacitarr/commit/b4a3d9d8250e34a6ebf850b82facb951dbbe9854))
+- 1.0.0 pre-release cleanup ([14cae5d](https://github.com/Ghent/capacitarr/commit/14cae5d162d19848332a695057f0676ee182d7f0))
+
+### Refactor
+
+- *(db)* [**breaking**] Replace 18 incremental migrations with single clean baseline ([fafa409](https://github.com/Ghent/capacitarr/commit/fafa4094bc073f6b8b36ede7dba8ff83485dcdf8))
 ## [0.1.2] - 2026-03-03
 
 ### 🐛 Bug Fixes
