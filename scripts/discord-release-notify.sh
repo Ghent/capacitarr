@@ -2,7 +2,7 @@
 # Post a Discord release announcement using the release_notes.md artifact.
 #
 # Required environment variables:
-#   DISCORD_RELEASE_WEBHOOK_URL — Discord webhook URL (masked CI variable)
+#   DISCORD_WEBHOOK_URL         — Discord webhook URL (masked CI variable)
 #   CI_COMMIT_TAG               — Git tag (e.g., v1.7.0)
 #   CI_PROJECT_URL              — GitHub project URL
 #
@@ -92,4 +92,4 @@ jq -n \
       {name: "🔥 From the Cortex", value: $quote, inline: false}
     ]
   }]}' \
-| curl -sf -H "Content-Type: application/json" -d @- "$DISCORD_RELEASE_WEBHOOK_URL"
+| curl -sf -H "Content-Type: application/json" -d @- "$DISCORD_WEBHOOK_URL"

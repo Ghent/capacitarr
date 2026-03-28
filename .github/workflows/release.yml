@@ -145,6 +145,6 @@ jobs:
       - name: Send Discord notification
         run: scripts/discord-release-notify.sh
         env:
-          DISCORD_RELEASE_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           CI_COMMIT_TAG: ${{ github.ref_name }}
           CI_PROJECT_URL: https://github.com/${{ github.repository }}
