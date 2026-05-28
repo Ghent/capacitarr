@@ -98,44 +98,36 @@ The v2.x global mode toggle no longer exists in the UI. Mode is set **per-disk-g
 
 #### 3a: Schema + Struct Changes
 
-- [ ] 3.1. Drop the `execution_mode` column from `engine_run_stats` via a new migration (`00013_drop_execution_mode.sql`) using `ALTER TABLE engine_run_stats DROP COLUMN execution_mode`. This is safe: the project uses `ncruces/go-sqlite3` (WASM-bundled real SQLite, supports `DROP COLUMN` natively) and the same pattern is established in migrations `00003` and `00011`. The historical data in this column is inaccurate (it recorded the global preference, not actual per-group behavior) and is not directly rendered by the frontend (sparkline tooltips infer mode from queued/deleted counts).
-- [ ] 3.2. Remove the `ExecutionMode` field from the `EngineRunStats` struct (`db/models.go:313`) and the `EngineHistoryPoint` struct (`services/engine.go:79`). Update `CreateRunStats()` to no longer accept a mode string parameter. Update `GetStats()` and `GetHistory()` to return `DiskGroupModes` instead of `ExecutionMode`.
-- [ ] 3.3. Add `DiskGroupModes map[uint]string` to `EngineStartEvent` and `EngineCompleteEvent` (ephemeral event bus payloads — not persisted as GORM models, though their JSON ends up in `activity_events.metadata`). Remove the `ExecutionMode string` field from both event structs.
+- [x] 3.1. Drop the `execution_mode` column from `engine_run_stats` via a new migration (`00019_drop_execution_mode.sql`) using `ALTER TABLE engine_run_stats DROP COLUMN execution_mode`.
+- [x] 3.2. Remove the `ExecutionMode` field from the `EngineRunStats` struct and the `EngineHistoryPoint` struct. Update `CreateRunStats()` to no longer accept a mode string parameter. Update `GetStats()` and `GetHistory()` to return `DiskGroupModes` instead of `ExecutionMode`.
+- [x] 3.3. Add `DiskGroupModes map[uint]string` to `EngineStartEvent` and `EngineCompleteEvent`. Remove the `ExecutionMode string` field from both event structs.
 
 #### 3b: Poller Changes
 
-- [ ] 3.4. In the poller, populate `DiskGroupModes` from the actual groups being processed in the current cycle. Update `poller.go:242` to call `CreateRunStats()` without a mode parameter (removed in 3.2). Replace `prefs.DefaultDiskGroupMode` reads at `poller.go:252,494` with the per-group mode map on the event structs.
-- [ ] 3.5. Fix `poller.go:473` — the `if pctx.prefs.DefaultDiskGroupMode == db.ModeAuto` check that zeroes `writeFreedBytes`. This should check whether **any** of the groups processed in the current cycle are in auto mode (i.e., check the per-group map). This is a **runtime decision bug**, not just cosmetic.
-- [ ] 3.6. Update poller logging (`poller.go:257,339`, `evaluate.go:194`) to log the per-group mode map instead of the global preference.
+- [x] 3.4. In the poller, populate `DiskGroupModes` from the actual groups being processed in the current cycle. Update `poller.go:242` to call `CreateRunStats()` without a mode parameter (removed in 3.2). Replace `prefs.DefaultDiskGroupMode` reads at `poller.go:252,494` with the per-group mode map on the event structs.
+- [x] 3.5. Fix `poller.go:473` — the `if pctx.prefs.DefaultDiskGroupMode == db.ModeAuto` check that zeroes `writeFreedBytes`. This should check whether **any** of the groups processed in the current cycle are in auto mode (i.e., check the per-group map). This is a **runtime decision bug**, not just cosmetic.
+- [x] 3.6. Update poller logging (`poller.go:257,339`, `evaluate.go:194`) to log the per-group mode map instead of the global preference.
 
 #### 3c: API + Frontend Changes
 
-- [ ] 3.7. In the worker stats API (`services/metrics.go`), replace `defaultDiskGroupMode` with `diskGroupModes` (the per-group map from disk group service).
-- [ ] 3.8. Update `useEngineControl.ts`: replace the `executionMode` computed (which reads `workerStats.defaultDiskGroupMode`) with a `diskGroupModes` computed that exposes the per-group map. Update the SSE handlers for `engine_start` and `engine_complete` to read `diskGroupModes` from the event payload. Always display all modes individually — do not collapse.
-- [ ] 3.9. Update `useApprovalQueue.ts:67,76`: currently derives `isApprovalMode` from the single `executionMode` value. Change to check whether **any** disk group is in approval mode from the per-group map exported by `useEngineControl`.
-- [ ] 3.10. Update `DeletionQueueCard.vue:26,45`: currently uses `executionMode` for the empty state message. Change to derive from the per-group map (e.g., show context based on which groups have deletion-capable modes).
-- [ ] 3.11. Update `index.vue:440,496,504,510`: the `effectiveMode` and `allDryRun` computeds use `engineExecutionMode` as a fallback. Replace with per-group map consumption. Keep the "no disk groups exist" fallback using `DefaultDiskGroupMode` from preferences directly.
+- [x] 3.7. In the worker stats API (`services/metrics.go`), replace `defaultDiskGroupMode` with `diskGroupModes` (the per-group map from disk group service).
+- [x] 3.8. Update `useEngineControl.ts`: replace the `executionMode` computed (which reads `workerStats.defaultDiskGroupMode`) with a `diskGroupModes` computed that exposes the per-group map. Update the SSE handlers for `engine_start` and `engine_complete` to read `diskGroupModes` from the event payload. Always display all modes individually — do not collapse.
+- [x] 3.9. Update `useApprovalQueue.ts:67,76`: currently derives `isApprovalMode` from the single `executionMode` value. Change to check whether **any** disk group is in approval mode from the per-group map exported by `useEngineControl`.
+- [x] 3.10. Update `DeletionQueueCard.vue:26,45`: currently uses `executionMode` for the empty state message. Change to derive from the per-group map (e.g., show context based on which groups have deletion-capable modes).
+- [x] 3.11. Update `index.vue:440,496,504,510`: the `effectiveMode` and `allDryRun` computeds use `engineExecutionMode` as a fallback. Replace with per-group map consumption. Keep the "no disk groups exist" fallback using `DefaultDiskGroupMode` from preferences directly.
 
 #### 3d: Test Updates
 
-- [ ] 3.12. Update backend tests that seed or assert `ExecutionMode` on `EngineRunStats`:
-  - `services/engine_test.go` (lines 130, 139, 164, 190-191, 281-282, 292-293)
-  - `services/metrics_test.go` (lines 400, 413 — `TestMetricsService_GetWorkerMetrics_ExecutionModeFromPreferences`)
-  - `services/data_test.go` (line 38)
-  - `routes/engine_test.go` (lines 23-25, 71-72)
-  - `routes/data_test.go` (line 56)
-  - `services/backup_test.go` (line 1329)
-- [ ] 3.13. Update event tests that reference `ExecutionMode` on `EngineStartEvent`/`EngineCompleteEvent`:
-  - `events/activity_persister_test.go` (lines 56, 93)
-  - `events/sse_broadcaster_test.go` (lines 42, 130, 164, 196, 337)
-- [ ] 3.14. Update `useEngineControl.test.ts` and `useApprovalQueue.test.ts` to reflect the new per-group map API shape.
-- [ ] 3.15. Run `make ci`
+- [x] 3.12. Update backend tests that seed or assert `ExecutionMode` on `EngineRunStats`.
+- [x] 3.13. Update event tests that reference `ExecutionMode` on `EngineStartEvent`/`EngineCompleteEvent`.
+- [x] 3.14. Update `useEngineControl.test.ts` and `useApprovalQueue.test.ts` to reflect the new per-group map API shape.
+- [x] 3.15. Run `make ci`
 
 ### Phase 4: Documentation + Finalization
 
-- [ ] 4.1. Update the settings page tooltip/help text in the frontend i18n files to clarify what "Default Disk Group Mode" means (template for new groups only)
-- [ ] 4.2. Add a brief note in `docs/development.md` (or equivalent) about the architecture: mode is per-disk-group, global preference is only a default template for auto-discovery
-- [ ] 4.3. Mark this plan as `✅ Complete` and move it from `docs/plans/00-active/` to `docs/plans/04-bugfixes/` using `git mv`
+- [x] 4.1. Update the settings page tooltip/help text in the frontend i18n files to clarify what "Default Disk Group Mode" means (template for new groups only)
+- [x] 4.2. Add a brief note in `docs/development.md` about the architecture: mode is per-disk-group, global preference is only a default template for auto-discovery
+- [x] 4.3. Mark this plan as `✅ Complete` and move it from `docs/plans/00-active/` to `docs/plans/04-bugfixes/` using `git mv`
 
 ## Non-Goals
 

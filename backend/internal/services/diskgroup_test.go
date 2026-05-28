@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"gorm.io/gorm"
+
 	"capacitarr/internal/db"
 	"capacitarr/internal/integrations"
 )
@@ -833,6 +835,25 @@ func (m *mockSettingsReaderForDiskGroup) GetWeightMap() (map[string]int, error) 
 	return map[string]int{}, nil
 }
 
+// createDiskGroupWithMode creates a disk group and sets its mode via a separate
+// UPDATE statement. This is necessary because GORM's Create() does not reliably
+// include fields that have a `default` tag — the mode column has
+// `gorm:"not null;default:'dry-run'"` which causes GORM to omit the mode value
+// from INSERT even when explicitly set on the struct.
+func createDiskGroupWithMode(t *testing.T, database *gorm.DB, mountPath string, mode string) db.DiskGroup {
+	t.Helper()
+	group := db.DiskGroup{MountPath: mountPath, TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("createDiskGroupWithMode: Create failed: %v", err)
+	}
+	if mode != "" && mode != db.ModeDryRun {
+		if err := database.Model(&group).Update("mode", mode).Error; err != nil {
+			t.Fatalf("createDiskGroupWithMode: Update mode failed: %v", err)
+		}
+	}
+	return group
+}
+
 // mockDeletionQueueGroupClearer implements DeletionQueueGroupClearer for tests.
 type mockDeletionQueueGroupClearer struct {
 	clearedGroupIDs []uint
@@ -851,10 +872,7 @@ func TestDiskGroupService_UpdateThresholds_ClearsDeletionQueueOnModeChange(t *te
 	svc.SetDeletionClearer(clearer)
 	svc.SetEngineService(&mockEngineRunTrigger{})
 
-	// Create a disk group and explicitly set mode to auto
-	group := db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70}
-	database.Create(&group)
-	database.Model(&group).Update("mode", db.ModeAuto)
+	group := createDiskGroupWithMode(t, database, "/mnt/media", db.ModeAuto)
 
 	// Change mode from auto → dry-run
 	_, err := svc.UpdateThresholds(group.ID, 80, 70, nil, db.ModeDryRun, nil)
@@ -901,13 +919,10 @@ func TestDiskGroupService_UpdateThresholds_NoClearWhenModeUnchanged(t *testing.T
 	svc.SetDeletionClearer(clearer)
 	svc.SetEngineService(&mockEngineRunTrigger{})
 
-	// Create a disk group and set mode to auto
-	group := db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70}
-	database.Create(&group)
-	database.Model(&group).Update("mode", db.ModeAuto)
+	group := createDiskGroupWithMode(t, database, "/mnt/media", db.ModeAuto)
 
 	// Update thresholds without changing mode (pass same mode)
-	_, err := svc.UpdateThresholds(1, 90, 75, nil, db.ModeAuto, nil)
+	_, err := svc.UpdateThresholds(group.ID, 90, 75, nil, db.ModeAuto, nil)
 	if err != nil {
 		t.Fatalf("UpdateThresholds error: %v", err)
 	}

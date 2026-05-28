@@ -599,6 +599,101 @@ func TestManualDelete_DeletionsDisabled(t *testing.T) {
 	}
 }
 
+func TestManualDelete_ResolvesPerDiskGroupMode(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Set global preference to dry-run — but the disk group linked to the
+	// integration is set to approval mode. ManualDelete should use the
+	// per-disk-group mode (approval), not the global preference (dry-run).
+	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
+		"default_disk_group_mode": db.ModeDryRun,
+		"deletions_enabled":       true,
+	})
+
+	// Create integration
+	ic := db.IntegrationConfig{
+		Type: "sonarr", Name: "Test", URL: "http://localhost:8989", APIKey: "key",
+	}
+	database.Create(&ic)
+
+	// Create disk group and set its mode to approval (via raw SQL to avoid GORM default-field trap)
+	database.Exec("INSERT INTO disk_groups (mount_path, total_bytes, used_bytes, mode, threshold_pct, target_pct) VALUES (?, ?, ?, ?, ?, ?)",
+		"/mnt/media", 1000000, 500000, db.ModeApproval, 85, 75)
+
+	// Link integration to disk group via junction table
+	database.Create(&db.DiskGroupIntegration{DiskGroupID: 1, IntegrationID: ic.ID})
+
+	body := fmt.Sprintf(`[{"mediaName":"Firefly","mediaType":"show","integrationId":%d,"externalId":"1","sizeBytes":5000000,"score":0.85}]`, ic.ID)
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/delete", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// ManualDelete should resolve mode from disk group (approval), not preference (dry-run).
+	// In approval mode, the item is queued to the approval queue, not the deletion queue.
+	if mode, ok := result["mode"].(string); !ok || mode != db.ModeApproval {
+		t.Errorf("Expected mode='approval' (from disk group), got %v", result["mode"])
+	}
+	if queued, ok := result["queued"].(float64); !ok || int(queued) != 1 {
+		t.Errorf("Expected queued=1, got %v", result["queued"])
+	}
+
+	// Verify item landed in approval queue (not deletion queue)
+	var item db.ApprovalQueueItem
+	if err := database.Where("media_name = ? AND media_type = ?", "Firefly", "show").First(&item).Error; err != nil {
+		t.Fatalf("Expected approval queue item to exist: %v", err)
+	}
+	if item.Status != db.StatusPending {
+		t.Errorf("Expected status=%q, got %q", db.StatusPending, item.Status)
+	}
+}
+
+func TestManualDelete_FallsBackToPreferenceWhenNoLink(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	// Set global preference to approval — with no disk group link, ManualDelete
+	// should fall back to the preference.
+	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
+		"default_disk_group_mode": db.ModeApproval,
+		"deletions_enabled":       true,
+	})
+
+	// Create integration but do NOT link it to any disk group
+	ic := db.IntegrationConfig{
+		Type: "radarr", Name: "Test", URL: "http://localhost:7878", APIKey: "key",
+	}
+	database.Create(&ic)
+
+	body := fmt.Sprintf(`[{"mediaName":"Serenity","mediaType":"movie","integrationId":%d,"externalId":"42","sizeBytes":3000000,"score":0.72}]`, ic.ID)
+	req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/delete", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
+	}
+
+	// Should fall back to preference mode (approval) since no disk group link exists
+	if mode, ok := result["mode"].(string); !ok || mode != db.ModeApproval {
+		t.Errorf("Expected mode='approval' (from preference fallback), got %v", result["mode"])
+	}
+}
+
 func TestApproveQueueItem_DryRunMode(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)
