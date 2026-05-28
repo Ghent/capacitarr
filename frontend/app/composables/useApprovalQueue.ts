@@ -64,7 +64,7 @@ function extractShowTitle(mediaName: string): string | null {
 
 export function useApprovalQueue() {
   const api = useApi();
-  const { executionMode } = useEngineControl();
+  const { diskGroupModes } = useEngineControl();
   const { on: sseOn } = useEventStream();
 
   // State — shared across pages via useState
@@ -73,7 +73,9 @@ export function useApprovalQueue() {
   const approvedItems = useState<ApprovalGroup[]>('approvalApproved', () => []);
   const loading = useState<Record<string, boolean>>('approvalLoading', () => ({}));
 
-  const isApprovalMode = computed(() => executionMode.value === MODE_APPROVAL);
+  const isApprovalMode = computed(() =>
+    Object.values(diskGroupModes.value).includes(MODE_APPROVAL),
+  );
 
   /** True when any queue (pending, snoozed, approved) contains items. */
   const hasQueueItems = computed(
@@ -87,9 +89,8 @@ export function useApprovalQueue() {
    * Fetch all approval queue items and group them for display.
    * The approval_queue table IS the source of truth — no preview cross-referencing.
    *
-   * Always fetches regardless of the global defaultDiskGroupMode because
-   * execution mode is per-disk-group since v3.0. A disk group may be in
-   * approval mode even when the global default is dry-run.
+   * Always fetches regardless of diskGroupModes because a disk group may
+   * be in approval mode even when others are in dry-run.
    */
   async function fetchQueue() {
     try {

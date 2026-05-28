@@ -152,7 +152,7 @@ describe('useEngineControl', () => {
   describe('fetchStats', () => {
     it('populates worker stats from API response', async () => {
       const statsData = {
-        defaultDiskGroupMode: 'auto',
+        diskGroupModes: '{"1":"auto","2":"dry-run"}',
         lastRunEpoch: 1700000000,
         lastRunEvaluated: 150,
         lastRunCandidates: 5,
@@ -194,7 +194,7 @@ describe('useEngineControl', () => {
       // Set prevIsRunning = true by simulating a running state via fetchStats
       mockApiFetch.mockResolvedValueOnce({
         isRunning: true,
-        defaultDiskGroupMode: 'auto',
+        diskGroupModes: '{"1":"auto"}',
         lastRunEvaluated: 0,
         lastRunCandidates: 0,
       });
@@ -225,11 +225,11 @@ describe('useEngineControl', () => {
 
     it('does not show toast when engine was already idle', async () => {
       // Both calls: engine is idle
-      mockApiFetch.mockResolvedValueOnce({ isRunning: false, defaultDiskGroupMode: 'dry-run' });
+      mockApiFetch.mockResolvedValueOnce({ isRunning: false, diskGroupModes: '{"1":"dry-run"}' });
       const ctrl = useEngineControl();
       await ctrl.fetchStats();
 
-      mockApiFetch.mockResolvedValueOnce({ isRunning: false, defaultDiskGroupMode: 'dry-run' });
+      mockApiFetch.mockResolvedValueOnce({ isRunning: false, diskGroupModes: '{"1":"dry-run"}' });
       await ctrl.fetchStats();
 
       expect(toastSuccessSpy).not.toHaveBeenCalled();

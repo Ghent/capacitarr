@@ -522,7 +522,7 @@ const engineHistoryData = ref<
     deleted: number;
     freedBytes: number;
     durationMs: number;
-    executionMode: string;
+    diskGroupModes: string;
   }>
 >([]);
 const showMiniSparklines = ref(
@@ -1216,7 +1216,7 @@ async function fetchEngineHistory() {
       deleted: number;
       freedBytes: number;
       durationMs: number;
-      executionMode: string;
+      diskGroupModes: string;
     }>;
     engineHistoryData.value = data || [];
   } catch (err) {

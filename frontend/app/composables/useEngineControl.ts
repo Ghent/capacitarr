@@ -55,7 +55,33 @@ export function useEngineControl() {
   // Dashboard and other pages can watch this to trigger data refreshes.
   const runCompletionCounter = useState<number>('engineRunCompletionCounter', () => 0);
 
-  const executionMode = computed(() => workerStats.value?.defaultDiskGroupMode || MODE_DRY_RUN);
+  /**
+   * Per-disk-group mode map parsed from the JSON string in worker stats.
+   * Keys are disk group IDs (as strings), values are mode strings.
+   * Falls back to an empty object when no worker stats are available.
+   */
+  const diskGroupModes = computed<Record<string, string>>(() => {
+    const raw = workerStats.value?.diskGroupModes;
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw) as Record<string, string>;
+    } catch {
+      return {};
+    }
+  });
+
+  /**
+   * Legacy single execution mode — derives the "most aggressive" mode across
+   * all disk groups for backward compatibility. Priority: auto > approval > sunset > dry-run.
+   */
+  const executionMode = computed(() => {
+    const modes = Object.values(diskGroupModes.value);
+    if (modes.length === 0) return MODE_DRY_RUN;
+    if (modes.includes(MODE_AUTO)) return MODE_AUTO;
+    if (modes.includes(MODE_APPROVAL)) return MODE_APPROVAL;
+    if (modes.includes(MODE_SUNSET)) return MODE_SUNSET;
+    return MODE_DRY_RUN;
+  });
   const lastRunEpoch = computed(() => workerStats.value?.lastRunEpoch || 0);
   const lastRunEvaluated = computed(() => workerStats.value?.lastRunEvaluated || 0);
   const lastRunCandidates = computed(() => workerStats.value?.lastRunCandidates || 0);
@@ -86,14 +112,15 @@ export function useEngineControl() {
     _sseRegistered = true;
 
     on(EVENT_ENGINE_START, (data: unknown) => {
-      const event = data as { executionMode?: string };
+      const event = data as { diskGroupModes?: Record<string, string> };
       if (workerStats.value) {
         workerStats.value = {
           ...workerStats.value,
           isRunning: true,
-          // Note: event.executionMode is the per-run mode from EngineStartEvent,
-          // not the global default. We update defaultDiskGroupMode for UI display.
-          defaultDiskGroupMode: event.executionMode || workerStats.value.defaultDiskGroupMode,
+          // Update diskGroupModes from the SSE event (already an object).
+          diskGroupModes: event.diskGroupModes
+            ? JSON.stringify(event.diskGroupModes)
+            : workerStats.value.diskGroupModes,
         };
       }
       prevIsRunning.value = true;
@@ -104,7 +131,7 @@ export function useEngineControl() {
         evaluated?: number;
         candidates?: number;
         durationMs?: number;
-        executionMode?: string;
+        diskGroupModes?: Record<string, string>;
         freedBytes?: number;
         completedAtEpoch?: number;
       };
@@ -126,7 +153,10 @@ export function useEngineControl() {
           lastRunCandidates: event.candidates ?? workerStats.value.lastRunCandidates,
           lastRunFreedBytes: newFreedBytes,
           lastRunEpoch: event.completedAtEpoch || Math.floor(Date.now() / 1000),
-          defaultDiskGroupMode: event.executionMode || workerStats.value.defaultDiskGroupMode,
+          // Update diskGroupModes from the SSE event (already an object).
+          diskGroupModes: event.diskGroupModes
+            ? JSON.stringify(event.diskGroupModes)
+            : workerStats.value.diskGroupModes,
         };
       }
       prevIsRunning.value = false;
@@ -237,6 +267,7 @@ export function useEngineControl() {
 
   return {
     workerStats: readonly(workerStats),
+    diskGroupModes,
     executionMode,
     lastRunEpoch,
     lastRunEvaluated,

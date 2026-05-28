@@ -51,11 +51,11 @@ function mockUseApi() {
   return mockApiFetch;
 }
 
-// Engine control — controls the execution mode
-const executionModeRef = ref<string>(MODE_APPROVAL);
+// Engine control — controls the per-disk-group modes
+const diskGroupModesRef = ref<Record<string, string>>({ '1': MODE_APPROVAL });
 function mockUseEngineControl() {
   return {
-    executionMode: executionModeRef,
+    diskGroupModes: diskGroupModesRef,
   };
 }
 
@@ -158,7 +158,7 @@ describe('useApprovalQueue', () => {
     toastSuccessSpy.mockReset();
     toastErrorSpy.mockReset();
     toastInfoSpy.mockReset();
-    executionModeRef.value = MODE_APPROVAL;
+    diskGroupModesRef.value = { '1': MODE_APPROVAL };
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
@@ -178,13 +178,13 @@ describe('useApprovalQueue', () => {
       expect(q.loading.value).toEqual({});
     });
 
-    it('isApprovalMode is true when executionMode is approval', () => {
+    it('isApprovalMode is true when any disk group is in approval mode', () => {
       const q = useApprovalQueue();
       expect(q.isApprovalMode.value).toBe(true);
     });
 
-    it('isApprovalMode is false when executionMode is not approval', () => {
-      executionModeRef.value = MODE_DRY_RUN;
+    it('isApprovalMode is false when no disk group is in approval mode', () => {
+      diskGroupModesRef.value = { '1': MODE_DRY_RUN };
       const q = useApprovalQueue();
       expect(q.isApprovalMode.value).toBe(false);
     });
@@ -287,8 +287,8 @@ describe('useApprovalQueue', () => {
       expect(q.snoozedItems.value[0]!.state).toBe('snoozed');
     });
 
-    it('fetches queue items regardless of global execution mode', async () => {
-      executionModeRef.value = MODE_DRY_RUN;
+    it('fetches queue items regardless of disk group modes', async () => {
+      diskGroupModesRef.value = { '1': MODE_DRY_RUN };
       const items: ApprovalQueueItem[] = [
         makeApprovalItem({ id: 1, mediaName: 'Serenity', status: 'pending' }),
       ];
@@ -680,8 +680,8 @@ describe('useApprovalQueue', () => {
       }
     });
 
-    it('SSE handler triggers fetchQueue regardless of global execution mode', async () => {
-      executionModeRef.value = MODE_DRY_RUN;
+    it('SSE handler triggers fetchQueue regardless of disk group modes', async () => {
+      diskGroupModesRef.value = { '1': MODE_DRY_RUN };
       mockApiFetch.mockResolvedValue([]);
 
       useApprovalQueue();

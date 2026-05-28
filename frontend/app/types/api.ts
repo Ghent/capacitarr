@@ -182,7 +182,7 @@ export interface ActivityEvent {
 // ---------------------------------------------------------------------------
 
 export interface WorkerStats {
-  defaultDiskGroupMode: string;
+  diskGroupModes: string;
   isRunning: boolean;
   pollIntervalSeconds: number;
   queueDepth: number;
