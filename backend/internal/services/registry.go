@@ -130,9 +130,9 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	reg.Health = NewIntegrationHealthService(reg.Integration, bus)
 	reg.Integration.SetHealthReporter(reg.Health)
 
-	// Wire DiskGroupService's cross-service dependency on EngineService
-	// so threshold changes trigger an immediate engine run for queue reconciliation
+	// Wire DiskGroupService's cross-service dependencies
 	diskGroupSvc.SetEngineService(engineSvc)
+	diskGroupSvc.SetSettingsReader(settingsSvc)
 
 	// Wire BackupService's cross-service dependency on DiskGroupService
 	backupSvc.SetDiskGroupService(diskGroupSvc)

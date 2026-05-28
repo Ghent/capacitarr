@@ -59,6 +59,54 @@ func TestDiskGroupService_Upsert_Create(t *testing.T) {
 	}
 }
 
+func TestDiskGroupService_Upsert_Create_InheritsDefaultMode(t *testing.T) {
+	tests := []struct {
+		name         string
+		prefMode     string
+		expectedMode string
+	}{
+		{"inherits auto mode", db.ModeAuto, db.ModeAuto},
+		{"inherits approval mode", db.ModeApproval, db.ModeApproval},
+		{"inherits sunset mode", db.ModeSunset, db.ModeSunset},
+		{"inherits dry-run mode", db.ModeDryRun, db.ModeDryRun},
+		{"empty preference falls back to GORM default", "", db.ModeDryRun},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			database := setupTestDB(t)
+			bus := newTestBus(t)
+			svc := NewDiskGroupService(database, bus)
+			svc.SetSettingsReader(&mockSettingsReaderForDiskGroup{mode: tc.prefMode})
+
+			disk := integrations.DiskSpace{Path: "/mnt/new", TotalBytes: 1000, FreeBytes: 400}
+			group, err := svc.Upsert(disk)
+			if err != nil {
+				t.Fatalf("Upsert error: %v", err)
+			}
+			if group.Mode != tc.expectedMode {
+				t.Errorf("expected mode %q, got %q", tc.expectedMode, group.Mode)
+			}
+		})
+	}
+}
+
+func TestDiskGroupService_Upsert_Create_NoSettingsReader(t *testing.T) {
+	// When no SettingsReader is wired, new groups should get the GORM column default (dry-run)
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+
+	disk := integrations.DiskSpace{Path: "/mnt/new", TotalBytes: 1000, FreeBytes: 400}
+	group, err := svc.Upsert(disk)
+	if err != nil {
+		t.Fatalf("Upsert error: %v", err)
+	}
+	if group.Mode != db.ModeDryRun {
+		t.Errorf("expected default mode %q, got %q", db.ModeDryRun, group.Mode)
+	}
+}
+
 func TestDiskGroupService_Upsert_Update(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
@@ -770,4 +818,17 @@ func TestDiskGroupService_ImportUpsert_ResurrectsStale(t *testing.T) {
 	if group.ThresholdPct != 92 {
 		t.Errorf("expected threshold 92, got %f", group.ThresholdPct)
 	}
+}
+
+// mockSettingsReaderForDiskGroup implements SettingsReader for disk group tests.
+type mockSettingsReaderForDiskGroup struct {
+	mode string
+}
+
+func (m *mockSettingsReaderForDiskGroup) GetPreferences() (db.PreferenceSet, error) {
+	return db.PreferenceSet{DefaultDiskGroupMode: m.mode}, nil
+}
+
+func (m *mockSettingsReaderForDiskGroup) GetWeightMap() (map[string]int, error) {
+	return map[string]int{}, nil
 }

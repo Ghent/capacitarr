@@ -62,10 +62,10 @@ The v2.x global mode toggle no longer exists in the UI. Mode is set **per-disk-g
 
 **Goal:** Make `DiskGroupService.Upsert()` actually apply `DefaultDiskGroupMode` when creating a new disk group.
 
-- [ ] 1.1. Add a `SettingsReader` dependency to `DiskGroupService` (or pass preferences in from the poller)
-- [ ] 1.2. In `DiskGroupService.Upsert()`, when creating a new group (`result.Error != nil` path), read `prefs.DefaultDiskGroupMode` and set `group.Mode` to that value instead of relying on the GORM column default
-- [ ] 1.3. Update `DiskGroupService` tests to verify new groups inherit the preference
-- [ ] 1.4. Run `make ci`
+- [x] 1.1. Add a `SettingsReader` dependency to `DiskGroupService` (or pass preferences in from the poller)
+- [x] 1.2. In `DiskGroupService.Upsert()`, when creating a new group (`result.Error != nil` path), read `prefs.DefaultDiskGroupMode` and set `group.Mode` to that value instead of relying on the GORM column default
+- [x] 1.3. Update `DiskGroupService` tests to verify new groups inherit the preference
+- [x] 1.4. Run `make ci`
 
 ### Phase 2: Dead Code Removal + ManualDelete Fix (Backend + Frontend)
 
@@ -135,7 +135,7 @@ The v2.x global mode toggle no longer exists in the UI. Mode is set **per-disk-g
 
 - [ ] 4.1. Update the settings page tooltip/help text in the frontend i18n files to clarify what "Default Disk Group Mode" means (template for new groups only)
 - [ ] 4.2. Add a brief note in `docs/development.md` (or equivalent) about the architecture: mode is per-disk-group, global preference is only a default template for auto-discovery
-- [ ] 4.3. Mark this plan as `✅ Complete` and move it from `docs/plans/00-active/` to `docs/plans/07-audits/` using `git mv` (this is a refactoring/audit plan)
+- [ ] 4.3. Mark this plan as `✅ Complete` and move it from `docs/plans/00-active/` to `docs/plans/04-bugfixes/` using `git mv`
 
 ## Non-Goals
 

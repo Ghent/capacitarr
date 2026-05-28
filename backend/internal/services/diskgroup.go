@@ -24,9 +24,10 @@ type EngineRunTrigger interface {
 // DiskGroupService manages disk group lifecycle: discovery, reconciliation,
 // threshold configuration, and integration tracking.
 type DiskGroupService struct {
-	db     *gorm.DB
-	bus    *events.EventBus
-	engine EngineRunTrigger // optional; wired via SetEngineService()
+	db       *gorm.DB
+	bus      *events.EventBus
+	engine   EngineRunTrigger // optional; wired via SetEngineService()
+	settings SettingsReader   // optional; wired via SetSettingsReader()
 }
 
 // NewDiskGroupService creates a new DiskGroupService.
@@ -37,13 +38,19 @@ func NewDiskGroupService(database *gorm.DB, bus *events.EventBus) *DiskGroupServ
 // Wired returns true when all lazily-injected dependencies are non-nil.
 // Used by Registry.Validate() to catch missing wiring at startup.
 func (s *DiskGroupService) Wired() bool {
-	return s.engine != nil
+	return s.engine != nil && s.settings != nil
 }
 
 // SetEngineService wires the EngineService dependency so that threshold changes
 // can trigger an immediate engine run for queue reconciliation.
 func (s *DiskGroupService) SetEngineService(engine EngineRunTrigger) {
 	s.engine = engine
+}
+
+// SetSettingsReader wires the SettingsReader dependency so that newly
+// auto-discovered disk groups inherit the DefaultDiskGroupMode preference.
+func (s *DiskGroupService) SetSettingsReader(settings SettingsReader) {
+	s.settings = settings
 }
 
 // List returns all disk groups.
@@ -125,11 +132,16 @@ func (s *DiskGroupService) Upsert(disk integrations.DiskSpace) (*db.DiskGroup, e
 	usedBytes := disk.TotalBytes - disk.FreeBytes
 
 	if result.Error != nil {
-		// Create new disk group
+		// Create new disk group, inheriting the default mode from preferences.
 		group = db.DiskGroup{
 			MountPath:  disk.Path,
 			TotalBytes: disk.TotalBytes,
 			UsedBytes:  usedBytes,
+		}
+		if s.settings != nil {
+			if prefs, err := s.settings.GetPreferences(); err == nil && prefs.DefaultDiskGroupMode != "" {
+				group.Mode = prefs.DefaultDiskGroupMode
+			}
 		}
 		if err := s.db.Create(&group).Error; err != nil {
 			return nil, fmt.Errorf("failed to create disk group: %w", err)
