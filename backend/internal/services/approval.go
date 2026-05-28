@@ -535,17 +535,28 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 		runStatsID = deps.Engine.LatestRunStatsID()
 	}
 
-	// 7. Determine dry-run mode from preferences. The route handler no longer
-	// needs to compute this — all business logic lives in the service layer.
+	// 7. Determine dry-run mode by resolving the actual per-disk-group mode
+	// (not the global DefaultDiskGroupMode, which is only the default for newly
+	// auto-discovered groups). Falls back to DefaultDiskGroupMode if the disk
+	// group cannot be resolved.
 	forceDryRun := false
-	enqueuedMode := db.ModeApproval // default; overridden if prefs are available
+	enqueuedMode := db.ModeApproval // default; overridden if prefs/disk group are available
 	if deps.Settings != nil {
 		prefs, prefsErr := deps.Settings.GetPreferences()
 		if prefsErr != nil {
 			return approved, fmt.Errorf("failed to load preferences: %w", prefsErr)
 		}
-		forceDryRun = !prefs.DeletionsEnabled || prefs.DefaultDiskGroupMode == db.ModeDryRun
-		enqueuedMode = prefs.DefaultDiskGroupMode
+
+		// Resolve the actual disk group mode for this item
+		diskGroupMode := prefs.DefaultDiskGroupMode // fallback
+		if approved.DiskGroupID != nil && deps.DiskGroups != nil {
+			if group, err := deps.DiskGroups.GetByID(*approved.DiskGroupID); err == nil {
+				diskGroupMode = group.Mode
+			}
+		}
+
+		forceDryRun = !prefs.DeletionsEnabled || diskGroupMode == db.ModeDryRun
+		enqueuedMode = diskGroupMode
 	}
 
 	// 8. Queue for background deletion
@@ -615,7 +626,8 @@ type ExecuteApprovalDeps struct {
 	Integration *IntegrationService
 	Deletion    *DeletionService
 	Engine      *EngineService
-	Settings    SettingsReader // Used to determine dry-run mode from preferences
+	Settings    SettingsReader      // Used to determine dry-run mode from preferences
+	DiskGroups  DiskGroupModeReader // Used to resolve per-disk-group mode (not the global default)
 }
 
 // ManualDeleteItem contains the data needed for a user-initiated deletion.

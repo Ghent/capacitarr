@@ -6,6 +6,7 @@ import (
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
+	"capacitarr/internal/integrations"
 
 	_ "github.com/ncruces/go-sqlite3/embed"
 	"github.com/ncruces/go-sqlite3/gormlite"
@@ -1584,4 +1585,202 @@ func TestApprovalService_BulkUpsertPending(t *testing.T) {
 			t.Errorf("rejected item should be unchanged, got SizeBytes=%d", rejectedEntry.SizeBytes)
 		}
 	})
+}
+
+// TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode verifies that
+// ExecuteApproval resolves the per-disk-group mode (not the global
+// DefaultDiskGroupMode) when determining ForceDryRun. This is a regression
+// test for a bug where items in an "approval"-mode disk group were dry-deleted
+// and returned to pending because the code checked prefs.DefaultDiskGroupMode
+// (which defaults to "dry-run") instead of the actual disk group's mode.
+func TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+
+	// Register integration factories so CreateClient works
+	integrations.RegisterAllFactories()
+
+	// Create services
+	approvalSvc := NewApprovalService(database, bus)
+	integrationSvc := NewIntegrationService(database, bus)
+	auditLogSvc := NewAuditLogService(database)
+	deletionSvc := NewDeletionService(bus, auditLogSvc)
+
+	// Wire deletion service dependencies (don't Start() — we just inspect the queue)
+	settings := &mockSettingsReader{
+		deletionsEnabled:          true,
+		executionMode:             db.ModeDryRun, // global default is dry-run
+		deletionQueueDelaySeconds: 300,           // long delay so worker never fires
+	}
+	deletionSvc.SetDependencies(
+		settings,
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+		&mockApprovalReturner{},
+		&mockApprovalSnoozer{},
+		&mockDiskGroupModeReader{mode: db.ModeApproval},
+		&mockSunsetQueueCleaner{},
+	)
+
+	// Seed integration
+	ic := db.IntegrationConfig{
+		Type: "sonarr", Name: "Test Sonarr", URL: "http://localhost:8989", APIKey: "key",
+	}
+	database.Create(&ic)
+
+	// Create a disk group in "approval" mode
+	dg := db.DiskGroup{
+		MountPath:    "/media",
+		TotalBytes:   1000000000,
+		UsedBytes:    900000000,
+		ThresholdPct: 85,
+		TargetPct:    75,
+		Mode:         db.ModeApproval, // disk group is in approval mode
+	}
+	database.Create(&dg)
+
+	// Create a pending approval queue item linked to the approval-mode disk group
+	dgID := dg.ID
+	item := db.ApprovalQueueItem{
+		MediaName:     "Firefly",
+		MediaType:     "show",
+		SizeBytes:     5000000000,
+		Score:         0.85,
+		IntegrationID: ic.ID,
+		ExternalID:    "42",
+		DiskGroupID:   &dgID,
+		Status:        db.StatusPending,
+	}
+	database.Create(&item)
+
+	// Mock DiskGroupModeReader that returns the approval-mode disk group
+	dgReader := &testDiskGroupModeReader{groups: map[uint]*db.DiskGroup{
+		dg.ID: &dg,
+	}}
+
+	// Enable preferences with DeletionsEnabled=true but DefaultDiskGroupMode="dry-run"
+	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
+		"deletions_enabled":       true,
+		"default_disk_group_mode": db.ModeDryRun, // global default is dry-run
+	})
+
+	// Execute the approval
+	_, err := approvalSvc.ExecuteApproval(item.ID, ExecuteApprovalDeps{
+		Integration: integrationSvc,
+		Deletion:    deletionSvc,
+		Engine:      nil, // not needed for this test
+		Settings:    settings,
+		DiskGroups:  dgReader,
+	})
+	if err != nil {
+		t.Fatalf("ExecuteApproval failed: %v", err)
+	}
+
+	// Inspect the queued deletion job — ForceDryRun should be false because
+	// the item's disk group is in "approval" mode (not "dry-run")
+	deletionSvc.queuedMu.Lock()
+	defer deletionSvc.queuedMu.Unlock()
+
+	if len(deletionSvc.queuedItems) != 1 {
+		t.Fatalf("Expected 1 queued item, got %d", len(deletionSvc.queuedItems))
+	}
+
+	job := deletionSvc.queuedItems[0]
+	if job.ForceDryRun {
+		t.Errorf("ForceDryRun should be false (disk group is in approval mode), but got true — " +
+			"this means the code is checking DefaultDiskGroupMode instead of the actual disk group mode")
+	}
+	if job.EnqueuedMode != db.ModeApproval {
+		t.Errorf("Expected EnqueuedMode=%q, got %q", db.ModeApproval, job.EnqueuedMode)
+	}
+}
+
+// TestApprovalService_ExecuteApproval_FallsBackToDefaultMode verifies that
+// ExecuteApproval falls back to DefaultDiskGroupMode when the approval item
+// has no DiskGroupID (e.g. user-initiated items).
+func TestApprovalService_ExecuteApproval_FallsBackToDefaultMode(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+
+	integrations.RegisterAllFactories()
+
+	approvalSvc := NewApprovalService(database, bus)
+	integrationSvc := NewIntegrationService(database, bus)
+	auditLogSvc := NewAuditLogService(database)
+	deletionSvc := NewDeletionService(bus, auditLogSvc)
+
+	// Global default is dry-run, deletions enabled
+	settings := &mockSettingsReader{
+		deletionsEnabled:          true,
+		executionMode:             db.ModeDryRun,
+		deletionQueueDelaySeconds: 300,
+	}
+	deletionSvc.SetDependencies(
+		settings,
+		&mockEngineStatsWriter{},
+		&mockDeletionStatsWriter{},
+		&mockApprovalReturner{},
+		&mockApprovalSnoozer{},
+		&mockDiskGroupModeReader{},
+		&mockSunsetQueueCleaner{},
+	)
+
+	// Seed integration
+	ic := db.IntegrationConfig{
+		Type: "sonarr", Name: "Test Sonarr", URL: "http://localhost:8989", APIKey: "key",
+	}
+	database.Create(&ic)
+
+	// Create a pending approval queue item WITHOUT a DiskGroupID
+	item := db.ApprovalQueueItem{
+		MediaName:     "Serenity",
+		MediaType:     "movie",
+		SizeBytes:     3000000000,
+		Score:         0.70,
+		IntegrationID: ic.ID,
+		ExternalID:    "99",
+		DiskGroupID:   nil, // no disk group — user-initiated
+		Status:        db.StatusPending,
+	}
+	database.Create(&item)
+
+	// Execute the approval — should fall back to DefaultDiskGroupMode ("dry-run")
+	_, err := approvalSvc.ExecuteApproval(item.ID, ExecuteApprovalDeps{
+		Integration: integrationSvc,
+		Deletion:    deletionSvc,
+		Engine:      nil,
+		Settings:    settings,
+		DiskGroups:  &mockDiskGroupModeReader{}, // returns error (no groups)
+	})
+	if err != nil {
+		t.Fatalf("ExecuteApproval failed: %v", err)
+	}
+
+	// ForceDryRun should be true because the fallback uses DefaultDiskGroupMode="dry-run"
+	deletionSvc.queuedMu.Lock()
+	defer deletionSvc.queuedMu.Unlock()
+
+	if len(deletionSvc.queuedItems) != 1 {
+		t.Fatalf("Expected 1 queued item, got %d", len(deletionSvc.queuedItems))
+	}
+
+	job := deletionSvc.queuedItems[0]
+	if !job.ForceDryRun {
+		t.Errorf("ForceDryRun should be true (no disk group, fallback to dry-run default), but got false")
+	}
+	if job.EnqueuedMode != db.ModeDryRun {
+		t.Errorf("Expected EnqueuedMode=%q, got %q", db.ModeDryRun, job.EnqueuedMode)
+	}
+}
+
+// testDiskGroupModeReader is a DiskGroupModeReader that returns disk groups by ID.
+type testDiskGroupModeReader struct {
+	groups map[uint]*db.DiskGroup
+}
+
+func (r *testDiskGroupModeReader) GetByID(id uint) (*db.DiskGroup, error) {
+	if g, ok := r.groups[id]; ok {
+		return g, nil
+	}
+	return nil, errMockDelete // reuse sentinel error
 }

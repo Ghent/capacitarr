@@ -62,6 +62,7 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 			Deletion:    reg.Deletion,
 			Engine:      reg.Engine,
 			Settings:    reg.Settings,
+			DiskGroups:  reg.DiskGroup,
 		})
 		if err != nil {
 			if errors.Is(err, services.ErrApprovalNotPending) {
@@ -163,6 +164,7 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 			Deletion:    reg.Deletion,
 			Engine:      reg.Engine,
 			Settings:    reg.Settings,
+			DiskGroups:  reg.DiskGroup,
 		}
 
 		approved, err := reg.Approval.ExecuteGroupApproval(body.CollectionGroup, deps)
