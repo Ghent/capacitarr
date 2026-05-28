@@ -1,3 +1,11 @@
+## [3.3.4] - 2026-05-28
+
+### 🐛 Bug Fixes
+
+- *(deps)* Bump Go to 1.26.3 and patch x/image, x/net vulnerabilities ([b39ff3b](https://github.com/Ghent/capacitarr/commit/b39ff3bef894f1c3aa91768bf26f7efd289bd8e1))
+- *(deps)* Bump nuxt to 4.4.6 and resolve all pnpm audit vulnerabilities ([b862516](https://github.com/Ghent/capacitarr/commit/b862516eb0179a4090bebfd4f0336a350451f03a))
+- *(emby)* Base64-encode poster image data before upload ([4abab2e](https://github.com/Ghent/capacitarr/commit/4abab2edb4916cb8b0d6a09288d1a720bc5b6cdd)) — reported by @Wesleyl89 ([#24](https://github.com/Ghent/capacitarr/issues/24))
+- *(approval)* Pass DiskGroupID through to DeleteJob in ExecuteApproval ([b54e5c3](https://github.com/Ghent/capacitarr/commit/b54e5c39c9af0f2b725b9f850b478cb6866050d3))
 ## [3.3.3] - 2026-05-28
 
 ### 🐛 Bug Fixes
