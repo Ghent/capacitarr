@@ -20,7 +20,7 @@ func newTestMetricsService(t *testing.T) *MetricsService {
 	settings := NewSettingsService(database, bus)
 	svc := NewMetricsService(database, engine, deletion)
 	svc.SetSettingsService(settings)
-	deletion.SetDependencies(settings, engine, svc, nil, nil, nil, nil)
+	deletion.SetDependencies(DeletionDeps{Settings: settings, Engine: engine, Metrics: svc})
 	return svc
 }
 
@@ -373,7 +373,7 @@ func TestMetricsService_GetWorkerMetrics_ReturnsExpectedKeys(t *testing.T) {
 	settings := NewSettingsService(database, bus)
 	svc := NewMetricsService(database, engine, deletion)
 	svc.SetSettingsService(settings)
-	deletion.SetDependencies(settings, engine, svc, nil, nil, nil, nil)
+	deletion.SetDependencies(DeletionDeps{Settings: settings, Engine: engine, Metrics: svc})
 
 	metrics := svc.GetWorkerMetrics()
 
@@ -406,7 +406,7 @@ func TestMetricsService_GetWorkerMetrics_DiskGroupModesFromRunStats(t *testing.T
 	settings := NewSettingsService(database, bus)
 	svc := NewMetricsService(database, engine, deletion)
 	svc.SetSettingsService(settings)
-	deletion.SetDependencies(settings, engine, svc, nil, nil, nil, nil)
+	deletion.SetDependencies(DeletionDeps{Settings: settings, Engine: engine, Metrics: svc})
 
 	// Create an engine run stats record with per-group modes
 	database.Create(&db.EngineRunStats{DiskGroupModes: `{"1":"dry-run"}`})

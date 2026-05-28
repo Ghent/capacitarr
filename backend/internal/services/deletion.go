@@ -63,6 +63,8 @@ type DeletionService struct {
 	approvalReturner ApprovalReturner
 	approvalSnoozer  ApprovalSnoozer
 	diskGroups       DiskGroupModeReader
+	diskGroupsFull   DiskGroupResolver
+	clients          ClientResolver
 	sunsetCleaner    SunsetQueueCleaner
 	rateLimiter      *rate.Limiter
 	done             chan struct{}
@@ -143,11 +145,42 @@ type DiskGroupModeReader interface {
 	GetByID(id uint) (*db.DiskGroup, error)
 }
 
+// DiskGroupResolver extends DiskGroupModeReader with integration-based lookups.
+// Used by the intake layer to resolve the disk group for a given integration.
+type DiskGroupResolver interface {
+	DiskGroupModeReader
+	GetDiskGroupIDForIntegration(integrationID uint) *uint
+}
+
+// ClientResolver creates a MediaDeleter and retrieves config from an integration ID.
+// Decouples DeletionService from integration factory internals.
+type ClientResolver interface {
+	GetDeleter(integrationID uint) (integrations.MediaDeleter, error)
+	GetIntegrationConfig(integrationID uint) (*db.IntegrationConfig, error)
+}
+
 // SunsetQueueCleaner allows the DeletionService to remove sunset queue items
 // after a file has been successfully deleted. This closes the sunset lifecycle:
 // item enters queue → countdown expires → DeletionService deletes file → row removed.
 type SunsetQueueCleaner interface {
 	RemoveCompleted(id uint) error
+}
+
+// ---------------------------------------------------------------------------
+// DeletionDeps groups cross-service dependencies for DeletionService.
+// Replaces the 7-param SetDependencies signature for readability.
+// ---------------------------------------------------------------------------
+
+// DeletionDeps holds all lazily-injected dependencies for DeletionService.
+type DeletionDeps struct {
+	Settings      SettingsReader
+	Engine        EngineStatsWriter
+	Metrics       DeletionStatsWriter
+	Approval      ApprovalReturner
+	Snoozer       ApprovalSnoozer
+	DiskGroups    DiskGroupResolver
+	Clients       ClientResolver
+	SunsetCleaner SunsetQueueCleaner
 }
 
 // ---------------------------------------------------------------------------
@@ -174,19 +207,24 @@ func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *Deleti
 // Wired returns true when all lazily-injected dependencies are non-nil.
 // Used by Registry.Validate() to catch missing wiring at startup.
 func (s *DeletionService) Wired() bool {
-	return s.settings != nil && s.engine != nil && s.metrics != nil && s.approvalReturner != nil && s.approvalSnoozer != nil && s.diskGroups != nil && s.sunsetCleaner != nil
+	return s.settings != nil && s.engine != nil && s.metrics != nil &&
+		s.approvalReturner != nil && s.approvalSnoozer != nil &&
+		s.diskGroups != nil && s.diskGroupsFull != nil &&
+		s.clients != nil && s.sunsetCleaner != nil
 }
 
 // SetDependencies wires cross-service dependencies that cannot be injected
 // at construction time due to circular initialization in the registry.
-func (s *DeletionService) SetDependencies(settings SettingsReader, engine EngineStatsWriter, metrics DeletionStatsWriter, approvalReturner ApprovalReturner, approvalSnoozer ApprovalSnoozer, diskGroups DiskGroupModeReader, sunsetCleaner SunsetQueueCleaner) {
-	s.settings = settings
-	s.engine = engine
-	s.metrics = metrics
-	s.approvalReturner = approvalReturner
-	s.approvalSnoozer = approvalSnoozer
-	s.diskGroups = diskGroups
-	s.sunsetCleaner = sunsetCleaner
+func (s *DeletionService) SetDependencies(deps DeletionDeps) {
+	s.settings = deps.Settings
+	s.engine = deps.Engine
+	s.metrics = deps.Metrics
+	s.approvalReturner = deps.Approval
+	s.approvalSnoozer = deps.Snoozer
+	s.diskGroups = deps.DiskGroups
+	s.diskGroupsFull = deps.DiskGroups
+	s.clients = deps.Clients
+	s.sunsetCleaner = deps.SunsetCleaner
 }
 
 // Start begins the background deletion worker. Panics if SetDependencies()

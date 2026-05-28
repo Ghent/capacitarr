@@ -135,6 +135,21 @@ func (s *DiskGroupService) GetByID(id uint) (*db.DiskGroup, error) {
 	return &group, nil
 }
 
+// GetDiskGroupIDForIntegration returns the disk group ID linked to a given
+// integration, or nil if the integration has no linked disk group.
+// Used by the deletion intake layer to resolve which disk group a manual
+// delete or approval belongs to.
+func (s *DiskGroupService) GetDiskGroupIDForIntegration(integrationID uint) *uint {
+	var diskGroupID uint
+	if err := s.db.Raw(
+		"SELECT disk_group_id FROM disk_group_integrations WHERE integration_id = ? LIMIT 1",
+		integrationID,
+	).Scan(&diskGroupID).Error; err != nil || diskGroupID == 0 {
+		return nil
+	}
+	return &diskGroupID
+}
+
 // GetModeForIntegration resolves the execution mode for a given integration
 // by looking up its linked disk group via the DiskGroupIntegration junction
 // table. Returns the disk group's Mode if found, or an empty string if the

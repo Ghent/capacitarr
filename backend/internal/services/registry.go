@@ -64,9 +64,19 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 
 	// Wire cross-service dependencies that cannot be injected at construction
 	// time due to circular initialization (DeletionService needs Settings,
-	// Engine, Metrics, ApprovalReturner, ApprovalSnoozer, DiskGroups, and
-	// SunsetCleaner but they are constructed in the same function).
-	deletionSvc.SetDependencies(settingsSvc, engineSvc, metricsSvc, approvalSvc, approvalSvc, diskGroupSvc, sunsetSvc)
+	// Engine, Metrics, ApprovalReturner, ApprovalSnoozer, DiskGroups,
+	// ClientResolver, and SunsetCleaner but they are constructed in the same function).
+	integrationSvc := NewIntegrationService(database, bus)
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      settingsSvc,
+		Engine:        engineSvc,
+		Metrics:       metricsSvc,
+		Approval:      approvalSvc,
+		Snoozer:       approvalSvc,
+		DiskGroups:    diskGroupSvc,
+		Clients:       NewClientResolver(integrationSvc),
+		SunsetCleaner: sunsetSvc,
+	})
 
 	notifChannelSvc := NewNotificationChannelService(database, bus)
 	notifDispatch := NewNotificationDispatchService(bus, notifChannelSvc, nil, "")
@@ -86,7 +96,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 		Engine:               engineSvc,
 		Preview:              previewSvc,
 		Settings:             settingsSvc,
-		Integration:          NewIntegrationService(database, bus),
+		Integration:          integrationSvc,
 		Auth:                 NewAuthService(database, bus, cfg),
 		NotificationChannel:  notifChannelSvc,
 		NotificationDispatch: notifDispatch,

@@ -1612,15 +1612,16 @@ func TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode(t *testing.T) {
 		executionMode:             db.ModeDryRun, // global default is dry-run
 		deletionQueueDelaySeconds: 300,           // long delay so worker never fires
 	}
-	deletionSvc.SetDependencies(
-		settings,
-		&mockEngineStatsWriter{},
-		&mockDeletionStatsWriter{},
-		&mockApprovalReturner{},
-		&mockApprovalSnoozer{},
-		&mockDiskGroupModeReader{mode: db.ModeApproval},
-		&mockSunsetQueueCleaner{},
-	)
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      settings,
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeApproval},
+		Clients:       &mockClientResolver{},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
 
 	// Seed integration
 	ic := db.IntegrationConfig{
@@ -1725,15 +1726,16 @@ func TestApprovalService_ExecuteApproval_FallsBackToDefaultMode(t *testing.T) {
 		executionMode:             db.ModeDryRun,
 		deletionQueueDelaySeconds: 300,
 	}
-	deletionSvc.SetDependencies(
-		settings,
-		&mockEngineStatsWriter{},
-		&mockDeletionStatsWriter{},
-		&mockApprovalReturner{},
-		&mockApprovalSnoozer{},
-		&mockDiskGroupModeReader{},
-		&mockSunsetQueueCleaner{},
-	)
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      settings,
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{},
+		Clients:       &mockClientResolver{},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
 
 	// Seed integration
 	ic := db.IntegrationConfig{
