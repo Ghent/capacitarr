@@ -12,7 +12,7 @@ COPY frontend/ ./
 RUN pnpm run build
 
 # ── Stage 2: Backend build ─────────────────────────────────────────────────────
-FROM --platform=$BUILDPLATFORM golang:1.26.2-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.26.3-alpine AS backend-builder
 WORKDIR /app
 
 # Copy dependency manifests first for layer caching

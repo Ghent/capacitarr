@@ -331,14 +331,14 @@ Pinned Docker image versions are **re-evaluated on a regular basis** to pick up 
 | `ghcr.io/zaproxy/zaproxy` | `stable` | OWASP ZAP DAST scanning (see note below) |
 | `alpine` | `3.21` | Production runtime base image (digest-pinned in Dockerfile) |
 | `node` | `24-alpine` | Frontend build and test |
-| `golang` | `1.26.2-alpine` | Backend build and test |
+| `golang` | `1.26.3-alpine` | Backend build and test |
 | `pnpm` (CLI) | `10.32.1` | Node.js package manager (pinned in Makefile and Dockerfile) |
 
 > **Note on ZAP `:stable` tag:** The OWASP ZAP proxy image (`ghcr.io/zaproxy/zaproxy`) uses the `:stable` tag because ZAP does not publish individually versioned image tags. The `:stable` tag tracks the latest stable release. This is an accepted exception to the pinning policy — ZAP is used only for local DAST scanning (`make security:zap`), not in CI pipelines, so a compromised image cannot affect builds or releases.
 
 > **Note on `crane`:** The `crane` CLI tool (from `google/go-containerregistry`) is used in the release pipeline to mirror multi-arch Docker images from GHCR to Docker Hub. It is currently installed via curl-pipe-to-shell in the GitHub Actions workflow (`release.yml`), which is a known deviation from the "no curl-pipe-to-shell" policy. This is being tracked for remediation (e.g., switching to a pre-built Docker image or a pinned GitHub Action).
 
-**Next reassessment date:** 2026-04-27
+**Next reassessment date:** 2026-06-28
 
 ### Important Caveats
 
