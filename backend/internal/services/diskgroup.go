@@ -21,13 +21,21 @@ type EngineRunTrigger interface {
 	TriggerRun() string
 }
 
+// DeletionQueueGroupClearer allows DiskGroupService to clear deletion queue
+// entries for a specific disk group when its mode changes. Defined as an
+// interface to avoid a direct dependency on DeletionService.
+type DeletionQueueGroupClearer interface {
+	ClearQueueForDiskGroup(diskGroupID uint) int
+}
+
 // DiskGroupService manages disk group lifecycle: discovery, reconciliation,
 // threshold configuration, and integration tracking.
 type DiskGroupService struct {
-	db       *gorm.DB
-	bus      *events.EventBus
-	engine   EngineRunTrigger // optional; wired via SetEngineService()
-	settings SettingsReader   // optional; wired via SetSettingsReader()
+	db              *gorm.DB
+	bus             *events.EventBus
+	engine          EngineRunTrigger          // optional; wired via SetEngineService()
+	settings        SettingsReader            // optional; wired via SetSettingsReader()
+	deletionClearer DeletionQueueGroupClearer // optional; wired via SetDeletionClearer()
 }
 
 // NewDiskGroupService creates a new DiskGroupService.
@@ -38,7 +46,7 @@ func NewDiskGroupService(database *gorm.DB, bus *events.EventBus) *DiskGroupServ
 // Wired returns true when all lazily-injected dependencies are non-nil.
 // Used by Registry.Validate() to catch missing wiring at startup.
 func (s *DiskGroupService) Wired() bool {
-	return s.engine != nil && s.settings != nil
+	return s.engine != nil && s.settings != nil && s.deletionClearer != nil
 }
 
 // SetEngineService wires the EngineService dependency so that threshold changes
@@ -51,6 +59,12 @@ func (s *DiskGroupService) SetEngineService(engine EngineRunTrigger) {
 // auto-discovered disk groups inherit the DefaultDiskGroupMode preference.
 func (s *DiskGroupService) SetSettingsReader(settings SettingsReader) {
 	s.settings = settings
+}
+
+// SetDeletionClearer wires the DeletionQueueGroupClearer dependency so that
+// mode changes on a disk group clear its queued deletion items.
+func (s *DiskGroupService) SetDeletionClearer(clearer DeletionQueueGroupClearer) {
+	s.deletionClearer = clearer
 }
 
 // List returns all disk groups.
@@ -119,6 +133,28 @@ func (s *DiskGroupService) GetByID(id uint) (*db.DiskGroup, error) {
 		return nil, fmt.Errorf("disk group not found: %w", err)
 	}
 	return &group, nil
+}
+
+// GetModeForIntegration resolves the execution mode for a given integration
+// by looking up its linked disk group via the DiskGroupIntegration junction
+// table. Returns the disk group's Mode if found, or an empty string if the
+// integration has no linked disk group.
+func (s *DiskGroupService) GetModeForIntegration(integrationID uint) (string, error) {
+	var diskGroupID uint
+	if err := s.db.Raw(
+		"SELECT disk_group_id FROM disk_group_integrations WHERE integration_id = ? LIMIT 1",
+		integrationID,
+	).Scan(&diskGroupID).Error; err != nil {
+		return "", fmt.Errorf("failed to query disk group integrations: %w", err)
+	}
+	if diskGroupID == 0 {
+		return "", nil // No link found — caller should fall back to preference
+	}
+	var group db.DiskGroup
+	if err := s.db.First(&group, diskGroupID).Error; err != nil {
+		return "", fmt.Errorf("disk group %d not found for integration %d: %w", diskGroupID, integrationID, err)
+	}
+	return group.Mode, nil
 }
 
 // Upsert creates or updates a disk group from discovered disk space.
@@ -192,6 +228,8 @@ func (s *DiskGroupService) UpdateThresholds(groupID uint, threshold, target floa
 		return nil, err
 	}
 
+	oldMode := group.Mode
+
 	updates := map[string]any{
 		"threshold_pct": threshold,
 		"target_pct":    target,
@@ -221,6 +259,21 @@ func (s *DiskGroupService) UpdateThresholds(groupID uint, threshold, target floa
 		// Clear sunset_pct when switching away from sunset mode
 		if err := s.db.Model(&group).Update("sunset_pct", gorm.Expr("NULL")).Error; err != nil {
 			return nil, fmt.Errorf("failed to clear sunset threshold: %w", err)
+		}
+	}
+
+	// Clear deletion queue for this disk group when mode changes.
+	// Any mode change invalidates the assumptions under which items were queued —
+	// the engine will re-evaluate and re-queue as appropriate under the new mode.
+	if mode != "" && mode != oldMode && s.deletionClearer != nil {
+		cleared := s.deletionClearer.ClearQueueForDiskGroup(group.ID)
+		if cleared > 0 {
+			slog.Info("Cleared deletion queue on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath,
+				"oldMode", oldMode,
+				"newMode", mode,
+				"cleared", cleared)
 		}
 	}
 

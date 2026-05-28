@@ -235,27 +235,6 @@ func TestNotificationDispatch_SubscriptionFiltering(t *testing.T) {
 	}
 }
 
-func TestNotificationDispatch_ModeChangedAlert(t *testing.T) {
-	channels := &mockChannelProvider{
-		configs: []db.NotificationConfig{
-			{ID: 1, Type: "discord", Name: "Test", Enabled: true, NotificationLevel: "important"},
-		},
-	}
-
-	svc, mock := newTestDispatch(t, channels)
-
-	svc.bus.Publish(events.EngineModeChangedEvent{OldMode: db.ModeDryRun, NewMode: db.ModeAuto})
-	time.Sleep(200 * time.Millisecond)
-
-	alerts := mock.getAlerts()
-	if len(alerts) != 1 {
-		t.Fatalf("expected 1 alert for mode change, got %d", len(alerts))
-	}
-	if alerts[0].Type != notifications.AlertModeChanged {
-		t.Errorf("expected alert type 'mode_changed', got %q", alerts[0].Type)
-	}
-}
-
 func TestNotificationDispatch_ServerStartedAlert(t *testing.T) {
 	channels := &mockChannelProvider{
 		configs: []db.NotificationConfig{

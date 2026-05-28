@@ -4,9 +4,9 @@
  *
  * Engine state updates arrive via SSE events (engine_start, engine_complete,
  * engine_error) instead of polling. fetchStats() is kept for initial hydration
- * on mount and after explicit user actions (mode change).
+ * on mount.
  */
-import type { WorkerStats, PreferenceSet, DeletionProgress } from '~/types/api';
+import type { WorkerStats, DeletionProgress } from '~/types/api';
 import { toast } from 'vue-sonner';
 import {
   MODE_DRY_RUN,
@@ -16,7 +16,6 @@ import {
   EVENT_ENGINE_START,
   EVENT_ENGINE_COMPLETE,
   EVENT_ENGINE_ERROR,
-  EVENT_ENGINE_MODE_CHANGED,
   EVENT_DELETION_PROGRESS,
   EVENT_DELETION_BATCH_COMPLETE,
 } from '~/constants';
@@ -39,7 +38,6 @@ export function useEngineControl() {
 
   const workerStats = useState<WorkerStats | null>('engineWorkerStats', () => null);
   const runNowLoading = ref(false);
-  const changingMode = ref(false);
 
   // Deletion progress — updated by SSE deletion_progress events
   const deletionProgress = useState<DeletionProgress | null>('engineDeletionProgress', () => null);
@@ -162,16 +160,6 @@ export function useEngineControl() {
       toast.error(t('engine.errorToast', { error: event.error || 'Unknown error' }));
     });
 
-    on(EVENT_ENGINE_MODE_CHANGED, (data: unknown) => {
-      const event = data as { newMode?: string };
-      if (workerStats.value && event.newMode) {
-        workerStats.value = {
-          ...workerStats.value,
-          defaultDiskGroupMode: event.newMode,
-        };
-      }
-    });
-
     on(EVENT_DELETION_PROGRESS, (data: unknown) => {
       const event = data as DeletionProgress;
       deletionProgress.value = event;
@@ -218,24 +206,6 @@ export function useEngineControl() {
     }
   }
 
-  async function setMode(mode: string) {
-    changingMode.value = true;
-    try {
-      const currentPrefs = (await api('/api/v1/preferences')) as PreferenceSet;
-      await api('/api/v1/preferences', {
-        method: 'PUT',
-        body: { ...currentPrefs, defaultDiskGroupMode: mode },
-      });
-      // Refresh stats to pick up the new mode immediately
-      await fetchStats();
-      toast.success(t('engine.modeChangedToast', { mode: modeLabel(mode) }));
-    } catch {
-      toast.error(t('engine.modeChangeFailedToast'));
-    } finally {
-      changingMode.value = false;
-    }
-  }
-
   async function triggerRunNow() {
     runNowLoading.value = true;
     try {
@@ -278,11 +248,9 @@ export function useEngineControl() {
     deletionProgress: readonly(deletionProgress),
     isDeletionActive,
     runNowLoading: readonly(runNowLoading),
-    changingMode: readonly(changingMode),
     runCompletionCounter: readonly(runCompletionCounter),
     modeLabel,
     fetchStats,
-    setMode,
     triggerRunNow,
   };
 }

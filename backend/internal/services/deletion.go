@@ -948,6 +948,22 @@ func (s *DeletionService) ClearQueue() int {
 	return count
 }
 
+// ClearQueueForDiskGroup cancels all queued items associated with a specific
+// disk group. Used when a disk group's mode changes to invalidate items queued
+// under assumptions of the previous mode. Returns the number of items cancelled.
+func (s *DeletionService) ClearQueueForDiskGroup(diskGroupID uint) int {
+	s.queuedMu.Lock()
+	var count int
+	for _, job := range s.queuedItems {
+		if job.DiskGroupID != nil && *job.DiskGroupID == diskGroupID {
+			s.cancelled.Store(cancelKey(job.Item.Title, string(job.Item.Type)), true)
+			count++
+		}
+	}
+	s.queuedMu.Unlock()
+	return count
+}
+
 // ---------------------------------------------------------------------------
 // Queued items tracking
 // ---------------------------------------------------------------------------

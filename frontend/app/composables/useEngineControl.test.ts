@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, computed, readonly, type Ref } from 'vue';
-import { EVENT_ENGINE_COMPLETE, EVENT_ENGINE_MODE_CHANGED } from '~/constants';
+import { EVENT_ENGINE_COMPLETE } from '~/constants';
 
 // Now import the composable under test (after all stubs are in place)
 import { useEngineControl, _resetSSERegistration } from './useEngineControl';
@@ -127,7 +127,6 @@ describe('useEngineControl', () => {
     it('has loading flags set to false initially', () => {
       const ctrl = useEngineControl();
       expect(ctrl.runNowLoading.value).toBe(false);
-      expect(ctrl.changingMode.value).toBe(false);
     });
   });
 
@@ -234,111 +233,6 @@ describe('useEngineControl', () => {
       await ctrl.fetchStats();
 
       expect(toastSuccessSpy).not.toHaveBeenCalled();
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // setMode
-  // -------------------------------------------------------------------------
-  describe('setMode', () => {
-    it('fetches preferences, PUTs new mode, refreshes stats, and toasts', async () => {
-      const existingPrefs = { defaultDiskGroupMode: 'dry-run', pollInterval: 300 };
-      // 1st call: GET preferences
-      mockApiFetch.mockResolvedValueOnce(existingPrefs);
-      // 2nd call: PUT preferences
-      mockApiFetch.mockResolvedValueOnce({});
-      // 3rd call: fetchStats (inside setMode)
-      mockApiFetch.mockResolvedValueOnce({
-        defaultDiskGroupMode: 'auto',
-        isRunning: false,
-      });
-
-      const ctrl = useEngineControl();
-      await ctrl.setMode('auto');
-
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/preferences');
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/preferences', {
-        method: 'PUT',
-        body: { ...existingPrefs, defaultDiskGroupMode: 'auto' },
-      });
-      expect(toastSuccessSpy).toHaveBeenCalledWith('engine.modeChangedToast');
-      expect(ctrl.changingMode.value).toBe(false);
-    });
-
-    it('sets changingMode to true during API call', async () => {
-      let resolvePrefs: (value: unknown) => void;
-      const prefsPromise = new Promise((resolve) => {
-        resolvePrefs = resolve;
-      });
-      mockApiFetch.mockReturnValueOnce(prefsPromise);
-
-      const ctrl = useEngineControl();
-      const setModePromise = ctrl.setMode('approval');
-
-      // changingMode should be true while waiting
-      expect(ctrl.changingMode.value).toBe(true);
-
-      // Resolve the chain
-      resolvePrefs!({ defaultDiskGroupMode: 'dry-run' });
-      mockApiFetch.mockResolvedValueOnce({}); // PUT
-      mockApiFetch.mockResolvedValueOnce({ defaultDiskGroupMode: 'approval', isRunning: false }); // fetchStats
-      await setModePromise;
-
-      expect(ctrl.changingMode.value).toBe(false);
-    });
-
-    it('shows error toast on failure and resets changingMode', async () => {
-      mockApiFetch.mockRejectedValueOnce(new Error('Server error'));
-
-      const ctrl = useEngineControl();
-      await ctrl.setMode('auto');
-
-      expect(toastErrorSpy).toHaveBeenCalledWith('engine.modeChangeFailedToast');
-      expect(ctrl.changingMode.value).toBe(false);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // SSE engine_mode_changed
-  // -------------------------------------------------------------------------
-  describe('SSE engine_mode_changed', () => {
-    it('updates executionMode when engine_mode_changed event is received', async () => {
-      // Hydrate with initial stats
-      mockApiFetch.mockResolvedValueOnce({
-        defaultDiskGroupMode: 'dry-run',
-        isRunning: false,
-        lastRunEvaluated: 0,
-        lastRunCandidates: 0,
-      });
-      const ctrl = useEngineControl();
-      await ctrl.fetchStats();
-      expect(ctrl.executionMode.value).toBe('dry-run');
-
-      // Invoke the engine_mode_changed SSE handler
-      const handler = sseHandlers.get(EVENT_ENGINE_MODE_CHANGED);
-      if (!handler) {
-        expect(mockSseOn).not.toHaveBeenCalled();
-        return;
-      }
-      handler({ oldMode: 'dry-run', newMode: 'approval' });
-      expect(ctrl.executionMode.value).toBe('approval');
-    });
-
-    it('does not update if newMode is missing from event', async () => {
-      mockApiFetch.mockResolvedValueOnce({
-        defaultDiskGroupMode: 'auto',
-        isRunning: false,
-      });
-      const ctrl = useEngineControl();
-      await ctrl.fetchStats();
-
-      const handler = sseHandlers.get(EVENT_ENGINE_MODE_CHANGED);
-      if (!handler) {
-        expect(mockSseOn).not.toHaveBeenCalled();
-        return;
-      }
-      handler({ oldMode: 'auto' }); // no newMode
-      expect(ctrl.executionMode.value).toBe('auto'); // unchanged
     });
   });
 

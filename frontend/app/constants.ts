@@ -39,7 +39,6 @@ export const EVENT_APPROVAL_RETURNED_TO_PENDING = 'approval_returned_to_pending'
 export const EVENT_ENGINE_START = 'engine_start' as const;
 export const EVENT_ENGINE_COMPLETE = 'engine_complete' as const;
 export const EVENT_ENGINE_ERROR = 'engine_error' as const;
-export const EVENT_ENGINE_MODE_CHANGED = 'engine_mode_changed' as const;
 
 // Integration events
 export const EVENT_INTEGRATION_ADDED = 'integration_added' as const;

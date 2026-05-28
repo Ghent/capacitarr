@@ -79,20 +79,6 @@ func (e EnrichmentCompleteEvent) EventMessage() string {
 	return fmt.Sprintf("Enrichment complete: %d enrichers, %d matches", e.EnrichersRun, e.TotalMatches)
 }
 
-// EngineModeChangedEvent is published when the execution mode is changed.
-type EngineModeChangedEvent struct {
-	OldMode string `json:"oldMode"`
-	NewMode string `json:"newMode"`
-}
-
-// EventType implements Event.
-func (e EngineModeChangedEvent) EventType() string { return "engine_mode_changed" }
-
-// EventMessage implements Event.
-func (e EngineModeChangedEvent) EventMessage() string {
-	return fmt.Sprintf("Execution mode changed from %s to %s", e.OldMode, e.NewMode)
-}
-
 // ManualRunTriggeredEvent is published when a user manually triggers an engine run.
 type ManualRunTriggeredEvent struct{}
 

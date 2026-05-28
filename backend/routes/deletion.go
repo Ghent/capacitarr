@@ -132,7 +132,16 @@ func handleManualDelete(reg *services.Registry) echo.HandlerFunc {
 			})
 		}
 
-		result, err := reg.Approval.ManualDelete(deleteItems, prefs.DefaultDiskGroupMode, prefs.DeletionsEnabled, services.ManualDeleteDeps{
+		// Resolve execution mode from the integration's linked disk group.
+		// Falls back to DefaultDiskGroupMode when no disk group link exists.
+		mode := prefs.DefaultDiskGroupMode
+		if len(deleteItems) > 0 {
+			if resolved, err := reg.DiskGroup.GetModeForIntegration(deleteItems[0].IntegrationID); err == nil && resolved != "" {
+				mode = resolved
+			}
+		}
+
+		result, err := reg.Approval.ManualDelete(deleteItems, mode, prefs.DeletionsEnabled, services.ManualDeleteDeps{
 			Integration: reg.Integration,
 			Deletion:    reg.Deletion,
 			Engine:      reg.Engine,

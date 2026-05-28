@@ -133,6 +133,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	// Wire DiskGroupService's cross-service dependencies
 	diskGroupSvc.SetEngineService(engineSvc)
 	diskGroupSvc.SetSettingsReader(settingsSvc)
+	diskGroupSvc.SetDeletionClearer(deletionSvc)
 
 	// Wire BackupService's cross-service dependency on DiskGroupService
 	backupSvc.SetDiskGroupService(diskGroupSvc)

@@ -146,28 +146,6 @@ func (s *SettingsService) UpdatePreferences(payload db.PreferenceSet) (db.Prefer
 	// Apply dynamic log level
 	logger.SetLevel(payload.LogLevel)
 
-	// Detect default disk group mode change — clear the deletion queue to prevent
-	// stale jobs from executing under the wrong mode. ClearQueue() uses the
-	// cancellation skip-list, so items already mid-processing get the
-	// "cancelled" treatment in processJob().
-	if oldPrefs.DefaultDiskGroupMode != payload.DefaultDiskGroupMode {
-		if s.deletionClearer != nil {
-			cleared := s.deletionClearer.ClearQueue()
-			if cleared > 0 {
-				slog.Info("Cleared deletion queue on default disk group mode change",
-					"component", "services",
-					"oldMode", oldPrefs.DefaultDiskGroupMode,
-					"newMode", payload.DefaultDiskGroupMode,
-					"cleared", cleared)
-			}
-		}
-
-		s.bus.Publish(events.EngineModeChangedEvent{
-			OldMode: oldPrefs.DefaultDiskGroupMode,
-			NewMode: payload.DefaultDiskGroupMode,
-		})
-	}
-
 	// Detect DeletionsEnabled toggle (true → false) — same class of bug:
 	// auto-mode items in the grace period would still execute if we don't
 	// clear the queue when the user disables deletions.
@@ -216,24 +194,6 @@ func (s *SettingsService) PatchEnginePreferences(patch EnginePreferencePatch) (d
 	// Re-read for side-effect detection and response
 	var newPrefs db.PreferenceSet
 	s.db.First(&newPrefs, 1)
-
-	// Detect mode change → clear deletion queue
-	if patch.DefaultDiskGroupMode != nil && oldPrefs.DefaultDiskGroupMode != *patch.DefaultDiskGroupMode {
-		if s.deletionClearer != nil {
-			cleared := s.deletionClearer.ClearQueue()
-			if cleared > 0 {
-				slog.Info("Cleared deletion queue on default disk group mode change",
-					"component", "services",
-					"oldMode", oldPrefs.DefaultDiskGroupMode,
-					"newMode", *patch.DefaultDiskGroupMode,
-					"cleared", cleared)
-			}
-		}
-		s.bus.Publish(events.EngineModeChangedEvent{
-			OldMode: oldPrefs.DefaultDiskGroupMode,
-			NewMode: *patch.DefaultDiskGroupMode,
-		})
-	}
 
 	// Detect deletions disabled → clear queue
 	if patch.DeletionsEnabled != nil && oldPrefs.DeletionsEnabled && !*patch.DeletionsEnabled {

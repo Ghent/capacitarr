@@ -564,8 +564,6 @@ function eventIcon(eventType: string) {
       return CheckCircle2Icon;
     case 'engine_error':
       return AlertCircleIcon;
-    case 'engine_mode_changed':
-      return SettingsIcon;
     case 'manual_run_triggered':
       return PlayIcon;
     // Settings
@@ -651,7 +649,6 @@ function eventIcon(eventType: string) {
 function eventIconClass(eventType: string): string {
   switch (eventType) {
     case 'engine_start':
-    case 'engine_mode_changed':
     case 'manual_run_triggered':
     case 'threshold_changed':
     case 'approval_unsnoozed':
@@ -791,7 +788,6 @@ const activityEventTypes = [
   'engine_start',
   'engine_complete',
   'engine_error',
-  'engine_mode_changed',
   'manual_run_triggered',
   'settings_changed',
   'threshold_changed',

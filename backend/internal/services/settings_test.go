@@ -73,22 +73,14 @@ func TestSettingsService_UpdatePreferences_ModeChange(t *testing.T) {
 		t.Fatalf("UpdatePreferences returned error: %v", err)
 	}
 
-	// Should publish two events: engine_mode_changed and settings_changed
-	receivedTypes := map[string]bool{}
-	for i := 0; i < 2; i++ {
-		select {
-		case evt := <-ch:
-			receivedTypes[evt.EventType()] = true
-		case <-time.After(time.Second):
-			t.Fatal("timeout waiting for events")
+	// Should publish settings_changed event (mode change no longer publishes engine_mode_changed)
+	select {
+	case evt := <-ch:
+		if evt.EventType() != "settings_changed" {
+			t.Errorf("expected settings_changed event, got %q", evt.EventType())
 		}
-	}
-
-	if !receivedTypes["engine_mode_changed"] {
-		t.Error("expected engine_mode_changed event")
-	}
-	if !receivedTypes["settings_changed"] {
-		t.Error("expected settings_changed event")
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for settings_changed event")
 	}
 }
 
@@ -103,7 +95,7 @@ func (m *mockDeletionQueueClearer) ClearQueue() int {
 	return m.clearReturn
 }
 
-func TestSettingsService_UpdatePreferences_ModeChange_ClearsQueue(t *testing.T) {
+func TestSettingsService_UpdatePreferences_ModeChange_NoQueueClear(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewSettingsService(database, bus)
@@ -111,7 +103,8 @@ func TestSettingsService_UpdatePreferences_ModeChange_ClearsQueue(t *testing.T) 
 	clearer := &mockDeletionQueueClearer{clearReturn: 5}
 	svc.SetDeletionClearer(clearer)
 
-	// Get current prefs (default: dry-run)
+	// Changing DefaultDiskGroupMode no longer clears the deletion queue
+	// (queue clearing is now per-disk-group in DiskGroupService.UpdateThresholds)
 	current, _ := svc.GetPreferences()
 	current.DefaultDiskGroupMode = db.ModeApproval
 
@@ -119,8 +112,8 @@ func TestSettingsService_UpdatePreferences_ModeChange_ClearsQueue(t *testing.T) 
 		t.Fatalf("UpdatePreferences returned error: %v", err)
 	}
 
-	if clearer.clearCalled != 1 {
-		t.Errorf("expected ClearQueue to be called 1 time, got %d", clearer.clearCalled)
+	if clearer.clearCalled != 0 {
+		t.Errorf("expected ClearQueue NOT to be called on DefaultDiskGroupMode change, got %d", clearer.clearCalled)
 	}
 }
 

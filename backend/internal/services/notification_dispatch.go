@@ -194,13 +194,6 @@ func (s *NotificationDispatchService) handle(event events.Event) {
 			Message: "The evaluation engine failed. Check the application logs for details.",
 		}, eventKindError)
 
-	case events.EngineModeChangedEvent:
-		s.dispatchAlert(notifications.Alert{
-			Type:    notifications.AlertModeChanged,
-			Title:   fmt.Sprintf("⚠️ Mode: **%s** → **%s**", e.OldMode, e.NewMode),
-			Message: modeChangedMessage(e.NewMode),
-		}, "mode_changed")
-
 	case events.ServerStartedEvent:
 		s.dispatchAlert(notifications.Alert{
 			Type:    notifications.AlertServerStarted,
@@ -475,19 +468,5 @@ func (s *NotificationDispatchService) resolveOverride(cfg db.NotificationConfig,
 		return cfg.OverrideIntegrationStatus
 	default:
 		return nil
-	}
-}
-
-// modeChangedMessage returns a human-friendly explanation of mode change implications.
-func modeChangedMessage(newMode string) string {
-	switch newMode {
-	case notifications.ModeAuto:
-		return "Capacitarr will now delete files when the disk threshold is breached."
-	case notifications.ModeDryRun:
-		return "Capacitarr will now only simulate deletions (no files will be removed)."
-	case notifications.ModeApproval:
-		return "Capacitarr will now queue items for manual approval before deletion."
-	default:
-		return fmt.Sprintf("Execution mode changed to %s.", newMode)
 	}
 }

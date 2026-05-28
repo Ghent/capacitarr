@@ -73,22 +73,22 @@ The v2.x global mode toggle no longer exists in the UI. Mode is set **per-disk-g
 
 **Note on `deletionClearer`:** The `DeletionQueueClearer` interface and its injection into `SettingsService` must be **preserved**. Only the mode-change calls (`lines 154-155, 222-223`) are removed. The `DeletionsEnabled` toggle calls (`lines 175-176, 240-241`) are NOT dead code — they clear the queue when a user disables deletions globally, which is still valid behavior.
 
-- [ ] 2.1. Remove `setMode()` function from `useEngineControl.ts` (dead code — never called from any component)
-- [ ] 2.2. In `SettingsService.UpdatePreferences()` and `PatchEnginePreferences()`, remove only the mode-change code paths that clear the deletion queue and publish `EngineModeChangedEvent` when `DefaultDiskGroupMode` changes (lines 154-155, 165-168, 222-223, 232-235). Keep the `DeletionsEnabled` toggle paths (lines 175-176, 240-241) intact. Keep the `deletionClearer` interface and injection — they are still used.
-- [ ] 2.3. Remove `EngineModeChangedEvent` struct and its `EventType()`/`EventMessage()` methods from `events/types.go:82-94`
-- [ ] 2.4. Remove the notification dispatcher handler for `EngineModeChangedEvent` at `notification_dispatch.go:197-202` and the `AlertModeChanged` alert type if it becomes unreferenced
-- [ ] 2.5. Remove the SSE handler in `useEngineControl.ts` that listens for `engine_mode_changed` events (lines ~165-173) since the event is no longer published
-- [ ] 2.6. Remove `EVENT_ENGINE_MODE_CHANGED` constant from `frontend/app/constants.ts:42`
-- [ ] 2.7. Update `frontend/app/pages/index.vue` — remove `'engine_mode_changed'` from the `activityEventTypes` array (line 794) and the activity feed icon/color mappings (lines 567, 654). Note: existing persisted activity events with this type will still render in the feed but without a custom icon (falls through to default).
-- [ ] 2.8. Fix `ManualDelete` route: resolve the disk group mode from the integration's linked disk group (`DiskGroupIntegration` junction table), falling back to `DefaultDiskGroupMode` only when no disk group link exists. This must go through a service method (per service layer rules) — add a method like `DiskGroupService.GetModeForIntegration(integrationID uint) (string, error)` rather than resolving in the route handler.
-- [ ] 2.9. Add per-disk-group deletion queue clearing on any mode change. In `DiskGroupService.UpdateThresholds()`, when the mode changes (regardless of direction), clear the deletion queue entries scoped to that disk group. Use `DeletionService.ClearQueueForDiskGroup(diskGroupID)` (add this method if it doesn't exist — it should remove pending deletion queue entries for that group). Any mode change invalidates the assumptions under which items were queued — the safe route is to always clear and let the engine re-evaluate under the new mode.
-- [ ] 2.10. Update tests:
+- [x] 2.1. Remove `setMode()` function from `useEngineControl.ts` (dead code — never called from any component)
+- [x] 2.2. In `SettingsService.UpdatePreferences()` and `PatchEnginePreferences()`, remove only the mode-change code paths that clear the deletion queue and publish `EngineModeChangedEvent` when `DefaultDiskGroupMode` changes (lines 154-155, 165-168, 222-223, 232-235). Keep the `DeletionsEnabled` toggle paths (lines 175-176, 240-241) intact. Keep the `deletionClearer` interface and injection — they are still used.
+- [x] 2.3. Remove `EngineModeChangedEvent` struct and its `EventType()`/`EventMessage()` methods from `events/types.go:82-94`
+- [x] 2.4. Remove the notification dispatcher handler for `EngineModeChangedEvent` at `notification_dispatch.go:197-202` and the `AlertModeChanged` alert type if it becomes unreferenced
+- [x] 2.5. Remove the SSE handler in `useEngineControl.ts` that listens for `engine_mode_changed` events (lines ~165-173) since the event is no longer published
+- [x] 2.6. Remove `EVENT_ENGINE_MODE_CHANGED` constant from `frontend/app/constants.ts:42`
+- [x] 2.7. Update `frontend/app/pages/index.vue` — remove `'engine_mode_changed'` from the `activityEventTypes` array (line 794) and the activity feed icon/color mappings (lines 567, 654). Note: existing persisted activity events with this type will still render in the feed but without a custom icon (falls through to default).
+- [x] 2.8. Fix `ManualDelete` route: resolve the disk group mode from the integration's linked disk group (`DiskGroupIntegration` junction table), falling back to `DefaultDiskGroupMode` only when no disk group link exists. This must go through a service method (per service layer rules) — add a method like `DiskGroupService.GetModeForIntegration(integrationID uint) (string, error)` rather than resolving in the route handler.
+- [x] 2.9. Add per-disk-group deletion queue clearing on any mode change. In `DiskGroupService.UpdateThresholds()`, when the mode changes (regardless of direction), clear the deletion queue entries scoped to that disk group. Use `DeletionService.ClearQueueForDiskGroup(diskGroupID)` (add this method if it doesn't exist — it should remove pending deletion queue entries for that group). Any mode change invalidates the assumptions under which items were queued — the safe route is to always clear and let the engine re-evaluate under the new mode.
+- [x] 2.10. Update tests:
   - Remove/update `settings_test.go:76-92` (mode-change event assertion) and lines 106-195 (`mockDeletionQueueClearer` mode-change assertions — keep the `DeletionsEnabled` test cases)
   - Remove `notification_dispatch_test.go:247` (`EngineModeChangedEvent` dispatch test)
   - Remove `useEngineControl.test.ts` SSE `engine_mode_changed` test suite (lines 302-341)
   - Add test: ManualDelete resolves per-disk-group mode from integration link
   - Add test: `UpdateThresholds()` clears deletion queue on any mode change (auto → dry-run, dry-run → auto, etc.)
-- [ ] 2.11. Run `make ci`
+- [x] 2.11. Run `make ci`
 
 ### Phase 3: Poller + Stats Cleanup (Backend + Frontend)
 

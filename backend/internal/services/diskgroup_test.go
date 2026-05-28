@@ -832,3 +832,135 @@ func (m *mockSettingsReaderForDiskGroup) GetPreferences() (db.PreferenceSet, err
 func (m *mockSettingsReaderForDiskGroup) GetWeightMap() (map[string]int, error) {
 	return map[string]int{}, nil
 }
+
+// mockDeletionQueueGroupClearer implements DeletionQueueGroupClearer for tests.
+type mockDeletionQueueGroupClearer struct {
+	clearedGroupIDs []uint
+}
+
+func (m *mockDeletionQueueGroupClearer) ClearQueueForDiskGroup(diskGroupID uint) int {
+	m.clearedGroupIDs = append(m.clearedGroupIDs, diskGroupID)
+	return 1
+}
+
+func TestDiskGroupService_UpdateThresholds_ClearsDeletionQueueOnModeChange(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+	clearer := &mockDeletionQueueGroupClearer{}
+	svc.SetDeletionClearer(clearer)
+	svc.SetEngineService(&mockEngineRunTrigger{})
+
+	// Create a disk group and explicitly set mode to auto
+	group := db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70}
+	database.Create(&group)
+	database.Model(&group).Update("mode", db.ModeAuto)
+
+	// Change mode from auto → dry-run
+	_, err := svc.UpdateThresholds(group.ID, 80, 70, nil, db.ModeDryRun, nil)
+	if err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+
+	if len(clearer.clearedGroupIDs) != 1 {
+		t.Fatalf("expected 1 ClearQueueForDiskGroup call, got %d", len(clearer.clearedGroupIDs))
+	}
+	if clearer.clearedGroupIDs[0] != group.ID {
+		t.Errorf("expected cleared group ID %d, got %d", group.ID, clearer.clearedGroupIDs[0])
+	}
+}
+
+func TestDiskGroupService_UpdateThresholds_ClearsDeletionQueueOnModeAdvance(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+	clearer := &mockDeletionQueueGroupClearer{}
+	svc.SetDeletionClearer(clearer)
+	svc.SetEngineService(&mockEngineRunTrigger{})
+
+	// Create a disk group (default mode is dry-run from column default)
+	database.Create(&db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70})
+
+	// Change mode from dry-run → auto (advance)
+	_, err := svc.UpdateThresholds(1, 80, 70, nil, db.ModeAuto, nil)
+	if err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+
+	// Queue should also be cleared on mode advance (any mode change clears)
+	if len(clearer.clearedGroupIDs) != 1 {
+		t.Fatalf("expected 1 ClearQueueForDiskGroup call on mode advance, got %d", len(clearer.clearedGroupIDs))
+	}
+}
+
+func TestDiskGroupService_UpdateThresholds_NoClearWhenModeUnchanged(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+	clearer := &mockDeletionQueueGroupClearer{}
+	svc.SetDeletionClearer(clearer)
+	svc.SetEngineService(&mockEngineRunTrigger{})
+
+	// Create a disk group and set mode to auto
+	group := db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70}
+	database.Create(&group)
+	database.Model(&group).Update("mode", db.ModeAuto)
+
+	// Update thresholds without changing mode (pass same mode)
+	_, err := svc.UpdateThresholds(1, 90, 75, nil, db.ModeAuto, nil)
+	if err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+
+	if len(clearer.clearedGroupIDs) != 0 {
+		t.Errorf("expected no ClearQueueForDiskGroup calls when mode unchanged, got %d", len(clearer.clearedGroupIDs))
+	}
+}
+
+func TestDiskGroupService_GetModeForIntegration(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+	svc.SetEngineService(&mockEngineRunTrigger{})
+	svc.SetDeletionClearer(&mockDeletionQueueGroupClearer{})
+
+	// Seed a valid integration (FK constraint requires it)
+	integrationID := seedTestIntegration(t, database)
+
+	// Create a disk group and set its mode to approval via UpdateThresholds
+	group, err := svc.Upsert(integrations.DiskSpace{Path: "/mnt/media", TotalBytes: 1000, FreeBytes: 500})
+	if err != nil {
+		t.Fatalf("Upsert error: %v", err)
+	}
+	if _, err := svc.UpdateThresholds(group.ID, 85, 75, nil, db.ModeApproval, nil); err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+
+	// Link integration to disk group via junction table
+	if err := database.Create(&db.DiskGroupIntegration{DiskGroupID: group.ID, IntegrationID: *integrationID}).Error; err != nil {
+		t.Fatalf("Failed to create junction row: %v", err)
+	}
+
+	mode, err := svc.GetModeForIntegration(*integrationID)
+	if err != nil {
+		t.Fatalf("GetModeForIntegration error: %v", err)
+	}
+	if mode != db.ModeApproval {
+		t.Errorf("expected mode %q, got %q", db.ModeApproval, mode)
+	}
+}
+
+func TestDiskGroupService_GetModeForIntegration_NoLink(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+
+	// No disk group link for integration 99
+	mode, err := svc.GetModeForIntegration(99)
+	if err != nil {
+		t.Fatalf("GetModeForIntegration error: %v", err)
+	}
+	if mode != "" {
+		t.Errorf("expected empty mode for unlinked integration, got %q", mode)
+	}
+}
