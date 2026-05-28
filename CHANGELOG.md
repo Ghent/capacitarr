@@ -1,3 +1,8 @@
+## [3.3.3] - 2026-05-28
+
+### 🐛 Bug Fixes
+
+- *(approval)* Resolve per-disk-group mode instead of global default ([b7c794b](https://github.com/Ghent/capacitarr/commit/b7c794b68b8c1df19e47fa35c0784c9c78d5a845))
 ## [3.3.2] - 2026-04-19
 
 ### 🐛 Bug Fixes
