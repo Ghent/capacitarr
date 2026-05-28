@@ -567,6 +567,8 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 		Factors:            factors,
 		Trigger:            db.TriggerApproval,
 		RunStatsID:         runStatsID,
+		DiskGroupID:        approved.DiskGroupID,
+		CollectionGroup:    approved.CollectionGroup,
 		ForceDryRun:        forceDryRun,
 		ApprovalEntryID:    approved.ID,
 		EnqueuedMode:       enqueuedMode,

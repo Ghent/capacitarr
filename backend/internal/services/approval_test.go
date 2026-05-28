@@ -1642,14 +1642,15 @@ func TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode(t *testing.T) {
 	// Create a pending approval queue item linked to the approval-mode disk group
 	dgID := dg.ID
 	item := db.ApprovalQueueItem{
-		MediaName:     "Firefly",
-		MediaType:     "show",
-		SizeBytes:     5000000000,
-		Score:         0.85,
-		IntegrationID: ic.ID,
-		ExternalID:    "42",
-		DiskGroupID:   &dgID,
-		Status:        db.StatusPending,
+		MediaName:       "Firefly",
+		MediaType:       "show",
+		SizeBytes:       5000000000,
+		Score:           0.85,
+		IntegrationID:   ic.ID,
+		ExternalID:      "42",
+		DiskGroupID:     &dgID,
+		CollectionGroup: "Firefly Collection",
+		Status:          db.StatusPending,
 	}
 	database.Create(&item)
 
@@ -1692,6 +1693,15 @@ func TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode(t *testing.T) {
 	}
 	if job.EnqueuedMode != db.ModeApproval {
 		t.Errorf("Expected EnqueuedMode=%q, got %q", db.ModeApproval, job.EnqueuedMode)
+	}
+	// DiskGroupID must be propagated so processJob's resolveCurrentMode checks the
+	// correct disk group — without it, the fallback to DefaultDiskGroupMode causes
+	// false cancellation when the default differs from the item's disk group mode.
+	if job.DiskGroupID == nil || *job.DiskGroupID != dg.ID {
+		t.Errorf("Expected DiskGroupID=%d, got %v — processJob will use wrong fallback mode", dg.ID, job.DiskGroupID)
+	}
+	if job.CollectionGroup != "Firefly Collection" {
+		t.Errorf("Expected CollectionGroup=%q, got %q", "Firefly Collection", job.CollectionGroup)
 	}
 }
 
