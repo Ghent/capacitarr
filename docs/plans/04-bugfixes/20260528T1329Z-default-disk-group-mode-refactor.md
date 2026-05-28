@@ -1,6 +1,6 @@
 # Refactor: Eliminate `DefaultDiskGroupMode` from Runtime Decision Paths
 
-**Status:** Planned
+**Status:** ✅ Complete
 **Created:** 2026-05-28
 **Scope:** Backend (services, poller, routes), Frontend (composables)
 **Priority:** Medium — no user-facing bug remaining after the fix in `fix/approval-dry-run-wrong-mode`, but the architectural confusion remains

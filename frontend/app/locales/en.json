@@ -455,8 +455,6 @@
   "engine.modeLabels.dryRun": "Dry-Run",
   "engine.modeLabels.approval": "Approval",
   "engine.modeLabels.auto": "Auto",
-  "engine.modeChangedToast": "Default disk group mode set to {mode}",
-  "engine.modeChangeFailedToast": "Failed to change default disk group mode",
   "engine.runCompleteToast": "Engine run complete — evaluated {evaluated} items, {candidates} candidates",
   "engine.errorToast": "Engine error: {error}",
   "engine.runTriggeredToast": "Engine run triggered",
