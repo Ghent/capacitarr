@@ -1,6 +1,6 @@
 # Deletion Service Intake Layer Refactor
 
-**Status:** 🔲 Planned  
+**Status:** ✅ Complete  
 **Type:** Refactor  
 **Priority:** High  
 **Related:** fix/approval-queue-mode-mismatch (commit a2ffa99)
