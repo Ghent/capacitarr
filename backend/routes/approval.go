@@ -58,11 +58,7 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 		// Execute the full approval workflow via service — the service handles
 		// dry-run determination from preferences internally.
 		approved, err := reg.Approval.ExecuteApproval(uint(entryID), services.ExecuteApprovalDeps{
-			Integration: reg.Integration,
-			Deletion:    reg.Deletion,
-			Engine:      reg.Engine,
-			Settings:    reg.Settings,
-			DiskGroups:  reg.DiskGroup,
+			Deletion: reg.Deletion,
 		})
 		if err != nil {
 			if errors.Is(err, services.ErrApprovalNotPending) {
@@ -160,11 +156,7 @@ func RegisterApprovalRoutes(g *echo.Group, reg *services.Registry) {
 		}
 
 		deps := services.ExecuteApprovalDeps{
-			Integration: reg.Integration,
-			Deletion:    reg.Deletion,
-			Engine:      reg.Engine,
-			Settings:    reg.Settings,
-			DiskGroups:  reg.DiskGroup,
+			Deletion: reg.Deletion,
 		}
 
 		approved, err := reg.Approval.ExecuteGroupApproval(body.CollectionGroup, deps)

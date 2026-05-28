@@ -1602,24 +1602,19 @@ func TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode(t *testing.T) {
 
 	// Create services
 	approvalSvc := NewApprovalService(database, bus)
-	integrationSvc := NewIntegrationService(database, bus)
 	auditLogSvc := NewAuditLogService(database)
 	deletionSvc := NewDeletionService(bus, auditLogSvc)
 
 	// Wire deletion service dependencies (don't Start() — we just inspect the queue)
-	settings := &mockSettingsReader{
-		deletionsEnabled:          true,
-		executionMode:             db.ModeDryRun, // global default is dry-run
-		deletionQueueDelaySeconds: 300,           // long delay so worker never fires
-	}
+	// The DiskGroups mock returns approval mode, and the Clients mock provides a deleter.
 	deletionSvc.SetDependencies(DeletionDeps{
-		Settings:      settings,
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeDryRun, deletionQueueDelaySeconds: 300},
 		Engine:        &mockEngineStatsWriter{},
 		Metrics:       &mockDeletionStatsWriter{},
 		Approval:      &mockApprovalReturner{},
 		Snoozer:       &mockApprovalSnoozer{},
 		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeApproval},
-		Clients:       &mockClientResolver{},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
 		SunsetCleaner: &mockSunsetQueueCleaner{},
 	})
 
@@ -1655,11 +1650,6 @@ func TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode(t *testing.T) {
 	}
 	database.Create(&item)
 
-	// Mock DiskGroupModeReader that returns the approval-mode disk group
-	dgReader := &testDiskGroupModeReader{groups: map[uint]*db.DiskGroup{
-		dg.ID: &dg,
-	}}
-
 	// Enable preferences with DeletionsEnabled=true but DefaultDiskGroupMode="dry-run"
 	database.Model(&db.PreferenceSet{}).Where("id = 1").Updates(map[string]any{
 		"deletions_enabled":       true,
@@ -1668,11 +1658,7 @@ func TestApprovalService_ExecuteApproval_UsesPerDiskGroupMode(t *testing.T) {
 
 	// Execute the approval
 	_, err := approvalSvc.ExecuteApproval(item.ID, ExecuteApprovalDeps{
-		Integration: integrationSvc,
-		Deletion:    deletionSvc,
-		Engine:      nil, // not needed for this test
-		Settings:    settings,
-		DiskGroups:  dgReader,
+		Deletion: deletionSvc,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteApproval failed: %v", err)
@@ -1716,24 +1702,19 @@ func TestApprovalService_ExecuteApproval_FallsBackToDefaultMode(t *testing.T) {
 	integrations.RegisterAllFactories()
 
 	approvalSvc := NewApprovalService(database, bus)
-	integrationSvc := NewIntegrationService(database, bus)
 	auditLogSvc := NewAuditLogService(database)
 	deletionSvc := NewDeletionService(bus, auditLogSvc)
 
-	// Global default is dry-run, deletions enabled
-	settings := &mockSettingsReader{
-		deletionsEnabled:          true,
-		executionMode:             db.ModeDryRun,
-		deletionQueueDelaySeconds: 300,
-	}
+	// Global default is dry-run, deletions enabled. DiskGroups mock returns error
+	// (no group found) so QueueFromApproval falls back to DefaultDiskGroupMode.
 	deletionSvc.SetDependencies(DeletionDeps{
-		Settings:      settings,
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeDryRun, deletionQueueDelaySeconds: 300},
 		Engine:        &mockEngineStatsWriter{},
 		Metrics:       &mockDeletionStatsWriter{},
 		Approval:      &mockApprovalReturner{},
 		Snoozer:       &mockApprovalSnoozer{},
 		DiskGroups:    &mockDiskGroupModeReader{},
-		Clients:       &mockClientResolver{},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
 		SunsetCleaner: &mockSunsetQueueCleaner{},
 	})
 
@@ -1758,11 +1739,7 @@ func TestApprovalService_ExecuteApproval_FallsBackToDefaultMode(t *testing.T) {
 
 	// Execute the approval — should fall back to DefaultDiskGroupMode ("dry-run")
 	_, err := approvalSvc.ExecuteApproval(item.ID, ExecuteApprovalDeps{
-		Integration: integrationSvc,
-		Deletion:    deletionSvc,
-		Engine:      nil,
-		Settings:    settings,
-		DiskGroups:  &mockDiskGroupModeReader{}, // returns error (no groups)
+		Deletion: deletionSvc,
 	})
 	if err != nil {
 		t.Fatalf("ExecuteApproval failed: %v", err)
@@ -1783,16 +1760,4 @@ func TestApprovalService_ExecuteApproval_FallsBackToDefaultMode(t *testing.T) {
 	if job.EnqueuedMode != db.ModeDryRun {
 		t.Errorf("Expected EnqueuedMode=%q, got %q", db.ModeDryRun, job.EnqueuedMode)
 	}
-}
-
-// testDiskGroupModeReader is a DiskGroupModeReader that returns disk groups by ID.
-type testDiskGroupModeReader struct {
-	groups map[uint]*db.DiskGroup
-}
-
-func (r *testDiskGroupModeReader) GetByID(id uint) (*db.DiskGroup, error) {
-	if g, ok := r.groups[id]; ok {
-		return g, nil
-	}
-	return nil, errMockDelete // reuse sentinel error
 }

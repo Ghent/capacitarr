@@ -1,13 +1,11 @@
 package services
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"capacitarr/internal/db"
-	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 
@@ -39,7 +37,6 @@ type SunsetDeps struct {
 	Deletion      *DeletionService
 	Engine        *EngineService
 	Settings      SettingsReader
-	Integration   *IntegrationService   // Used to look up per-integration settings (e.g., AddImportExclusion)
 	Preview       PreviewScoreReader    // Optional: provides current scores for rescore comparisons
 	PosterOverlay *PosterOverlayService // Optional: if set, posters are restored on cancel/expire/escalate
 	Mapping       *MappingService       // Persistent TMDb→NativeID mapping; replaces ephemeral BuildMappingMaps()
@@ -736,55 +733,15 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 		s.removeLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping)
 	}
 
-	// Hand off to DeletionService — if this fails, keep item in queue for retry
-	if deps.Deletion == nil || deps.Registry == nil {
-		slog.Warn("Skipping sunset item expiry — deletion service or registry unavailable (will retry)",
+	// Hand off to DeletionService intake layer — it handles client resolution,
+	// config lookup, and factor parsing internally.
+	if deps.Deletion == nil {
+		slog.Warn("Skipping sunset item expiry — deletion service unavailable (will retry)",
 			"component", "services", "mediaName", item.MediaName)
 		return false
 	}
 
-	deleter, err := deps.Registry.Deleter(item.IntegrationID)
-	if err != nil {
-		slog.Error("Failed to get deleter for sunset item (will retry)",
-			"component", "services", "mediaName", item.MediaName, "error", err)
-		return false
-	}
-
-	// Parse stored score details back into factors so the audit log entry
-	// records the full score breakdown, not just the numeric score.
-	var factors []engine.ScoreFactor
-	if item.ScoreDetails != "" {
-		if jsonErr := json.Unmarshal([]byte(item.ScoreDetails), &factors); jsonErr != nil {
-			slog.Error("Failed to parse score details for sunset expiry",
-				"component", "services", "mediaName", item.MediaName, "error", jsonErr)
-		}
-	}
-
-	// Look up integration config for AddImportExclusion setting
-	addImportExclusion := true // safe default
-	if deps.Integration != nil {
-		if cfg, cfgErr := deps.Integration.GetByID(item.IntegrationID); cfgErr == nil {
-			addImportExclusion = cfg.AddImportExclusion
-		}
-	}
-
-	if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
-		Client: deleter,
-		Item: integrations.MediaItem{
-			Title:      item.MediaName,
-			Type:       integrations.MediaType(item.MediaType),
-			SizeBytes:  item.SizeBytes,
-			ExternalID: item.ExternalID,
-		},
-		DiskGroupID:        &item.DiskGroupID,
-		Trigger:            db.TriggerEngine,
-		Factors:            factors,
-		CollectionGroup:    item.CollectionGroup,
-		EnqueuedMode:       db.ModeSunset,
-		SunsetQueueItemID:  item.ID,
-		Score:              item.Score,
-		AddImportExclusion: addImportExclusion,
-	}); queueErr != nil {
+	if queueErr := deps.Deletion.QueueFromSunset(&item); queueErr != nil {
 		slog.Error("Failed to queue sunset item for deletion (will retry next cycle)",
 			"component", "services", "mediaName", item.MediaName, "error", queueErr)
 		s.bus.Publish(events.EngineErrorEvent{

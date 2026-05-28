@@ -3,7 +3,6 @@
 package services
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -12,9 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"capacitarr/internal/db"
-	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
-	"capacitarr/internal/integrations"
 )
 
 // Sentinel errors for approval operations.
@@ -495,85 +492,9 @@ func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps
 		return nil, err
 	}
 
-	// 2. Look up the integration to construct a client for deletion
-	integration, err := deps.Integration.GetByID(approved.IntegrationID)
-	if err != nil {
-		return approved, fmt.Errorf("integration not found for approval %d: %w", entryID, err)
-	}
-
-	// 3. Build the client via factory and extract MediaDeleter capability
-	rawClient := integrations.CreateClient(integration.Type, integration.URL, integration.APIKey)
-	if rawClient == nil {
-		return approved, fmt.Errorf("unsupported integration type %q for approval %d", integration.Type, entryID)
-	}
-	client, ok := rawClient.(integrations.MediaDeleter)
-	if !ok {
-		return approved, fmt.Errorf("integration type %q does not support deletion for approval %d", integration.Type, entryID)
-	}
-
-	// 4. Reconstruct the MediaItem from stored approval data
-	item := integrations.MediaItem{
-		ExternalID:    approved.ExternalID,
-		IntegrationID: approved.IntegrationID,
-		Type:          integrations.MediaType(approved.MediaType),
-		Title:         approved.MediaName,
-		SizeBytes:     approved.SizeBytes,
-	}
-
-	// 5. Parse stored score details back into factors
-	var factors []engine.ScoreFactor
-	if approved.ScoreDetails != "" {
-		if jsonErr := json.Unmarshal([]byte(approved.ScoreDetails), &factors); jsonErr != nil {
-			slog.Error("Failed to parse score details for approval", "component", "services", "id", approved.ID, "error", jsonErr)
-		}
-	}
-
-	// 6. Attribute this deletion to the most recent engine run stats row so the
-	// dashboard sparkline "deleted" counter reflects approval-mode deletions.
-	var runStatsID uint
-	if deps.Engine != nil {
-		runStatsID = deps.Engine.LatestRunStatsID()
-	}
-
-	// 7. Determine dry-run mode by resolving the actual per-disk-group mode
-	// (not the global DefaultDiskGroupMode, which is only the default for newly
-	// auto-discovered groups). Falls back to DefaultDiskGroupMode if the disk
-	// group cannot be resolved.
-	forceDryRun := false
-	enqueuedMode := db.ModeApproval // default; overridden if prefs/disk group are available
-	if deps.Settings != nil {
-		prefs, prefsErr := deps.Settings.GetPreferences()
-		if prefsErr != nil {
-			return approved, fmt.Errorf("failed to load preferences: %w", prefsErr)
-		}
-
-		// Resolve the actual disk group mode for this item
-		diskGroupMode := prefs.DefaultDiskGroupMode // fallback
-		if approved.DiskGroupID != nil && deps.DiskGroups != nil {
-			if group, err := deps.DiskGroups.GetByID(*approved.DiskGroupID); err == nil {
-				diskGroupMode = group.Mode
-			}
-		}
-
-		forceDryRun = !prefs.DeletionsEnabled || diskGroupMode == db.ModeDryRun
-		enqueuedMode = diskGroupMode
-	}
-
-	// 8. Queue for background deletion
-	if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
-		Client:             client,
-		Item:               item,
-		Score:              approved.Score,
-		Factors:            factors,
-		Trigger:            db.TriggerApproval,
-		RunStatsID:         runStatsID,
-		DiskGroupID:        approved.DiskGroupID,
-		CollectionGroup:    approved.CollectionGroup,
-		ForceDryRun:        forceDryRun,
-		ApprovalEntryID:    approved.ID,
-		EnqueuedMode:       enqueuedMode,
-		AddImportExclusion: integration.AddImportExclusion,
-	}); queueErr != nil {
+	// 2. Delegate to DeletionService intake layer — it handles client resolution,
+	// disk group mode lookup, dry-run determination, and enqueue.
+	if queueErr := deps.Deletion.QueueFromApproval(approved); queueErr != nil {
 		return approved, fmt.Errorf("failed to queue deletion: %w", queueErr)
 	}
 
@@ -625,11 +546,7 @@ func (s *ApprovalService) ExecuteGroupApproval(collectionGroup string, deps Exec
 // This avoids circular references — ApprovalService doesn't need to import
 // the full Registry.
 type ExecuteApprovalDeps struct {
-	Integration *IntegrationService
-	Deletion    *DeletionService
-	Engine      *EngineService
-	Settings    SettingsReader      // Used to determine dry-run mode from preferences
-	DiskGroups  DiskGroupModeReader // Used to resolve per-disk-group mode (not the global default)
+	Deletion *DeletionService
 }
 
 // ManualDeleteItem contains the data needed for a user-initiated deletion.
@@ -646,9 +563,7 @@ type ManualDeleteItem struct {
 
 // ManualDeleteDeps holds the service dependencies needed by ManualDelete.
 type ManualDeleteDeps struct {
-	Integration *IntegrationService
-	Deletion    *DeletionService
-	Engine      *EngineService
+	Deletion *DeletionService
 }
 
 // ManualDeleteResult contains the outcome of a ManualDelete call.
@@ -659,104 +574,27 @@ type ManualDeleteResult struct {
 }
 
 // ManualDelete encapsulates mode-aware deletion for user-initiated actions.
-// In auto/dry-run mode, items are queued to the DeletionService immediately.
-// In approval mode, items are upserted as pending approval queue entries with
-// UserInitiated=true.
-func (s *ApprovalService) ManualDelete(items []ManualDeleteItem, mode string, deletionsEnabled bool, deps ManualDeleteDeps) (ManualDeleteResult, error) {
-	var queued int
-
-	// Get the latest run stats ID for attribution
-	var runStatsID uint
-	if deps.Engine != nil {
-		runStatsID = deps.Engine.LatestRunStatsID()
-	}
-
-	forceDryRun := mode == db.ModeDryRun || !deletionsEnabled
-
-	for _, item := range items {
-		if mode == db.ModeApproval {
-			// In approval mode, upsert as pending with UserInitiated=true
-			if _, err := s.UpsertPending(db.ApprovalQueueItem{
-				MediaName:     item.MediaName,
-				MediaType:     item.MediaType,
-				ScoreDetails:  item.ScoreDetails,
-				SizeBytes:     item.SizeBytes,
-				Score:         item.Score,
-				PosterURL:     item.PosterURL,
-				IntegrationID: item.IntegrationID,
-				ExternalID:    item.ExternalID,
-				Trigger:       db.TriggerUser,
-				UserInitiated: true,
-			}); err != nil {
-				slog.Error("Failed to upsert manual delete as pending", "component", "services",
-					"media", item.MediaName, "error", err)
-				continue
-			}
-			queued++
-			continue
-		}
-
-		// Auto / dry-run mode: build integration client and queue for deletion
-		integration, err := deps.Integration.GetByID(item.IntegrationID)
-		if err != nil {
-			slog.Error("Integration not found for manual delete", "component", "services",
-				"integrationId", item.IntegrationID, "media", item.MediaName, "error", err)
-			continue
-		}
-
-		rawClient := integrations.CreateClient(integration.Type, integration.URL, integration.APIKey)
-		if rawClient == nil {
-			slog.Error("Unsupported integration type for manual delete", "component", "services",
-				"type", integration.Type, "media", item.MediaName)
-			continue
-		}
-		client, ok := rawClient.(integrations.MediaDeleter)
-		if !ok {
-			slog.Error("Integration does not support deletion for manual delete", "component", "services",
-				"type", integration.Type, "media", item.MediaName)
-			continue
-		}
-
-		// Parse score details into factors
-		var factors []engine.ScoreFactor
-		if item.ScoreDetails != "" {
-			if jsonErr := json.Unmarshal([]byte(item.ScoreDetails), &factors); jsonErr != nil {
-				slog.Error("Failed to parse score details for manual delete", "component", "services",
-					"media", item.MediaName, "error", jsonErr)
-			}
-		}
-
-		mediaItem := integrations.MediaItem{
-			ExternalID:    item.ExternalID,
+// Delegates to DeletionService.QueueManual which owns all routing logic
+// (approval-mode detection, client resolution, dry-run determination).
+func (s *ApprovalService) ManualDelete(items []ManualDeleteItem, deps ManualDeleteDeps) (ManualDeleteResult, error) {
+	// Convert ManualDeleteItem → ManualDeleteRequest
+	requests := make([]ManualDeleteRequest, len(items))
+	for i, item := range items {
+		requests[i] = ManualDeleteRequest{
+			MediaName:     item.MediaName,
+			MediaType:     item.MediaType,
 			IntegrationID: item.IntegrationID,
-			Type:          integrations.MediaType(item.MediaType),
-			Title:         item.MediaName,
+			ExternalID:    item.ExternalID,
 			SizeBytes:     item.SizeBytes,
+			Score:         item.Score,
+			ScoreDetails:  item.ScoreDetails,
+			PosterURL:     item.PosterURL,
 		}
-
-		if queueErr := deps.Deletion.QueueDeletion(DeleteJob{
-			Client:             client,
-			Item:               mediaItem,
-			Score:              item.Score,
-			Factors:            factors,
-			Trigger:            db.TriggerUser,
-			RunStatsID:         runStatsID,
-			ForceDryRun:        forceDryRun,
-			EnqueuedMode:       mode,
-			AddImportExclusion: integration.AddImportExclusion,
-		}); queueErr != nil {
-			slog.Warn("Deletion queue full for manual delete", "component", "services",
-				"media", item.MediaName, "error", queueErr)
-			continue
-		}
-		queued++
 	}
 
-	return ManualDeleteResult{
-		Queued: queued,
-		Total:  len(items),
-		Mode:   mode,
-	}, nil
+	// Delegate to DeletionService intake layer — ApprovalService itself
+	// satisfies ApprovalReturnerUpserter (it has UpsertPending).
+	return deps.Deletion.QueueManual(requests, s)
 }
 
 // ListPendingForDiskGroup returns all pending (non-user-initiated) items for a

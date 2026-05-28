@@ -24,6 +24,7 @@ type EngineDeleteRequest struct {
 	CollectionGroup    string
 	AddImportExclusion bool
 	UpsertAudit        bool
+	ForceDryRun        bool // When true, item is from a dry-run disk group (Client may be nil)
 }
 
 // ManualDeleteRequest contains user-submitted identity data for manual deletion.
@@ -49,6 +50,11 @@ type ManualDeleteRequest struct {
 // The engine has already resolved the client, disk group, and all scoring — no
 // DB lookups are performed here (hot path).
 func (s *DeletionService) QueueFromEngine(req EngineDeleteRequest) error {
+	mode := db.ModeAuto
+	if req.ForceDryRun {
+		mode = db.ModeDryRun
+	}
+
 	diskGroupID := req.DiskGroupID
 	return s.QueueDeletion(DeleteJob{
 		Client:             req.Client,
@@ -59,7 +65,8 @@ func (s *DeletionService) QueueFromEngine(req EngineDeleteRequest) error {
 		RunStatsID:         req.RunStatsID,
 		DiskGroupID:        &diskGroupID,
 		CollectionGroup:    req.CollectionGroup,
-		EnqueuedMode:       db.ModeAuto,
+		EnqueuedMode:       mode,
+		ForceDryRun:        req.ForceDryRun,
 		AddImportExclusion: req.AddImportExclusion,
 		UpsertAudit:        req.UpsertAudit,
 	})
@@ -69,6 +76,10 @@ func (s *DeletionService) QueueFromEngine(req EngineDeleteRequest) error {
 // Performs full resolution: looks up integration → creates client → resolves
 // disk group mode → determines dry-run status.
 func (s *DeletionService) QueueFromApproval(item *db.ApprovalQueueItem) error {
+	if s.clients == nil {
+		return fmt.Errorf("deletion service not fully wired (clients resolver unavailable)")
+	}
+
 	// 1. Resolve client
 	client, err := s.clients.GetDeleter(item.IntegrationID)
 	if err != nil {
@@ -134,6 +145,10 @@ func (s *DeletionService) QueueFromApproval(item *db.ApprovalQueueItem) error {
 // Performs full resolution: looks up integration → creates client → retrieves
 // import exclusion config.
 func (s *DeletionService) QueueFromSunset(item *db.SunsetQueueItem) error {
+	if s.clients == nil {
+		return fmt.Errorf("deletion service not fully wired (clients resolver unavailable)")
+	}
+
 	// 1. Resolve client
 	client, err := s.clients.GetDeleter(item.IntegrationID)
 	if err != nil {
@@ -183,7 +198,12 @@ func (s *DeletionService) QueueFromSunset(item *db.SunsetQueueItem) error {
 // integration client, disk group, and mode. Items whose resolved mode is
 // "approval" are routed to the approval queue instead of being deleted.
 func (s *DeletionService) QueueManual(items []ManualDeleteRequest, approvalUpserter ApprovalReturnerUpserter) (ManualDeleteResult, error) {
+	if s.clients == nil || s.diskGroupsFull == nil {
+		return ManualDeleteResult{}, fmt.Errorf("deletion service not fully wired")
+	}
+
 	var queuedCount, approvalCount int
+	var firstResolvedMode string
 
 	prefs, err := s.settings.GetPreferences()
 	if err != nil {
@@ -198,6 +218,11 @@ func (s *DeletionService) QueueManual(items []ManualDeleteRequest, approvalUpser
 			if group, groupErr := s.diskGroupsFull.GetByID(*diskGroupID); groupErr == nil {
 				resolvedMode = group.Mode
 			}
+		}
+
+		// Track the first resolved mode for the API response
+		if firstResolvedMode == "" {
+			firstResolvedMode = resolvedMode
 		}
 
 		// 2. If approval mode, route to approval queue
@@ -280,10 +305,16 @@ func (s *DeletionService) QueueManual(items []ManualDeleteRequest, approvalUpser
 		queuedCount++
 	}
 
+	// Report the resolved mode (from the first item's disk group, not the global default)
+	reportedMode := firstResolvedMode
+	if reportedMode == "" {
+		reportedMode = prefs.DefaultDiskGroupMode
+	}
+
 	return ManualDeleteResult{
 		Queued: queuedCount + approvalCount,
 		Total:  len(items),
-		Mode:   prefs.DefaultDiskGroupMode,
+		Mode:   reportedMode,
 	}, nil
 }
 

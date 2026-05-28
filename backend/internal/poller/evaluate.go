@@ -400,17 +400,14 @@ func (p *Poller) dispatchByMode(ectx *evaluationContext, pi processItem, pending
 			addImportExclusion = sourceCfg.AddImportExclusion
 		}
 
-		diskGroupID := ectx.group.ID
-		if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
+		if err := p.reg.Deletion.QueueFromEngine(services.EngineDeleteRequest{
 			Client:             deleter,
 			Item:               pi.item,
 			Score:              pi.score,
 			Factors:            pi.factors,
-			Trigger:            db.TriggerEngine,
 			RunStatsID:         ectx.runStatsID,
-			DiskGroupID:        &diskGroupID,
+			DiskGroupID:        ectx.group.ID,
 			CollectionGroup:    pi.collectionGroup,
-			EnqueuedMode:       db.ModeAuto,
 			AddImportExclusion: addImportExclusion,
 		}); err != nil {
 			slog.Warn("Deletion queue full, skipping item", "component", "poller", "item", pi.item.Title)
@@ -452,19 +449,16 @@ func (p *Poller) dispatchByMode(ectx *evaluationContext, pi processItem, pending
 
 	default:
 		// Dry-run mode
-		diskGroupID := ectx.group.ID
-		if err := p.reg.Deletion.QueueDeletion(services.DeleteJob{
+		if err := p.reg.Deletion.QueueFromEngine(services.EngineDeleteRequest{
 			Client:          nil,
 			Item:            pi.item,
 			Score:           pi.score,
 			Factors:         pi.factors,
-			Trigger:         db.TriggerEngine,
 			RunStatsID:      ectx.runStatsID,
-			DiskGroupID:     &diskGroupID,
+			DiskGroupID:     ectx.group.ID,
+			CollectionGroup: pi.collectionGroup,
 			ForceDryRun:     true,
 			UpsertAudit:     true,
-			CollectionGroup: pi.collectionGroup,
-			EnqueuedMode:    db.ModeDryRun,
 		}); err != nil {
 			slog.Warn("Deletion queue full, skipping dry-run item", "component", "poller", "item", pi.item.Title)
 			return 0, 0
@@ -599,7 +593,6 @@ func (p *Poller) evaluateSunsetMode(acc *RunAccumulator, group db.DiskGroup, all
 		Deletion:      p.reg.Deletion,
 		Engine:        p.reg.Engine,
 		Settings:      p.reg.Settings,
-		Integration:   p.reg.Integration,
 		Preview:       p.reg.Preview,
 		PosterOverlay: p.reg.PosterOverlay,
 		Mapping:       p.reg.Mapping,

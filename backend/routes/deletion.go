@@ -110,13 +110,6 @@ func handleManualDelete(reg *services.Registry) echo.HandlerFunc {
 			return apiError(c, http.StatusBadRequest, "No items provided")
 		}
 
-		// Load preferences for execution mode and deletions-enabled flag
-		prefs, err := reg.Settings.GetPreferences()
-		if err != nil {
-			slog.Error("Failed to load preferences for manual delete", "error", err)
-			return apiError(c, http.StatusInternalServerError, "Failed to load preferences")
-		}
-
 		// Convert request items to ManualDeleteItem
 		deleteItems := make([]services.ManualDeleteItem, 0, len(items))
 		for _, item := range items {
@@ -132,19 +125,10 @@ func handleManualDelete(reg *services.Registry) echo.HandlerFunc {
 			})
 		}
 
-		// Resolve execution mode from the integration's linked disk group.
-		// Falls back to DefaultDiskGroupMode when no disk group link exists.
-		mode := prefs.DefaultDiskGroupMode
-		if len(deleteItems) > 0 {
-			if resolved, err := reg.DiskGroup.GetModeForIntegration(deleteItems[0].IntegrationID); err == nil && resolved != "" {
-				mode = resolved
-			}
-		}
-
-		result, err := reg.Approval.ManualDelete(deleteItems, mode, prefs.DeletionsEnabled, services.ManualDeleteDeps{
-			Integration: reg.Integration,
-			Deletion:    reg.Deletion,
-			Engine:      reg.Engine,
+		// Delegate to DeletionService via ApprovalService — QueueManual
+		// handles mode resolution, approval routing, and dry-run determination.
+		result, err := reg.Approval.ManualDelete(deleteItems, services.ManualDeleteDeps{
+			Deletion: reg.Deletion,
 		})
 		if err != nil {
 			slog.Error("Manual delete failed", "error", err)

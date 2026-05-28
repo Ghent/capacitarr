@@ -166,7 +166,6 @@ func Start(reg *services.Registry) *cron.Cron {
 			Deletion:      reg.Deletion,
 			Engine:        reg.Engine,
 			Settings:      reg.Settings,
-			Integration:   reg.Integration,
 			Preview:       reg.Preview,
 			PosterOverlay: reg.PosterOverlay,
 			Mapping:       reg.Mapping,
