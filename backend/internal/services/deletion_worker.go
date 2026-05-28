@@ -187,13 +187,13 @@ func (s *DeletionService) cancelRemaining(reason string, deferredAuditEntries *[
 // processJob handles a single deletion job. When deferredAuditEntries is non-nil,
 // dry-run entries with UpsertAudit=true are collected for batch flush instead of
 // being written individually to the database.
-func (s *DeletionService) processJob(job DeleteJob, deferredAuditEntries *[]db.AuditLogEntry) {
+func (s *DeletionService) processJob(job deleteJob, deferredAuditEntries *[]db.AuditLogEntry) {
 	s.currentlyDeleting.Store(job.Item.Title)
 	defer s.currentlyDeleting.Store("")
 	defer s.checkBatchComplete()
 
 	// Marshal score factors early so all code paths (including cancellation)
-	// can include the score breakdown in the audit log entry. The DeleteJob
+	// can include the score breakdown in the audit log entry. The deleteJob
 	// carries Score and Factors from the engine evaluation; preserving them
 	// in the audit trail lets the history log show what score an item had
 	// even when the deletion was cancelled or mode-changed.

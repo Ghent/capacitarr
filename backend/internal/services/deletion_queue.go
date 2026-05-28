@@ -7,9 +7,9 @@ import (
 	"capacitarr/internal/events"
 )
 
-// QueueDeletion enqueues a media item for background deletion.
+// enqueue enqueues a media item for background deletion.
 // Starts or resets the grace period timer.
-func (s *DeletionService) QueueDeletion(job DeleteJob) error {
+func (s *DeletionService) enqueue(job deleteJob) error {
 	s.queuedMu.Lock()
 	if len(s.queuedItems) >= 500 {
 		s.queuedMu.Unlock()
@@ -132,12 +132,12 @@ func (s *DeletionService) QueueLen() int {
 }
 
 // dequeueJob pops the first job from the queued items slice.
-func (s *DeletionService) dequeueJob() (DeleteJob, bool) {
+func (s *DeletionService) dequeueJob() (deleteJob, bool) {
 	s.queuedMu.Lock()
 	defer s.queuedMu.Unlock()
 
 	if len(s.queuedItems) == 0 {
-		return DeleteJob{}, false
+		return deleteJob{}, false
 	}
 
 	job := s.queuedItems[0]

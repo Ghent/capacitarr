@@ -41,8 +41,8 @@ type ManualDeleteRequest struct {
 }
 
 // ---------------------------------------------------------------------------
-// Intake methods — each constructs a fully-populated DeleteJob from its
-// specific input type and calls QueueDeletion(). This ensures consistent
+// Intake methods — each constructs a fully-populated deleteJob from its
+// specific input type and calls enqueue(). This ensures consistent
 // field population regardless of the deletion trigger.
 // ---------------------------------------------------------------------------
 
@@ -56,7 +56,7 @@ func (s *DeletionService) QueueFromEngine(req EngineDeleteRequest) error {
 	}
 
 	diskGroupID := req.DiskGroupID
-	return s.QueueDeletion(DeleteJob{
+	return s.enqueue(deleteJob{
 		Client:             req.Client,
 		Item:               req.Item,
 		Score:              req.Score,
@@ -126,7 +126,7 @@ func (s *DeletionService) QueueFromApproval(item *db.ApprovalQueueItem) error {
 	}
 
 	// 6. Enqueue
-	return s.QueueDeletion(DeleteJob{
+	return s.enqueue(deleteJob{
 		Client:             client,
 		Item:               mediaItem,
 		Score:              item.Score,
@@ -180,7 +180,7 @@ func (s *DeletionService) QueueFromSunset(item *db.SunsetQueueItem) error {
 
 	// 5. Enqueue
 	diskGroupID := item.DiskGroupID
-	return s.QueueDeletion(DeleteJob{
+	return s.enqueue(deleteJob{
 		Client:             client,
 		Item:               mediaItem,
 		Score:              item.Score,
@@ -287,7 +287,7 @@ func (s *DeletionService) QueueManual(items []ManualDeleteRequest, approvalUpser
 		}
 
 		// 8. Enqueue
-		if queueErr := s.QueueDeletion(DeleteJob{
+		if queueErr := s.enqueue(deleteJob{
 			Client:             client,
 			Item:               mediaItem,
 			Score:              item.Score,

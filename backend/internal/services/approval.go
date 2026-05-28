@@ -549,17 +549,10 @@ type ExecuteApprovalDeps struct {
 	Deletion *DeletionService
 }
 
-// ManualDeleteItem contains the data needed for a user-initiated deletion.
-type ManualDeleteItem struct {
-	MediaName     string
-	MediaType     string
-	IntegrationID uint
-	ExternalID    string
-	SizeBytes     int64
-	ScoreDetails  string
-	PosterURL     string
-	Score         float64
-}
+// ManualDeleteItem is an alias for ManualDeleteRequest, retained for
+// backward compatibility with route handlers. Will be removed in a future
+// cleanup pass once route handlers construct ManualDeleteRequest directly.
+type ManualDeleteItem = ManualDeleteRequest
 
 // ManualDeleteDeps holds the service dependencies needed by ManualDelete.
 type ManualDeleteDeps struct {
@@ -577,24 +570,9 @@ type ManualDeleteResult struct {
 // Delegates to DeletionService.QueueManual which owns all routing logic
 // (approval-mode detection, client resolution, dry-run determination).
 func (s *ApprovalService) ManualDelete(items []ManualDeleteItem, deps ManualDeleteDeps) (ManualDeleteResult, error) {
-	// Convert ManualDeleteItem → ManualDeleteRequest
-	requests := make([]ManualDeleteRequest, len(items))
-	for i, item := range items {
-		requests[i] = ManualDeleteRequest{
-			MediaName:     item.MediaName,
-			MediaType:     item.MediaType,
-			IntegrationID: item.IntegrationID,
-			ExternalID:    item.ExternalID,
-			SizeBytes:     item.SizeBytes,
-			Score:         item.Score,
-			ScoreDetails:  item.ScoreDetails,
-			PosterURL:     item.PosterURL,
-		}
-	}
-
-	// Delegate to DeletionService intake layer — ApprovalService itself
-	// satisfies ApprovalReturnerUpserter (it has UpsertPending).
-	return deps.Deletion.QueueManual(requests, s)
+	// ManualDeleteItem is a type alias for ManualDeleteRequest — no conversion needed.
+	// ApprovalService satisfies ApprovalReturnerUpserter (it has UpsertPending).
+	return deps.Deletion.QueueManual(items, s)
 }
 
 // ListPendingForDiskGroup returns all pending (non-user-initiated) items for a

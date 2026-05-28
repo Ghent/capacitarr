@@ -221,7 +221,7 @@ func TestDeletionService_BatchTracking_AllSuccess(t *testing.T) {
 
 	// Queue 3 jobs (dry-run mode — deletionsEnabled is false)
 	for i := 0; i < 3; i++ {
-		job := DeleteJob{
+		job := deleteJob{
 			Client: &mockIntegration{},
 			Item: integrations.MediaItem{
 				Title:     "Serenity",
@@ -229,8 +229,8 @@ func TestDeletionService_BatchTracking_AllSuccess(t *testing.T) {
 				SizeBytes: 1024 * 1024 * 100,
 			},
 		}
-		if err := svc.QueueDeletion(job); err != nil {
-			t.Fatalf("QueueDeletion returned error: %v", err)
+		if err := svc.enqueue(job); err != nil {
+			t.Fatalf("enqueue returned error: %v", err)
 		}
 	}
 
@@ -270,7 +270,7 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 
 	// Queue 2 success + 1 failure
 	for i := 0; i < 2; i++ {
-		job := DeleteJob{
+		job := deleteJob{
 			Client: &mockIntegration{deleteErr: nil},
 			Item: integrations.MediaItem{
 				Title:     "Serenity",
@@ -278,13 +278,13 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 				SizeBytes: 1024 * 1024 * 50,
 			},
 		}
-		if err := svc.QueueDeletion(job); err != nil {
-			t.Fatalf("QueueDeletion returned error: %v", err)
+		if err := svc.enqueue(job); err != nil {
+			t.Fatalf("enqueue returned error: %v", err)
 		}
 	}
 
 	// Queue 1 failure
-	failJob := DeleteJob{
+	failJob := deleteJob{
 		Client: &mockIntegration{deleteErr: errMockDelete},
 		Item: integrations.MediaItem{
 			Title:     "Firefly",
@@ -292,8 +292,8 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 			SizeBytes: 1024 * 1024 * 200,
 		},
 	}
-	if err := svc.QueueDeletion(failJob); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(failJob); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	bce := drainBatchEvent(t, ch)
@@ -331,7 +331,7 @@ func TestDeletionService_BatchTracking_CorrectCounts(t *testing.T) {
 	svc.SignalBatchSize(5)
 
 	for i := 0; i < 3; i++ {
-		_ = svc.QueueDeletion(DeleteJob{
+		_ = svc.enqueue(deleteJob{
 			Client: &mockIntegration{deleteErr: nil},
 			Item: integrations.MediaItem{
 				Title:     "Serenity",
@@ -341,7 +341,7 @@ func TestDeletionService_BatchTracking_CorrectCounts(t *testing.T) {
 		})
 	}
 	for i := 0; i < 2; i++ {
-		_ = svc.QueueDeletion(DeleteJob{
+		_ = svc.enqueue(deleteJob{
 			Client: &mockIntegration{deleteErr: errMockDelete},
 			Item: integrations.MediaItem{
 				Title:     "Firefly",
@@ -380,7 +380,7 @@ func TestDeletionService_GracefulShutdown_DrainsQueue(t *testing.T) {
 
 	// Queue a job, then immediately stop — the worker should drain the queue
 	// before Stop() returns.
-	job := DeleteJob{
+	job := deleteJob{
 		Client: &mockIntegration{deleteErr: nil},
 		Item: integrations.MediaItem{
 			Title:     "Serenity",
@@ -388,8 +388,8 @@ func TestDeletionService_GracefulShutdown_DrainsQueue(t *testing.T) {
 			SizeBytes: 1024 * 1024 * 100,
 		},
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Stop should block until all queued jobs are processed
@@ -456,7 +456,7 @@ func TestDeletionService_ProgressEvent_DryRun(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	job := DeleteJob{
+	job := deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:     "Serenity",
@@ -465,8 +465,8 @@ func TestDeletionService_ProgressEvent_DryRun(t *testing.T) {
 		},
 		Score: 0.72,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	pe := drainProgressEvent(t, ch)
@@ -483,7 +483,7 @@ func TestDeletionService_ProgressEvent_DryRun(t *testing.T) {
 		t.Errorf("expected BatchTotal=1, got %d", pe.BatchTotal)
 	}
 
-	// Verify audit log entry contains the score from the DeleteJob
+	// Verify audit log entry contains the score from the deleteJob
 	var entry db.AuditLogEntry
 	if err := database.First(&entry).Error; err != nil {
 		t.Fatalf("Expected audit log entry: %v", err)
@@ -517,7 +517,7 @@ func TestDeletionService_ProgressEvent_ActualDeletion(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	job := DeleteJob{
+	job := deleteJob{
 		Client: &mockIntegration{deleteErr: nil},
 		Item: integrations.MediaItem{
 			Title:     "Serenity",
@@ -526,8 +526,8 @@ func TestDeletionService_ProgressEvent_ActualDeletion(t *testing.T) {
 		},
 		Score: 0.91,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	pe := drainProgressEvent(t, ch)
@@ -544,7 +544,7 @@ func TestDeletionService_ProgressEvent_ActualDeletion(t *testing.T) {
 		t.Errorf("expected BatchTotal=1, got %d", pe.BatchTotal)
 	}
 
-	// Verify audit log entry contains the score from the DeleteJob
+	// Verify audit log entry contains the score from the deleteJob
 	var entry db.AuditLogEntry
 	if err := database.First(&entry).Error; err != nil {
 		t.Fatalf("Expected audit log entry: %v", err)
@@ -579,13 +579,13 @@ func TestDeletionService_ForceDryRun_OverridesDeletionsEnabled(t *testing.T) {
 	svc.SignalBatchSize(1)
 
 	// ForceDryRun=true should cause a dry-delete even though DeletionsEnabled=true
-	job := DeleteJob{
+	job := deleteJob{
 		Client:      &mockIntegration{deleteErr: nil},
 		Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
 		ForceDryRun: true,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Should receive DeletionDryRunEvent, not DeletionSuccessEvent
@@ -636,13 +636,13 @@ func TestDeletionService_NoDryRun_WhenDeletionsDisabled(t *testing.T) {
 	svc.SignalBatchSize(1)
 
 	// ForceDryRun=false, but DeletionsEnabled=false → should dry-delete
-	job := DeleteJob{
+	job := deleteJob{
 		Client:      &mockIntegration{deleteErr: nil},
 		Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
 		ForceDryRun: false,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Should receive DeletionDryRunEvent, not DeletionSuccessEvent
@@ -689,7 +689,7 @@ func TestDeletionService_CancelDeletion_ReturnsTrue_WhenItemInQueue(t *testing.T
 	})
 
 	// Queue an item (service NOT started — item stays in channel and tracking slice)
-	job := DeleteJob{
+	job := deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:         "Firefly",
@@ -698,8 +698,8 @@ func TestDeletionService_CancelDeletion_ReturnsTrue_WhenItemInQueue(t *testing.T
 			IntegrationID: 1,
 		},
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	if !svc.CancelDeletion("Firefly", "show") {
@@ -747,7 +747,7 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 
 	// Queue a job, then cancel before the worker processes it.
 	// We rely on the rate limiter (3s) giving us time to cancel.
-	job := DeleteJob{
+	job := deleteJob{
 		Client: &mockIntegration{deleteErr: nil},
 		Item: integrations.MediaItem{
 			Title:         "Firefly",
@@ -756,8 +756,8 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 			IntegrationID: 1,
 		},
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Mark as cancelled
@@ -806,11 +806,11 @@ func TestDeletionService_ListQueuedItems_ReturnsSnapshot(t *testing.T) {
 	}
 
 	// Queue two items (service NOT started — items stay in tracking slice)
-	_ = svc.QueueDeletion(DeleteJob{
+	_ = svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100, IntegrationID: 1},
 	})
-	_ = svc.QueueDeletion(DeleteJob{
+	_ = svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 200, IntegrationID: 2},
 	})
@@ -840,7 +840,7 @@ func TestDeletionService_SignalBatchSize_ClearsCancelledSet(t *testing.T) {
 	svc := NewDeletionService(bus, auditLog)
 
 	// Add an item to queue and cancel it
-	_ = svc.QueueDeletion(DeleteJob{
+	_ = svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100},
 	})
@@ -914,7 +914,7 @@ func TestDeletionService_ProgressEvent_Failure(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	job := DeleteJob{
+	job := deleteJob{
 		Client: &mockIntegration{deleteErr: errMockDelete},
 		Item: integrations.MediaItem{
 			Title:     "Firefly",
@@ -922,8 +922,8 @@ func TestDeletionService_ProgressEvent_Failure(t *testing.T) {
 			SizeBytes: 1024 * 1024 * 200,
 		},
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	pe := drainProgressEvent(t, ch)
@@ -990,15 +990,15 @@ func TestDeletionService_UpsertAudit_UsesUpsertSemantics(t *testing.T) {
 	// Queue the same item twice with UpsertAudit=true — should produce only 1 audit entry
 	for i := 0; i < 2; i++ {
 		svc.SignalBatchSize(1)
-		job := DeleteJob{
+		job := deleteJob{
 			Client:      nil, // Dry-run with nil client
 			Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
 			Score:       float64(i+1) * 0.5,
 			ForceDryRun: true,
 			UpsertAudit: true,
 		}
-		if err := svc.QueueDeletion(job); err != nil {
-			t.Fatalf("QueueDeletion returned error: %v", err)
+		if err := svc.enqueue(job); err != nil {
+			t.Fatalf("enqueue returned error: %v", err)
 		}
 		// Wait for processing
 		ch := bus.Subscribe()
@@ -1046,15 +1046,15 @@ func TestDeletionService_UpsertAudit_False_AppendsMultiple(t *testing.T) {
 	// Queue the same item twice with UpsertAudit=false — should produce 2 audit entries
 	for i := 0; i < 2; i++ {
 		svc.SignalBatchSize(1)
-		job := DeleteJob{
+		job := deleteJob{
 			Client:      nil,
 			Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
 			Score:       float64(i+1) * 0.3,
 			ForceDryRun: true,
 			UpsertAudit: false,
 		}
-		if err := svc.QueueDeletion(job); err != nil {
-			t.Fatalf("QueueDeletion returned error: %v", err)
+		if err := svc.enqueue(job); err != nil {
+			t.Fatalf("enqueue returned error: %v", err)
 		}
 		ch := bus.Subscribe()
 		drainBatchEvent(t, ch)
@@ -1094,14 +1094,14 @@ func TestDeletionService_NilClient_DryRunSucceeds(t *testing.T) {
 	svc.SignalBatchSize(1)
 
 	// Queue a job with nil client in dry-run mode — should succeed
-	job := DeleteJob{
+	job := deleteJob{
 		Client:      nil,
 		Item:        integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
 		Score:       0.65,
 		ForceDryRun: true,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Should get DeletionDryRunEvent (not a failure)
@@ -1161,13 +1161,13 @@ func TestDeletionService_NilClient_ActualDeletion_Fails(t *testing.T) {
 
 	// Queue a job with nil client AND deletions enabled, ForceDryRun=false
 	// This should hit the nil-safety check and count as a failure
-	job := DeleteJob{
+	job := deleteJob{
 		Client:      nil,
 		Item:        integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
 		ForceDryRun: false,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	bce := drainBatchEvent(t, ch)
@@ -1186,7 +1186,7 @@ func TestDeletionService_NilClient_ActualDeletion_Fails(t *testing.T) {
 	}
 }
 
-func TestDeletionService_QueueDeletion_PublishesDeletionQueuedEvent(t *testing.T) {
+func TestDeletionService_Enqueue_PublishesDeletionQueuedEvent(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
@@ -1207,7 +1207,7 @@ func TestDeletionService_QueueDeletion_PublishesDeletionQueuedEvent(t *testing.T
 
 	// Don't start the worker — we only want to verify the enqueue event,
 	// not the downstream processing events.
-	job := DeleteJob{
+	job := deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:         "Serenity",
@@ -1216,8 +1216,8 @@ func TestDeletionService_QueueDeletion_PublishesDeletionQueuedEvent(t *testing.T
 			IntegrationID: 7,
 		},
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Read the first event — should be DeletionQueuedEvent
@@ -1266,7 +1266,7 @@ func TestDeletionService_GracePeriod_StartsOnQueue(t *testing.T) {
 	svc.Start()
 	defer svc.Stop()
 
-	_ = svc.QueueDeletion(DeleteJob{
+	_ = svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100},
 	})
@@ -1307,7 +1307,7 @@ func TestDeletionService_GracePeriod_ExpiresAndProcesses(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	_ = svc.QueueDeletion(DeleteJob{
+	_ = svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item:   integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 100},
 	})
@@ -1336,7 +1336,7 @@ func TestDeletionService_ClearQueue_CancelsAll(t *testing.T) {
 
 	// Queue 3 items without starting the worker
 	for i := 0; i < 3; i++ {
-		_ = svc.QueueDeletion(DeleteJob{
+		_ = svc.enqueue(deleteJob{
 			Client: &mockIntegration{},
 			Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100},
 		})
@@ -1560,14 +1560,14 @@ func TestDeletionService_DryRun_ReturnsToPending_WhenApprovalEntrySet(t *testing
 	svc.SignalBatchSize(1)
 
 	// Queue a job with ApprovalEntryID set (simulates ExecuteApproval flow)
-	job := DeleteJob{
+	job := deleteJob{
 		Client:          nil,
 		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
 		ForceDryRun:     true,
 		ApprovalEntryID: 42,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Wait for batch completion
@@ -1608,14 +1608,14 @@ func TestDeletionService_DryRun_DoesNotReturn_WhenNoApprovalEntry(t *testing.T) 
 	svc.SignalBatchSize(1)
 
 	// Queue a job WITHOUT ApprovalEntryID (normal engine-driven dry-run)
-	job := DeleteJob{
+	job := deleteJob{
 		Client:          nil,
 		Item:            integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 1024 * 1024 * 100},
 		ForceDryRun:     true,
 		ApprovalEntryID: 0, // Not from approval queue
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	drainBatchEvent(t, ch)
@@ -1652,13 +1652,13 @@ func TestDeletionService_ActualDelete_RemovesApprovalEntry(t *testing.T) {
 	svc.SignalBatchSize(1)
 
 	// Queue a job WITH ApprovalEntryID and actual deletion enabled
-	job := DeleteJob{
+	job := deleteJob{
 		Client:          &mockIntegration{deleteErr: nil},
 		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024 * 1024 * 200},
 		ApprovalEntryID: 42,
 	}
-	if err := svc.QueueDeletion(job); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	drainBatchEvent(t, ch)
@@ -1717,14 +1717,14 @@ func TestDeletionService_DryRunLoop_ApproveAndReturn(t *testing.T) {
 
 	// 3. Queue deletion with ApprovalEntryID set (simulates what ExecuteApproval does)
 	deletionSvc.SignalBatchSize(1)
-	if queueErr := deletionSvc.QueueDeletion(DeleteJob{
+	if queueErr := deletionSvc.enqueue(deleteJob{
 		Client:          nil,
 		Item:            integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 5069636198},
 		Score:           0.85,
 		ForceDryRun:     true,
 		ApprovalEntryID: item.ID,
 	}); queueErr != nil {
-		t.Fatalf("QueueDeletion returned error: %v", queueErr)
+		t.Fatalf("enqueue returned error: %v", queueErr)
 	}
 
 	// 4. Wait for batch completion (dry-delete + return to pending)
@@ -1779,7 +1779,7 @@ func TestProcessJob_ModeChangeCancelsJob(t *testing.T) {
 	svc.SignalBatchSize(1)
 
 	// Enqueue a job that was created when mode was "auto"
-	if err := svc.QueueDeletion(DeleteJob{
+	if err := svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:     "Serenity",
@@ -1788,7 +1788,7 @@ func TestProcessJob_ModeChangeCancelsJob(t *testing.T) {
 		},
 		EnqueuedMode: db.ModeAuto, // was enqueued in auto mode
 	}); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Wait for the batch to complete
@@ -1839,7 +1839,7 @@ func TestProcessJob_SameModeNotCancelled(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	if err := svc.QueueDeletion(DeleteJob{
+	if err := svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:     "Serenity",
@@ -1848,7 +1848,7 @@ func TestProcessJob_SameModeNotCancelled(t *testing.T) {
 		},
 		EnqueuedMode: db.ModeAuto,
 	}); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	bce := drainBatchEvent(t, ch)
@@ -1896,7 +1896,7 @@ func TestProcessJob_EmptyEnqueuedModeSkipsCheck(t *testing.T) {
 	svc.SignalBatchSize(1)
 
 	// Enqueue with empty EnqueuedMode (simulates pre-upgrade job)
-	if err := svc.QueueDeletion(DeleteJob{
+	if err := svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:     "Firefly",
@@ -1905,7 +1905,7 @@ func TestProcessJob_EmptyEnqueuedModeSkipsCheck(t *testing.T) {
 		},
 		EnqueuedMode: "", // empty — backward compat
 	}); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	bce := drainBatchEvent(t, ch)
@@ -1952,7 +1952,7 @@ func TestProcessJob_AutoToDryRunCancelsJob(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	if err := svc.QueueDeletion(DeleteJob{
+	if err := svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:     "Serenity",
@@ -1961,7 +1961,7 @@ func TestProcessJob_AutoToDryRunCancelsJob(t *testing.T) {
 		},
 		EnqueuedMode: db.ModeAuto, // was enqueued in auto mode
 	}); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	bce := drainBatchEvent(t, ch)
@@ -2017,7 +2017,7 @@ func TestProcessJob_DryRunToAutoCancelsJob(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	if err := svc.QueueDeletion(DeleteJob{
+	if err := svc.enqueue(deleteJob{
 		Client: nil, // dry-run jobs have nil client
 		Item: integrations.MediaItem{
 			Title:     "Firefly",
@@ -2027,7 +2027,7 @@ func TestProcessJob_DryRunToAutoCancelsJob(t *testing.T) {
 		ForceDryRun:  true,
 		EnqueuedMode: db.ModeDryRun, // was enqueued in dry-run mode
 	}); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	bce := drainBatchEvent(t, ch)
@@ -2076,7 +2076,7 @@ func TestDrainAll_MultiplItemsModeChangeCancelsRemaining(t *testing.T) {
 	// Queue 5 items that were enqueued in auto mode
 	svc.SignalBatchSize(5)
 	for i := 0; i < 5; i++ {
-		if err := svc.QueueDeletion(DeleteJob{
+		if err := svc.enqueue(deleteJob{
 			Client: &mockIntegration{},
 			Item: integrations.MediaItem{
 				Title:     "Serenity",
@@ -2085,7 +2085,7 @@ func TestDrainAll_MultiplItemsModeChangeCancelsRemaining(t *testing.T) {
 			},
 			EnqueuedMode: db.ModeAuto,
 		}); err != nil {
-			t.Fatalf("QueueDeletion returned error: %v", err)
+			t.Fatalf("enqueue returned error: %v", err)
 		}
 	}
 
@@ -2138,7 +2138,7 @@ func TestProcessJob_ModeChangeCancelsJob_PublishesCancelledEvent(t *testing.T) {
 
 	svc.SignalBatchSize(1)
 
-	if err := svc.QueueDeletion(DeleteJob{
+	if err := svc.enqueue(deleteJob{
 		Client: &mockIntegration{},
 		Item: integrations.MediaItem{
 			Title:     "Serenity",
@@ -2147,7 +2147,7 @@ func TestProcessJob_ModeChangeCancelsJob_PublishesCancelledEvent(t *testing.T) {
 		},
 		EnqueuedMode: db.ModeAuto,
 	}); err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Drain events looking for DeletionCancelledEvent
@@ -2188,7 +2188,7 @@ func TestDeletionService_SnoozeDeletionItem(t *testing.T) {
 	svc.SetDependencies(DeletionDeps{Settings: settings, Engine: &mockEngineStatsWriter{}, Metrics: &mockDeletionStatsWriter{}, Approval: &mockApprovalReturner{}, Snoozer: snoozer, DiskGroups: &mockDiskGroupModeReader{}, Clients: &mockClientResolver{}, SunsetCleaner: &mockSunsetQueueCleaner{}})
 
 	// Queue an item first so SnoozeDeletionItem can find it
-	err := svc.QueueDeletion(DeleteJob{
+	err := svc.enqueue(deleteJob{
 		Item: integrations.MediaItem{
 			Title:         "Firefly",
 			Type:          integrations.MediaTypeShow,
@@ -2196,7 +2196,7 @@ func TestDeletionService_SnoozeDeletionItem(t *testing.T) {
 		},
 	})
 	if err != nil {
-		t.Fatalf("QueueDeletion returned error: %v", err)
+		t.Fatalf("enqueue returned error: %v", err)
 	}
 
 	// Snooze it
@@ -2306,7 +2306,7 @@ func TestDeletionService_DrainAll_SortsByScoreDescending(t *testing.T) {
 
 	svc.SignalBatchSize(len(items))
 	for _, item := range items {
-		if err := svc.QueueDeletion(DeleteJob{
+		if err := svc.enqueue(deleteJob{
 			Client: &mockIntegration{deleteErr: nil},
 			Item: integrations.MediaItem{
 				Title:     item.title,
@@ -2315,7 +2315,7 @@ func TestDeletionService_DrainAll_SortsByScoreDescending(t *testing.T) {
 			},
 			Score: item.score,
 		}); err != nil {
-			t.Fatalf("QueueDeletion returned error: %v", err)
+			t.Fatalf("enqueue returned error: %v", err)
 		}
 	}
 

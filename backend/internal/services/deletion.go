@@ -14,8 +14,8 @@ import (
 	"capacitarr/internal/integrations"
 )
 
-// DeleteJob describes a media item to be deleted.
-type DeleteJob struct {
+// deleteJob describes a media item to be deleted.
+type deleteJob struct {
 	Client             integrations.MediaDeleter
 	Item               integrations.MediaItem
 	Score              float64
@@ -91,7 +91,7 @@ type DeletionService struct {
 	// inspect the queue (Go channels don't support peeking). Also serves as
 	// the pending-jobs store for the grace-period-aware worker.
 	queuedMu    sync.Mutex
-	queuedItems []DeleteJob // full jobs (worker reads from here after grace period)
+	queuedItems []deleteJob // full jobs (worker reads from here after grace period)
 
 	// Grace period state
 	graceTimerMu  sync.Mutex

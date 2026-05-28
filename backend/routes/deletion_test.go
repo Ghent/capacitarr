@@ -43,7 +43,7 @@ func TestDeletionQueue_GET_NonEmpty(t *testing.T) {
 	e := testutil.SetupTestServer(t, database)
 
 	// Queue items directly via the service (service not started, so items stay)
-	_ = reg.Deletion.QueueDeletion(services.DeleteJob{
+	_ = reg.Deletion.QueueFromEngine(services.EngineDeleteRequest{
 		Client: &stubIntegration{},
 		Item: integrations.MediaItem{
 			Title:         "Firefly",
@@ -52,7 +52,7 @@ func TestDeletionQueue_GET_NonEmpty(t *testing.T) {
 			IntegrationID: 1,
 		},
 	})
-	_ = reg.Deletion.QueueDeletion(services.DeleteJob{
+	_ = reg.Deletion.QueueFromEngine(services.EngineDeleteRequest{
 		Client: &stubIntegration{},
 		Item: integrations.MediaItem{
 			Title:         "Serenity",
@@ -144,7 +144,7 @@ func TestDeletionQueue_DELETE_Success(t *testing.T) {
 	_, reg := testutil.SetupTestServerWithRegistry(t, database)
 
 	// Queue an item directly on the service
-	_ = reg.Deletion.QueueDeletion(services.DeleteJob{
+	_ = reg.Deletion.QueueFromEngine(services.EngineDeleteRequest{
 		Client: &stubIntegration{},
 		Item: integrations.MediaItem{
 			Title:         "Firefly",

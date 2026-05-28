@@ -12,7 +12,7 @@ import (
 
 // executeDryRun handles the dry-delete path: logs the action but does not
 // actually remove the file from the media server.
-func (s *DeletionService) executeDryRun(job DeleteJob, factorsJSON []byte, deletionsEnabled bool, deferredAuditEntries *[]db.AuditLogEntry) {
+func (s *DeletionService) executeDryRun(job deleteJob, factorsJSON []byte, deletionsEnabled bool, deferredAuditEntries *[]db.AuditLogEntry) {
 	s.processed.Add(1)
 	s.batchSucceeded.Add(1)
 
@@ -60,7 +60,7 @@ func (s *DeletionService) executeDryRun(job DeleteJob, factorsJSON []byte, delet
 
 // executeDeletion performs the actual media file deletion via the integration
 // client, updates stats, logs the audit entry, and cleans up related queues.
-func (s *DeletionService) executeDeletion(job DeleteJob, factorsJSON []byte) {
+func (s *DeletionService) executeDeletion(job deleteJob, factorsJSON []byte) {
 	// Nil-safety check for dry-run jobs that have no client
 	if job.Client == nil {
 		slog.Error("Deletion job has nil client — cannot perform actual deletion",
@@ -133,7 +133,7 @@ func (s *DeletionService) executeDeletion(job DeleteJob, factorsJSON []byte) {
 
 // postDeletion cleans up approval and sunset queue entries after a successful
 // actual deletion.
-func (s *DeletionService) postDeletion(job DeleteJob) {
+func (s *DeletionService) postDeletion(job deleteJob) {
 	// Clean up the approval queue entry after successful actual deletion.
 	if job.ApprovalEntryID != 0 && s.approvalReturner != nil {
 		if err := s.approvalReturner.RemoveEntry(job.ApprovalEntryID); err != nil {
