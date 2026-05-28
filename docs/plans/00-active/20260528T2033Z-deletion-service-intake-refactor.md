@@ -81,6 +81,9 @@ func (s *DeletionService) QueueManual(items []ManualDeleteRequest) (ManualDelete
 
 ```go
 // EngineDeleteRequest — engine already has everything resolved.
+// DiskGroupID is uint (not *uint) because the engine always resolves disk groups
+// during evaluation — it iterates per-disk-group. The intake method converts to
+// *uint internally (diskGroupID: &req.DiskGroupID).
 type EngineDeleteRequest struct {
     Client             integrations.MediaDeleter
     Item               integrations.MediaItem
@@ -103,6 +106,14 @@ type ManualDeleteRequest struct {
     Score         float64
     ScoreDetails  string
     PosterURL     string
+}
+
+// ManualDeleteResult — aggregate outcome of QueueManual.
+type ManualDeleteResult struct {
+    QueuedCount   int    // Items queued for deletion
+    ApprovalCount int    // Items routed to approval queue
+    TotalCount    int    // Total items processed
+    ResolvedMode  string // The mode that was resolved (for UI feedback)
 }
 ```
 
@@ -174,7 +185,22 @@ type deleteJob struct {
 | `DiskGroupModeReader` | `GetByID(uint)` | Replaced by `DiskGroupResolver` (adds `GetDiskGroupIDForIntegration`) |
 | `ClientResolver` | N/A (new) | `GetDeleter(uint)`, `GetIntegrationConfig(uint)` |
 
-`SetDependencies` signature expands from 7 → 8 params (replace `DiskGroupModeReader` with `DiskGroupResolver`, add `ClientResolver`). Alternatively, consolidate into a deps struct at this point.
+`SetDependencies` is replaced by a deps struct pattern. At 8 dependencies, positional params are unreadable and fragile. The `Wired() bool` method already validates all deps are non-nil at startup, mitigating the zero-value struct risk.
+
+```go
+type DeletionDeps struct {
+    Settings       SettingsReader
+    DiskGroups     DiskGroupResolver
+    Clients        ClientResolver
+    Approval       ApprovalReturner
+    Stats          StatsWriter
+    Audit          AuditWriter
+    Notifications  NotificationPublisher
+    EventBus       *events.EventBus
+}
+
+func (s *DeletionService) SetDependencies(deps DeletionDeps) { ... }
+```
 
 ### Callers After Refactor
 
@@ -182,7 +208,7 @@ type deleteJob struct {
 |--------|--------|-------|
 | Poller `dispatchByMode` | Builds `DeleteJob{14 fields}` | `QueueFromEngine(EngineDeleteRequest{...})` |
 | `ExecuteApproval` | 40+ lines of resolution + `QueueDeletion(DeleteJob{...})` | `deps.Deletion.QueueFromApproval(approved)` |
-| `ManualDelete` | Client creation + mode routing + `QueueDeletion(DeleteJob{...})` | `deps.Deletion.QueueManual(items)` (approval routing stays in `ManualDelete` or moves into `QueueManual`) |
+| `ManualDelete` | Client creation + mode routing + `QueueDeletion(DeleteJob{...})` | `deps.Deletion.QueueManual(items)` — `QueueManual` owns approval-mode routing internally via `ApprovalReturner` |
 | Sunset `expireItem` | 30+ lines of resolution + `QueueDeletion(DeleteJob{...})` | `deps.Deletion.QueueFromSunset(&item)` |
 
 ---
@@ -191,9 +217,7 @@ type deleteJob struct {
 
 ### Phase 1: Preparation
 
-- [ ] **1.1** Revert the partial `GetDiskGroupIDForIntegration` addition on `fix/approval-queue-mode-mismatch` (uncommitted code from interrupted work)
-- [ ] **1.2** Merge `fix/approval-queue-mode-mismatch` to `main` (the immediate bugfix is valid and unrelated to this refactor)
-- [ ] **1.3** Create branch `refactor/deletion-service-intake` from `main`
+- [ ] **1.1** Create branch `refactor/deletion-service-intake` from `main`
 
 ### Phase 2: File Split (No Behavioral Changes)
 
@@ -210,11 +234,12 @@ type deleteJob struct {
 - [ ] **3.2** Expand `DiskGroupModeReader` → `DiskGroupResolver` interface (add `GetDiskGroupIDForIntegration(uint) *uint`). Keep old name as type alias or migrate all references.
 - [ ] **3.3** Define `EngineDeleteRequest` struct in `deletion_intake.go`
 - [ ] **3.4** Define `ManualDeleteRequest` struct in `deletion_intake.go` (replaces current `ManualDeleteItem` in approval.go)
-- [ ] **3.5** Update `SetDependencies` to accept `ClientResolver` and `DiskGroupResolver`
-- [ ] **3.6** Implement `ClientResolver` — create adapter struct in `services/` that wraps `IntegrationService` + `integrations.CreateClient`. Register on `services.Registry`.
-- [ ] **3.7** Implement `DiskGroupResolver` — add `GetDiskGroupIDForIntegration` to `DiskGroupService` (query `disk_group_integrations` junction table)
-- [ ] **3.8** Update `services.Registry` wiring to pass new interfaces via `SetDependencies`
-- [ ] **3.9** Verify `make ci` passes — interfaces exist but aren't used yet
+- [ ] **3.5** Define `ManualDeleteResult` struct in `deletion_intake.go`
+- [ ] **3.6** Define `DeletionDeps` struct in `deletion.go`. Replace `SetDependencies(7 params)` with `SetDependencies(DeletionDeps)`. Update `Wired()` to validate all struct fields non-nil.
+- [ ] **3.7** Implement `ClientResolver` — create adapter struct in `services/` that wraps `IntegrationService` + `integrations.CreateClient`. Integration clients are stateless HTTP wrappers (struct with URL + API key + `*http.Client`), so no caching is needed. Register on `services.Registry`.
+- [ ] **3.8** Implement `DiskGroupResolver` — add `GetDiskGroupIDForIntegration` to `DiskGroupService` (query `disk_group_integrations` junction table)
+- [ ] **3.9** Update `services.Registry` wiring to pass `DeletionDeps{}` via `SetDependencies`
+- [ ] **3.10** Verify `make ci` passes — interfaces exist but aren't used yet
 
 ### Phase 4: Implement Intake Layer
 
@@ -230,7 +255,7 @@ type deleteJob struct {
 
 - [ ] **5.1** Migrate poller `dispatchByMode` (evaluate.go) — replace `QueueDeletion(DeleteJob{...})` with `QueueFromEngine(EngineDeleteRequest{...})`
 - [ ] **5.2** Migrate `ExecuteApproval` (approval.go) — replace 40+ lines of resolution with `deps.Deletion.QueueFromApproval(approved)`. Remove `ClientResolver`-like code from `ExecuteApprovalDeps`.
-- [ ] **5.3** Migrate `ManualDelete` (approval.go) — replace client creation + queue logic with `deps.Deletion.QueueManual(items)`. Determine if approval-mode routing lives in `QueueManual` or remains in `ManualDelete` (preference: move into `QueueManual` so the pipeline owns all routing).
+- [ ] **5.3** Migrate `ManualDelete` (approval.go) — replace client creation + queue logic with `deps.Deletion.QueueManual(items)`. Approval-mode routing moves into `QueueManual` (the pipeline owns all routing — this is the point of the refactor). `ManualDelete` becomes a thin adapter that converts HTTP request data to `[]ManualDeleteRequest`.
 - [ ] **5.4** Migrate sunset `expireItem` (sunset.go) — replace resolution + `QueueDeletion(DeleteJob{...})` with `deps.Deletion.QueueFromSunset(&item)`
 - [ ] **5.5** Update `ExecuteApprovalDeps` — remove `Integration`, `Settings`, `DiskGroups` fields that are no longer needed by the caller (they're now internal to `DeletionService`)
 - [ ] **5.6** Update `ManualDeleteDeps` — remove `Integration` field; `Deletion` is the only dep needed
@@ -239,14 +264,15 @@ type deleteJob struct {
 
 ### Phase 6: Unexport and Clean Up
 
-- [ ] **6.1** Rename `DeleteJob` → `deleteJob` (unexport). Update all internal references.
-- [ ] **6.2** Remove exported `QueueDeletion(DeleteJob) error` method
-- [ ] **6.3** Remove `ManualDeleteItem` from approval.go (replaced by `ManualDeleteRequest` in deletion_intake.go)
-- [ ] **6.4** Remove dead code: resolution logic in `ExecuteApproval`, `ManualDelete`, and `expireItem` that was replaced by intake methods
-- [ ] **6.5** Update `DeleteJobSummary` if any fields changed (likely unchanged)
-- [ ] **6.6** Update all deletion_test.go tests — replace direct `QueueDeletion(DeleteJob{...})` calls with appropriate `QueueFromX()` calls. Tests that specifically test the worker/processing internals can use `enqueue()` directly (same package, unexported is accessible).
-- [ ] **6.7** Remove `GetDiskGroupIDForIntegration` from `diskgroup.go` if it was added during the interrupted fix (should not exist outside this refactor)
-- [ ] **6.8** Final `make ci` — full pipeline green
+- [ ] **6.1** Verify no external references to `DeleteJob` remain: `grep -r "DeleteJob" --include="*.go" backend/` must show only hits within `internal/services/`. If any external references exist (poller, routes, tests outside services package), migrate them first.
+- [ ] **6.2** Rename `DeleteJob` → `deleteJob` (unexport). Update all internal references.
+- [ ] **6.3** Remove exported `QueueDeletion(DeleteJob) error` method
+- [ ] **6.4** Remove `ManualDeleteItem` from approval.go (replaced by `ManualDeleteRequest` in deletion_intake.go)
+- [ ] **6.5** Remove dead code: resolution logic in `ExecuteApproval`, `ManualDelete`, and `expireItem` that was replaced by intake methods
+- [ ] **6.6** Update `DeleteJobSummary` if any fields changed (likely unchanged)
+- [ ] **6.7** Update all deletion_test.go tests — replace direct `QueueDeletion(DeleteJob{...})` calls with appropriate `QueueFromX()` calls. Tests that specifically test the worker/processing internals can use `enqueue()` directly (same package, unexported is accessible).
+- [ ] **6.8** Remove `GetDiskGroupIDForIntegration` from `diskgroup.go` if it was added during the interrupted fix (should not exist outside this refactor)
+- [ ] **6.9** Final `make ci` — full pipeline green
 
 ### Phase 7: Validation
 
@@ -266,7 +292,7 @@ type deleteJob struct {
 | Breaking existing tests (50+ deletion tests) | High | Phase 6.6 is mechanical — same logic, different entry point. Run after each phase. |
 | Engine performance regression | Low | `QueueFromEngine` does zero DB lookups — it's a struct conversion + enqueue. |
 | `ClientResolver` adapter complexity | Low | Thin wrapper: call `IntegrationService.GetByID()` then `integrations.CreateClient()`. 10-15 lines. |
-| `QueueManual` approval-mode routing duplication | Medium | Decision in 5.3: either `QueueManual` owns it (cleaner pipeline) or it delegates to `ApprovalService.UpsertPending()` via existing interface. Document the choice. |
+| `QueueManual` approval-mode routing complexity | Low | `QueueManual` owns all routing. It delegates approval-mode items to `ApprovalReturner.UpsertPending()` via existing interface — no direct `ApprovalService` import. |
 
 ## Success Criteria
 
