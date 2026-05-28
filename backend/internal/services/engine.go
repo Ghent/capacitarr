@@ -70,21 +70,20 @@ func (s *EngineService) SetLastRunStats(evaluated, candidates, protected int) {
 
 // EngineHistoryPoint holds a single data point for the engine history sparklines.
 type EngineHistoryPoint struct {
-	Timestamp     time.Time `json:"timestamp"`
-	Evaluated     int       `json:"evaluated"`
-	Candidates    int       `json:"candidates"`
-	Queued        int       `json:"queued"`
-	Deleted       int       `json:"deleted"`
-	FreedBytes    int64     `json:"freedBytes"`
-	DurationMs    int64     `json:"durationMs"`
-	ExecutionMode string    `json:"executionMode"`
+	Timestamp      time.Time `json:"timestamp"`
+	Evaluated      int       `json:"evaluated"`
+	Candidates     int       `json:"candidates"`
+	Queued         int       `json:"queued"`
+	Deleted        int       `json:"deleted"`
+	FreedBytes     int64     `json:"freedBytes"`
+	DurationMs     int64     `json:"durationMs"`
+	DiskGroupModes string    `json:"diskGroupModes,omitempty"`
 }
 
 // CreateRunStats creates a new engine run stats entry and returns it.
-func (s *EngineService) CreateRunStats(mode string) (*db.EngineRunStats, error) {
+func (s *EngineService) CreateRunStats() (*db.EngineRunStats, error) {
 	stats := db.EngineRunStats{
-		RunAt:         time.Now().UTC(),
-		ExecutionMode: mode,
+		RunAt: time.Now().UTC(),
 	}
 	if err := s.db.Create(&stats).Error; err != nil {
 		return nil, fmt.Errorf("failed to create engine run stats: %w", err)
@@ -147,14 +146,14 @@ func (s *EngineService) GetHistory(since time.Duration) ([]EngineHistoryPoint, e
 	points := make([]EngineHistoryPoint, len(stats))
 	for i, st := range stats {
 		points[i] = EngineHistoryPoint{
-			Timestamp:     st.RunAt,
-			Evaluated:     st.Evaluated,
-			Candidates:    st.Candidates,
-			Queued:        st.Queued,
-			Deleted:       st.Deleted,
-			FreedBytes:    st.FreedBytes,
-			DurationMs:    st.DurationMs,
-			ExecutionMode: st.ExecutionMode,
+			Timestamp:      st.RunAt,
+			Evaluated:      st.Evaluated,
+			Candidates:     st.Candidates,
+			Queued:         st.Queued,
+			Deleted:        st.Deleted,
+			FreedBytes:     st.FreedBytes,
+			DurationMs:     st.DurationMs,
+			DiskGroupModes: st.DiskGroupModes,
 		}
 	}
 
@@ -244,7 +243,7 @@ func (s *EngineService) GetStats() map[string]any {
 	// completed_at column (they will have NULL completed_at).
 	var latest db.EngineRunStats
 	if err := s.db.Order("run_at desc").First(&latest).Error; err == nil {
-		stats["executionMode"] = latest.ExecutionMode
+		stats["diskGroupModes"] = latest.DiskGroupModes
 		stats["lastRunFreedBytes"] = latest.FreedBytes
 		if latest.CompletedAt != nil {
 			stats["lastRunEpoch"] = latest.CompletedAt.Unix()

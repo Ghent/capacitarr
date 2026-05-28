@@ -191,7 +191,7 @@ func (p *Poller) scoreCandidates(ectx *evaluationContext, currentPct float64, ef
 
 	slog.Info("Candidate selection for approval/deletion", "component", "poller",
 		"mount", ectx.group.MountPath,
-		"executionMode", ectx.prefs.DefaultDiskGroupMode,
+		"mode", ectx.group.Mode,
 		"totalCandidates", len(evalResult.Candidates),
 		"selectedCandidates", len(candidates),
 		"targetBytesToFree", targetBytesToFree)

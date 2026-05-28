@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"capacitarr/internal/db"
 )
 
 func TestSSEBroadcaster_StartStop(t *testing.T) {
@@ -39,7 +37,7 @@ func TestSSEBroadcaster_BroadcastFormatsSSE(t *testing.T) {
 	broadcaster.mu.Unlock()
 
 	// Publish an event
-	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeDryRun})
+	bus.Publish(EngineStartEvent{DiskGroupModes: map[uint]string{1: "dry-run"}})
 
 	// Wait for broadcast
 	select {
@@ -55,9 +53,9 @@ func TestSSEBroadcaster_BroadcastFormatsSSE(t *testing.T) {
 		if !strings.Contains(sseMsg, "data: ") {
 			t.Error("SSE message missing 'data' field")
 		}
-		// Verify JSON payload contains executionMode
-		if !strings.Contains(sseMsg, `"executionMode":"dry-run"`) {
-			t.Errorf("expected executionMode in payload, got: %s", sseMsg)
+		// Verify JSON payload contains the event data
+		if !strings.Contains(sseMsg, `"diskGroupModes"`) {
+			t.Errorf("expected diskGroupModes in payload, got: %s", sseMsg)
 		}
 		// Verify message field is injected
 		if !strings.Contains(sseMsg, `"message":"`) {
@@ -127,7 +125,7 @@ func TestSSEBroadcaster_ClientBufferFull(t *testing.T) {
 	broadcaster.mu.Unlock()
 
 	// Fill client buffer
-	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeDryRun})
+	bus.Publish(EngineStartEvent{})
 	time.Sleep(50 * time.Millisecond)
 
 	// This should not block even though client buffer is full
@@ -161,7 +159,7 @@ func TestSSEBroadcaster_RingBufferStoresEvents(t *testing.T) {
 
 	// Publish several events (no clients connected)
 	for i := 0; i < 5; i++ {
-		bus.Publish(EngineStartEvent{ExecutionMode: db.ModeDryRun})
+		bus.Publish(EngineStartEvent{})
 	}
 
 	time.Sleep(100 * time.Millisecond)
@@ -193,7 +191,7 @@ func TestSSEBroadcaster_ReplayMissedEvents(t *testing.T) {
 
 	// No clients connected — events go into ring buffer only
 	bus.Publish(LoginEvent{Username: "user1"})
-	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeApproval})
+	bus.Publish(EngineStartEvent{})
 	bus.Publish(EngineCompleteEvent{Evaluated: 50, Candidates: 5})
 
 	time.Sleep(100 * time.Millisecond)
@@ -334,7 +332,7 @@ func TestSSEBroadcaster_IncrementingEventIDs(t *testing.T) {
 	broadcaster.clients[client] = struct{}{}
 	broadcaster.mu.Unlock()
 
-	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeDryRun})
+	bus.Publish(EngineStartEvent{})
 	bus.Publish(EngineCompleteEvent{Evaluated: 10, Candidates: 2})
 
 	time.Sleep(100 * time.Millisecond)

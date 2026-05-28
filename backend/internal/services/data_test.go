@@ -35,7 +35,7 @@ func TestDataService_Reset(t *testing.T) {
 
 	// Engine run stats
 	database.Create(&db.EngineRunStats{
-		RunAt: time.Now(), Evaluated: 10, Candidates: 3, ExecutionMode: db.ModeDryRun, DurationMs: 100,
+		RunAt: time.Now(), Evaluated: 10, Candidates: 3, DurationMs: 100,
 	})
 
 	// Disk group (should have transient fields reset)

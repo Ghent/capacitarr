@@ -370,13 +370,10 @@ func (s *MetricsService) GetCapacityForecast(thresholdPct float64, totalCapacity
 func (s *MetricsService) GetWorkerMetrics() map[string]any {
 	stats := s.engine.GetStats()
 
-	// Add poll interval and execution mode from preferences via SettingsService.
-	// The execution mode MUST come from the preferences table (source of truth),
-	// not from the last EngineRunStats record (which reflects the mode at the time
-	// of the last run, not the current configured mode).
+	// Add poll interval from preferences. Per-disk-group modes come from the
+	// latest EngineRunStats row (already included in stats via GetStats()).
 	if prefs, err := s.settings.GetPreferences(); err == nil {
 		stats["pollIntervalSeconds"] = prefs.PollIntervalSeconds
-		stats["defaultDiskGroupMode"] = prefs.DefaultDiskGroupMode
 	}
 
 	// Add deletion worker state

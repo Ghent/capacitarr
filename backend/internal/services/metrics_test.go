@@ -383,7 +383,6 @@ func TestMetricsService_GetWorkerMetrics_ReturnsExpectedKeys(t *testing.T) {
 		"lastRunCandidates",
 		"protectedCount",
 		"pollIntervalSeconds",
-		"defaultDiskGroupMode",
 		"queueDepth",
 		"currentlyDeleting",
 		"processed",
@@ -397,7 +396,7 @@ func TestMetricsService_GetWorkerMetrics_ReturnsExpectedKeys(t *testing.T) {
 	}
 }
 
-func TestMetricsService_GetWorkerMetrics_ExecutionModeFromPreferences(t *testing.T) {
+func TestMetricsService_GetWorkerMetrics_DiskGroupModesFromRunStats(t *testing.T) {
 	database := setupTestDB(t)
 	bus := events.NewEventBus()
 	t.Cleanup(func() { bus.Close() })
@@ -409,20 +408,17 @@ func TestMetricsService_GetWorkerMetrics_ExecutionModeFromPreferences(t *testing
 	svc.SetSettingsService(settings)
 	deletion.SetDependencies(settings, engine, svc, nil, nil, nil, nil)
 
-	// Create an engine run stats record with "dry-run" mode (simulating a past run)
-	database.Create(&db.EngineRunStats{ExecutionMode: db.ModeDryRun})
-
-	// Change the preference to "auto" (user changed mode without running engine)
-	database.Save(&db.PreferenceSet{ID: 1, DefaultDiskGroupMode: db.ModeAuto, PollIntervalSeconds: 300, TiebreakerMethod: db.TiebreakerSizeDesc, LogLevel: db.LogLevelInfo})
+	// Create an engine run stats record with per-group modes
+	database.Create(&db.EngineRunStats{DiskGroupModes: `{"1":"dry-run"}`})
 
 	metrics := svc.GetWorkerMetrics()
 
-	// The worker metrics should reflect the PREFERENCE value, not the last run
-	mode, ok := metrics["defaultDiskGroupMode"].(string)
+	// The worker metrics should include diskGroupModes from the latest run
+	modes, ok := metrics["diskGroupModes"].(string)
 	if !ok {
-		t.Fatal("Expected defaultDiskGroupMode to be a string")
+		t.Fatal("Expected diskGroupModes to be a string")
 	}
-	if mode != db.ModeAuto {
-		t.Errorf("Expected defaultDiskGroupMode %q from preferences, got %q (likely reading from engine run stats)", "auto", mode)
+	if modes != `{"1":"dry-run"}` {
+		t.Errorf("Expected diskGroupModes %q, got %q", `{"1":"dry-run"}`, modes)
 	}
 }

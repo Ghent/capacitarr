@@ -49,12 +49,11 @@ func seedDataForReset(t *testing.T, database *gorm.DB) {
 
 	// Engine run stats
 	if err := database.Create(&db.EngineRunStats{
-		RunAt:         now,
-		Evaluated:     10,
-		Candidates:    3,
-		FreedBytes:    5000000,
-		ExecutionMode: db.ModeDryRun,
-		DurationMs:    150,
+		RunAt:      now,
+		Evaluated:  10,
+		Candidates: 3,
+		FreedBytes: 5000000,
+		DurationMs: 150,
 	}).Error; err != nil {
 		t.Fatalf("Failed to seed engine run stats: %v", err)
 	}

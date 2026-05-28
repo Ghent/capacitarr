@@ -11,7 +11,7 @@ import (
 
 // EngineStartEvent is published when an engine evaluation cycle begins.
 type EngineStartEvent struct {
-	ExecutionMode string `json:"executionMode"`
+	DiskGroupModes map[uint]string `json:"diskGroupModes"`
 }
 
 // EventType implements Event.
@@ -19,7 +19,7 @@ func (e EngineStartEvent) EventType() string { return "engine_start" }
 
 // EventMessage implements Event.
 func (e EngineStartEvent) EventMessage() string {
-	return "Engine run started in " + e.ExecutionMode + " mode"
+	return fmt.Sprintf("Engine run started (%d disk groups)", len(e.DiskGroupModes))
 }
 
 // EngineCompleteEvent is published when an engine evaluation cycle finishes.
@@ -29,12 +29,12 @@ func (e EngineStartEvent) EventMessage() string {
 // from the REST endpoint (GET /worker/stats), which queries the DB where the
 // deletion worker atomically increments the counters.
 type EngineCompleteEvent struct {
-	Evaluated        int    `json:"evaluated"`
-	Candidates       int    `json:"candidates"`
-	DurationMs       int64  `json:"durationMs"`
-	ExecutionMode    string `json:"executionMode"`
-	FreedBytes       int64  `json:"freedBytes"`       // Potential bytes freed (approval/dry-run) or actual bytes queued (auto)
-	CompletedAtEpoch int64  `json:"completedAtEpoch"` // Unix epoch seconds when the run finished
+	Evaluated        int             `json:"evaluated"`
+	Candidates       int             `json:"candidates"`
+	DurationMs       int64           `json:"durationMs"`
+	DiskGroupModes   map[uint]string `json:"diskGroupModes"`
+	FreedBytes       int64           `json:"freedBytes"`       // Potential bytes freed (approval/dry-run) or actual bytes queued (auto)
+	CompletedAtEpoch int64           `json:"completedAtEpoch"` // Unix epoch seconds when the run finished
 }
 
 // EventType implements Event.

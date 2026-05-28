@@ -311,7 +311,6 @@ type EngineRunStats struct {
 	Queued         int        `gorm:"not null;default:0" json:"queued"`
 	Deleted        int        `gorm:"not null;default:0" json:"deleted"`
 	FreedBytes     int64      `gorm:"not null;default:0" json:"freedBytes"`
-	ExecutionMode  string     `gorm:"not null;default:'dry-run'" json:"executionMode"`
 	DiskGroupModes string     `gorm:"type:text" json:"diskGroupModes,omitempty"` // JSON map of diskGroupID → mode (e.g. {"1":"auto","2":"sunset"})
 	DurationMs     int64      `gorm:"not null;default:0" json:"durationMs"`
 	ErrorMessage   string     `json:"errorMessage,omitempty"`

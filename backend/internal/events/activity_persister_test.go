@@ -53,7 +53,7 @@ func TestActivityPersister_PersistsSingleEvent(t *testing.T) {
 	persister := NewActivityPersister(writer, bus)
 	persister.Start()
 
-	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeDryRun})
+	bus.Publish(EngineStartEvent{DiskGroupModes: map[uint]string{1: db.ModeDryRun}})
 
 	// Give the persister time to write
 	time.Sleep(100 * time.Millisecond)
@@ -69,17 +69,21 @@ func TestActivityPersister_PersistsSingleEvent(t *testing.T) {
 	if evt.EventType != "engine_start" {
 		t.Errorf("expected event type 'engine_start', got %q", evt.EventType)
 	}
-	if evt.Message != "Engine run started in dry-run mode" {
+	if evt.Message != "Engine run started (1 disk groups)" {
 		t.Errorf("unexpected message: %q", evt.Message)
 	}
 
-	// Verify metadata contains JSON-encoded event
+	// Verify metadata contains JSON-encoded event with disk group modes
 	var meta map[string]any
 	if err := json.Unmarshal([]byte(evt.Metadata), &meta); err != nil {
 		t.Fatalf("failed to parse metadata JSON: %v", err)
 	}
-	if meta["executionMode"] != db.ModeDryRun {
-		t.Errorf("expected executionMode 'dry-run' in metadata, got %v", meta["executionMode"])
+	modes, ok := meta["diskGroupModes"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected diskGroupModes map in metadata, got %T: %v", meta["diskGroupModes"], meta["diskGroupModes"])
+	}
+	if modes["1"] != db.ModeDryRun {
+		t.Errorf("expected diskGroupModes[\"1\"]=%q, got %v", db.ModeDryRun, modes["1"])
 	}
 }
 
@@ -90,7 +94,7 @@ func TestActivityPersister_PersistsMultipleEvents(t *testing.T) {
 	persister := NewActivityPersister(writer, bus)
 	persister.Start()
 
-	bus.Publish(EngineStartEvent{ExecutionMode: db.ModeApproval})
+	bus.Publish(EngineStartEvent{DiskGroupModes: map[uint]string{1: db.ModeApproval}})
 	bus.Publish(EngineCompleteEvent{Evaluated: 50, Candidates: 5})
 	bus.Publish(LoginEvent{Username: "admin"})
 

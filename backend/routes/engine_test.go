@@ -20,9 +20,9 @@ func TestEngineHistory_ReturnsStats(t *testing.T) {
 	completed2 := now.Add(-3*time.Hour + time.Second)
 	completed3 := now.Add(-1*time.Hour + time.Second)
 	stats := []db.EngineRunStats{
-		{RunAt: now.Add(-6 * time.Hour), CompletedAt: &completed1, Evaluated: 100, Candidates: 5, Deleted: 3, FreedBytes: 1000000, DurationMs: 250, ExecutionMode: db.ModeAuto},
-		{RunAt: now.Add(-3 * time.Hour), CompletedAt: &completed2, Evaluated: 80, Candidates: 2, Deleted: 1, FreedBytes: 500000, DurationMs: 180, ExecutionMode: db.ModeAuto},
-		{RunAt: now.Add(-1 * time.Hour), CompletedAt: &completed3, Evaluated: 120, Candidates: 8, Deleted: 6, FreedBytes: 2000000, DurationMs: 320, ExecutionMode: db.ModeDryRun},
+		{RunAt: now.Add(-6 * time.Hour), CompletedAt: &completed1, Evaluated: 100, Candidates: 5, Deleted: 3, FreedBytes: 1000000, DurationMs: 250},
+		{RunAt: now.Add(-3 * time.Hour), CompletedAt: &completed2, Evaluated: 80, Candidates: 2, Deleted: 1, FreedBytes: 500000, DurationMs: 180},
+		{RunAt: now.Add(-1 * time.Hour), CompletedAt: &completed3, Evaluated: 120, Candidates: 8, Deleted: 6, FreedBytes: 2000000, DurationMs: 320},
 	}
 	for _, s := range stats {
 		database.Create(&s)
@@ -68,8 +68,8 @@ func TestEngineHistory_DefaultRange(t *testing.T) {
 	now := time.Now().UTC()
 	completedOld := now.Add(-10*24*time.Hour + time.Second)
 	completedRecent := now.Add(-1*24*time.Hour + time.Second)
-	database.Create(&db.EngineRunStats{RunAt: now.Add(-10 * 24 * time.Hour), CompletedAt: &completedOld, Evaluated: 50, ExecutionMode: db.ModeAuto})
-	database.Create(&db.EngineRunStats{RunAt: now.Add(-1 * 24 * time.Hour), CompletedAt: &completedRecent, Evaluated: 100, ExecutionMode: db.ModeAuto})
+	database.Create(&db.EngineRunStats{RunAt: now.Add(-10 * 24 * time.Hour), CompletedAt: &completedOld, Evaluated: 50})
+	database.Create(&db.EngineRunStats{RunAt: now.Add(-1 * 24 * time.Hour), CompletedAt: &completedRecent, Evaluated: 100})
 
 	e := testutil.SetupTestServer(t, database)
 

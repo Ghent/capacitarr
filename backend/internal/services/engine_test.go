@@ -120,25 +120,20 @@ func TestEngineService_GetStats_WithDBRecord(t *testing.T) {
 	completedAt := time.Now().UTC()
 	runAt := completedAt.Add(-30 * time.Second) // run started 30s before completion
 	runStats := db.EngineRunStats{
-		RunAt:         runAt,
-		CompletedAt:   &completedAt,
-		Evaluated:     50,
-		Candidates:    10,
-		Queued:        7,
-		Deleted:       3,
-		FreedBytes:    5000000000,
-		ExecutionMode: db.ModeApproval,
-		DurationMs:    1500,
+		RunAt:       runAt,
+		CompletedAt: &completedAt,
+		Evaluated:   50,
+		Candidates:  10,
+		Queued:      7,
+		Deleted:     3,
+		FreedBytes:  5000000000,
+		DurationMs:  1500,
 	}
 	if err := database.Create(&runStats).Error; err != nil {
 		t.Fatalf("Failed to create engine run stats: %v", err)
 	}
 
 	stats := svc.GetStats()
-
-	if stats["executionMode"] != db.ModeApproval {
-		t.Errorf("expected executionMode 'approval', got %v", stats["executionMode"])
-	}
 	if stats["lastRunFreedBytes"] != int64(5000000000) {
 		t.Errorf("expected lastRunFreedBytes 5000000000, got %v", stats["lastRunFreedBytes"])
 	}
@@ -160,8 +155,7 @@ func TestEngineService_GetStats_FallsBackToRunAt(t *testing.T) {
 	// Seed a record WITHOUT completed_at (simulates pre-migration data)
 	runAt := time.Now().UTC()
 	runStats := db.EngineRunStats{
-		RunAt:         runAt,
-		ExecutionMode: db.ModeDryRun,
+		RunAt: runAt,
 	}
 	if err := database.Create(&runStats).Error; err != nil {
 		t.Fatalf("Failed to create engine run stats: %v", err)
@@ -183,12 +177,9 @@ func TestEngineService_CreateRunStats(t *testing.T) {
 	bus := newTestBus(t)
 	svc := NewEngineService(database, bus)
 
-	stats, err := svc.CreateRunStats(db.ModeDryRun)
+	stats, err := svc.CreateRunStats()
 	if err != nil {
 		t.Fatalf("CreateRunStats error: %v", err)
-	}
-	if stats.ExecutionMode != db.ModeDryRun {
-		t.Errorf("expected mode 'dry-run', got %q", stats.ExecutionMode)
 	}
 	if stats.ID == 0 {
 		t.Error("expected non-zero ID")
@@ -200,7 +191,7 @@ func TestEngineService_UpdateRunStats(t *testing.T) {
 	bus := newTestBus(t)
 	svc := NewEngineService(database, bus)
 
-	stats, _ := svc.CreateRunStats(db.ModeDryRun)
+	stats, _ := svc.CreateRunStats()
 
 	err := svc.UpdateRunStats(stats.ID, 100, 15, 8, 51200, 2500)
 	if err != nil {
@@ -241,9 +232,9 @@ func TestEngineService_LatestRunStatsID(t *testing.T) {
 	}
 
 	// Create two run stats — latest should win
-	first, _ := svc.CreateRunStats(db.ModeDryRun)
+	first, _ := svc.CreateRunStats()
 	time.Sleep(10 * time.Millisecond) // ensure distinct timestamps
-	second, _ := svc.CreateRunStats(db.ModeApproval)
+	second, _ := svc.CreateRunStats()
 
 	id := svc.LatestRunStatsID()
 	if id != second.ID {
@@ -257,10 +248,10 @@ func TestEngineService_GetHistory(t *testing.T) {
 	svc := NewEngineService(database, bus)
 
 	// Create some run stats and update them
-	stats1, _ := svc.CreateRunStats(db.ModeDryRun)
+	stats1, _ := svc.CreateRunStats()
 	_ = svc.UpdateRunStats(stats1.ID, 50, 10, 6, 25600, 1000)
 
-	stats2, _ := svc.CreateRunStats(db.ModeApproval)
+	stats2, _ := svc.CreateRunStats()
 	_ = svc.UpdateRunStats(stats2.ID, 80, 20, 12, 40960, 1500)
 
 	points, err := svc.GetHistory(24 * time.Hour)
@@ -278,9 +269,6 @@ func TestEngineService_GetHistory(t *testing.T) {
 	if points[0].Queued != 6 {
 		t.Errorf("expected point[0].Queued=6, got %d", points[0].Queued)
 	}
-	if points[0].ExecutionMode != db.ModeDryRun {
-		t.Errorf("expected point[0].ExecutionMode=%q, got %q", db.ModeDryRun, points[0].ExecutionMode)
-	}
 
 	// Verify second point
 	if points[1].Candidates != 20 {
@@ -288,8 +276,5 @@ func TestEngineService_GetHistory(t *testing.T) {
 	}
 	if points[1].Queued != 12 {
 		t.Errorf("expected point[1].Queued=12, got %d", points[1].Queued)
-	}
-	if points[1].ExecutionMode != db.ModeApproval {
-		t.Errorf("expected point[1].ExecutionMode=%q, got %q", db.ModeApproval, points[1].ExecutionMode)
 	}
 }

@@ -169,16 +169,17 @@ func (p *Poller) safePoll() {
 // pollContext bundles the per-cycle state loaded during prepareContext()
 // and shared across the poll sub-functions.
 type pollContext struct {
-	bus        *events.EventBus
-	pollStart  time.Time
-	acc        *RunAccumulator
-	configs    []db.IntegrationConfig
-	prefs      db.PreferenceSet
-	weights    map[string]int
-	rules      []db.CustomRule
-	runStatsID uint
-	fetched    fetchResult
-	evalCtx    *engine.EvaluationContext
+	bus            *events.EventBus
+	pollStart      time.Time
+	acc            *RunAccumulator
+	configs        []db.IntegrationConfig
+	prefs          db.PreferenceSet
+	weights        map[string]int
+	rules          []db.CustomRule
+	runStatsID     uint
+	fetched        fetchResult
+	evalCtx        *engine.EvaluationContext
+	diskGroupModes map[uint]string // per-group modes collected during processMediaMounts
 }
 
 func (p *Poller) poll() {
@@ -239,7 +240,7 @@ func (p *Poller) prepareContext() (*pollContext, bool) {
 	}
 
 	// Create engine run stats row via service
-	runStats, err := p.reg.Engine.CreateRunStats(prefs.DefaultDiskGroupMode)
+	runStats, err := p.reg.Engine.CreateRunStats()
 	if err != nil {
 		slog.Error("Failed to create engine run stats", "component", "poller", "operation", "create_stats", "error", err)
 	}
@@ -248,13 +249,12 @@ func (p *Poller) prepareContext() (*pollContext, bool) {
 		runStatsID = runStats.ID
 	}
 
-	// Publish engine start event
-	bus.Publish(events.EngineStartEvent{ExecutionMode: prefs.DefaultDiskGroupMode})
+	// Publish engine start event (disk group modes are populated during processMediaMounts)
+	bus.Publish(events.EngineStartEvent{})
 
 	slog.Debug("Poll cycle starting", "component", "poller",
 		"enabledIntegrations", len(configs),
-		"pollInterval", prefs.PollIntervalSeconds,
-		"executionMode", prefs.DefaultDiskGroupMode)
+		"pollInterval", prefs.PollIntervalSeconds)
 
 	if len(configs) == 0 {
 		slog.Debug("No enabled integrations, marking all disk groups stale", "component", "poller")
@@ -336,7 +336,7 @@ func (p *Poller) processMediaMounts(pctx *pollContext) (int, map[string]bool) {
 	mediaMounts := findMediaMounts(pctx.fetched.diskMap, pctx.fetched.rootFolders)
 
 	slog.Info("Processing disk groups", "component", "poller",
-		"mediaMounts", len(mediaMounts), "executionMode", pctx.prefs.DefaultDiskGroupMode)
+		"mediaMounts", len(mediaMounts))
 
 	var totalDeletionsQueued int
 	anyThresholdBreached := false
@@ -365,6 +365,12 @@ func (p *Poller) processMediaMounts(pctx *pollContext) (int, map[string]bool) {
 		}
 		group.TotalBytes = disk.TotalBytes
 		group.UsedBytes = usedBytes
+
+		// Record per-group mode for events and stats
+		if pctx.diskGroupModes == nil {
+			pctx.diskGroupModes = make(map[uint]string)
+		}
+		pctx.diskGroupModes[group.ID] = group.Mode
 
 		// Track threshold breaches across all disk groups
 		groupEffective := group.EffectiveTotalBytes()
@@ -468,10 +474,15 @@ func (p *Poller) finalizeCycle(pctx *pollContext, totalDeletionsQueued int, medi
 		DurationMs: time.Since(pctx.pollStart).Milliseconds(),
 	})
 
-	// Persist run stats — avoid double-counting freed bytes in auto mode
+	// Persist run stats — avoid double-counting freed bytes when any group is in auto mode.
+	// In auto mode, IncrementDeletedStats() accumulates actual freed bytes per-item,
+	// so we zero the engine-level estimate to prevent double-counting.
 	writeFreedBytes := freedBytes
-	if pctx.prefs.DefaultDiskGroupMode == db.ModeAuto {
-		writeFreedBytes = 0
+	for _, mode := range pctx.diskGroupModes {
+		if mode == db.ModeAuto {
+			writeFreedBytes = 0
+			break
+		}
 	}
 
 	if pctx.runStatsID == 0 {
@@ -486,12 +497,19 @@ func (p *Poller) finalizeCycle(pctx *pollContext, totalDeletionsQueued int, medi
 	// Populate preview cache with already-fetched and enriched items
 	p.reg.Preview.SetPreviewCache(pctx.fetched.allItems, pctx.prefs, pctx.weights, pctx.rules, pctx.evalCtx)
 
+	// Persist per-disk-group modes on the run stats row
+	if pctx.runStatsID != 0 {
+		if err := p.reg.Engine.SetDiskGroupModes(pctx.runStatsID, pctx.diskGroupModes); err != nil {
+			slog.Error("Failed to persist disk group modes", "component", "poller", "error", err)
+		}
+	}
+
 	// Publish engine complete event
 	pctx.bus.Publish(events.EngineCompleteEvent{
 		Evaluated:        int(evaluated),
 		Candidates:       int(candidates),
 		DurationMs:       time.Since(pctx.pollStart).Milliseconds(),
-		ExecutionMode:    pctx.prefs.DefaultDiskGroupMode,
+		DiskGroupModes:   pctx.diskGroupModes,
 		FreedBytes:       freedBytes,
 		CompletedAtEpoch: time.Now().UTC().Unix(),
 	})
