@@ -174,10 +174,13 @@ docker logs capacitarr | grep -i "engine\|poller"
 
 ### Resolution
 
-1. Check execution mode in Settings → Preferences → Execution Mode
-2. If switching to auto mode, verify the "Deletions Enabled" safety guard is toggled on
-3. If in approval mode, navigate to the dashboard Approval Queue and approve/reject pending items
-4. After changing modes, trigger a **Run Now** to see the effect immediately
+1. Check the per-disk-group execution mode on the **Rules** page. Each disk group has its own **Mode** column — new installations default all groups to `dry-run`
+2. To enable deletions, change the disk group mode to `auto` (or `approval` / `sunset` depending on your workflow)
+3. If switching to auto mode, verify the "Deletions Enabled" safety guard is toggled on in **Settings → Preferences**
+4. If in approval mode, navigate to the dashboard Approval Queue and approve/reject pending items
+5. After changing modes, trigger a **Run Now** to see the effect immediately
+
+> **Note:** Since v3.0, execution mode is configured **per disk group** on the Rules page — not in Settings → Preferences. The global `defaultDiskGroupMode` preference only sets the default mode assigned to newly auto-discovered disk groups.
 
 ## SSE Connection Issues
 

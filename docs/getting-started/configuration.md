@@ -126,10 +126,10 @@ Capacitarr provides a built-in settings export/import feature that lets you back
 
 1. Navigate to **Settings** → **Backup & Restore**
 2. Select which sections to include in the export:
-   - **Preferences** — Scoring weights, execution mode, tiebreaker method
+   - **Preferences** — Scoring weights, default disk group mode, tiebreaker method
    - **Rules** — All custom protection rules
    - **Integrations** — Integration names, types, URLs, and enabled status
-   - **Disk Groups** — Mount paths and threshold/target percentages
+   - **Disk Groups** — Mount paths, threshold/target percentages, and per-group execution modes
    - **Notifications** — Channel names, types, event subscriptions, and Apprise tags
 3. Click **Export** to download a JSON file
 
@@ -149,10 +149,10 @@ For security, **sensitive credentials are always stripped** from exports:
 
 | Section | Included | Excluded |
 |---------|----------|----------|
-| **Preferences** | All scoring weights, execution mode, tiebreaker | Internal IDs, timestamps |
+| **Preferences** | All scoring weights, default disk group mode, tiebreaker | Internal IDs, timestamps |
 | **Rules** | Field, operator, value, effect, enabled, integration reference | Internal IDs |
 | **Integrations** | Name, type, URL, enabled status | **API keys** |
-| **Disk Groups** | Mount path, threshold %, target % | Transient disk usage data |
+| **Disk Groups** | Mount path, threshold %, target %, per-group mode | Transient disk usage data |
 | **Notifications** | Name, type, enabled, subscriptions, Apprise tags | **Webhook URLs** |
 
 After importing integrations or notification channels, you will need to re-enter API keys and webhook URLs manually.

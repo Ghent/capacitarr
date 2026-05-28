@@ -142,9 +142,12 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ### Step 4: Set execution mode
 
-Configure the engine execution mode and other preferences. Start with `dry-run` so nothing is deleted while you tune the configuration:
+Since v3.0, execution mode is configured **per disk group**. The `defaultDiskGroupMode` preference only sets the default assigned to newly auto-discovered groups. To change an existing disk group's mode, use `PUT /disk-groups/:id`.
+
+Start with `dry-run` (the default) so nothing is deleted while you tune the configuration:
 
 ```bash
+# Set the default mode for future disk groups
 curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
   "$CAPACITARR_URL/preferences" \
@@ -152,7 +155,15 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "defaultDiskGroupMode": "dry-run",
     "tiebreakerMethod": "size_desc"
   }' | jq
+
+# Set the mode for an existing disk group (e.g., switch group 1 to auto)
+curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/disk-groups/1" \
+  -d '{"mode": "auto"}' | jq
 ```
+
+Available modes: `dry-run`, `approval`, `auto`, `sunset`.
 
 ### Step 5: Add custom rules
 
@@ -336,9 +347,25 @@ All 70 event types are documented in the [Architecture](../architecture.md#event
 
 ## Workflow 5: Emergency — Stop Deletions
 
-If the engine is actively deleting media and you need it to stop immediately, switch the execution mode to `dry-run`.
+If the engine is actively deleting media and you need it to stop immediately, switch all disk groups to `dry-run`.
 
-### Step 1: Set default disk group mode to dry-run
+### Step 1: Switch all disk groups to dry-run
+
+Since v3.0, execution mode is per disk group. You must switch each group individually:
+
+```bash
+# List all disk groups to get their IDs
+curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  "$CAPACITARR_URL/disk-groups" | jq '.[].id'
+
+# Switch each group to dry-run (repeat for each ID)
+curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
+  -H "Content-Type: application/json" \
+  "$CAPACITARR_URL/disk-groups/1" \
+  -d '{"mode": "dry-run"}' | jq
+```
+
+Also set the default so any newly discovered groups start in dry-run:
 
 ```bash
 curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
@@ -347,16 +374,15 @@ curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -d '{"defaultDiskGroupMode":"dry-run"}' | jq
 ```
 
-This sets the default mode for newly discovered disk groups. Existing disk groups retain their per-group mode setting.
-
 ### Step 2: Verify the change
 
 ```bash
+# Verify all groups are in dry-run
 curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
-  "$CAPACITARR_URL/preferences" | jq '.defaultDiskGroupMode'
+  "$CAPACITARR_URL/disk-groups" | jq '.[] | {id, mountPath, mode}'
 ```
 
-Expect: `"dry-run"`
+Expect all groups to show `"mode": "dry-run"`.
 
 ### Step 3: Review what happened
 
@@ -369,13 +395,14 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
 
 ### Step 4: Re-enable when ready
 
-Once you have reviewed and adjusted your configuration, switch back to auto mode:
+Once you have reviewed and adjusted your configuration, switch disk groups back to their desired mode:
 
 ```bash
+# Switch a disk group back to auto mode
 curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
-  "$CAPACITARR_URL/preferences" \
-  -d '{"defaultDiskGroupMode":"auto"}' | jq
+  "$CAPACITARR_URL/disk-groups/1" \
+  -d '{"mode": "auto"}' | jq
 ```
 
 ---

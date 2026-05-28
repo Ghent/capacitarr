@@ -136,20 +136,21 @@ curl -s -H "X-Api-Key: $CAPACITARR_API_KEY" \
     "totalBytes": 2000000000000,
     "usedBytes": 1800000000000,
     "thresholdPct": 85,
-    "targetPct": 75
+    "targetPct": 75,
+    "mode": "dry-run"
   }
 ]
 ```
 
 ### Update a disk group
 
-Set threshold and target percentages for a disk group.
+Set threshold, target percentages, and execution mode for a disk group.
 
 ```bash
 curl -s -X PUT -H "X-Api-Key: $CAPACITARR_API_KEY" \
   -H "Content-Type: application/json" \
   "$CAPACITARR_URL/disk-groups/1" \
-  -d '{"thresholdPct":90,"targetPct":80}' | jq
+  -d '{"thresholdPct":90,"targetPct":80,"mode":"auto"}' | jq
 ```
 
 ---
