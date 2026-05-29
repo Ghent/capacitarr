@@ -215,7 +215,7 @@ As of 2026-04-15, the npm registry retired both legacy audit endpoints (`/-/npm/
 
 ### Dependency Override Policy (`pnpm.overrides`)
 
-When transitive npm dependencies have known vulnerabilities but the upstream parent package (e.g., Nuxt, ESLint) has not yet released an update with a patched version, we use `pnpm.overrides` in `frontend/package.json` to force the patched version. This ensures:
+When transitive npm dependencies have known vulnerabilities but the upstream parent package (e.g., Nuxt, ESLint) has not yet released an update with a patched version, we use `pnpm.overrides` to force the patched version. Both Node.js workspaces — `frontend/package.json` (the application SPA) and `site/package.json` (the documentation/marketing website) — maintain their own override blocks, since they have independent dependency trees and lockfiles. This ensures:
 
 - The `security:pnpm-audit` CI job continues to enforce **zero known vulnerabilities** as a blocking gate
 - Shipped Docker images contain patched dependency versions, not just silenced findings
@@ -239,6 +239,9 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 | `yaml` | `>=2.8.3` | [GHSA-48c2-rrv3-qjmp](https://github.com/advisories/GHSA-48c2-rrv3-qjmp) | Moderate | `@nuxt/eslint > @nuxt/devtools-kit > vite > yaml` |
 | `srvx` | `>=0.11.13` | [GHSA-p36q-q72m-gchr](https://github.com/advisories/GHSA-p36q-q72m-gchr) | Moderate | `nuxt > nitropack > srvx` |
 | `brace-expansion` | `>=5.0.5` (for <5.0.5) / `>=2.0.3` (for >=2.0.0 <2.0.3) | [GHSA-f886-m6hf-6m8v](https://github.com/advisories/GHSA-f886-m6hf-6m8v) | Moderate | `nuxt > nitropack > @vercel/nft > glob > brace-expansion` |
+| `brace-expansion` (`site/`) | `>=5.0.6` (for >=5.0.0 <5.0.6) | [GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2) | Moderate | `@nuxt/content > minimatch > brace-expansion` |
+| `postcss` (`site/`) | `>=8.5.10` (for <8.5.10) | [GHSA-qx2v-qp2m-jg93](https://github.com/advisories/GHSA-qx2v-qp2m-jg93) | Moderate | `nuxt > @nuxt/vite-builder > postcss` |
+| `ws` (`site/`) | `>=8.20.1` (for >=8.0.0 <8.20.1) | [GHSA-58qx-3vcg-4xpx](https://github.com/advisories/GHSA-58qx-3vcg-4xpx) | Moderate | `@nuxt/content > socket.io-client > engine.io-client > ws` |
 | `node-forge` | `>=1.4.0` | [CVE-2026-33891](https://www.cve.org/CVERecord?id=CVE-2026-33891), [CVE-2026-33894](https://www.cve.org/CVERecord?id=CVE-2026-33894), [CVE-2026-33895](https://www.cve.org/CVERecord?id=CVE-2026-33895), [CVE-2026-33896](https://www.cve.org/CVERecord?id=CVE-2026-33896) | High | `nuxt > @nuxt/cli > listhen > node-forge` |
 | `lodash` | `>=4.18.0` | [GHSA-r5fr-rjxr-66jc](https://github.com/advisories/GHSA-r5fr-rjxr-66jc), [GHSA-f23m-r3pf-42rh](https://github.com/advisories/GHSA-f23m-r3pf-42rh) | High / Moderate | `@vite-pwa/nuxt > workbox-build > archiver-utils` |
 | `lodash-es` | `>=4.18.0` | [GHSA-r5fr-rjxr-66jc](https://github.com/advisories/GHSA-r5fr-rjxr-66jc), [GHSA-f23m-r3pf-42rh](https://github.com/advisories/GHSA-f23m-r3pf-42rh) | High / Moderate | `@vite-pwa/nuxt > workbox-build` (ESM variant of lodash) |
@@ -247,7 +250,7 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 
 **When to remove overrides:** After upstream packages release versions that natively depend on the patched versions, `pnpm audit` will pass without overrides. At that point, remove the override entries and verify. Overrides that remain after upstream updates are harmless (they match or are lower than the naturally resolved version) but should be cleaned up for hygiene.
 
-**When adding new overrides:** Add the override to `frontend/package.json`, update this table, and include the advisory URL in the commit message. Run `pnpm install` to regenerate the lockfile and `pnpm audit` to verify.
+**When adding new overrides:** Add the override to the relevant manifest (`frontend/package.json` and/or `site/package.json`, depending on which workspace's lockfile reports the advisory), update this table, and include the advisory URL in the commit message. Run `pnpm install` in that workspace to regenerate the lockfile and `pnpm audit` to verify.
 
 ### Gosec G117 — JSON Secret Field Policy
 
