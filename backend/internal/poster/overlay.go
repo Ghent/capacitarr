@@ -187,7 +187,6 @@ func composeBanner(original []byte, text string, topColor, bottomColor color.NRG
 
 	metrics := face.Metrics()
 	textWidth := font.MeasureString(face, text).Ceil()
-	textHeight := (metrics.Ascent + metrics.Descent).Ceil()
 
 	// ── Layout: [icon gap text] centered in banner ───────────────────────
 	iconSize := int(math.Round(float64(bannerH) * iconSizeFrac))
@@ -221,7 +220,17 @@ func composeBanner(original []byte, text string, topColor, bottomColor color.NRG
 
 	// ── Draw text with drop shadow ───────────────────────────────────────
 	textX := startX + iconSize + iconGap
-	textY := bannerTop + (bannerH+textHeight)/2
+	// font.Drawer positions text by its baseline (Dot.Y), not its top or
+	// center. Glyphs extend metrics.Ascent above the baseline and
+	// metrics.Descent below it (Descent is reported as a positive value).
+	// To vertically center the text's visual midpoint within the banner, the
+	// baseline must sit at the banner center plus half the asymmetry between
+	// ascent and descent: bannerCenter + (Ascent - Descent)/2. The previous
+	// formula added the full text height instead, pushing text below center.
+	// See GitHub issue #27.
+	bannerCenter := bannerTop + bannerH/2
+	baselineOffset := (metrics.Ascent - metrics.Descent).Ceil() / 2
+	textY := bannerCenter + baselineOffset
 
 	// Shadow: 1px offset, semi-transparent black
 	shadowOff := max(1, int(math.Round(fontSize*0.04)))

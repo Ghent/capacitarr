@@ -91,6 +91,76 @@ func TestComposeOverlay_TinyImage(t *testing.T) {
 	}
 }
 
+// TestComposeOverlay_TextVerticallyCentered is a regression test for issue #27,
+// where the banner countdown text was rendered noticeably below the vertical
+// center of the banner. font.Drawer positions text by its baseline, so the
+// baseline must be offset from the banner center by (Ascent-Descent)/2 for the
+// text's visual midpoint to land on the banner center.
+//
+// The test renders an overlay, locates the bright white text pixels within the
+// banner region, computes the vertical midpoint of that text band, and asserts
+// it is close to the banner center.
+func TestComposeOverlay_TextVerticallyCentered(t *testing.T) {
+	const (
+		posterW = 300
+		posterH = 450
+	)
+	poster := createTestPoster(posterW, posterH)
+	result, err := ComposeOverlay(poster, 30, "countdown")
+	if err != nil {
+		t.Fatalf("ComposeOverlay failed: %v", err)
+	}
+
+	img, err := jpeg.Decode(bytes.NewReader(result))
+	if err != nil {
+		t.Fatalf("Result is not valid JPEG: %v", err)
+	}
+
+	// Banner height mirrors the production calculation in overlay.go.
+	bannerH := int(float64(posterH)*BannerHeight + 0.5)
+	if bannerH < 24 {
+		bannerH = 24
+	}
+	bannerTop := img.Bounds().Min.Y
+	bannerBottom := bannerTop + bannerH
+	bannerCenter := bannerTop + bannerH/2
+
+	// Find the vertical extent of bright (white text) pixels inside the banner.
+	// The banner background is a warm/colored gradient, so white text stands out
+	// strongly on all three channels.
+	minY, maxY := -1, -1
+	for y := bannerTop; y < bannerBottom && y < img.Bounds().Max.Y; y++ {
+		for x := img.Bounds().Min.X; x < img.Bounds().Max.X; x++ {
+			r, g, b, _ := img.At(x, y).RGBA()
+			// RGBA returns 16-bit values; ~0xC000 (=49152) ≈ 0.75 intensity.
+			if r > 0xC000 && g > 0xC000 && b > 0xC000 {
+				if minY == -1 || y < minY {
+					minY = y
+				}
+				if y > maxY {
+					maxY = y
+				}
+				break
+			}
+		}
+	}
+
+	if minY == -1 {
+		t.Fatal("No white text pixels found within the banner region")
+	}
+
+	textMid := (minY + maxY) / 2
+	// Allow a small tolerance for font hinting/antialiasing. The correct
+	// (centered) formula yields an offset of 0 at this poster size, while the
+	// previous buggy formula yielded +3px, so a ±2px tolerance catches the
+	// regression while remaining robust to minor rendering differences.
+	const tolerance = 2
+	if diff := textMid - bannerCenter; diff > tolerance || diff < -tolerance {
+		t.Errorf("text vertical midpoint %d is not centered in banner (center=%d, banner=[%d,%d], tolerance=±%d)",
+			textMid, bannerCenter, bannerTop, bannerBottom, tolerance)
+	}
+}
+
 func TestContentHash(t *testing.T) {
 	data := []byte("test image data")
 	hash1 := ContentHash(data)
