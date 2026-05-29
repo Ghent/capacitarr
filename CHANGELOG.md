@@ -1,3 +1,8 @@
+## [3.3.5] - 2026-05-29
+
+### 🐛 Bug Fixes
+
+- *(emby)* Request UserDataPlayCount/UserDataLastPlayedDate fields ([cb28970](https://github.com/Ghent/capacitarr/commit/cb2897098faf9571e7a805f29f4b98fc35e5efc3)) — reported by @Wesleyl89 ([#25](https://github.com/Ghent/capacitarr/issues/25))
 ## [3.3.4] - 2026-05-28
 
 ### 🐛 Bug Fixes
