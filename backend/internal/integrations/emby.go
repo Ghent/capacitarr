@@ -131,9 +131,16 @@ func (e *EmbyClient) GetBulkWatchDataForUser(userID, userName string) (map[int]*
 	pageSize := 500
 
 	// Pass 1: Fetch Movie and Series items.
+	//
+	// NOTE: The Fields list must include UserDataPlayCount and UserDataLastPlayedDate
+	// in addition to UserData. Since Emby Server 4.8.1.0, requesting only Fields=UserData
+	// returns the UserData object with PlayCount zero-filled and LastPlayedDate omitted;
+	// the play data is only populated when these two explicit fields are also requested.
+	// This is an undocumented Emby API change (missing from the Swagger docs) confirmed by
+	// the Emby developers. Do not remove these fields. See GitHub issue #25.
 	for {
 		endpoint := fmt.Sprintf(
-			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=UserData,ProviderIds,DateCreated&StartIndex=%d&Limit=%d",
+			"/Users/%s/Items?IncludeItemTypes=Movie,Series&Recursive=true&Fields=UserData,UserDataPlayCount,UserDataLastPlayedDate,ProviderIds,DateCreated&StartIndex=%d&Limit=%d",
 			userID, startIndex, pageSize,
 		)
 		body, err := e.doRequest(endpoint)
@@ -199,11 +206,15 @@ func (e *EmbyClient) GetBulkWatchDataForUser(userID, userName string) (map[int]*
 	// Emby sometimes tracks play data on episodes but not on the parent
 	// Series item, so a Series may show PlayCount=0 even when episodes have
 	// been watched. This pass fixes that by rolling episode data up.
+	//
+	// As with Pass 1, UserDataPlayCount and UserDataLastPlayedDate must be
+	// requested explicitly for Emby 4.8.1.0+ to populate the play data.
+	// Do not remove these fields. See GitHub issue #25.
 	if len(seriesIndex) > 0 {
 		startIndex = 0
 		for {
 			endpoint := fmt.Sprintf(
-				"/Users/%s/Items?IncludeItemTypes=Episode&IsPlayed=true&Recursive=true&Fields=UserData&StartIndex=%d&Limit=%d",
+				"/Users/%s/Items?IncludeItemTypes=Episode&IsPlayed=true&Recursive=true&Fields=UserData,UserDataPlayCount,UserDataLastPlayedDate&StartIndex=%d&Limit=%d",
 				userID, startIndex, pageSize,
 			)
 			body, err := e.doRequest(endpoint)
