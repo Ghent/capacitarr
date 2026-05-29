@@ -40,6 +40,13 @@ type ManualDeleteRequest struct {
 	PosterURL     string
 }
 
+// ManualDeleteResult contains the outcome of a QueueManual call.
+type ManualDeleteResult struct {
+	Queued int    `json:"queued"`
+	Total  int    `json:"total"`
+	Mode   string `json:"mode"`
+}
+
 // ---------------------------------------------------------------------------
 // Intake methods — each constructs a fully-populated deleteJob from its
 // specific input type and calls enqueue(). This ensures consistent

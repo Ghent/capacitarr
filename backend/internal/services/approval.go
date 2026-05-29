@@ -549,28 +549,15 @@ type ExecuteApprovalDeps struct {
 	Deletion *DeletionService
 }
 
-// ManualDeleteItem is an alias for ManualDeleteRequest, retained for
-// backward compatibility with route handlers. Will be removed in a future
-// cleanup pass once route handlers construct ManualDeleteRequest directly.
-type ManualDeleteItem = ManualDeleteRequest
-
 // ManualDeleteDeps holds the service dependencies needed by ManualDelete.
 type ManualDeleteDeps struct {
 	Deletion *DeletionService
 }
 
-// ManualDeleteResult contains the outcome of a ManualDelete call.
-type ManualDeleteResult struct {
-	Queued int    `json:"queued"`
-	Total  int    `json:"total"`
-	Mode   string `json:"mode"`
-}
-
 // ManualDelete encapsulates mode-aware deletion for user-initiated actions.
 // Delegates to DeletionService.QueueManual which owns all routing logic
 // (approval-mode detection, client resolution, dry-run determination).
-func (s *ApprovalService) ManualDelete(items []ManualDeleteItem, deps ManualDeleteDeps) (ManualDeleteResult, error) {
-	// ManualDeleteItem is a type alias for ManualDeleteRequest — no conversion needed.
+func (s *ApprovalService) ManualDelete(items []ManualDeleteRequest, deps ManualDeleteDeps) (ManualDeleteResult, error) {
 	// ApprovalService satisfies ApprovalReturnerUpserter (it has UpsertPending).
 	return deps.Deletion.QueueManual(items, s)
 }

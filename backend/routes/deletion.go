@@ -110,10 +110,10 @@ func handleManualDelete(reg *services.Registry) echo.HandlerFunc {
 			return apiError(c, http.StatusBadRequest, "No items provided")
 		}
 
-		// Convert request items to ManualDeleteItem
-		deleteItems := make([]services.ManualDeleteItem, 0, len(items))
+		// Convert request items to ManualDeleteRequest
+		deleteItems := make([]services.ManualDeleteRequest, 0, len(items))
 		for _, item := range items {
-			deleteItems = append(deleteItems, services.ManualDeleteItem{
+			deleteItems = append(deleteItems, services.ManualDeleteRequest{
 				MediaName:     item.MediaName,
 				MediaType:     item.MediaType,
 				IntegrationID: item.IntegrationID,

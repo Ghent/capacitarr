@@ -217,70 +217,70 @@ func (s *DeletionService) SetDependencies(deps DeletionDeps) { ... }
 
 ### Phase 1: Preparation
 
-- [ ] **1.1** Create branch `refactor/deletion-service-intake` from `main`
+- [x] **1.1** Create branch `refactor/deletion-service-intake` from `main`
 
 ### Phase 2: File Split (No Behavioral Changes)
 
-- [ ] **2.1** Create `deletion_intake.go` — initially empty, package declaration only
-- [ ] **2.2** Create `deletion_queue.go` — move queue management code: `enqueue` (extracted from `QueueDeletion`), `dequeueJob()`, `resetGracePeriod()`, `poke()`, `getGraceDelay()`, `GracePeriodState()`, `QueueLen()`/`queueLen()`, `ListQueuedItems()`, `FindQueuedItem()`, cancellation methods (`CancelDeletion`, `IsCancelled`, `clearCancelled`, `ClearQueue`, `ClearQueueForDiskGroup`, `cancelKey`)
-- [ ] **2.3** Create `deletion_worker.go` — move processing code: `worker()`, `drainAll()`, `cancelRemaining()`, `processJob()`, `SignalBatchSize()`, `checkBatchComplete()`, `publishProgress()`
-- [ ] **2.4** Create `deletion_execution.go` — move execution code: `executeDryRun()`, `executeDeletion()`, `postDeletion()`, `resolveCurrentMode()`, `determineDryRunReason()`, `SnoozeDeletionItem()`
-- [ ] **2.5** `deletion.go` retains: struct definition, `DeleteJob` (still exported for now), `DeleteJobSummary`, interfaces, constructor, `SetDependencies()`, `Wired()`, `Start()`, `Stop()`, `CurrentlyDeleting()`, `Processed()`, `Failed()`
-- [ ] **2.6** Verify `make ci` passes — pure code move, zero behavioral change
+- [x] **2.1** Create `deletion_intake.go` — initially empty, package declaration only
+- [x] **2.2** Create `deletion_queue.go` — move queue management code: `enqueue` (extracted from `QueueDeletion`), `dequeueJob()`, `resetGracePeriod()`, `poke()`, `getGraceDelay()`, `GracePeriodState()`, `QueueLen()`/`queueLen()`, `ListQueuedItems()`, `FindQueuedItem()`, cancellation methods (`CancelDeletion`, `IsCancelled`, `clearCancelled`, `ClearQueue`, `ClearQueueForDiskGroup`, `cancelKey`)
+- [x] **2.3** Create `deletion_worker.go` — move processing code: `worker()`, `drainAll()`, `cancelRemaining()`, `processJob()`, `SignalBatchSize()`, `checkBatchComplete()`, `publishProgress()`
+- [x] **2.4** Create `deletion_execution.go` — move execution code: `executeDryRun()`, `executeDeletion()`, `postDeletion()`, `resolveCurrentMode()`, `determineDryRunReason()`, `SnoozeDeletionItem()`
+- [x] **2.5** `deletion.go` retains: struct definition, `DeleteJob` (still exported for now), `DeleteJobSummary`, interfaces, constructor, `SetDependencies()`, `Wired()`, `Start()`, `Stop()`, `CurrentlyDeleting()`, `Processed()`, `Failed()`
+- [x] **2.6** Verify `make ci` passes — pure code move, zero behavioral change
 
 ### Phase 3: Define New Interfaces and Types
 
-- [ ] **3.1** Define `ClientResolver` interface in `deletion.go`
-- [ ] **3.2** Expand `DiskGroupModeReader` → `DiskGroupResolver` interface (add `GetDiskGroupIDForIntegration(uint) *uint`). Keep old name as type alias or migrate all references.
-- [ ] **3.3** Define `EngineDeleteRequest` struct in `deletion_intake.go`
-- [ ] **3.4** Define `ManualDeleteRequest` struct in `deletion_intake.go` (replaces current `ManualDeleteItem` in approval.go)
-- [ ] **3.5** Define `ManualDeleteResult` struct in `deletion_intake.go`
-- [ ] **3.6** Define `DeletionDeps` struct in `deletion.go`. Replace `SetDependencies(7 params)` with `SetDependencies(DeletionDeps)`. Update `Wired()` to validate all struct fields non-nil.
-- [ ] **3.7** Implement `ClientResolver` — create adapter struct in `services/` that wraps `IntegrationService` + `integrations.CreateClient`. Integration clients are stateless HTTP wrappers (struct with URL + API key + `*http.Client`), so no caching is needed. Register on `services.Registry`.
-- [ ] **3.8** Implement `DiskGroupResolver` — add `GetDiskGroupIDForIntegration` to `DiskGroupService` (query `disk_group_integrations` junction table)
-- [ ] **3.9** Update `services.Registry` wiring to pass `DeletionDeps{}` via `SetDependencies`
-- [ ] **3.10** Verify `make ci` passes — interfaces exist but aren't used yet
+- [x] **3.1** Define `ClientResolver` interface in `deletion.go`
+- [x] **3.2** Expand `DiskGroupModeReader` → `DiskGroupResolver` interface (add `GetDiskGroupIDForIntegration(uint) *uint`). Kept `DiskGroupModeReader` as the embedded base; `DiskGroupResolver` extends it.
+- [x] **3.3** Define `EngineDeleteRequest` struct in `deletion_intake.go`
+- [x] **3.4** Define `ManualDeleteRequest` struct in `deletion_intake.go` (replaces current `ManualDeleteItem` in approval.go)
+- [x] **3.5** Define `ManualDeleteResult` struct in `deletion_intake.go`. Kept existing field names (`Queued`, `Total`, `Mode`) to preserve API backward compatibility — the planned `QueuedCount`/`ApprovalCount`/`TotalCount`/`ResolvedMode` fields would have been a breaking API change (non-goal of this refactor).
+- [x] **3.6** Define `DeletionDeps` struct in `deletion.go`. Replace `SetDependencies(7 params)` with `SetDependencies(DeletionDeps)`. Update `Wired()` to validate all struct fields non-nil. **Note:** Actual struct mirrors existing deps (`Settings`, `Engine`, `Metrics`, `Approval`, `Snoozer`, `DiskGroups`, `Clients`, `SunsetCleaner`) rather than the idealized design in the Design section.
+- [x] **3.7** Implement `ClientResolver` — created `client_resolver.go` with `clientResolverAdapter` wrapping `IntegrationService` + `integrations.CreateClient`.
+- [x] **3.8** Implement `DiskGroupResolver` — added `GetDiskGroupIDForIntegration` to `DiskGroupService` (query `disk_group_integrations` junction table)
+- [x] **3.9** Update `services.Registry` wiring to pass `DeletionDeps{}` via `SetDependencies`. Also deduplicated `IntegrationService` construction.
+- [x] **3.10** Verify `make ci` passes — interfaces exist but aren't used yet
 
 ### Phase 4: Implement Intake Layer
 
-- [ ] **4.1** Extract internal `enqueue(job deleteJob) error` from current `QueueDeletion` body (same logic, unexported job type as param)
-- [ ] **4.2** Implement `QueueFromEngine(req EngineDeleteRequest) error` — convert request to `deleteJob`, call `enqueue()`
-- [ ] **4.3** Implement `QueueFromApproval(item *db.ApprovalQueueItem) error` — full resolution: client, config, factors, disk group mode, forceDryRun, then `enqueue()`
-- [ ] **4.4** Implement `QueueFromSunset(item *db.SunsetQueueItem) error` — full resolution: client, config, factors, then `enqueue()`
-- [ ] **4.5** Implement `QueueManual(items []ManualDeleteRequest) (ManualDeleteResult, error)` — per-item resolution with approval-mode routing
-- [ ] **4.6** Write unit tests for each intake method (mock `ClientResolver`, `DiskGroupResolver`, `SettingsReader`)
-- [ ] **4.7** Verify `make ci` passes — intake exists alongside old `QueueDeletion` (both work)
+- [x] **4.1** Extract internal `enqueue(job deleteJob) error` — intake methods call `enqueue()` (renamed from `QueueDeletion` in Phase 6.3). During Phase 4 the method was still named `QueueDeletion`; the rename happened in Phase 6 as part of the unexport pass.
+- [x] **4.2** Implement `QueueFromEngine(req EngineDeleteRequest) error` — convert request to `deleteJob`, call `enqueue()`. Added `ForceDryRun` field to support the engine's dry-run disk group mode.
+- [x] **4.3** Implement `QueueFromApproval(item *db.ApprovalQueueItem) error` — full resolution: client, config, factors, disk group mode, forceDryRun, then `enqueue()`
+- [x] **4.4** Implement `QueueFromSunset(item *db.SunsetQueueItem) error` — full resolution: client, config, factors, then `enqueue()`
+- [x] **4.5** Implement `QueueManual(items []ManualDeleteRequest, approvalUpserter ApprovalReturnerUpserter) (ManualDeleteResult, error)` — per-item resolution with approval-mode routing. **Note:** Added `ApprovalReturnerUpserter` parameter to avoid circular import of `ApprovalService`.
+- [x] **4.6** Write unit tests for each intake method (mock `ClientResolver`, `DiskGroupResolver`, `SettingsReader`) — 8 tests in `deletion_intake_test.go`
+- [x] **4.7** Verify `make ci` passes — intake exists alongside old `QueueDeletion` (both work)
 
 ### Phase 5: Migrate Callers
 
-- [ ] **5.1** Migrate poller `dispatchByMode` (evaluate.go) — replace `QueueDeletion(DeleteJob{...})` with `QueueFromEngine(EngineDeleteRequest{...})`
-- [ ] **5.2** Migrate `ExecuteApproval` (approval.go) — replace 40+ lines of resolution with `deps.Deletion.QueueFromApproval(approved)`. Remove `ClientResolver`-like code from `ExecuteApprovalDeps`.
-- [ ] **5.3** Migrate `ManualDelete` (approval.go) — replace client creation + queue logic with `deps.Deletion.QueueManual(items)`. Approval-mode routing moves into `QueueManual` (the pipeline owns all routing — this is the point of the refactor). `ManualDelete` becomes a thin adapter that converts HTTP request data to `[]ManualDeleteRequest`.
-- [ ] **5.4** Migrate sunset `expireItem` (sunset.go) — replace resolution + `QueueDeletion(DeleteJob{...})` with `deps.Deletion.QueueFromSunset(&item)`
-- [ ] **5.5** Update `ExecuteApprovalDeps` — remove `Integration`, `Settings`, `DiskGroups` fields that are no longer needed by the caller (they're now internal to `DeletionService`)
-- [ ] **5.6** Update `ManualDeleteDeps` — remove `Integration` field; `Deletion` is the only dep needed
-- [ ] **5.7** Update route handlers that call `ManualDelete` / `ExecuteApproval` to pass simplified deps
-- [ ] **5.8** Verify `make ci` passes — all callers migrated, old path unused
+- [x] **5.1** Migrate poller `dispatchByMode` (evaluate.go) — both auto and dry-run modes now use `QueueFromEngine(EngineDeleteRequest{...})`
+- [x] **5.2** Migrate `ExecuteApproval` (approval.go) — replaced 70+ lines with `deps.Deletion.QueueFromApproval(approved)`
+- [x] **5.3** Migrate `ManualDelete` (approval.go) — now a thin adapter that passes `[]ManualDeleteRequest` to `deps.Deletion.QueueManual(items, s)` where `s` (ApprovalService) satisfies `ApprovalReturnerUpserter`
+- [x] **5.4** Migrate sunset `processExpiredItem` (sunset.go) — replaced 50+ lines with `deps.Deletion.QueueFromSunset(&item)`
+- [x] **5.5** Update `ExecuteApprovalDeps` — reduced to single field `{Deletion *DeletionService}`. Removed `Integration`, `Engine`, `Settings`, `DiskGroups`.
+- [x] **5.6** Update `ManualDeleteDeps` — reduced to single field `{Deletion *DeletionService}`. Removed `Integration`, `Engine`.
+- [x] **5.7** Update route handlers that call `ManualDelete` / `ExecuteApproval` to pass simplified deps. Also removed mode-resolution logic from `handleManualDelete` route handler.
+- [x] **5.8** Verify `make ci` passes — all callers migrated, old path unused
 
 ### Phase 6: Unexport and Clean Up
 
-- [ ] **6.1** Verify no external references to `DeleteJob` remain: `grep -r "DeleteJob" --include="*.go" backend/` must show only hits within `internal/services/`. If any external references exist (poller, routes, tests outside services package), migrate them first.
-- [ ] **6.2** Rename `DeleteJob` → `deleteJob` (unexport). Update all internal references.
-- [ ] **6.3** Remove exported `QueueDeletion(DeleteJob) error` method
-- [ ] **6.4** Remove `ManualDeleteItem` from approval.go (replaced by `ManualDeleteRequest` in deletion_intake.go)
-- [ ] **6.5** Remove dead code: resolution logic in `ExecuteApproval`, `ManualDelete`, and `expireItem` that was replaced by intake methods
-- [ ] **6.6** Update `DeleteJobSummary` if any fields changed (likely unchanged)
-- [ ] **6.7** Update all deletion_test.go tests — replace direct `QueueDeletion(DeleteJob{...})` calls with appropriate `QueueFromX()` calls. Tests that specifically test the worker/processing internals can use `enqueue()` directly (same package, unexported is accessible).
-- [ ] **6.8** Remove `GetDiskGroupIDForIntegration` from `diskgroup.go` if it was added during the interrupted fix (should not exist outside this refactor)
-- [ ] **6.9** Final `make ci` — full pipeline green
+- [x] **6.1** Verified no external references to `DeleteJob` remain (grep confirmed only `internal/services/` hits)
+- [x] **6.2** Rename `DeleteJob` → `deleteJob` (unexport). Updated all internal references.
+- [x] **6.3** Renamed `QueueDeletion` → `enqueue` (unexported)
+- [x] **6.4** Remove `ManualDeleteItem` from approval.go. Updated `ManualDelete` signature and route handler to use `ManualDeleteRequest` directly.
+- [x] **6.5** Dead code removed: resolution logic in `ExecuteApproval`, `ManualDelete`, `processExpiredItem`. Unused imports (`encoding/json`, `engine`, `integrations`) cleaned from approval.go and sunset.go.
+- [x] **6.6** `DeleteJobSummary` unchanged (no field changes needed)
+- [x] **6.7** Updated all deletion_test.go tests — renamed `QueueDeletion` → `enqueue` and `DeleteJob` → `deleteJob`. Worker/processing tests use `enqueue()` directly (same package). Route tests migrated to `QueueFromEngine`.
+- [x] **6.8** N/A — `GetDiskGroupIDForIntegration` was added by this refactor (Phase 3.8), not by the interrupted fix. No removal needed.
+- [x] **6.9** Final `make ci` — full pipeline green
 
 ### Phase 7: Validation
 
-- [ ] **7.1** Run the full test suite with `-race` flag to catch any concurrency issues from the restructuring
-- [ ] **7.2** Manual smoke test via Docker: approve an item from approval queue, verify it deletes correctly (the original bug scenario)
-- [ ] **7.3** Manual smoke test: manual delete from a non-default-mode disk group
-- [ ] **7.4** Manual smoke test: sunset expiry processes correctly
-- [ ] **7.5** Verify no regressions in grace period behavior (queue items, cancel, clear)
+- [x] **7.1** Run the full test suite with `-race` flag — no data races detected (services: 162s, poller: 6s, routes: 146s)
+- [x] **7.2** Manual smoke test via Docker: seeded approval queue item via `POST /delete` with disk group in approval mode → approved via `POST /approval-queue/1/approve` → item appeared in deletion queue with correct fields. `QueueFromApproval` resolved client and mode correctly.
+- [x] **7.3** Manual smoke test: set disk group to `auto` (non-default; global default is `dry-run`) → `POST /delete` → response shows `mode=auto` and item landed in deletion queue (not approval queue). `QueueManual` correctly resolved per-disk-group mode.
+- [x] **7.4** Sunset queue was empty in this environment (no items past their deletion date). Cannot fabricate an expired item without DB manipulation or waiting for a real countdown. Unit test `TestProcessExpired_WithDeletion` verifies this path works with `QueueFromSunset`. **Accepted:** path is covered by automated tests; manual verification requires a populated sunset queue.
+- [x] **7.5** Verified: grace period activates on enqueue (30s remaining, active=true), resets on queue mutation, cancellation via `DELETE /deletion-queue` works (status=cancelled), `POST /deletion-queue/clear` cancels all items (cancelled=2).
 
 ---
 
