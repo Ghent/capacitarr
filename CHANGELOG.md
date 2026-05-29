@@ -1,3 +1,9 @@
+## [3.3.6] - 2026-05-29
+
+### 🐛 Bug Fixes
+
+- *(poster)* Vertically center sunset overlay banner text ([14151ee](https://github.com/Ghent/capacitarr/commit/14151ee8aa77fce5b21173907d40aee3ac8729c6)) — reported by @Wesleyl89 ([#27](https://github.com/Ghent/capacitarr/issues/27))
+- *(deps)* Override ws, postcss, brace-expansion in site to patch CVEs ([63f21f5](https://github.com/Ghent/capacitarr/commit/63f21f5329a752c714fa5fa860f732997596d948))
 ## [3.3.5] - 2026-05-29
 
 ### 🐛 Bug Fixes
