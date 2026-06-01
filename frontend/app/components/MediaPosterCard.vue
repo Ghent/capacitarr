@@ -166,11 +166,13 @@ const sunsetLabel = computed(() => {
   <div
     v-motion
     v-bind="motionProps"
-    class="group relative aspect-[2/3] overflow-hidden rounded-lg border cursor-pointer transition-all hover:ring-2 hover:ring-primary/50"
+    class="group relative aspect-[2/3] overflow-hidden rounded-lg border transition-all hover:ring-2 hover:ring-primary/50"
     :class="{
       'ring-2 ring-emerald-500/50': isProtected,
       'opacity-40': isFlagged && !isProtected,
       'ring-2 ring-primary bg-primary/5': selected,
+      'cursor-not-allowed': selectable && isProtected,
+      'cursor-pointer': !(selectable && isProtected),
     }"
     @click="$emit('click')"
   >
@@ -238,9 +240,17 @@ const sunsetLabel = computed(() => {
       {{ score.toFixed(2) }}
     </div>
 
+    <!-- Top-left: Protected indicator (non-interactive) when selectable + protected -->
+    <div
+      v-if="selectable && isProtected"
+      class="absolute top-1.5 left-1.5 z-20 rounded bg-emerald-500/80 backdrop-blur-sm p-0.5 cursor-not-allowed"
+      :title="$t('library.protectedTooltip')"
+    >
+      <ShieldCheck class="w-4 h-4 text-white" />
+    </div>
     <!-- Top-left: Selection checkbox (when selectable) or Media type chip -->
     <button
-      v-if="selectable"
+      v-else-if="selectable"
       class="absolute top-1.5 left-1.5 z-20 rounded bg-black/40 backdrop-blur-sm p-0.5 transition-colors hover:bg-black/60"
       :class="{ 'bg-primary/80 hover:bg-primary/90': selected }"
       @click.stop="$emit('select')"
