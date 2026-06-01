@@ -475,6 +475,14 @@ const selectedTotalBytes = computed(() =>
   selectedItems.value.reduce((sum, e) => sum + e.item.sizeBytes, 0),
 );
 
+/** Count of items eligible for selection in the current filtered view. */
+const selectableCount = computed(() => filteredItems.value.filter((e) => !e.isProtected).length);
+
+/** Count of protected items in the current filtered view. */
+const protectedInFilterCount = computed(
+  () => filteredItems.value.filter((e) => e.isProtected).length,
+);
+
 // ---------------------------------------------------------------------------
 // Force-Delete Dialog
 // ---------------------------------------------------------------------------
@@ -1036,9 +1044,19 @@ const tableColumns = computed(() => [
         v-if="selectionMode && selectedIds.size > 0"
         class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 rounded-xl border bg-background/95 backdrop-blur-sm shadow-lg px-5 py-3"
       >
-        <span class="text-sm font-medium">
-          {{ t('library.selected', { count: selectedIds.size }) }}
-        </span>
+        <div class="flex flex-col">
+          <span class="text-sm font-medium">
+            {{
+              t('library.selectionSummary', {
+                selected: selectedIds.size,
+                selectable: selectableCount,
+              })
+            }}
+          </span>
+          <span v-if="protectedInFilterCount > 0" class="text-[11px] text-muted-foreground">
+            {{ t('library.selectionProtectedNote', { count: protectedInFilterCount }) }}
+          </span>
+        </div>
         <UiSeparator orientation="vertical" class="h-5" />
         <span class="text-sm text-muted-foreground tabular-nums">
           {{ formatBytes(selectedTotalBytes) }}

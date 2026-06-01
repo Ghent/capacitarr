@@ -435,7 +435,6 @@
   "library.cancel": "Cancel",
   "library.selectAll": "Select All",
   "library.deselectAll": "Deselect All",
-  "library.selected": "{count} selected",
   "library.delete": "Delete",
   "library.deleteTitle": "Delete {count} Items",
   "library.deleteDesc": "These items will be queued for deletion:",
