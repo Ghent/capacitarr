@@ -8,6 +8,7 @@ import {
   Square,
   ShieldCheck,
   ShieldCheckIcon,
+  LockIcon,
   ClockIcon,
   CheckIcon,
   ZapIcon,
@@ -240,13 +241,15 @@ const sunsetLabel = computed(() => {
       {{ score.toFixed(2) }}
     </div>
 
-    <!-- Top-left: Protected indicator (non-interactive) when selectable + protected -->
+    <!-- Top-left: Lock icon (non-interactive) when selectable + protected — distinct from the
+         top-right shield, which conveys "this item is protected"; this conveys "selection is
+         locked off" so the two indicators don't read as duplicates. -->
     <div
       v-if="selectable && isProtected"
-      class="absolute top-1.5 left-1.5 z-20 rounded bg-emerald-500/80 backdrop-blur-sm p-0.5 cursor-not-allowed"
+      class="absolute top-1.5 left-1.5 z-20 rounded bg-black/40 backdrop-blur-sm p-0.5 cursor-not-allowed"
       :title="$t('library.protectedTooltip')"
     >
-      <ShieldCheck class="w-4 h-4 text-white" />
+      <LockIcon class="w-4 h-4 text-white/80" />
     </div>
     <!-- Top-left: Selection checkbox (when selectable) or Media type chip -->
     <button
