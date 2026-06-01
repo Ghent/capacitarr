@@ -378,7 +378,9 @@
                 :variant="editMode(dg) === m.value ? 'default' : 'ghost'"
                 class="rounded-full h-7 px-3 text-xs"
                 :class="
-                  editMode(dg) === m.value ? modeActiveClass(m.value) : 'text-muted-foreground'
+                  editMode(dg) === m.value
+                    ? modeActivePillClasses(m.value)
+                    : 'text-muted-foreground'
                 "
                 :aria-label="m.label"
                 :aria-pressed="editMode(dg) === m.value"
@@ -420,10 +422,6 @@ import {
   PencilIcon,
   XIcon,
   CheckIcon,
-  ShieldIcon,
-  HandIcon,
-  ZapIcon,
-  HourglassIcon,
 } from 'lucide-vue-next';
 import {
   formatBytes,
@@ -432,6 +430,7 @@ import {
   diskStatusTextClass,
   diskStatusFillColor,
 } from '~/utils/format';
+import { modeIcon, modeActivePillClasses } from '~/utils/diskGroupMode';
 import { toast } from 'vue-sonner';
 import { MODE_DRY_RUN, MODE_APPROVAL, MODE_AUTO, MODE_SUNSET } from '~/constants';
 import type { DiskGroup, ApiError } from '~/types/api';
@@ -549,34 +548,6 @@ const diskGroupModes = computed(() => [
   { value: MODE_AUTO, label: t('mode.auto') },
   { value: MODE_SUNSET, label: t('mode.sunset') },
 ]);
-
-/** Icon per mode — gives each pill a distinctive shape at a glance. */
-function modeIcon(mode: string) {
-  switch (mode) {
-    case MODE_AUTO:
-      return ZapIcon;
-    case MODE_APPROVAL:
-      return HandIcon;
-    case MODE_SUNSET:
-      return HourglassIcon;
-    default:
-      return ShieldIcon;
-  }
-}
-
-/** Active-state accent class per mode — applied only to the selected pill. */
-function modeActiveClass(mode: string): string {
-  switch (mode) {
-    case MODE_AUTO:
-      return 'bg-red-600 hover:bg-red-700 text-white border-red-600';
-    case MODE_APPROVAL:
-      return '';
-    case MODE_SUNSET:
-      return 'bg-amber-600 hover:bg-amber-700 text-white border-amber-600';
-    default:
-      return 'bg-muted text-foreground hover:bg-muted/80';
-  }
-}
 
 // Per-disk-group mode overrides (not yet saved)
 const modeEdits = reactive<Record<number, { mode: string; sunsetPct: number | null }>>({});

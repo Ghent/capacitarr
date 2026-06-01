@@ -40,9 +40,22 @@
             <UiBadge v-if="isStale" variant="secondary" class="text-[10px] px-1.5 py-0">
               Stale
             </UiBadge>
-            <UiBadge v-else :variant="modeBadgeVariant" class="text-[10px] px-1.5 py-0">
-              {{ modeBadgeLabel }}
-            </UiBadge>
+            <UiTooltipProvider v-else>
+              <UiTooltip>
+                <UiTooltipTrigger as-child>
+                  <UiBadge
+                    variant="outline"
+                    :class="['text-[10px] px-1.5 py-0 cursor-help', modeBadgeClasses(group.mode)]"
+                  >
+                    <component :is="modeIcon(group.mode)" class="w-2.5 h-2.5 mr-0.5" />
+                    {{ modeBadgeLabel }}
+                  </UiBadge>
+                </UiTooltipTrigger>
+                <UiTooltipContent side="bottom" :side-offset="4" class="max-w-xs text-xs">
+                  {{ t(modeTooltipKey(group.mode)) }}
+                </UiTooltipContent>
+              </UiTooltip>
+            </UiTooltipProvider>
           </div>
           <span class="text-xs text-muted-foreground">
             {{ formatBytes(group.usedBytes) }} / {{ formatBytes(effectiveTotalBytes) }}
@@ -130,6 +143,7 @@
 <script setup lang="ts">
 import { HardDriveIcon, TrendingUpIcon, TrendingDownIcon, ClockIcon } from 'lucide-vue-next';
 import { formatBytes, diskStatusBgClass } from '~/utils/format';
+import { modeIcon, modeBadgeClasses, modeTooltipKey } from '~/utils/diskGroupMode';
 import { MODE_AUTO, MODE_APPROVAL, MODE_SUNSET } from '~/constants';
 import type { DiskGroup } from '~/types/api';
 import { useTimeAgo } from '@vueuse/core';
@@ -149,20 +163,6 @@ const isStale = computed(() => !!props.group.staleSince);
 const staleAgo = useTimeAgo(() =>
   props.group.staleSince ? new Date(props.group.staleSince) : new Date(),
 );
-
-/** Mode badge variant — matches UiBadge styling convention. */
-const modeBadgeVariant = computed(() => {
-  switch (props.group.mode) {
-    case MODE_AUTO:
-      return 'destructive' as const;
-    case MODE_APPROVAL:
-      return 'outline' as const;
-    case MODE_SUNSET:
-      return 'secondary' as const;
-    default:
-      return 'secondary' as const;
-  }
-});
 
 const { t } = useI18n();
 
