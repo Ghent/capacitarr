@@ -23,24 +23,31 @@
           <span class="text-xs text-muted-foreground font-medium mr-1">{{
             $t('library.quickFilters')
           }}</span>
-          <UiButton
-            v-for="preset in filterPresets"
-            :key="preset.key"
-            :variant="activeFilter === preset.key ? 'default' : 'outline'"
-            size="sm"
-            class="rounded-full h-7 px-3 text-xs gap-1.5"
-            @click="toggleFilter(preset.key)"
-          >
-            <component :is="preset.icon" class="w-3.5 h-3.5" />
-            {{ preset.label }}
-            <UiBadge
-              v-if="filterCounts[preset.key] != null"
-              variant="secondary"
-              class="ml-1 text-[10px] px-1.5 py-0 tabular-nums"
-            >
-              {{ filterCounts[preset.key] }}
-            </UiBadge>
-          </UiButton>
+          <UiTooltipProvider v-for="preset in filterPresets" :key="preset.key">
+            <UiTooltip>
+              <UiTooltipTrigger as-child>
+                <UiButton
+                  :variant="activeFilter === preset.key ? 'default' : 'outline'"
+                  size="sm"
+                  class="rounded-full h-7 px-3 text-xs gap-1.5"
+                  @click="toggleFilter(preset.key)"
+                >
+                  <component :is="preset.icon" class="w-3.5 h-3.5" />
+                  {{ preset.label }}
+                  <UiBadge
+                    v-if="filterCounts[preset.key] != null"
+                    variant="secondary"
+                    class="ml-1 text-[10px] px-1.5 py-0 tabular-nums"
+                  >
+                    {{ filterCounts[preset.key] }}
+                  </UiBadge>
+                </UiButton>
+              </UiTooltipTrigger>
+              <UiTooltipContent side="bottom" class="max-w-xs text-xs">
+                {{ preset.tooltip }}
+              </UiTooltipContent>
+            </UiTooltip>
+          </UiTooltipProvider>
 
           <!-- Active filter indicator -->
           <div
@@ -112,7 +119,7 @@ import {
   ShieldIcon,
   XIcon,
 } from 'lucide-vue-next';
-import type { IntegrationConfig, EvaluatedItem } from '~/types/api';
+import type { IntegrationConfig, EvaluatedItem, PreferenceSet } from '~/types/api';
 import { toast } from 'vue-sonner';
 import { MODE_DRY_RUN, EVENT_ANALYTICS_UPDATED } from '~/constants';
 
@@ -140,12 +147,35 @@ watch(activeTab, (tab) => {
 // ---------------------------------------------------------------------------
 // Smart Filter Presets
 // ---------------------------------------------------------------------------
-const filterPresets = [
-  { key: 'dead', label: t('library.filterDead'), icon: SkullIcon },
-  { key: 'stale', label: t('library.filterStale'), icon: TimerIcon },
-  { key: 'requested', label: t('library.filterRequested'), icon: StarIcon },
-  { key: 'protected', label: t('library.filterProtected'), icon: ShieldIcon },
-];
+const deadContentMinDays = ref(90);
+const staleContentDays = ref(180);
+
+const filterPresets = computed(() => [
+  {
+    key: 'dead',
+    label: t('library.filterDead'),
+    icon: SkullIcon,
+    tooltip: t('library.filterDeadTooltip', { days: deadContentMinDays.value }),
+  },
+  {
+    key: 'stale',
+    label: t('library.filterStale'),
+    icon: TimerIcon,
+    tooltip: t('library.filterStaleTooltip', { days: staleContentDays.value }),
+  },
+  {
+    key: 'requested',
+    label: t('library.filterRequested'),
+    icon: StarIcon,
+    tooltip: t('library.filterRequestedTooltip'),
+  },
+  {
+    key: 'protected',
+    label: t('library.filterProtected'),
+    icon: ShieldIcon,
+    tooltip: t('library.filterProtectedTooltip'),
+  },
+]);
 
 const activeFilter = ref<string | null>((route.query.filter as string) || null);
 const activeQuality = ref<string | null>((route.query.quality as string) || null);
@@ -154,7 +184,7 @@ const activeRuleId = ref<number | null>(route.query.ruleId ? Number(route.query.
 const activeFilterLabel = computed(() => {
   if (activeQuality.value) return `Quality: ${activeQuality.value}`;
   if (activeRuleId.value) return `Rule #${activeRuleId.value}`;
-  const preset = filterPresets.find((p) => p.key === activeFilter.value);
+  const preset = filterPresets.value.find((p) => p.key === activeFilter.value);
   return preset?.label ?? '';
 });
 
@@ -327,6 +357,23 @@ async function handleDelete(selectedItems: EvaluatedItem[]) {
 }
 
 // ---------------------------------------------------------------------------
+// Preferences — fetch threshold values for filter tooltips
+// ---------------------------------------------------------------------------
+async function fetchPreferences() {
+  try {
+    const prefs = (await api('/api/v1/preferences')) as PreferenceSet;
+    if (prefs?.deadContentMinDays !== undefined) {
+      deadContentMinDays.value = prefs.deadContentMinDays;
+    }
+    if (prefs?.staleContentDays !== undefined) {
+      staleContentDays.value = prefs.staleContentDays;
+    }
+  } catch {
+    // Silent — defaults (90/180) are acceptable fallbacks
+  }
+}
+
+// ---------------------------------------------------------------------------
 // SSE subscriptions — refresh analytics when backend pushes updated data
 // ---------------------------------------------------------------------------
 const { on: sseOn } = useEventStream();
@@ -336,6 +383,6 @@ sseOn(EVENT_ANALYTICS_UPDATED, () => fetchFilterData(), { onUnmounted });
 // Init
 // ---------------------------------------------------------------------------
 onMounted(async () => {
-  await Promise.all([fetchIntegrations(), refresh(), fetchFilterData()]);
+  await Promise.all([fetchIntegrations(), refresh(), fetchFilterData(), fetchPreferences()]);
 });
 </script>
