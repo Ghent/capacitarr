@@ -1,3 +1,15 @@
+## [3.4.0] - 2026-06-01
+
+### 🚀 Features
+
+- *(library)* Add tooltips to quick filter buttons ([d9b76cc](https://github.com/Ghent/capacitarr/commit/d9b76ccab43959f5047b1342af763b2447d23840))
+- *(library)* Clarify selection breakdown for protected items ([4645ef3](https://github.com/Ghent/capacitarr/commit/4645ef38257ff4ef67b2cc4d9c2d564f05a7529b))
+
+### 🐛 Bug Fixes
+
+- *(library)* Show shield icon for protected items in grid select mode ([1dc6bb9](https://github.com/Ghent/capacitarr/commit/1dc6bb99ffbfc0c2911e5f3d25dce13b0317e0c7))
+- *(dashboard)* Align mode badge and unify mode visuals across views ([2bab952](https://github.com/Ghent/capacitarr/commit/2bab952cb7fba8e20c9ef9808d8fd2253e46119a))
+- *(library)* Use lock icon for protected selection slot ([7269117](https://github.com/Ghent/capacitarr/commit/7269117484c74190da2a9bf01df8a495e1b3fd4b))
 ## [3.3.6] - 2026-05-29
 
 ### 🐛 Bug Fixes
