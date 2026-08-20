@@ -332,9 +332,10 @@ func (s *ApprovalService) IsSnoozed(mediaName, mediaType string, diskGroupID ...
 	return count > 0
 }
 
-// ListSnoozedKeys returns the set of "mediaName|mediaType" keys that are
-// currently snoozed for the given disk group in a single query. The caller
-// can do O(1) map lookups instead of per-item IsSnoozed() DB queries.
+// ListSnoozedKeys returns the set of db.MediaKey keys that are currently
+// snoozed for the given disk group in a single query. Rows with a NULL
+// disk_group_id are treated as global snoozes and match every group.
+// The caller can do O(1) map lookups instead of per-item IsSnoozed() DB queries.
 func (s *ApprovalService) ListSnoozedKeys(diskGroupID uint) (map[string]bool, error) {
 	type row struct {
 		MediaName string
@@ -343,7 +344,7 @@ func (s *ApprovalService) ListSnoozedKeys(diskGroupID uint) (map[string]bool, er
 	var rows []row
 	err := s.db.Model(&db.ApprovalQueueItem{}).
 		Select("media_name, media_type").
-		Where("status = ? AND snoozed_until IS NOT NULL AND snoozed_until > ? AND disk_group_id = ?",
+		Where("status = ? AND snoozed_until IS NOT NULL AND snoozed_until > ? AND (disk_group_id = ? OR disk_group_id IS NULL)",
 			db.StatusRejected, time.Now().UTC(), diskGroupID).
 		Find(&rows).Error
 	if err != nil {
@@ -692,19 +693,26 @@ func (s *ApprovalService) RemoveEntry(entryID uint) error {
 // CreateSnoozedEntry creates or updates an approval queue entry with
 // status=rejected and snoozed_until set to now + snoozeDurationHours.
 // If an entry for the same media already exists (any status), it is updated
-// to rejected with the new snooze time. Returns the snooze expiry time.
-func (s *ApprovalService) CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, snoozeDurationHours int) (*time.Time, error) {
+// to rejected with the new snooze time. When diskGroupID is non-nil it is
+// persisted (and written onto existing rows) so ListSnoozedKeys can scope
+// the snooze; a nil diskGroupID is stored as NULL and treated as global.
+// Returns the snooze expiry time.
+func (s *ApprovalService) CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, diskGroupID *uint, snoozeDurationHours int) (*time.Time, error) {
 	snoozedUntil := time.Now().UTC().Add(time.Duration(snoozeDurationHours) * time.Hour)
 
 	var existing db.ApprovalQueueItem
 	err := s.db.Where("media_name = ? AND media_type = ?", mediaName, mediaType).First(&existing).Error
 	if err == nil {
 		// Entry exists — update to snoozed state
-		if err := s.db.Model(&existing).Updates(map[string]any{
+		updates := map[string]any{
 			"status":        db.StatusRejected,
 			"snoozed_until": snoozedUntil,
 			"updated_at":    time.Now().UTC(),
-		}).Error; err != nil {
+		}
+		if diskGroupID != nil {
+			updates["disk_group_id"] = *diskGroupID
+		}
+		if err := s.db.Model(&existing).Updates(updates).Error; err != nil {
 			return nil, fmt.Errorf("failed to update snoozed entry: %w", err)
 		}
 
@@ -723,6 +731,7 @@ func (s *ApprovalService) CreateSnoozedEntry(mediaName, mediaType string, integr
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		IntegrationID: integrationID,
+		DiskGroupID:   diskGroupID,
 		Status:        db.StatusRejected,
 		SnoozedUntil:  &snoozedUntil,
 	}

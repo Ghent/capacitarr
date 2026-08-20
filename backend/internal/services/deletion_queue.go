@@ -142,6 +142,7 @@ func (s *DeletionService) dequeueJob() (deleteJob, bool) {
 
 	job := s.queuedItems[0]
 	s.queuedItems = s.queuedItems[1:]
+	s.inFlight[cancelKey(job.Item.Title, string(job.Item.Type))] = job
 	return job, true
 }
 
@@ -155,17 +156,18 @@ func cancelKey(mediaName, mediaType string) string {
 	return db.MediaKey(mediaName, mediaType)
 }
 
-// CancelDeletion marks a queued item for cancellation. When processJob
-// encounters the item it will skip the actual deletion and log the
-// cancellation instead. Returns true if the item was found in the queued
-// items tracking slice (best-effort — the item may already be processing).
+// CancelDeletion marks a queued or in-flight item for cancellation. When
+// processJob encounters the item it will skip the actual deletion and log
+// the cancellation instead. Returns true if the item was found in the
+// queued items tracking slice or among jobs already dequeued but not yet
+// finished (the rate-limiter wait between dequeue and processJob).
 //
 // Also resets the grace period timer if not currently processing, since
 // the queue was mutated.
 func (s *DeletionService) CancelDeletion(mediaName, mediaType string) bool {
 	key := cancelKey(mediaName, mediaType)
 
-	// Check whether the item exists in the tracking slice.
+	// Check whether the item exists in the tracking slice or is in-flight.
 	s.queuedMu.Lock()
 	found := false
 	for _, item := range s.queuedItems {
@@ -174,14 +176,18 @@ func (s *DeletionService) CancelDeletion(mediaName, mediaType string) bool {
 			break
 		}
 	}
+	if !found {
+		_, found = s.inFlight[key]
+	}
 	queueSize := len(s.queuedItems)
+	if found {
+		s.cancelled.Store(key, true)
+	}
 	s.queuedMu.Unlock()
 
 	if !found {
 		return false
 	}
-
-	s.cancelled.Store(key, true)
 
 	// Reset grace period on queue mutation if not processing
 	if !s.processing.Load() && queueSize > 0 {
@@ -197,22 +203,25 @@ func (s *DeletionService) IsCancelled(mediaName, mediaType string) bool {
 	return ok
 }
 
-// clearCancelled removes all entries from the cancellation skip-list.
-// Called at the start of each batch via SignalBatchSize.
-func (s *DeletionService) clearCancelled() {
-	s.cancelled.Range(func(key, _ any) bool {
-		s.cancelled.Delete(key)
-		return true
-	})
+// clearInFlight removes a job from the in-flight map once processJob finishes.
+func (s *DeletionService) clearInFlight(job deleteJob) {
+	s.queuedMu.Lock()
+	delete(s.inFlight, cancelKey(job.Item.Title, string(job.Item.Type)))
+	s.queuedMu.Unlock()
 }
 
-// ClearQueue cancels all items currently in the deletion queue.
-// Returns the number of items cancelled. Resets the grace period timer.
+// ClearQueue cancels all items currently in the deletion queue, including
+// jobs already dequeued but not yet finished. Returns the number of items
+// cancelled. Resets the grace period timer.
 func (s *DeletionService) ClearQueue() int {
 	s.queuedMu.Lock()
 	count := len(s.queuedItems)
 	for _, job := range s.queuedItems {
 		s.cancelled.Store(cancelKey(job.Item.Title, string(job.Item.Type)), true)
+	}
+	for key := range s.inFlight {
+		s.cancelled.Store(key, true)
+		count++
 	}
 	s.queuedMu.Unlock()
 
@@ -247,6 +256,12 @@ func (s *DeletionService) ClearQueueForDiskGroup(diskGroupID uint) int {
 			count++
 		}
 	}
+	for _, job := range s.inFlight {
+		if job.DiskGroupID != nil && *job.DiskGroupID == diskGroupID {
+			s.cancelled.Store(cancelKey(job.Item.Title, string(job.Item.Type)), true)
+			count++
+		}
+	}
 	s.queuedMu.Unlock()
 	return count
 }
@@ -263,18 +278,26 @@ func (s *DeletionService) FindQueuedItem(mediaName, mediaType string) *DeleteJob
 
 	for _, job := range s.queuedItems {
 		if job.Item.Title == mediaName && string(job.Item.Type) == mediaType {
-			return &DeleteJobSummary{
-				MediaName:       job.Item.Title,
-				MediaType:       string(job.Item.Type),
-				SizeBytes:       job.Item.SizeBytes,
-				IntegrationID:   job.Item.IntegrationID,
-				Score:           job.Score,
-				PosterURL:       job.Item.PosterURL,
-				CollectionGroup: job.CollectionGroup,
-			}
+			return jobSummary(job)
 		}
 	}
+	if job, ok := s.inFlight[cancelKey(mediaName, mediaType)]; ok {
+		return jobSummary(job)
+	}
 	return nil
+}
+
+func jobSummary(job deleteJob) *DeleteJobSummary {
+	return &DeleteJobSummary{
+		MediaName:       job.Item.Title,
+		MediaType:       string(job.Item.Type),
+		SizeBytes:       job.Item.SizeBytes,
+		IntegrationID:   job.Item.IntegrationID,
+		Score:           job.Score,
+		PosterURL:       job.Item.PosterURL,
+		CollectionGroup: job.CollectionGroup,
+		DiskGroupID:     job.DiskGroupID,
+	}
 }
 
 // ListQueuedItems returns a snapshot copy of the items currently waiting in
@@ -293,6 +316,7 @@ func (s *DeletionService) ListQueuedItems() []DeleteJobSummary {
 			Score:           job.Score,
 			PosterURL:       job.Item.PosterURL,
 			CollectionGroup: job.CollectionGroup,
+			DiskGroupID:     job.DiskGroupID,
 		})
 	}
 	return out

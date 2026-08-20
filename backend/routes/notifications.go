@@ -28,6 +28,9 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 		if err != nil {
 			return apiError(c, http.StatusInternalServerError, "Failed to fetch notification channels")
 		}
+		for i := range configs {
+			configs[i].WebhookURL = db.MaskAPIKey(configs[i].WebhookURL)
+		}
 		return c.JSON(http.StatusOK, configs)
 	})
 
@@ -64,6 +67,7 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 			return apiError(c, http.StatusInternalServerError, "Failed to create notification channel")
 		}
 
+		created.WebhookURL = db.MaskAPIKey(created.WebhookURL)
 		return c.JSON(http.StatusCreated, created)
 	})
 
@@ -86,8 +90,9 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 			return apiError(c, http.StatusBadRequest, "type must be one of: "+db.FormatValidKeys(db.ValidNotificationChannelTypes))
 		}
 
-		// Validate webhook URL scheme (must be http or https to prevent SSRF via exotic schemes)
-		if req.WebhookURL != "" {
+		// Validate webhook URL scheme (must be http or https to prevent SSRF via exotic schemes).
+		// Masked URLs are ignored so a round-trip save cannot clobber the stored secret.
+		if req.WebhookURL != "" && !db.IsMaskedKey(req.WebhookURL) {
 			parsedURL, err := url.Parse(req.WebhookURL)
 			if err != nil || (parsedURL.Scheme != schemeHTTP && parsedURL.Scheme != schemeHTTPS) || parsedURL.Host == "" {
 				return apiError(c, http.StatusBadRequest, "webhookUrl must be a valid HTTP or HTTPS URL")
@@ -102,6 +107,7 @@ func RegisterNotificationRoutes(g *echo.Group, reg *services.Registry) {
 			return apiError(c, http.StatusInternalServerError, "Failed to update notification channel")
 		}
 
+		updated.WebhookURL = db.MaskAPIKey(updated.WebhookURL)
 		return c.JSON(http.StatusOK, updated)
 	})
 

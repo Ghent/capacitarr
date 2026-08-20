@@ -63,6 +63,14 @@ func TestListNotificationChannels_WithData(t *testing.T) {
 	if len(channels) != 2 {
 		t.Errorf("Expected 2 channels, got %d", len(channels))
 	}
+
+	body := rec.Body.String()
+	if strings.Contains(body, "https://discord.com/api/webhooks/123/abc") {
+		t.Error("full Discord webhook URL must not appear in the list response")
+	}
+	if strings.Contains(body, "http://apprise:8000/api/notify/key/") {
+		t.Error("full Apprise webhook URL must not appear in the list response")
+	}
 }
 
 // ---------- POST /api/notifications/channels ----------

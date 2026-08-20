@@ -192,11 +192,13 @@ func determineDryRunReason(deletionsEnabled, forceDryRun bool) string {
 // duration from preferences, and create a snoozed entry in the approval queue.
 // Returns the snoozedUntil time on success.
 func (s *DeletionService) SnoozeDeletionItem(mediaName, mediaType string) (*time.Time, error) {
-	// Look up the item in the queue to get integration ID
+	// Look up the item in the queue to get integration ID and disk group
 	queuedItem := s.FindQueuedItem(mediaName, mediaType)
 	var integrationID uint
+	var diskGroupID *uint
 	if queuedItem != nil {
 		integrationID = queuedItem.IntegrationID
+		diskGroupID = queuedItem.DiskGroupID
 	}
 
 	// Remove from deletion queue
@@ -209,7 +211,7 @@ func (s *DeletionService) SnoozeDeletionItem(mediaName, mediaType string) (*time
 	}
 
 	// Create snoozed entry in approval queue
-	snoozedUntil, err := s.approvalSnoozer.CreateSnoozedEntry(mediaName, mediaType, integrationID, prefs.SnoozeDurationHours)
+	snoozedUntil, err := s.approvalSnoozer.CreateSnoozedEntry(mediaName, mediaType, integrationID, diskGroupID, prefs.SnoozeDurationHours)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snoozed entry: %w", err)
 	}

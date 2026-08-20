@@ -13,6 +13,20 @@ import (
 
 const testLoginBody = `{"username":"admin","password":"password123"}`
 
+func jwtCookieValue(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "jwt" {
+			if c.Value == "" {
+				t.Fatal("jwt cookie value is empty")
+			}
+			return c.Value
+		}
+	}
+	t.Fatal("jwt cookie not found")
+	return ""
+}
+
 func TestAuthStatus_NoUser(t *testing.T) {
 	e := testutil.SetupTestServer(t, testutil.SetupTestDB(t))
 
@@ -83,25 +97,15 @@ func TestLoginHandler_FirstUserBootstrap(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("Failed to parse response: %v", err)
 	}
-	if resp["token"] == "" {
-		t.Error("Expected non-empty token in response")
+	if _, ok := resp["token"]; ok {
+		t.Error("login response must not include a JWT in the JSON body")
 	}
 	if resp["message"] != "success" {
 		t.Errorf("Expected message 'success', got %q", resp["message"])
 	}
 
 	// Verify JWT cookie was set
-	cookies := rec.Result().Cookies()
-	var foundJWT bool
-	for _, c := range cookies {
-		if c.Name == "jwt" {
-			foundJWT = true
-			if c.Value == "" {
-				t.Error("JWT cookie value is empty")
-			}
-		}
-	}
-	if !foundJWT {
+	if jwtCookieValue(t, rec) == "" {
 		t.Error("Expected jwt cookie to be set")
 	}
 }
@@ -195,18 +199,13 @@ func TestPasswordChange(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Bootstrap failed: %d", rec.Code)
 	}
-
-	// Extract token
-	var loginResp map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
-		t.Fatalf("Failed to parse login response: %v", err)
-	}
+	token := jwtCookieValue(t, rec)
 
 	// Change password
 	body = `{"currentPassword":"password123","newPassword":"newpassword123"}`
 	req = httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/auth/password", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+loginResp["token"])
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -237,16 +236,13 @@ func TestPasswordChange_ShortPassword(t *testing.T) {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	var loginResp map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
-		t.Fatalf("Failed to parse: %v", err)
-	}
+	token := jwtCookieValue(t, rec)
 
 	// Try short new password
 	body = `{"currentPassword":"password123","newPassword":"short"}`
 	req = httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/auth/password", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+loginResp["token"])
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -266,14 +262,11 @@ func TestAPIKeyGeneration(t *testing.T) {
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
-	var loginResp map[string]string
-	if err := json.Unmarshal(rec.Body.Bytes(), &loginResp); err != nil {
-		t.Fatalf("Failed to parse: %v", err)
-	}
+	token := jwtCookieValue(t, rec)
 
 	// Generate API key
 	req = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/auth/apikey", nil)
-	req.Header.Set("Authorization", "Bearer "+loginResp["token"])
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -295,7 +288,7 @@ func TestAPIKeyGeneration(t *testing.T) {
 
 	// Check API key status
 	req = httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/auth/apikey", nil)
-	req.Header.Set("Authorization", "Bearer "+loginResp["token"])
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec = httptest.NewRecorder()
 	e.ServeHTTP(rec, req)
 
@@ -309,5 +302,42 @@ func TestAPIKeyGeneration(t *testing.T) {
 	}
 	if statusResp["has_key"] != true {
 		t.Errorf("Expected has_key=true, got %v", statusResp["has_key"])
+	}
+}
+
+func TestLogoutHandler_ClearsCookies(t *testing.T) {
+	e := testutil.SetupTestServer(t, testutil.SetupTestDB(t))
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/auth/logout", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var jwtCleared, authCleared bool
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == "jwt" {
+			jwtCleared = true
+			if c.MaxAge >= 0 {
+				t.Errorf("jwt cookie MaxAge = %d, want < 0", c.MaxAge)
+			}
+			if c.HttpOnly != true {
+				t.Error("jwt cookie should remain HttpOnly when cleared")
+			}
+		}
+		if c.Name == "authenticated" {
+			authCleared = true
+			if c.MaxAge >= 0 {
+				t.Errorf("authenticated cookie MaxAge = %d, want < 0", c.MaxAge)
+			}
+		}
+	}
+	if !jwtCleared {
+		t.Error("expected jwt cookie to be cleared")
+	}
+	if !authCleared {
+		t.Error("expected authenticated cookie to be cleared")
 	}
 }

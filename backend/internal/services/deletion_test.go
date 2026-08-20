@@ -109,7 +109,8 @@ func (m *mockSunsetQueueCleaner) RemoveCompleted(id uint) error {
 
 // mockIntegration implements integrations.Integration for deletion tests.
 type mockIntegration struct {
-	deleteErr error
+	deleteErr   error
+	deleteCalls int
 }
 
 func (m *mockIntegration) TestConnection() error {
@@ -129,6 +130,7 @@ func (m *mockIntegration) GetMediaItems() ([]integrations.MediaItem, error) {
 }
 
 func (m *mockIntegration) DeleteMediaItem(_ integrations.MediaItem, _ integrations.DeleteOptions) error {
+	m.deleteCalls++
 	return m.deleteErr
 }
 
@@ -834,7 +836,7 @@ func TestDeletionService_ListQueuedItems_ReturnsSnapshot(t *testing.T) {
 	}
 }
 
-func TestDeletionService_SignalBatchSize_ClearsCancelledSet(t *testing.T) {
+func TestDeletionService_SignalBatchSize_PreservesCancelledSet(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
 	svc := NewDeletionService(bus, auditLog)
@@ -856,8 +858,57 @@ func TestDeletionService_SignalBatchSize_ClearsCancelledSet(t *testing.T) {
 
 	svc.SignalBatchSize(0)
 
-	if svc.IsCancelled("Firefly", "show") {
-		t.Error("expected IsCancelled=false after SignalBatchSize cleared the set")
+	if !svc.IsCancelled("Firefly", "show") {
+		t.Error("expected IsCancelled=true after SignalBatchSize; skip-list must survive until processJob")
+	}
+}
+
+func TestDeletionService_CancelDeletion_InFlight(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := NewDeletionService(bus, auditLog)
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{},
+		Clients:       &mockClientResolver{},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	mock := &mockIntegration{}
+	if err := svc.enqueue(deleteJob{
+		Client: mock,
+		Item:   integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 100, IntegrationID: 1},
+	}); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
+	}
+
+	job, ok := svc.dequeueJob()
+	if !ok {
+		t.Fatal("expected dequeued job")
+	}
+
+	if svc.CancelDeletion("Firefly", "show") != true {
+		t.Fatal("expected CancelDeletion to succeed for an in-flight job")
+	}
+	if !svc.IsCancelled("Firefly", "show") {
+		t.Fatal("expected IsCancelled=true after cancelling in-flight job")
+	}
+
+	svc.processJob(job, nil)
+
+	if mock.deleteCalls != 0 {
+		t.Errorf("expected in-flight cancel to skip deletion, got %d delete calls", mock.deleteCalls)
+	}
+
+	var cancelled []db.AuditLogEntry
+	database.Where("action = ?", db.ActionCancelled).Find(&cancelled)
+	if len(cancelled) != 1 {
+		t.Errorf("expected 1 cancelled audit entry, got %d", len(cancelled))
 	}
 }
 
@@ -1428,7 +1479,7 @@ func TestApprovalService_CreateSnoozedEntry_New(t *testing.T) {
 		t.Fatalf("failed to create integration: %v", err)
 	}
 
-	snoozedUntil, err := svc.CreateSnoozedEntry("Firefly", "show", integration.ID, 24)
+	snoozedUntil, err := svc.CreateSnoozedEntry("Firefly", "show", integration.ID, nil, 24)
 	if err != nil {
 		t.Fatalf("CreateSnoozedEntry failed: %v", err)
 	}
@@ -1446,6 +1497,39 @@ func TestApprovalService_CreateSnoozedEntry_New(t *testing.T) {
 	}
 	if entry.SnoozedUntil == nil {
 		t.Error("expected SnoozedUntil to be set")
+	}
+	if entry.DiskGroupID != nil {
+		t.Errorf("expected nil DiskGroupID for global snooze, got %v", entry.DiskGroupID)
+	}
+}
+
+func TestApprovalService_CreateSnoozedEntry_PersistsDiskGroupID(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	integration := db.IntegrationConfig{
+		Type: "sonarr", Name: "Test Sonarr", URL: "http://localhost:8989", APIKey: "test-key",
+	}
+	if err := database.Create(&integration).Error; err != nil {
+		t.Fatalf("failed to create integration: %v", err)
+	}
+	dg := db.DiskGroup{MountPath: "/mnt/media", TotalBytes: 1000, UsedBytes: 800, ThresholdPct: 80, TargetPct: 70}
+	if err := database.Create(&dg).Error; err != nil {
+		t.Fatalf("failed to create disk group: %v", err)
+	}
+	dgID := dg.ID
+
+	if _, err := svc.CreateSnoozedEntry("Firefly", "show", integration.ID, &dgID, 24); err != nil {
+		t.Fatalf("CreateSnoozedEntry failed: %v", err)
+	}
+
+	var entry db.ApprovalQueueItem
+	if err := database.Where("media_name = ? AND media_type = ?", "Firefly", "show").First(&entry).Error; err != nil {
+		t.Fatalf("expected entry in DB: %v", err)
+	}
+	if entry.DiskGroupID == nil || *entry.DiskGroupID != dgID {
+		t.Errorf("expected DiskGroupID=%d, got %v", dgID, entry.DiskGroupID)
 	}
 }
 
@@ -1474,7 +1558,7 @@ func TestApprovalService_CreateSnoozedEntry_UpdatesExisting(t *testing.T) {
 	}
 
 	// Snooze it
-	snoozedUntil, err := svc.CreateSnoozedEntry("Serenity", "movie", integration.ID, 48)
+	snoozedUntil, err := svc.CreateSnoozedEntry("Serenity", "movie", integration.ID, nil, 48)
 	if err != nil {
 		t.Fatalf("CreateSnoozedEntry failed: %v", err)
 	}
@@ -1522,13 +1606,15 @@ type mockApprovalSnoozer struct {
 	calledName          string
 	calledType          string
 	calledIntegrationID uint
+	calledDiskGroupID   *uint
 	calledDuration      int
 }
 
-func (m *mockApprovalSnoozer) CreateSnoozedEntry(name, mediaType string, integrationID uint, duration int) (*time.Time, error) {
+func (m *mockApprovalSnoozer) CreateSnoozedEntry(name, mediaType string, integrationID uint, diskGroupID *uint, duration int) (*time.Time, error) {
 	m.calledName = name
 	m.calledType = mediaType
 	m.calledIntegrationID = integrationID
+	m.calledDiskGroupID = diskGroupID
 	m.calledDuration = duration
 	t := time.Now().Add(time.Duration(duration) * time.Hour)
 	return &t, nil
@@ -2188,12 +2274,14 @@ func TestDeletionService_SnoozeDeletionItem(t *testing.T) {
 	svc.SetDependencies(DeletionDeps{Settings: settings, Engine: &mockEngineStatsWriter{}, Metrics: &mockDeletionStatsWriter{}, Approval: &mockApprovalReturner{}, Snoozer: snoozer, DiskGroups: &mockDiskGroupModeReader{}, Clients: &mockClientResolver{}, SunsetCleaner: &mockSunsetQueueCleaner{}})
 
 	// Queue an item first so SnoozeDeletionItem can find it
+	dgID := uint(7)
 	err := svc.enqueue(deleteJob{
 		Item: integrations.MediaItem{
 			Title:         "Firefly",
 			Type:          integrations.MediaTypeShow,
 			IntegrationID: 42,
 		},
+		DiskGroupID: &dgID,
 	})
 	if err != nil {
 		t.Fatalf("enqueue returned error: %v", err)
@@ -2221,6 +2309,9 @@ func TestDeletionService_SnoozeDeletionItem(t *testing.T) {
 	}
 	if snoozer.calledDuration != 48 {
 		t.Errorf("expected snoozer called with duration 48, got %d", snoozer.calledDuration)
+	}
+	if snoozer.calledDiskGroupID == nil || *snoozer.calledDiskGroupID != 7 {
+		t.Errorf("expected snoozer called with diskGroupID 7, got %v", snoozer.calledDiskGroupID)
 	}
 
 	// Verify the item was marked as cancelled (CancelDeletion marks items

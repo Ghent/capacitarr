@@ -240,11 +240,14 @@ func TestListSunsettedKeys(t *testing.T) {
 	if len(keys) != 2 {
 		t.Fatalf("Expected 2 keys, got %d", len(keys))
 	}
-	if !keys["Firefly|show"] {
-		t.Error("Expected key 'Firefly|show' to be present")
+	if !keys[db.MediaKey("Firefly", "show")] {
+		t.Error("Expected Firefly/show key to be present")
 	}
-	if !keys["Serenity|movie"] {
-		t.Error("Expected key 'Serenity|movie' to be present")
+	if !keys[db.MediaKey("Serenity", "movie")] {
+		t.Error("Expected Serenity/movie key to be present")
+	}
+	if keys["Firefly|show"] {
+		t.Error("pipe-delimited key must not be used; ListSunsettedKeys should use db.MediaKey")
 	}
 }
 

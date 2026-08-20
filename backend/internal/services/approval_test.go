@@ -1466,6 +1466,26 @@ func TestApprovalService_ListSnoozedKeys(t *testing.T) {
 			t.Error("expected Firefly - Season 2|show in snoozed keys for other DG")
 		}
 	})
+
+	t.Run("includes global snoozes with NULL disk_group_id", func(t *testing.T) {
+		globalUntil := time.Now().UTC().Add(24 * time.Hour)
+		global := db.ApprovalQueueItem{
+			MediaName: "Serenity Director's Cut", MediaType: "movie", SizeBytes: 6000,
+			IntegrationID: intID, ExternalID: "6", Status: db.StatusRejected,
+			SnoozedUntil: &globalUntil, DiskGroupID: nil,
+		}
+		if err := database.Create(&global).Error; err != nil {
+			t.Fatalf("Failed to create global snooze: %v", err)
+		}
+
+		keys, err := svc.ListSnoozedKeys(dgID)
+		if err != nil {
+			t.Fatalf("ListSnoozedKeys returned error: %v", err)
+		}
+		if !keys[db.MediaKey("Serenity Director's Cut", "movie")] {
+			t.Error("expected globally snoozed item (NULL disk_group_id) to match any disk group")
+		}
+	})
 }
 
 func TestApprovalService_BulkUpsertPending(t *testing.T) {

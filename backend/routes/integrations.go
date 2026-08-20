@@ -120,8 +120,10 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 		resp, respErr := reg.Integration.GetWithOverrideState(updated.ID)
 		if respErr != nil {
 			// Fallback: return the update result without override metadata.
+			updated.APIKey = db.MaskAPIKey(updated.APIKey)
 			return c.JSON(http.StatusOK, updated)
 		}
+		resp.APIKey = db.MaskAPIKey(resp.APIKey)
 		return c.JSON(http.StatusOK, resp)
 	})
 
@@ -155,6 +157,11 @@ func RegisterIntegrationRoutes(g *echo.Group, reg *services.Registry) {
 
 		if req.Type == "" || req.URL == "" || req.APIKey == "" {
 			return apiError(c, http.StatusBadRequest, "type, url, and apiKey are required")
+		}
+
+		parsedURL, parseErr := url.Parse(req.URL)
+		if parseErr != nil || (parsedURL.Scheme != schemeHTTP && parsedURL.Scheme != schemeHTTPS) || parsedURL.Host == "" {
+			return apiError(c, http.StatusBadRequest, "url must be a valid HTTP or HTTPS URL")
 		}
 
 		result := reg.Integration.TestConnection(req.Type, req.URL, req.APIKey, req.IntegrationID)

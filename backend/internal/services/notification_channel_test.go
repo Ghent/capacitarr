@@ -327,6 +327,32 @@ func TestNotificationChannelService_PartialUpdate_NotFound(t *testing.T) {
 	}
 }
 
+func TestNotificationChannelService_PartialUpdate_MaskedWebhookIgnored(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewNotificationChannelService(database, bus)
+
+	original := db.NotificationConfig{
+		Type: "discord", Name: "Firefly Alerts",
+		WebhookURL: "https://discord.com/api/webhooks/secret-token",
+		Enabled:    true,
+	}
+	database.Create(&original)
+
+	masked := db.MaskAPIKey(original.WebhookURL)
+	result, err := svc.PartialUpdate(original.ID, db.NotificationConfig{
+		Name:       "Firefly Alerts",
+		WebhookURL: masked,
+		Enabled:    true,
+	})
+	if err != nil {
+		t.Fatalf("PartialUpdate returned error: %v", err)
+	}
+	if result.WebhookURL != original.WebhookURL {
+		t.Errorf("expected stored webhook to be preserved, got %q", result.WebhookURL)
+	}
+}
+
 func TestNotificationChannelService_ListEnabled(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

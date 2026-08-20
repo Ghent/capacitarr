@@ -336,6 +336,7 @@ import {
   ExternalLinkIcon,
 } from 'lucide-vue-next';
 import type { ThemeMeta } from '~/composables/useTheme';
+import { ofetch } from 'ofetch';
 
 const { slideUpFromBottom } = useMotionPresets();
 
@@ -350,12 +351,21 @@ const { uiVersion, apiVersion, updateAvailable, latestVersion, releaseUrl, check
 
 const router = useRouter();
 const authenticated = useAuthCookie();
+const runtimeConfig = useRuntimeConfig();
 
 const { locale, locales, setLocale } = useI18n();
 
-function logout() {
+async function logout() {
+  try {
+    await ofetch(`${runtimeConfig.public.apiBaseUrl}/api/v1/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+  } catch {
+    // Best-effort: still clear local cookie even if the request fails.
+  }
   authenticated.value = null;
-  router.push('/login');
+  await router.push('/login');
 }
 
 /** Return the actual primary color for the theme swatch */

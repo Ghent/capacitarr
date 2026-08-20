@@ -548,7 +548,7 @@ func (s *SunsetService) IsSunsetted(mediaName, mediaType string, diskGroupID uin
 	return count > 0
 }
 
-// ListSunsettedKeys returns "mediaName|mediaType" keys for O(1) lookups.
+// ListSunsettedKeys returns db.MediaKey keys for O(1) lookups.
 // Same pattern as ApprovalService.ListSnoozedKeys().
 func (s *SunsetService) ListSunsettedKeys(diskGroupID uint) (map[string]bool, error) {
 	var items []db.SunsetQueueItem
@@ -560,7 +560,7 @@ func (s *SunsetService) ListSunsettedKeys(diskGroupID uint) (map[string]bool, er
 
 	keys := make(map[string]bool, len(items))
 	for _, item := range items {
-		keys[item.MediaName+"|"+item.MediaType] = true
+		keys[db.MediaKey(item.MediaName, item.MediaType)] = true
 	}
 	return keys, nil
 }

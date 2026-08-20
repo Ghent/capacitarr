@@ -9,6 +9,7 @@ package routes_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -201,6 +202,16 @@ func TestIntegrationAPIKey_MaskedInResponse(t *testing.T) {
 		t.Fatalf("Create integration failed: %d %s", rec.Code, rec.Body.String())
 	}
 
+	var created struct {
+		ID uint `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatalf("Failed to parse create response: %v", err)
+	}
+	if created.ID == 0 {
+		t.Fatal("expected non-zero integration ID from create")
+	}
+
 	// Fetch the integration list
 	req = testutil.AuthenticatedRequest(t, http.MethodGet, "/api/integrations", nil)
 	rec = httptest.NewRecorder()
@@ -210,7 +221,25 @@ func TestIntegrationAPIKey_MaskedInResponse(t *testing.T) {
 
 	// The full API key must NOT appear in the response
 	if strings.Contains(responseBody, "abcdef1234567890abcdef1234567890") {
-		t.Error("SECURITY: Full integration API key found in API response — keys must be masked")
+		t.Error("SECURITY: Full integration API key found in list API response — keys must be masked")
+	}
+
+	req = testutil.AuthenticatedRequest(t, http.MethodGet, fmt.Sprintf("/api/integrations/%d", created.ID), nil)
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if strings.Contains(rec.Body.String(), "abcdef1234567890abcdef1234567890") {
+		t.Error("SECURITY: Full integration API key found in GET /integrations/:id response — keys must be masked")
+	}
+
+	req = testutil.AuthenticatedRequest(t, http.MethodPut, fmt.Sprintf("/api/integrations/%d", created.ID), strings.NewReader(`{"name":"Firefly Updated"}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec = httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Update integration failed: %d %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "abcdef1234567890abcdef1234567890") {
+		t.Error("SECURITY: Full integration API key found in PUT /integrations/:id response — keys must be masked")
 	}
 }
 

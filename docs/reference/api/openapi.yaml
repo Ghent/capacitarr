@@ -16,7 +16,7 @@ info:
     - **Bearer token** — `Authorization: Bearer <token>` header
     - **API key** — `X-Api-Key: <key>` header
 
-    The `/health`, `/version`, and `/auth/login` endpoints are public.
+    The `/health`, `/version`, `/auth/login`, and `/auth/logout` endpoints are public.
   license:
     name: PolyForm Noncommercial 1.0.0
     url: https://polyformproject.org/licenses/noncommercial/1.0.0/
@@ -87,11 +87,11 @@ paths:
       operationId: getHealth
       tags: [Health]
       summary: Health check
-      description: Returns health status with event bus diagnostics. No authentication required.
+      description: Returns health status with event bus diagnostics. No authentication required. Returns 503 when the database is unreachable.
       security: []
       responses:
         "200":
-          description: Server is healthy
+          description: Server is healthy (or degraded if events have been dropped)
           content:
             application/json:
               schema:
@@ -99,10 +99,24 @@ paths:
                 properties:
                   status:
                     type: string
+                    enum: [ok, degraded]
                     example: ok
                   eventsDropped:
                     type: integer
                     description: Cumulative count of events dropped due to full subscriber buffers
+                    example: 0
+        "503":
+          description: Database ping failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: unhealthy
+                  eventsDropped:
+                    type: integer
                     example: 0
 
   /version:
@@ -129,8 +143,8 @@ paths:
       tags: [Auth]
       summary: Log in
       description: |
-        Authenticate with username and password. Returns a JWT token in both the
-        response body and as an HttpOnly `jwt` cookie. On first call with no
+        Authenticate with username and password. Returns an HttpOnly `jwt` cookie
+        and a non-HttpOnly `authenticated` indicator cookie. On first call with no
         existing users, the provided credentials bootstrap the initial admin user.
         Rate-limited to 10 attempts per IP per 15-minute window.
       security: []
@@ -168,6 +182,28 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "500":
           $ref: "#/components/responses/InternalServerError"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [Auth]
+      summary: Log out
+      description: |
+        Clears the HttpOnly `jwt` cookie and the `authenticated` indicator cookie.
+        Public so an expired JWT can still invalidate cookies. No request body.
+      security: []
+      responses:
+        "200":
+          description: Logout successful
+          headers:
+            Set-Cookie:
+              description: Cleared `jwt` and `authenticated` cookies (Max-Age=0)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
 
   /auth/password:
     put:
@@ -2565,10 +2601,7 @@ components:
         message:
           type: string
           example: success
-        token:
-          type: string
-          description: JWT token (also set as HttpOnly cookie)
-      required: [message, token]
+      required: [message]
 
     ChangePasswordRequest:
       type: object

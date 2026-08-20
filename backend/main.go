@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -165,6 +166,21 @@ func generateRequestID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return fmt.Sprintf("%x", b)
+}
+
+// redactRequestURI replaces apikey query values so request logs cannot leak
+// integration credentials passed as ?apikey=. Other query params are kept.
+func redactRequestURI(uri string) string {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return uri
+	}
+	q := u.Query()
+	if q.Has("apikey") {
+		q.Set("apikey", "[redacted]")
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
 }
 
 // Build-time injected via -ldflags
@@ -402,7 +418,7 @@ func main() {
 			slog.Info("request",
 				"component", "middleware",
 				"method", v.Method,
-				"uri", v.URI,
+				"uri", redactRequestURI(v.URI),
 				"status", v.Status,
 				"requestId", reqID,
 			)

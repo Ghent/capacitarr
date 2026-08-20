@@ -43,6 +43,7 @@ type DeleteJobSummary struct {
 	Score           float64 `json:"score"`
 	PosterURL       string  `json:"posterUrl,omitempty"`
 	CollectionGroup string  `json:"collectionGroup,omitempty"`
+	DiskGroupID     *uint   `json:"diskGroupId,omitempty"`
 }
 
 // DeletionService manages the background deletion worker and queue.
@@ -91,7 +92,8 @@ type DeletionService struct {
 	// inspect the queue (Go channels don't support peeking). Also serves as
 	// the pending-jobs store for the grace-period-aware worker.
 	queuedMu    sync.Mutex
-	queuedItems []deleteJob // full jobs (worker reads from here after grace period)
+	queuedItems []deleteJob          // full jobs (worker reads from here after grace period)
+	inFlight    map[string]deleteJob // dequeued jobs not yet finished by processJob; guarded by queuedMu
 
 	// Grace period state
 	graceTimerMu  sync.Mutex
@@ -135,7 +137,7 @@ type ApprovalReturner interface {
 // ApprovalSnoozer allows the DeletionService to create snoozed entries in the
 // approval queue without importing ApprovalService directly.
 type ApprovalSnoozer interface {
-	CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, snoozeDurationHours int) (*time.Time, error)
+	CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, diskGroupID *uint, snoozeDurationHours int) (*time.Time, error)
 }
 
 // DiskGroupModeReader allows the DeletionService to look up the per-disk-group
@@ -201,6 +203,7 @@ func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *Deleti
 		stopCh:      make(chan struct{}),
 		stopCtx:     ctx,
 		stopCancel:  cancel,
+		inFlight:    make(map[string]deleteJob),
 	}
 }
 
