@@ -335,8 +335,8 @@ import {
   PawPrintIcon,
   ExternalLinkIcon,
 } from 'lucide-vue-next';
-import type { ThemeMeta } from '~/composables/useTheme';
 import { ofetch } from 'ofetch';
+import type { ThemeMeta } from '~/composables/useTheme';
 
 const { slideUpFromBottom } = useMotionPresets();
 
