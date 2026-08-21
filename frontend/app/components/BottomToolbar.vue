@@ -335,7 +335,7 @@ import {
   PawPrintIcon,
   ExternalLinkIcon,
 } from 'lucide-vue-next';
-import { ofetch } from 'ofetch';
+import { logoutSession } from '~/utils/sessionLogout';
 import type { ThemeMeta } from '~/composables/useTheme';
 
 const { slideUpFromBottom } = useMotionPresets();
@@ -357,10 +357,7 @@ const { locale, locales, setLocale } = useI18n();
 
 async function logout() {
   try {
-    await ofetch(`${runtimeConfig.public.apiBaseUrl}/api/v1/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    await logoutSession(runtimeConfig.public.apiBaseUrl);
   } catch {
     // Best-effort: still clear local cookie even if the request fails.
   }

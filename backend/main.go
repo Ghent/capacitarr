@@ -209,7 +209,13 @@ func main() {
 		slog.Info("CORS origins configured", "component", "main", "origins", cfg.CORSOrigins)
 	}
 	if cfg.AuthHeader != "" {
-		slog.Info("Reverse proxy auth header enabled", "component", "main", "header", cfg.AuthHeader)
+		if len(cfg.TrustedProxyNets) == 0 {
+			slog.Warn("Reverse proxy auth header enabled but TRUSTED_PROXIES is empty — header authentication is ignored",
+				"component", "main", "header", cfg.AuthHeader)
+		} else {
+			slog.Info("Reverse proxy auth header enabled",
+				"component", "main", "header", cfg.AuthHeader, "trustedProxies", cfg.TrustedProxies)
+		}
 	}
 
 	// ─── Pre-init: detect and handle 1.x legacy database ───────────────────

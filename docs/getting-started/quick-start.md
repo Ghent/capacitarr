@@ -109,6 +109,7 @@ All environment variables are optional — sensible defaults are used when not s
 | `SECURE_COOKIES` | `false` | Set `true` when using HTTPS |
 | `DB_PATH` | `/config/capacitarr.db` | SQLite database location |
 | `AUTH_HEADER` | *(empty)* | Trusted reverse proxy auth header (e.g., `Remote-User`) |
+| `TRUSTED_PROXIES` | *(empty)* | Proxy IPs/CIDRs allowed to send `AUTH_HEADER` |
 | `CORS_ORIGINS` | *(empty)* | Comma-separated allowed CORS origins |
 | `DEBUG` | `false` | Enable debug logging |
 

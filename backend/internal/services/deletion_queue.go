@@ -9,8 +9,22 @@ import (
 
 // enqueue enqueues a media item for background deletion.
 // Starts or resets the grace period timer.
+// Duplicate MediaKeys already queued or in-flight are treated as success
+// (idempotent) so concurrent sunset/approval handoffs do not double-delete.
 func (s *DeletionService) enqueue(job deleteJob) error {
+	key := cancelKey(job.Item.Title, string(job.Item.Type))
+
 	s.queuedMu.Lock()
+	for _, existing := range s.queuedItems {
+		if cancelKey(existing.Item.Title, string(existing.Item.Type)) == key {
+			s.queuedMu.Unlock()
+			return nil
+		}
+	}
+	if _, ok := s.inFlight[key]; ok {
+		s.queuedMu.Unlock()
+		return nil
+	}
 	if len(s.queuedItems) >= 500 {
 		s.queuedMu.Unlock()
 		return ErrDeletionQueueFull

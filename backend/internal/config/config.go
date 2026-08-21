@@ -4,21 +4,25 @@ package config
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"strings"
 )
 
 // Config holds the application-wide configuration loaded from environment variables.
 type Config struct {
-	Port          string
-	BaseURL       string
-	Database      string
-	Debug         bool
-	JWTSecret     string `json:"-"`
-	CORSOrigins   []string
-	SecureCookies bool
-	AuthHeader    string // Trusted reverse proxy auth header (e.g. "Remote-User", "X-authentik-username")
+	Port             string
+	BaseURL          string
+	Database         string
+	Debug            bool
+	JWTSecret        string `json:"-"`
+	CORSOrigins      []string
+	SecureCookies    bool
+	AuthHeader       string       // Trusted reverse proxy auth header (e.g. "Remote-User", "X-authentik-username")
+	TrustedProxies   []string     // Original TRUSTED_PROXIES entries (IPs and CIDRs)
+	TrustedProxyNets []*net.IPNet // Parsed networks used by IsTrustedProxy
 }
 
 // Load reads environment variables and returns a populated Config.
@@ -80,26 +84,96 @@ func Load() *Config {
 
 	secureCookies := strings.ToLower(os.Getenv("SECURE_COOKIES")) == "true"
 
+	trustedProxies, trustedNets := ParseTrustedProxies(os.Getenv("TRUSTED_PROXIES"))
+
 	authHeader := strings.TrimSpace(os.Getenv("AUTH_HEADER"))
 	if authHeader != "" {
 		slog.Info("Trusted reverse proxy auth header configured", "component", "config", "header", authHeader) //nolint:gosec // G706: authHeader is from trusted env var, not user input
-		// SECURITY: When AUTH_HEADER is set, the server trusts that header
-		// unconditionally for authentication. If the server is directly
-		// exposed to the internet (not behind a reverse proxy), any client
-		// can spoof this header and gain access. Only use this setting when
-		// Capacitarr is behind a trusted reverse proxy (Authelia, Authentik,
-		// Organizr, Caddy, Traefik, etc.) that strips and re-sets the header.
-		slog.Warn("SECURITY: AUTH_HEADER is set — ensure Capacitarr is behind a trusted reverse proxy. If exposed directly, any client can spoof this header and bypass authentication.", "component", "config", "header", authHeader) //nolint:gosec // G706: authHeader is from trusted env var, not user input
+		if len(trustedNets) == 0 {
+			slog.Warn("SECURITY: AUTH_HEADER is set but TRUSTED_PROXIES is empty — proxy header authentication is ignored. Set TRUSTED_PROXIES to the reverse proxy IP or CIDR (e.g. 127.0.0.1). JWT and API key auth continue to work.", "component", "config", "header", authHeader) //nolint:gosec // G706: authHeader is from trusted env var, not user input
+		} else {
+			slog.Warn("SECURITY: AUTH_HEADER is set — the header is accepted only from TRUSTED_PROXIES. Bind Capacitarr to localhost or a private network so clients cannot reach it except through the proxy.", "component", "config", "header", authHeader, "trustedProxies", trustedProxies) //nolint:gosec // G706: authHeader is from trusted env var, not user input
+		}
 	}
 
 	return &Config{
-		Port:          port,
-		BaseURL:       baseURL,
-		Database:      dbPath,
-		Debug:         debug,
-		JWTSecret:     jwtSecret,
-		CORSOrigins:   corsOrigins,
-		SecureCookies: secureCookies,
-		AuthHeader:    authHeader,
+		Port:             port,
+		BaseURL:          baseURL,
+		Database:         dbPath,
+		Debug:            debug,
+		JWTSecret:        jwtSecret,
+		CORSOrigins:      corsOrigins,
+		SecureCookies:    secureCookies,
+		AuthHeader:       authHeader,
+		TrustedProxies:   trustedProxies,
+		TrustedProxyNets: trustedNets,
 	}
+}
+
+// ParseTrustedProxies parses a comma-separated list of IPs and CIDRs.
+// Bare IPv4 addresses become /32; bare IPv6 addresses become /128.
+// Invalid entries are skipped and logged.
+func ParseTrustedProxies(spec string) ([]string, []*net.IPNet) {
+	var names []string
+	var nets []*net.IPNet
+	for _, raw := range strings.Split(spec, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		n, err := parseTrustedProxy(raw)
+		if err != nil {
+			slog.Warn("Ignoring invalid TRUSTED_PROXIES entry", "component", "config", "entry", raw, "error", err)
+			continue
+		}
+		names = append(names, raw)
+		nets = append(nets, n)
+	}
+	return names, nets
+}
+
+func parseTrustedProxy(entry string) (*net.IPNet, error) {
+	if strings.Contains(entry, "/") {
+		_, n, err := net.ParseCIDR(entry)
+		if err != nil {
+			return nil, err
+		}
+		return n, nil
+	}
+	ip := net.ParseIP(entry)
+	if ip == nil {
+		return nil, fmt.Errorf("invalid IP or CIDR")
+	}
+	bits := 128
+	if ip.To4() != nil {
+		bits = 32
+	}
+	_, n, err := net.ParseCIDR(fmt.Sprintf("%s/%d", ip.String(), bits))
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
+}
+
+// IsTrustedProxy reports whether remoteAddr (host:port or bare IP) is in TRUSTED_PROXIES.
+// Returns false when no proxies are configured (fail closed for AUTH_HEADER).
+func (c *Config) IsTrustedProxy(remoteAddr string) bool {
+	if c == nil || len(c.TrustedProxyNets) == 0 {
+		return false
+	}
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	host = strings.Trim(host, "[]")
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	for _, n := range c.TrustedProxyNets {
+		if n != nil && n.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

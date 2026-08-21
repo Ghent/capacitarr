@@ -46,8 +46,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 			headerValue := strings.TrimSpace(c.Request().Header.Get(cfg.AuthHeader))
 			if headerValue == "" {
 				response["authHeaderWarning"] = "AUTH_HEADER is configured (" + cfg.AuthHeader + ") but no proxy header was detected in this request. " +
-					"If Capacitarr is not behind a reverse proxy that sets this header, any client can bypass authentication by spoofing the header. " +
-					"Either place Capacitarr behind a trusted reverse proxy or remove the AUTH_HEADER environment variable."
+					"Capacitarr only trusts this header from addresses in TRUSTED_PROXIES. Bind the server so only your reverse proxy can reach it, or remove AUTH_HEADER."
 			}
 		}
 

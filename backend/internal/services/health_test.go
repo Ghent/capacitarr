@@ -509,3 +509,38 @@ func assertNoEventOfType(t *testing.T, ch chan events.Event, eventType string) {
 		}
 	}
 }
+
+func TestHealthService_StopJoinsGoroutine(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationHealthService(NewIntegrationService(database, bus), bus)
+	svc.Start()
+
+	done := make(chan struct{})
+	go func() {
+		svc.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Stop did not return after joining the health goroutine")
+	}
+}
+
+func TestHealthService_StopWithoutStart(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationHealthService(NewIntegrationService(database, bus), bus)
+
+	done := make(chan struct{})
+	go func() {
+		svc.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stop hung when Start was never called")
+	}
+}

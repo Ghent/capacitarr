@@ -1,6 +1,8 @@
 package services
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -1779,5 +1781,61 @@ func TestApprovalService_ExecuteApproval_FallsBackToDefaultMode(t *testing.T) {
 	}
 	if job.EnqueuedMode != db.ModeDryRun {
 		t.Errorf("Expected EnqueuedMode=%q, got %q", db.ModeDryRun, job.EnqueuedMode)
+	}
+}
+
+func TestApprovalService_ExecuteApproval_QueueFullLeavesPending(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	approvalSvc := NewApprovalService(database, bus)
+	deletionSvc := NewDeletionService(bus, NewAuditLogService(database))
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeApproval, deletionQueueDelaySeconds: 300},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeApproval},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	ic := db.IntegrationConfig{
+		Type: "sonarr", Name: "Test Sonarr", URL: "http://localhost:8989", APIKey: "key",
+	}
+	database.Create(&ic)
+
+	item := db.ApprovalQueueItem{
+		MediaName:     "Firefly",
+		MediaType:     "show",
+		SizeBytes:     1000,
+		IntegrationID: ic.ID,
+		ExternalID:    "42",
+		Status:        db.StatusPending,
+	}
+	database.Create(&item)
+
+	for i := 0; i < 500; i++ {
+		if err := deletionSvc.enqueue(deleteJob{
+			Item: integrations.MediaItem{Title: fmt.Sprintf("Filler-%d", i), Type: "movie"},
+		}); err != nil {
+			t.Fatalf("failed to fill queue: %v", err)
+		}
+	}
+
+	_, err := approvalSvc.ExecuteApproval(item.ID, ExecuteApprovalDeps{Deletion: deletionSvc})
+	if err == nil {
+		t.Fatal("expected queue-full error")
+	}
+	if !errors.Is(err, ErrDeletionQueueFull) {
+		t.Errorf("expected ErrDeletionQueueFull, got %v", err)
+	}
+
+	var got db.ApprovalQueueItem
+	if dbErr := database.First(&got, item.ID).Error; dbErr != nil {
+		t.Fatalf("failed to reload approval: %v", dbErr)
+	}
+	if got.Status != db.StatusPending {
+		t.Errorf("expected status pending after queue-full, got %s", got.Status)
 	}
 }

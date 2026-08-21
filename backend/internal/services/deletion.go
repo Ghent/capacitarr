@@ -57,7 +57,7 @@ type DeleteJobSummary struct {
 // completes and a new item arrives.
 type DeletionService struct {
 	bus              *events.EventBus
-	auditLog         *AuditLogService
+	auditLog         deletionAuditor
 	settings         SettingsReader
 	engine           EngineStatsWriter
 	metrics          DeletionStatsWriter
@@ -105,6 +105,11 @@ type DeletionService struct {
 	stopCh        chan struct{}      // closed when Stop() is called
 	stopCtx       context.Context    // cancelled when Stop() is called; passed to rate limiter
 	stopCancel    context.CancelFunc // cancels stopCtx
+
+	// Count of successful live deletes whose pending_delete row could not be
+	// flipped to deleted. The intent row remains, which is the fail-open
+	// post-delete path (file is gone; history still exists).
+	auditPostDeleteFailures atomic.Uint64
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +171,16 @@ type ClientResolver interface {
 // item enters queue → countdown expires → DeletionService deletes file → row removed.
 type SunsetQueueCleaner interface {
 	RemoveCompleted(id uint) error
+}
+
+// deletionAuditor is the audit-log surface used by live and dry-run deletes.
+// *AuditLogService implements it; tests inject a stub to simulate write failures.
+type deletionAuditor interface {
+	Create(entry db.AuditLogEntry) error
+	CreateIntent(entry db.AuditLogEntry) (uint, error)
+	MarkDeleted(id uint) error
+	UpsertDryRun(entry db.AuditLogEntry) error
+	BulkUpsertDryRun(entries []db.AuditLogEntry) error
 }
 
 // ---------------------------------------------------------------------------

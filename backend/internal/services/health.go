@@ -3,6 +3,7 @@ package services
 import (
 	"log/slog"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"capacitarr/internal/events"
@@ -84,6 +85,8 @@ type IntegrationHealthService struct {
 	mu       sync.Mutex
 	states   map[uint]*healthState // integrationID → state (ALL enabled integrations)
 	done     chan struct{}
+	stopped  chan struct{}
+	started  atomic.Bool
 	stopOnce sync.Once
 }
 
@@ -95,6 +98,7 @@ func NewIntegrationHealthService(integrationSvc *IntegrationService, bus *events
 		bus:            bus,
 		states:         make(map[uint]*healthState),
 		done:           make(chan struct{}),
+		stopped:        make(chan struct{}),
 	}
 }
 
@@ -106,7 +110,12 @@ func (h *IntegrationHealthService) Start() {
 	// Initial health check of all integrations (replaces startup self-test).
 	h.checkAll()
 
+	if !h.started.CompareAndSwap(false, true) {
+		return
+	}
+
 	go func() {
+		defer close(h.stopped)
 		defer func() {
 			if rec := recover(); rec != nil {
 				slog.Error("Panic recovered in health service goroutine",
@@ -134,12 +143,16 @@ func (h *IntegrationHealthService) Start() {
 		"component", "health", "trackedIntegrations", count)
 }
 
-// Stop signals the background goroutine to exit.
+// Stop signals the background goroutine to exit and waits for it to finish.
+// Safe to call if Start was never invoked.
 func (h *IntegrationHealthService) Stop() {
 	h.stopOnce.Do(func() {
 		close(h.done)
 		slog.Info("Integration health service stopped", "component", "health")
 	})
+	if h.started.Load() {
+		<-h.stopped
+	}
 }
 
 // seed loads all enabled integrations from the DB and populates the states map.

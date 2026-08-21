@@ -1225,7 +1225,7 @@ paths:
           description: Filter by action type
           schema:
             type: string
-            enum: [deleted, dry_run, dry_delete]
+            enum: [deleted, dry_delete, cancelled, pending_delete]
         - name: sort_by
           in: query
           description: Column to sort by
@@ -3608,7 +3608,7 @@ components:
           example: '[{"name":"Watch History","rawScore":1.0,"weight":10,"contribution":0.4,"type":"weight"}]'
         action:
           type: string
-          enum: [deleted, dry_delete]
+          enum: [deleted, dry_delete, cancelled, pending_delete]
           example: deleted
         sizeBytes:
           type: integer

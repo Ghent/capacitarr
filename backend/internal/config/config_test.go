@@ -24,7 +24,7 @@ func silenceLogs(t *testing.T) {
 func TestLoad_Defaults(t *testing.T) {
 	silenceLogs(t)
 	// Clear all env vars that Load() reads by setting them to empty
-	for _, key := range []string{"PORT", "BASE_URL", "DB_PATH", "DEBUG", "JWT_SECRET", "CORS_ORIGINS", "SECURE_COOKIES", "AUTH_HEADER"} {
+	for _, key := range []string{"PORT", "BASE_URL", "DB_PATH", "DEBUG", "JWT_SECRET", "CORS_ORIGINS", "SECURE_COOKIES", "AUTH_HEADER", "TRUSTED_PROXIES"} {
 		t.Setenv(key, "")
 	}
 
@@ -152,6 +152,45 @@ func TestLoad_AuthHeader(t *testing.T) {
 
 	if cfg.AuthHeader != "Remote-User" {
 		t.Errorf("expected AuthHeader Remote-User, got %s", cfg.AuthHeader)
+	}
+	if len(cfg.TrustedProxyNets) != 0 {
+		t.Errorf("expected no trusted proxies by default, got %v", cfg.TrustedProxies)
+	}
+}
+
+func TestLoad_TrustedProxies(t *testing.T) {
+	silenceLogs(t)
+	t.Setenv("AUTH_HEADER", "Remote-User")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1, 10.0.0.0/8, ::1")
+
+	cfg := Load()
+
+	if !cfg.IsTrustedProxy("127.0.0.1:443") {
+		t.Error("expected 127.0.0.1 to be trusted")
+	}
+	if !cfg.IsTrustedProxy("10.1.2.3:8080") {
+		t.Error("expected 10.1.2.3 to be trusted")
+	}
+	if !cfg.IsTrustedProxy("[::1]:443") {
+		t.Error("expected ::1 to be trusted")
+	}
+	if cfg.IsTrustedProxy("192.0.2.1:1234") {
+		t.Error("did not expect TEST-NET-1 address to be trusted")
+	}
+}
+
+func TestIsTrustedProxy_EmptyIsFailClosed(t *testing.T) {
+	cfg := &Config{AuthHeader: "Remote-User"}
+	if cfg.IsTrustedProxy("127.0.0.1:1") {
+		t.Error("empty TRUSTED_PROXIES must not trust any address")
+	}
+}
+
+func TestParseTrustedProxies_SkipsInvalid(t *testing.T) {
+	silenceLogs(t)
+	names, nets := ParseTrustedProxies("127.0.0.1, not-an-ip, 10.0.0.0/8")
+	if len(names) != 2 || len(nets) != 2 {
+		t.Fatalf("expected 2 valid entries, got names=%v nets=%d", names, len(nets))
 	}
 }
 

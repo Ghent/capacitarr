@@ -482,24 +482,52 @@ func (s *ApprovalService) ListQueue(status string, limit int, diskGroupID *uint)
 }
 
 // ExecuteApproval encapsulates the full approval workflow:
-// approve → look up integration → build client → reconstruct MediaItem →
-// parse score details → queue for deletion.
-// The caller must provide pre-validated DeletionService and IntegrationService references
-// via the ExecuteApprovalDeps argument.
+// load pending → queue for deletion → CAS pending→approved.
+// Enqueue happens first so a full deletion queue cannot leave an approved
+// ghost that never deletes. The caller must provide pre-validated
+// DeletionService and IntegrationService references via ExecuteApprovalDeps.
 func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps) (*db.ApprovalQueueItem, error) {
-	// 1. Mark as approved via Approve (single fetch + status validation)
-	approved, err := s.Approve(entryID)
-	if err != nil {
-		return nil, err
+	var entry db.ApprovalQueueItem
+	if err := s.db.First(&entry, entryID).Error; err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrApprovalNotFound, err)
+	}
+	if entry.Status != db.StatusPending {
+		return nil, fmt.Errorf("%w (current: %s)", ErrApprovalNotPending, entry.Status)
 	}
 
-	// 2. Delegate to DeletionService intake layer — it handles client resolution,
-	// disk group mode lookup, dry-run determination, and enqueue.
-	if queueErr := deps.Deletion.QueueFromApproval(approved); queueErr != nil {
-		return approved, fmt.Errorf("failed to queue deletion: %w", queueErr)
+	// Queue while still pending. On failure the row stays pending for retry.
+	if queueErr := deps.Deletion.QueueFromApproval(&entry); queueErr != nil {
+		return &entry, fmt.Errorf("failed to queue deletion: %w", queueErr)
 	}
 
-	return approved, nil
+	now := time.Now().UTC()
+	result := s.db.Model(&db.ApprovalQueueItem{}).
+		Where("id = ? AND status = ?", entryID, db.StatusPending).
+		Updates(map[string]any{
+			"status":     db.StatusApproved,
+			"updated_at": now,
+		})
+	if result.Error != nil {
+		return &entry, fmt.Errorf("failed to approve entry: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		if err := s.db.First(&entry, entryID).Error; err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrApprovalNotFound, err)
+		}
+		return &entry, nil
+	}
+
+	s.bus.Publish(events.ApprovalApprovedEvent{
+		EntryID:   entry.ID,
+		MediaName: entry.MediaName,
+		MediaType: entry.MediaType,
+		SizeBytes: entry.SizeBytes,
+	})
+
+	if err := s.db.First(&entry, entryID).Error; err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrApprovalNotFound, err)
+	}
+	return &entry, nil
 }
 
 // ExecuteGroupApproval approves all pending items sharing a CollectionGroup.

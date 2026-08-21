@@ -418,3 +418,35 @@ func TestFindMediaMounts_RootPrunedWhenMoreSpecificExists(t *testing.T) {
 		t.Errorf("expected /media and /data, got %v", mounts)
 	}
 }
+
+func TestPoller_StopJoinsGoroutine(t *testing.T) {
+	_, reg := setupPollerTestDB(t)
+	p := New(reg)
+	p.Start()
+
+	done := make(chan struct{})
+	go func() {
+		p.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("Stop did not return after joining the poller goroutine")
+	}
+}
+
+func TestPoller_StopWithoutStart(t *testing.T) {
+	_, reg := setupPollerTestDB(t)
+	p := New(reg)
+	done := make(chan struct{})
+	go func() {
+		p.Stop()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stop hung when Start was never called")
+	}
+}

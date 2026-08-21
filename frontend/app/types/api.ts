@@ -119,8 +119,8 @@ export interface CustomRule {
 // Audit Log
 // ---------------------------------------------------------------------------
 
-/** Action values match backend db.Action* constants (deleted, dry_delete, cancelled). */
-export type AuditAction = 'deleted' | 'dry_delete' | 'cancelled';
+/** Action values match backend db.Action* constants (deleted, dry_delete, cancelled, pending_delete). */
+export type AuditAction = 'deleted' | 'dry_delete' | 'cancelled' | 'pending_delete';
 
 export interface AuditLogEntry {
   id: number;

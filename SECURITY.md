@@ -345,6 +345,6 @@ Pinned Docker image versions are **re-evaluated on a regular basis** to pick up 
 
 ### Important Caveats
 
-- **`AUTH_HEADER` trust model:** When enabled, Capacitarr unconditionally trusts the configured header. The server **must** be behind a reverse proxy that sets this header. Direct internet exposure with `AUTH_HEADER` enabled allows authentication bypass
+- **`AUTH_HEADER` trust model:** When enabled, Capacitarr trusts the configured header only from addresses in `TRUSTED_PROXIES`. Empty `TRUSTED_PROXIES` ignores the header (fail closed). Bind the listen port to localhost when using proxy auth so clients cannot reach the app except through the proxy
 - **Single-user design:** Capacitarr does not implement role-based access control. All authenticated users have full access
 - **Local network assumption:** The security model assumes the application runs on a trusted local network or behind a reverse proxy

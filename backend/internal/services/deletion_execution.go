@@ -71,6 +71,27 @@ func (s *DeletionService) executeDeletion(job deleteJob, factorsJSON []byte) {
 		s.publishProgress()
 		return
 	}
+	logEntry := db.AuditLogEntry{
+		MediaName:       job.Item.Title,
+		MediaType:       string(job.Item.Type),
+		ScoreDetails:    string(factorsJSON),
+		Action:          db.ActionPendingDelete,
+		SizeBytes:       job.Item.SizeBytes,
+		Score:           job.Score,
+		Trigger:         job.Trigger,
+		DiskGroupID:     job.DiskGroupID,
+		CollectionGroup: job.CollectionGroup,
+	}
+	intentID, intentErr := s.auditLog.CreateIntent(logEntry)
+	if intentErr != nil {
+		slog.Error("Failed to write pending delete audit — aborting live delete",
+			"component", "services", "media", job.Item.Title, "error", intentErr)
+		s.failed.Add(1)
+		s.batchFailed.Add(1)
+		s.publishProgress()
+		return
+	}
+
 	if err := job.Client.DeleteMediaItem(job.Item, integrations.DeleteOptions{
 		AddImportExclusion: job.AddImportExclusion,
 	}); err != nil {
@@ -101,19 +122,10 @@ func (s *DeletionService) executeDeletion(job deleteJob, factorsJSON []byte) {
 		slog.Error("Failed to increment lifetime deletion stats", "component", "services", "error", err)
 	}
 
-	logEntry := db.AuditLogEntry{
-		MediaName:       job.Item.Title,
-		MediaType:       string(job.Item.Type),
-		ScoreDetails:    string(factorsJSON),
-		Action:          db.ActionDeleted,
-		SizeBytes:       job.Item.SizeBytes,
-		Score:           job.Score,
-		Trigger:         job.Trigger,
-		DiskGroupID:     job.DiskGroupID,
-		CollectionGroup: job.CollectionGroup,
-	}
-	if err := s.auditLog.Create(logEntry); err != nil {
-		slog.Error("Failed to create audit log entry", "component", "services", "error", err)
+	if err := s.auditLog.MarkDeleted(intentID); err != nil {
+		s.auditPostDeleteFailures.Add(1)
+		slog.Error("Failed to complete pending delete audit — intent row remains",
+			"component", "services", "auditID", intentID, "media", job.Item.Title, "error", err)
 	}
 
 	s.bus.Publish(events.DeletionSuccessEvent{

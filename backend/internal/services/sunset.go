@@ -707,16 +707,28 @@ func (s *SunsetService) removeLabel(item db.SunsetQueueItem, label string, regis
 }
 
 // processExpiredItem handles a single expired/escalated item: restores poster,
-// removes label, queues for deletion, and marks as expired. The item is NOT
+// removes label, claims expired_at, then queues for deletion. The item is NOT
 // deleted from sunset_queue — it remains visible in the dashboard until the
 // user removes it via Cancel or Clear All. The ExpiredAt timestamp prevents
 // re-processing on subsequent engine cycles and cron runs.
 //
-// If deletion handoff fails (no registry or deleter unavailable), the item is
-// NOT marked expired — it will be retried on the next cron run.
+// expired_at is claimed with a compare-and-swap (WHERE expired_at IS NULL)
+// so concurrent ProcessExpired and Escalate cannot both hand off the same item.
+// If deletion handoff fails after the claim, expired_at is cleared so the
+// next cycle retries.
 func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.PreferenceSet, deps SunsetDeps) bool {
 	// Skip if already expired or saved
 	if item.ExpiredAt != nil || item.Status == db.SunsetStatusSaved {
+		return false
+	}
+
+	claimed, err := s.claimExpired(item.ID)
+	if err != nil {
+		slog.Error("Failed to claim sunset item for expiry",
+			"component", "services", "mediaName", item.MediaName, "error", err)
+		return false
+	}
+	if !claimed {
 		return false
 	}
 
@@ -738,6 +750,10 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 	if deps.Deletion == nil {
 		slog.Warn("Skipping sunset item expiry — deletion service unavailable (will retry)",
 			"component", "services", "mediaName", item.MediaName)
+		if unclaimErr := s.unclaimExpired(item.ID); unclaimErr != nil {
+			slog.Error("Failed to clear sunset expired_at after skipped handoff",
+				"component", "services", "mediaName", item.MediaName, "error", unclaimErr)
+		}
 		return false
 	}
 
@@ -747,6 +763,10 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 		s.bus.Publish(events.EngineErrorEvent{
 			Error: fmt.Sprintf("sunset expiry queue failed for %q: %v", item.MediaName, queueErr),
 		})
+		if unclaimErr := s.unclaimExpired(item.ID); unclaimErr != nil {
+			slog.Error("Failed to clear sunset expired_at after queue failure",
+				"component", "services", "mediaName", item.MediaName, "error", unclaimErr)
+		}
 		return false
 	}
 
@@ -757,10 +777,27 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 		SizeBytes:   item.SizeBytes,
 	})
 
-	// Mark as expired — item stays in sunset_queue for dashboard visibility
-	now := time.Now().UTC()
-	s.db.Model(&item).Update("expired_at", now)
 	return true
+}
+
+// claimExpired sets expired_at only if it is still NULL. Returns true when
+// this caller won the handoff.
+func (s *SunsetService) claimExpired(id uint) (bool, error) {
+	now := time.Now().UTC()
+	result := s.db.Model(&db.SunsetQueueItem{}).
+		Where("id = ? AND expired_at IS NULL", id).
+		Update("expired_at", now)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected == 1, nil
+}
+
+// unclaimExpired clears expired_at so a failed handoff can be retried.
+func (s *SunsetService) unclaimExpired(id uint) error {
+	return s.db.Model(&db.SunsetQueueItem{}).
+		Where("id = ?", id).
+		Update("expired_at", gorm.Expr("NULL")).Error
 }
 
 // ValidateSunsetConfig validates sunset-mode configuration on a disk group.

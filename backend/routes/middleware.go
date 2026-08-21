@@ -16,10 +16,12 @@ func RequireAuth(reg *services.Registry) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			cfg := reg.Cfg
 
-			// 1. Trusted reverse proxy auth header (Authelia/Authentik/Organizr)
+			// 1. Trusted reverse proxy auth header (Authelia/Authentik/Organizr).
+			// Only accepted from RemoteAddr in TRUSTED_PROXIES. A spoofed header
+			// from an untrusted socket is ignored so JWT/API key can still succeed.
 			if cfg.AuthHeader != "" {
 				headerUser := strings.TrimSpace(c.Request().Header.Get(cfg.AuthHeader))
-				if headerUser != "" {
+				if headerUser != "" && cfg.IsTrustedProxy(c.Request().RemoteAddr) {
 					// Auto-create user record if the header user doesn't exist
 					if err := reg.Auth.EnsureProxyUser(headerUser); err != nil {
 						return apiError(c, http.StatusUnauthorized, "Unauthorized")

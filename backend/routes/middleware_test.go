@@ -243,6 +243,9 @@ func TestMiddleware_JWTCookie(t *testing.T) {
 func TestMiddleware_ProxyAuthHeader(t *testing.T) {
 	cfg := testutil.TestConfig()
 	cfg.AuthHeader = "Remote-User"
+	_, nets := config.ParseTrustedProxies("192.0.2.0/24")
+	cfg.TrustedProxies = []string{"192.0.2.0/24"}
+	cfg.TrustedProxyNets = nets
 	e := setupAuthTest(t, cfg)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/protected", nil)
@@ -253,6 +256,51 @@ func TestMiddleware_ProxyAuthHeader(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Errorf("Expected 200 for proxy auth, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestMiddleware_ProxyAuthHeader_RequiresTrustedProxies(t *testing.T) {
+	cfg := testutil.TestConfig()
+	cfg.AuthHeader = "Remote-User"
+	e := setupAuthTest(t, cfg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/protected", nil)
+	req.Header.Set("Remote-User", "proxy-user")
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 when AUTH_HEADER is set without TRUSTED_PROXIES, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestMiddleware_ProxyAuthHeader_UntrustedIgnoredFallsBackToJWT(t *testing.T) {
+	cfg := testutil.TestConfig()
+	cfg.AuthHeader = "Remote-User"
+	_, nets := config.ParseTrustedProxies("10.0.0.0/8")
+	cfg.TrustedProxies = []string{"10.0.0.0/8"}
+	cfg.TrustedProxyNets = nets
+	e := setupAuthTest(t, cfg)
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub": "testadmin",
+		"exp": time.Now().Add(24 * time.Hour).Unix(),
+	})
+	tokenString, err := token.SignedString([]byte(cfg.JWTSecret))
+	if err != nil {
+		t.Fatalf("Failed to sign token: %v", err)
+	}
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/protected", nil)
+	req.Header.Set("Remote-User", "spoofed-user")
+	req.AddCookie(&http.Cookie{Name: "jwt", Value: tokenString}) // nosemgrep — test request: HttpOnly/Secure are set by the server when issuing cookies, not when sending them in test requests
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("Expected 200 for JWT when spoofed proxy header is ignored, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -317,5 +365,23 @@ func TestMiddleware_MalformedAuthorizationHeader(t *testing.T) {
 
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("Expected 401 for malformed Authorization header, got %d", rec.Code)
+	}
+}
+
+func TestMiddleware_ProxyAuthHeader_UntrustedHeaderOnly(t *testing.T) {
+	cfg := testutil.TestConfig()
+	cfg.AuthHeader = "Remote-User"
+	_, nets := config.ParseTrustedProxies("10.0.0.0/8")
+	cfg.TrustedProxyNets = nets
+	e := setupAuthTest(t, cfg)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/protected", nil)
+	req.Header.Set("Remote-User", "proxy-user")
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("Expected 401 for header-only auth from untrusted IP, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
