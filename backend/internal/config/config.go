@@ -123,7 +123,7 @@ func ParseTrustedProxies(spec string) ([]string, []*net.IPNet) {
 		}
 		n, err := parseTrustedProxy(raw)
 		if err != nil {
-			slog.Warn("Ignoring invalid TRUSTED_PROXIES entry", "component", "config", "entry", raw, "error", err)
+			slog.Warn("Ignoring invalid TRUSTED_PROXIES entry", "component", "config", "entry", raw, "error", err) //nolint:gosec // G706: raw is from trusted env var TRUSTED_PROXIES, not user input
 			continue
 		}
 		names = append(names, raw)

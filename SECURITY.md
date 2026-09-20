@@ -138,8 +138,10 @@ Semgrep scans all Go and Vue/TypeScript source files (every file tracked by git 
 | File | Line | Linter Rule | Rationale |
 |------|------|-------------|-----------|
 | `backend/internal/cache/cache_test.go` | 185 | errcheck | Deliberate: testing concurrent cache access, return value intentionally ignored |
-| `backend/internal/config/config.go` | 85 | gosec G706 | Logging trusted env var header name (`AUTH_HEADER`), not user input |
-| `backend/internal/config/config.go` | 92 | gosec G706 | Security warning logs trusted env var header name, not user input |
+| `backend/internal/config/config.go` | 91 | gosec G706 | Logging trusted env var header name (`AUTH_HEADER`), not user input |
+| `backend/internal/config/config.go` | 93 | gosec G706 | Security warning logs trusted env var header name, not user input |
+| `backend/internal/config/config.go` | 95 | gosec G706 | Security warning logs trusted env var header name and `TRUSTED_PROXIES` list, not user input |
+| `backend/internal/config/config.go` | 126 | gosec G706 | Invalid `TRUSTED_PROXIES` entry is from a trusted env var, not user input |
 | `backend/internal/db/db.go` | 182 | gosec G201 | `fmt.Sprintf("PRAGMA table_info(%s)", table)` — table name is a hardcoded string from within the function, never user input |
 | `backend/internal/engine/score_test.go` | 29 | unparam | `value` is always 10 in tests but the parameter documents intent for the helper function |
 | `backend/internal/events/sse_broadcaster.go` | 262 | errcheck | `json.Marshal` of a `string` value cannot fail |

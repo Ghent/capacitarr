@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { logoutSession } from './sessionLogout';
 
 const { mockOfetch } = vi.hoisted(() => ({
   mockOfetch: vi.fn(),
@@ -7,8 +8,6 @@ const { mockOfetch } = vi.hoisted(() => ({
 vi.mock('ofetch', () => ({
   ofetch: mockOfetch,
 }));
-
-import { logoutSession } from './sessionLogout';
 
 describe('logoutSession', () => {
   beforeEach(() => {
