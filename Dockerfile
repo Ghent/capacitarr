@@ -34,7 +34,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
 # ── Stage 3: Runtime (hardened Alpine) ─────────────────────────────────────────
 # Digest pinned for reproducible builds. Update periodically or via Renovate Bot.
 # To refresh: docker pull alpine:3.21 && docker inspect --format='{{index .RepoDigests 0}}' alpine:3.21
-FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
+FROM alpine:3.21@sha256:c3f8e73fdb79deaebaa2037150150191b9dcbfba68b4a46d70103204c53f4709
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="Capacitarr" \

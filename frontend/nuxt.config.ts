@@ -160,16 +160,12 @@ export default defineNuxtConfig({
       { code: 'zh-TW', name: '繁體中文', file: 'zh-TW.json' },
     ],
     defaultLocale: 'en',
-    lazy: true,
     langDir: '../app/locales',
     strategy: 'no_prefix',
     detectBrowserLanguage: {
       useCookie: true,
       cookieKey: 'capacitarr-locale',
       fallbackLocale: 'en',
-    },
-    bundle: {
-      optimizeTranslationDirective: false,
     },
   },
 
