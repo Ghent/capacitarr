@@ -351,3 +351,42 @@ func TestAuditLogService_BulkUpsertDryRun(t *testing.T) {
 		}
 	})
 }
+
+func TestAuditLogService_CreateIntentAndMarkDeleted(t *testing.T) {
+	database := setupTestDB(t)
+	svc := NewAuditLogService(database)
+
+	id, err := svc.CreateIntent(db.AuditLogEntry{
+		MediaName: "Firefly",
+		MediaType: "show",
+		SizeBytes: 1000,
+		Score:     0.9,
+		Trigger:   db.TriggerEngine,
+	})
+	if err != nil {
+		t.Fatalf("CreateIntent returned error: %v", err)
+	}
+	if id == 0 {
+		t.Fatal("expected non-zero intent id")
+	}
+
+	var pending db.AuditLogEntry
+	if err := database.First(&pending, id).Error; err != nil {
+		t.Fatalf("failed to load intent row: %v", err)
+	}
+	if pending.Action != db.ActionPendingDelete {
+		t.Errorf("expected action %q, got %q", db.ActionPendingDelete, pending.Action)
+	}
+
+	if err := svc.MarkDeleted(id); err != nil {
+		t.Fatalf("MarkDeleted returned error: %v", err)
+	}
+
+	var completed db.AuditLogEntry
+	if err := database.First(&completed, id).Error; err != nil {
+		t.Fatalf("failed to load completed row: %v", err)
+	}
+	if completed.Action != db.ActionDeleted {
+		t.Errorf("expected action %q, got %q", db.ActionDeleted, completed.Action)
+	}
+}

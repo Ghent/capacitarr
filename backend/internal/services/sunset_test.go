@@ -1,6 +1,7 @@
 package services
 
 import (
+	"sync"
 	"testing"
 	"time"
 
@@ -240,11 +241,14 @@ func TestListSunsettedKeys(t *testing.T) {
 	if len(keys) != 2 {
 		t.Fatalf("Expected 2 keys, got %d", len(keys))
 	}
-	if !keys["Firefly|show"] {
-		t.Error("Expected key 'Firefly|show' to be present")
+	if !keys[db.MediaKey("Firefly", "show")] {
+		t.Error("Expected Firefly/show key to be present")
 	}
-	if !keys["Serenity|movie"] {
-		t.Error("Expected key 'Serenity|movie' to be present")
+	if !keys[db.MediaKey("Serenity", "movie")] {
+		t.Error("Expected Serenity/movie key to be present")
+	}
+	if keys["Firefly|show"] {
+		t.Error("pipe-delimited key must not be used; ListSunsettedKeys should use db.MediaKey")
 	}
 }
 
@@ -493,5 +497,62 @@ func TestCancelAllForDiskGroup(t *testing.T) {
 	}
 	if len(remaining) > 0 && remaining[0].DiskGroupID != 2 {
 		t.Errorf("Expected remaining item in disk group 2, got %d", remaining[0].DiskGroupID)
+	}
+}
+
+func TestProcessExpired_ConcurrentHandoffQueuesOnce(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	deletionSvc := NewDeletionService(bus, NewAuditLogService(database))
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeSunset},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeSunset},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	database.Create(&db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 5000000000,
+		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, -1),
+	})
+
+	deps := SunsetDeps{
+		Settings: NewSettingsService(database, bus),
+		Deletion: deletionSvc,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if _, err := svc.ProcessExpired(deps); err != nil {
+			t.Errorf("ProcessExpired: %v", err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if _, err := svc.Escalate(1, 1e15, deps); err != nil {
+			t.Errorf("Escalate: %v", err)
+		}
+	}()
+	wg.Wait()
+
+	if deletionSvc.QueueLen() != 1 {
+		t.Errorf("expected 1 queued deletion job, got %d", deletionSvc.QueueLen())
+	}
+
+	var items []db.SunsetQueueItem
+	database.Find(&items)
+	expired := 0
+	for _, item := range items {
+		if item.ExpiredAt != nil {
+			expired++
+		}
+	}
+	if expired != 1 {
+		t.Errorf("expected 1 claimed sunset row, got %d", expired)
 	}
 }

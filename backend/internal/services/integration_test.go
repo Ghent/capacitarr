@@ -913,6 +913,39 @@ func TestIntegrationService_GetWithOverrideState_NoOverride(t *testing.T) {
 	}
 }
 
+func TestIntegrationService_GetWithOverrideState_MasksAPIKey(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewIntegrationService(database, bus)
+	dgSvc := NewDiskGroupService(database, bus)
+	svc.SetDiskGroupService(dgSvc)
+
+	const rawKey = "abcdef1234567890abcdef1234567890"
+	database.Create(&db.IntegrationConfig{
+		Name: "Firefly Sonarr", Type: "sonarr", URL: "http://localhost:8989",
+		APIKey: rawKey, ShowLevelOnly: false,
+	})
+
+	resp, err := svc.GetWithOverrideState(1)
+	if err != nil {
+		t.Fatalf("GetWithOverrideState error: %v", err)
+	}
+	if resp.APIKey == rawKey {
+		t.Error("GetWithOverrideState must mask the API key")
+	}
+	if !db.IsMaskedKey(resp.APIKey) {
+		t.Errorf("expected masked API key, got %q", resp.APIKey)
+	}
+
+	stored, err := svc.GetByID(1)
+	if err != nil {
+		t.Fatalf("GetByID error: %v", err)
+	}
+	if stored.APIKey != rawKey {
+		t.Errorf("GetByID must return the plaintext key for internal use, got %q", stored.APIKey)
+	}
+}
+
 func TestIntegrationService_GetWithOverrideState_SunsetOverride(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

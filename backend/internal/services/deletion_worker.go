@@ -15,10 +15,10 @@ import (
 // published. If count is 0 (no items to process), the event is published
 // immediately — the DeletionService owns this event.
 //
-// Also clears the cancellation skip-list from the previous cycle.
+// The cancellation skip-list is NOT cleared here. Cancellations must survive
+// until processJob honours them; a later engine cycle can otherwise wipe a
+// skip-list entry for an item still sitting in the grace-period queue.
 func (s *DeletionService) SignalBatchSize(count int) {
-	s.clearCancelled()
-
 	if count == 0 {
 		s.bus.Publish(events.DeletionBatchCompleteEvent{
 			Succeeded: 0,
@@ -190,6 +190,7 @@ func (s *DeletionService) cancelRemaining(reason string, deferredAuditEntries *[
 func (s *DeletionService) processJob(job deleteJob, deferredAuditEntries *[]db.AuditLogEntry) {
 	s.currentlyDeleting.Store(job.Item.Title)
 	defer s.currentlyDeleting.Store("")
+	defer s.clearInFlight(job)
 	defer s.checkBatchComplete()
 
 	// Marshal score factors early so all code paths (including cancellation)

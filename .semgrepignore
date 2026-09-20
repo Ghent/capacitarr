@@ -13,3 +13,8 @@
 # rendering) that would be addressed in a separate security review of the site
 # codebase if needed.
 site/
+#
+# .github/workflows/ — Semgrep auto rule github-actions-mutable-action-tag
+# requires SHA-pinning every uses: step. That is a CI policy change and is
+# not applied without explicit approval. Application source remains scanned.
+.github/workflows/

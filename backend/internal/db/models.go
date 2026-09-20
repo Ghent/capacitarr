@@ -258,9 +258,10 @@ const (
 
 // Audit log action constants — used in AuditLogEntry.Action field.
 const (
-	ActionDeleted   = "deleted"
-	ActionDryDelete = "dry_delete"
-	ActionCancelled = "cancelled"
+	ActionDeleted       = "deleted"
+	ActionDryDelete     = "dry_delete"
+	ActionCancelled     = "cancelled"
+	ActionPendingDelete = "pending_delete" // intent written before a live *arr delete
 )
 
 // Trigger constants — used in AuditLogEntry.Trigger and ApprovalQueueItem.Trigger fields.
@@ -278,13 +279,15 @@ const (
 )
 
 // AuditLogEntry stores a permanent record of deletions and dry-runs.
-// This table is append-only — entries are never modified after creation.
+// Rows are append-only except for two documented exceptions:
+//   - dry-run upserts (same media_name/media_type, action=dry_delete)
+//   - pending_delete → deleted after a successful live *arr API call
 type AuditLogEntry struct {
 	ID              uint      `gorm:"primarykey" json:"id"`
 	MediaName       string    `gorm:"index;not null" json:"mediaName"`
 	MediaType       string    `gorm:"not null" json:"mediaType"`
 	ScoreDetails    string    `gorm:"type:text" json:"scoreDetails"` // JSON-encoded []ScoreFactor
-	Action          string    `gorm:"not null" json:"action"`        // "deleted", "dry_delete", "cancelled"
+	Action          string    `gorm:"not null" json:"action"`        // "deleted", "dry_delete", "cancelled", "pending_delete"
 	SizeBytes       int64     `gorm:"not null;default:0" json:"sizeBytes"`
 	Score           float64   `gorm:"not null;default:0" json:"score"`                      // Numeric score from engine evaluation
 	Trigger         string    `gorm:"not null;default:'engine'" json:"trigger"`             // "engine", "user", "approval"

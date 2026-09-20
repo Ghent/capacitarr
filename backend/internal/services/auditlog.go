@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -10,6 +11,8 @@ import (
 
 	"capacitarr/internal/db"
 )
+
+const auditIntentWriteAttempts = 3
 
 // AuditListParams holds the query parameters for paginated audit log listing.
 type AuditListParams struct {
@@ -55,11 +58,45 @@ func NewAuditLogService(database *gorm.DB) *AuditLogService {
 	return &AuditLogService{db: database}
 }
 
-// Create appends a new audit log entry. Entries are immutable after creation.
+// Create appends a new audit log entry. Entries are immutable after creation
+// except for CreateIntent/MarkDeleted (pending_delete → deleted) and dry-run upserts.
 func (s *AuditLogService) Create(entry db.AuditLogEntry) error {
 	entry.CreatedAt = time.Now().UTC()
 	if err := s.db.Create(&entry).Error; err != nil {
 		return fmt.Errorf("failed to create audit log entry: %w", err)
+	}
+	return nil
+}
+
+// CreateIntent writes a pending_delete audit row before a live *arr delete.
+// Retries on transient write errors. Callers must not delete media if this
+// returns an error (fail closed).
+func (s *AuditLogService) CreateIntent(entry db.AuditLogEntry) (uint, error) {
+	entry.Action = db.ActionPendingDelete
+	var err error
+	for attempt := 1; attempt <= auditIntentWriteAttempts; attempt++ {
+		entry.CreatedAt = time.Now().UTC()
+		err = s.db.Create(&entry).Error
+		if err == nil {
+			return entry.ID, nil
+		}
+		slog.Warn("Pending delete audit write failed",
+			"component", "services", "attempt", attempt, "error", err)
+		entry.ID = 0
+	}
+	return 0, fmt.Errorf("failed to create pending delete audit after %d attempts: %w", auditIntentWriteAttempts, err)
+}
+
+// MarkDeleted completes a pending_delete intent row after a successful live delete.
+func (s *AuditLogService) MarkDeleted(id uint) error {
+	result := s.db.Model(&db.AuditLogEntry{}).
+		Where("id = ? AND action = ?", id, db.ActionPendingDelete).
+		Update("action", db.ActionDeleted)
+	if result.Error != nil {
+		return fmt.Errorf("failed to mark audit entry deleted: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("pending delete audit entry %d not found", id)
 	}
 	return nil
 }

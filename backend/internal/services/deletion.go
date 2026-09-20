@@ -43,6 +43,7 @@ type DeleteJobSummary struct {
 	Score           float64 `json:"score"`
 	PosterURL       string  `json:"posterUrl,omitempty"`
 	CollectionGroup string  `json:"collectionGroup,omitempty"`
+	DiskGroupID     *uint   `json:"diskGroupId,omitempty"`
 }
 
 // DeletionService manages the background deletion worker and queue.
@@ -56,7 +57,7 @@ type DeleteJobSummary struct {
 // completes and a new item arrives.
 type DeletionService struct {
 	bus              *events.EventBus
-	auditLog         *AuditLogService
+	auditLog         deletionAuditor
 	settings         SettingsReader
 	engine           EngineStatsWriter
 	metrics          DeletionStatsWriter
@@ -91,7 +92,8 @@ type DeletionService struct {
 	// inspect the queue (Go channels don't support peeking). Also serves as
 	// the pending-jobs store for the grace-period-aware worker.
 	queuedMu    sync.Mutex
-	queuedItems []deleteJob // full jobs (worker reads from here after grace period)
+	queuedItems []deleteJob          // full jobs (worker reads from here after grace period)
+	inFlight    map[string]deleteJob // dequeued jobs not yet finished by processJob; guarded by queuedMu
 
 	// Grace period state
 	graceTimerMu  sync.Mutex
@@ -103,6 +105,11 @@ type DeletionService struct {
 	stopCh        chan struct{}      // closed when Stop() is called
 	stopCtx       context.Context    // cancelled when Stop() is called; passed to rate limiter
 	stopCancel    context.CancelFunc // cancels stopCtx
+
+	// Count of successful live deletes whose pending_delete row could not be
+	// flipped to deleted. The intent row remains, which is the fail-open
+	// post-delete path (file is gone; history still exists).
+	auditPostDeleteFailures atomic.Uint64
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +142,7 @@ type ApprovalReturner interface {
 // ApprovalSnoozer allows the DeletionService to create snoozed entries in the
 // approval queue without importing ApprovalService directly.
 type ApprovalSnoozer interface {
-	CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, snoozeDurationHours int) (*time.Time, error)
+	CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, diskGroupID *uint, snoozeDurationHours int) (*time.Time, error)
 }
 
 // DiskGroupModeReader allows the DeletionService to look up the per-disk-group
@@ -164,6 +171,16 @@ type ClientResolver interface {
 // item enters queue → countdown expires → DeletionService deletes file → row removed.
 type SunsetQueueCleaner interface {
 	RemoveCompleted(id uint) error
+}
+
+// deletionAuditor is the audit-log surface used by live and dry-run deletes.
+// *AuditLogService implements it; tests inject a stub to simulate write failures.
+type deletionAuditor interface {
+	Create(entry db.AuditLogEntry) error
+	CreateIntent(entry db.AuditLogEntry) (uint, error)
+	MarkDeleted(id uint) error
+	UpsertDryRun(entry db.AuditLogEntry) error
+	BulkUpsertDryRun(entries []db.AuditLogEntry) error
 }
 
 // ---------------------------------------------------------------------------
@@ -201,6 +218,7 @@ func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *Deleti
 		stopCh:      make(chan struct{}),
 		stopCtx:     ctx,
 		stopCancel:  cancel,
+		inFlight:    make(map[string]deleteJob),
 	}
 }
 

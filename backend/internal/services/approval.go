@@ -332,9 +332,10 @@ func (s *ApprovalService) IsSnoozed(mediaName, mediaType string, diskGroupID ...
 	return count > 0
 }
 
-// ListSnoozedKeys returns the set of "mediaName|mediaType" keys that are
-// currently snoozed for the given disk group in a single query. The caller
-// can do O(1) map lookups instead of per-item IsSnoozed() DB queries.
+// ListSnoozedKeys returns the set of db.MediaKey keys that are currently
+// snoozed for the given disk group in a single query. Rows with a NULL
+// disk_group_id are treated as global snoozes and match every group.
+// The caller can do O(1) map lookups instead of per-item IsSnoozed() DB queries.
 func (s *ApprovalService) ListSnoozedKeys(diskGroupID uint) (map[string]bool, error) {
 	type row struct {
 		MediaName string
@@ -343,7 +344,7 @@ func (s *ApprovalService) ListSnoozedKeys(diskGroupID uint) (map[string]bool, er
 	var rows []row
 	err := s.db.Model(&db.ApprovalQueueItem{}).
 		Select("media_name, media_type").
-		Where("status = ? AND snoozed_until IS NOT NULL AND snoozed_until > ? AND disk_group_id = ?",
+		Where("status = ? AND snoozed_until IS NOT NULL AND snoozed_until > ? AND (disk_group_id = ? OR disk_group_id IS NULL)",
 			db.StatusRejected, time.Now().UTC(), diskGroupID).
 		Find(&rows).Error
 	if err != nil {
@@ -481,24 +482,52 @@ func (s *ApprovalService) ListQueue(status string, limit int, diskGroupID *uint)
 }
 
 // ExecuteApproval encapsulates the full approval workflow:
-// approve → look up integration → build client → reconstruct MediaItem →
-// parse score details → queue for deletion.
-// The caller must provide pre-validated DeletionService and IntegrationService references
-// via the ExecuteApprovalDeps argument.
+// load pending → queue for deletion → CAS pending→approved.
+// Enqueue happens first so a full deletion queue cannot leave an approved
+// ghost that never deletes. The caller must provide pre-validated
+// DeletionService and IntegrationService references via ExecuteApprovalDeps.
 func (s *ApprovalService) ExecuteApproval(entryID uint, deps ExecuteApprovalDeps) (*db.ApprovalQueueItem, error) {
-	// 1. Mark as approved via Approve (single fetch + status validation)
-	approved, err := s.Approve(entryID)
-	if err != nil {
-		return nil, err
+	var entry db.ApprovalQueueItem
+	if err := s.db.First(&entry, entryID).Error; err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrApprovalNotFound, err)
+	}
+	if entry.Status != db.StatusPending {
+		return nil, fmt.Errorf("%w (current: %s)", ErrApprovalNotPending, entry.Status)
 	}
 
-	// 2. Delegate to DeletionService intake layer — it handles client resolution,
-	// disk group mode lookup, dry-run determination, and enqueue.
-	if queueErr := deps.Deletion.QueueFromApproval(approved); queueErr != nil {
-		return approved, fmt.Errorf("failed to queue deletion: %w", queueErr)
+	// Queue while still pending. On failure the row stays pending for retry.
+	if queueErr := deps.Deletion.QueueFromApproval(&entry); queueErr != nil {
+		return &entry, fmt.Errorf("failed to queue deletion: %w", queueErr)
 	}
 
-	return approved, nil
+	now := time.Now().UTC()
+	result := s.db.Model(&db.ApprovalQueueItem{}).
+		Where("id = ? AND status = ?", entryID, db.StatusPending).
+		Updates(map[string]any{
+			"status":     db.StatusApproved,
+			"updated_at": now,
+		})
+	if result.Error != nil {
+		return &entry, fmt.Errorf("failed to approve entry: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		if err := s.db.First(&entry, entryID).Error; err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrApprovalNotFound, err)
+		}
+		return &entry, nil
+	}
+
+	s.bus.Publish(events.ApprovalApprovedEvent{
+		EntryID:   entry.ID,
+		MediaName: entry.MediaName,
+		MediaType: entry.MediaType,
+		SizeBytes: entry.SizeBytes,
+	})
+
+	if err := s.db.First(&entry, entryID).Error; err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrApprovalNotFound, err)
+	}
+	return &entry, nil
 }
 
 // ExecuteGroupApproval approves all pending items sharing a CollectionGroup.
@@ -692,19 +721,26 @@ func (s *ApprovalService) RemoveEntry(entryID uint) error {
 // CreateSnoozedEntry creates or updates an approval queue entry with
 // status=rejected and snoozed_until set to now + snoozeDurationHours.
 // If an entry for the same media already exists (any status), it is updated
-// to rejected with the new snooze time. Returns the snooze expiry time.
-func (s *ApprovalService) CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, snoozeDurationHours int) (*time.Time, error) {
+// to rejected with the new snooze time. When diskGroupID is non-nil it is
+// persisted (and written onto existing rows) so ListSnoozedKeys can scope
+// the snooze; a nil diskGroupID is stored as NULL and treated as global.
+// Returns the snooze expiry time.
+func (s *ApprovalService) CreateSnoozedEntry(mediaName, mediaType string, integrationID uint, diskGroupID *uint, snoozeDurationHours int) (*time.Time, error) {
 	snoozedUntil := time.Now().UTC().Add(time.Duration(snoozeDurationHours) * time.Hour)
 
 	var existing db.ApprovalQueueItem
 	err := s.db.Where("media_name = ? AND media_type = ?", mediaName, mediaType).First(&existing).Error
 	if err == nil {
 		// Entry exists — update to snoozed state
-		if err := s.db.Model(&existing).Updates(map[string]any{
+		updates := map[string]any{
 			"status":        db.StatusRejected,
 			"snoozed_until": snoozedUntil,
 			"updated_at":    time.Now().UTC(),
-		}).Error; err != nil {
+		}
+		if diskGroupID != nil {
+			updates["disk_group_id"] = *diskGroupID
+		}
+		if err := s.db.Model(&existing).Updates(updates).Error; err != nil {
 			return nil, fmt.Errorf("failed to update snoozed entry: %w", err)
 		}
 
@@ -723,6 +759,7 @@ func (s *ApprovalService) CreateSnoozedEntry(mediaName, mediaType string, integr
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		IntegrationID: integrationID,
+		DiskGroupID:   diskGroupID,
 		Status:        db.StatusRejected,
 		SnoozedUntil:  &snoozedUntil,
 	}

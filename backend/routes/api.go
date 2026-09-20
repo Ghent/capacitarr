@@ -2,6 +2,7 @@
 package routes
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -16,11 +17,24 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 	// Health check — returns basic health info including event bus diagnostics.
 	// The eventsDropped counter is a cumulative count of events that were dropped
 	// because a subscriber's buffer was full. A non-zero value may indicate a
-	// subscriber is processing events too slowly.
+	// subscriber is processing events too slowly. A failed database ping returns
+	// 503 so container HEALTHCHECKs fail closed.
 	g.GET("/health", func(c echo.Context) error {
+		dropped := reg.Bus.DroppedCount()
+		if err := reg.Settings.Ping(); err != nil {
+			slog.Error("Health check database ping failed", "component", "routes", "error", err)
+			return c.JSON(http.StatusServiceUnavailable, map[string]any{
+				"status":        "unhealthy",
+				"eventsDropped": dropped,
+			})
+		}
+		status := "ok"
+		if dropped > 0 {
+			status = "degraded"
+		}
 		return c.JSON(http.StatusOK, map[string]any{
-			"status":        "ok",
-			"eventsDropped": reg.Bus.DroppedCount(),
+			"status":        status,
+			"eventsDropped": dropped,
 		})
 	})
 

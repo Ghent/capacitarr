@@ -677,6 +677,7 @@ func (s *IntegrationService) GetWithOverrideState(id uint) (*IntegrationResponse
 	}
 
 	resp := &IntegrationResponse{IntegrationConfig: *cfg}
+	resp.APIKey = db.MaskAPIKey(resp.APIKey)
 	if cfg.Type == string(integrations.IntegrationTypeSonarr) && !cfg.ShowLevelOnly {
 		hasSunset, sunsetErr := s.diskGroups.HasSunsetModeForIntegration(id)
 		if sunsetErr == nil && hasSunset {
@@ -705,6 +706,7 @@ func (s *IntegrationService) ListWithOverrideState() ([]IntegrationResponse, err
 	result := make([]IntegrationResponse, len(configs))
 	for i, cfg := range configs {
 		result[i] = IntegrationResponse{IntegrationConfig: cfg}
+		result[i].APIKey = db.MaskAPIKey(result[i].APIKey)
 		if cfg.Type == string(integrations.IntegrationTypeSonarr) && !cfg.ShowLevelOnly && sunsetLinked[cfg.ID] {
 			result[i].ShowLevelOnlyOverride = true
 			result[i].ShowLevelOnlyOverrideReason = showLevelOverrideReason

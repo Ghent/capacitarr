@@ -114,6 +114,33 @@ func TestCreateIntegration_InvalidURL(t *testing.T) {
 	}
 }
 
+func TestTestIntegration_InvalidURL(t *testing.T) {
+	database := testutil.SetupTestDB(t)
+	e := testutil.SetupTestServer(t, database)
+
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{"ftp scheme", "ftp://example.com"},
+		{"no scheme", "just-a-host"},
+		{"file scheme", "file:///etc/passwd"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			body := fmt.Sprintf(`{"type":"sonarr","url":"%s","apiKey":"k"}`, tc.url)
+			req := testutil.AuthenticatedRequest(t, http.MethodPost, "/api/integrations/test", strings.NewReader(body))
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("Expected 400 for invalid URL %q, got %d: %s", tc.url, rec.Code, rec.Body.String())
+			}
+		})
+	}
+}
+
 func TestListIntegrations(t *testing.T) {
 	database := testutil.SetupTestDB(t)
 	e := testutil.SetupTestServer(t, database)

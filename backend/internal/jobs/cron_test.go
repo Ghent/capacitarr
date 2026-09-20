@@ -93,3 +93,10 @@ func TestStart_StopCleanly(t *testing.T) {
 	// Stopping should not panic
 	c.Stop()
 }
+
+func TestWrapJob_RecoversPanic(_ *testing.T) {
+	wrapped := wrapJob("test", func() {
+		panic("boom")
+	})
+	wrapped() // must not panic
+}

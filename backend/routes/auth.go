@@ -46,8 +46,7 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 			headerValue := strings.TrimSpace(c.Request().Header.Get(cfg.AuthHeader))
 			if headerValue == "" {
 				response["authHeaderWarning"] = "AUTH_HEADER is configured (" + cfg.AuthHeader + ") but no proxy header was detected in this request. " +
-					"If Capacitarr is not behind a reverse proxy that sets this header, any client can bypass authentication by spoofing the header. " +
-					"Either place Capacitarr behind a trusted reverse proxy or remove the AUTH_HEADER environment variable."
+					"Capacitarr only trusts this header from addresses in TRUSTED_PROXIES. Bind the server so only your reverse proxy can reach it, or remove AUTH_HEADER."
 			}
 		}
 
@@ -113,8 +112,35 @@ func RegisterAuthRoutes(public *echo.Group, protected *echo.Group, reg *services
 			SameSite: http.SameSiteLaxMode,
 		})
 
-		return c.JSON(http.StatusOK, map[string]string{"message": "success", "token": tokenString})
+		return c.JSON(http.StatusOK, map[string]string{"message": "success"})
 	}, IPRateLimit(loginRL))
+
+	// Logout is public so an expired JWT can still clear cookies. RequireAuth
+	// would 401 before the cookies could be invalidated.
+	public.POST("/auth/logout", func(c echo.Context) error {
+		expired := time.Unix(0, 0)
+		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep — Secure flag is conditionally set via cfg.SecureCookies for HTTPS deployments; not all self-hosted environments use HTTPS
+			Name:     "jwt",
+			Value:    "",
+			Expires:  expired,
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   cfg.SecureCookies,
+			Path:     cfg.BaseURL,
+			SameSite: http.SameSiteLaxMode,
+		})
+		c.SetCookie(&http.Cookie{ //nolint:gosec // nosemgrep — HttpOnly intentionally false: cookie contains no secrets (just "true"), allows SPA JavaScript auth state detection. Secure flag conditional via cfg.SecureCookies
+			Name:     "authenticated",
+			Value:    "",
+			Expires:  expired,
+			MaxAge:   -1,
+			HttpOnly: false,
+			Secure:   cfg.SecureCookies,
+			Path:     cfg.BaseURL,
+			SameSite: http.SameSiteLaxMode,
+		})
+		return c.JSON(http.StatusOK, map[string]string{"message": "success"})
+	})
 
 	// Password change — delegates to AuthService
 	protected.PUT("/auth/password", func(c echo.Context) error {

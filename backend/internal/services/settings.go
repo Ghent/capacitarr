@@ -37,6 +37,11 @@ func NewSettingsService(database *gorm.DB, bus *events.EventBus) *SettingsServic
 	return &SettingsService{db: database, bus: bus}
 }
 
+// Ping checks that the database is reachable. Used by GET /health.
+func (s *SettingsService) Ping() error {
+	return s.db.Exec("SELECT 1").Error
+}
+
 // Wired returns true when all lazily-injected dependencies are non-nil.
 // Used by Registry.Validate() to catch missing wiring at startup.
 func (s *SettingsService) Wired() bool {

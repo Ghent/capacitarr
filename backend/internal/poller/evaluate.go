@@ -111,12 +111,16 @@ func (p *Poller) evaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup, allI
 		integrationConfigCache: make(map[uint]*db.IntegrationConfig),
 	}
 
-	// Pre-fetch snoozed keys for O(1) lookup.
+	// Pre-fetch snoozed keys for O(1) lookup. Fail closed: a lookup error
+	// must not queue deletions that the user has snoozed.
 	snoozedKeys, snoozedErr := p.reg.Approval.ListSnoozedKeys(group.ID)
 	if snoozedErr != nil {
-		slog.Error("Failed to pre-fetch snoozed keys, falling back to empty set",
+		slog.Error("Failed to load snoozed keys, aborting disk-group evaluation",
 			"component", "poller", "mount", group.MountPath, "error", snoozedErr)
-		snoozedKeys = make(map[string]bool)
+		p.reg.Bus.Publish(events.EngineErrorEvent{
+			Error: fmt.Sprintf("failed to load snoozed keys for %s: %v", group.MountPath, snoozedErr),
+		})
+		return 0
 	}
 	ectx.snoozedKeys = snoozedKeys
 
@@ -598,6 +602,19 @@ func (p *Poller) evaluateSunsetMode(acc *RunAccumulator, group db.DiskGroup, all
 		Mapping:       p.reg.Mapping,
 	}
 
+	// Fail closed: without a reliable snooze set we must not queue new
+	// sunset items or escalate existing ones (escalation would delete
+	// media the user may have snoozed after it entered the sunset queue).
+	snoozedKeys, snoozedErr := p.reg.Approval.ListSnoozedKeys(group.ID)
+	if snoozedErr != nil {
+		slog.Error("Failed to load snoozed keys, aborting sunset evaluation",
+			"component", "poller", "mount", group.MountPath, "error", snoozedErr)
+		p.reg.Bus.Publish(events.EngineErrorEvent{
+			Error: fmt.Sprintf("failed to load snoozed keys for %s: %v", group.MountPath, snoozedErr),
+		})
+		return 0
+	}
+
 	// Step 1: Queue items to sunset if sunsetPct is breached
 	if currentPct >= sunsetPct {
 		slog.Info("Sunset threshold breached, evaluating media for sunset queue", "component", "poller",
@@ -624,57 +641,61 @@ func (p *Poller) evaluateSunsetMode(acc *RunAccumulator, group db.DiskGroup, all
 		if targetBytesToFree > 0 {
 			candidates := evalResult.CandidatesForDeletion(targetBytesToFree)
 
-			// Pre-build set of already-sunsetted items for dedup
+			// Pre-build set of already-sunsetted items for dedup. On lookup
+			// failure we skip new queueing (cannot dedup) but still escalate.
 			sunsettedKeys, keysErr := p.reg.Sunset.ListSunsettedKeys(group.ID)
 			if keysErr != nil {
-				slog.Error("Failed to load sunsetted keys", "component", "poller", "error", keysErr)
-				sunsettedKeys = make(map[string]bool)
-			}
+				slog.Error("Failed to load sunsetted keys, skipping new sunset queueing",
+					"component", "poller", "mount", group.MountPath, "error", keysErr)
+			} else {
+				// Calculate sunset deletion date
+				deletionDate := time.Now().UTC().AddDate(0, 0, prefs.SunsetDays)
 
-			// Calculate sunset deletion date
-			deletionDate := time.Now().UTC().AddDate(0, 0, prefs.SunsetDays)
+				var sunsetItems []db.SunsetQueueItem
+				for _, candidate := range candidates {
+					key := db.MediaKey(candidate.Item.Title, string(candidate.Item.Type))
+					if sunsettedKeys[key] {
+						continue // Already in sunset queue
+					}
+					if snoozedKeys[key] {
+						continue // User snoozed this item
+					}
 
-			var sunsetItems []db.SunsetQueueItem
-			for _, candidate := range candidates {
-				key := candidate.Item.Title + "|" + string(candidate.Item.Type)
-				if sunsettedKeys[key] {
-					continue // Already in sunset queue
+					factorsJSON, marshalErr := json.Marshal(candidate.Factors)
+					if marshalErr != nil {
+						slog.Error("Failed to marshal sunset candidate factors", "component", "poller",
+							"mediaName", candidate.Item.Title, "error", marshalErr)
+						continue
+					}
+					sunsetItems = append(sunsetItems, db.SunsetQueueItem{
+						MediaName:       candidate.Item.Title,
+						MediaType:       string(candidate.Item.Type),
+						TmdbID:          &candidate.Item.TMDbID,
+						IntegrationID:   candidate.Item.IntegrationID,
+						ExternalID:      candidate.Item.ExternalID,
+						SizeBytes:       candidate.Item.SizeBytes,
+						Score:           candidate.Score,
+						ScoreDetails:    string(factorsJSON),
+						PosterURL:       candidate.Item.PosterURL,
+						DiskGroupID:     group.ID,
+						CollectionGroup: "", // Collection groups are handled by approval/auto mode expansion; sunset evaluates items individually
+						Trigger:         db.TriggerEngine,
+						DeletionDate:    deletionDate,
+					})
 				}
 
-				factorsJSON, marshalErr := json.Marshal(candidate.Factors)
-				if marshalErr != nil {
-					slog.Error("Failed to marshal sunset candidate factors", "component", "poller",
-						"mediaName", candidate.Item.Title, "error", marshalErr)
-					continue
-				}
-				sunsetItems = append(sunsetItems, db.SunsetQueueItem{
-					MediaName:       candidate.Item.Title,
-					MediaType:       string(candidate.Item.Type),
-					TmdbID:          &candidate.Item.TMDbID,
-					IntegrationID:   candidate.Item.IntegrationID,
-					ExternalID:      candidate.Item.ExternalID,
-					SizeBytes:       candidate.Item.SizeBytes,
-					Score:           candidate.Score,
-					ScoreDetails:    string(factorsJSON),
-					PosterURL:       candidate.Item.PosterURL,
-					DiskGroupID:     group.ID,
-					CollectionGroup: "", // Collection groups are handled by approval/auto mode expansion; sunset evaluates items individually
-					Trigger:         db.TriggerEngine,
-					DeletionDate:    deletionDate,
-				})
-			}
-
-			if len(sunsetItems) > 0 {
-				created, err := p.reg.Sunset.BulkQueueSunset(sunsetItems, sunsetDeps)
-				if err != nil {
-					slog.Error("Failed to queue sunset items", "component", "poller",
-						"mount", group.MountPath, "error", err)
-				} else {
-					slog.Info("Sunset items queued", "component", "poller",
-						"mount", group.MountPath, "count", created,
-						"deletionDate", deletionDate.Format("2006-01-02"))
-					groupAcc.Candidates += int64(created)
-					groupAcc.SunsetQueued += created
+				if len(sunsetItems) > 0 {
+					created, err := p.reg.Sunset.BulkQueueSunset(sunsetItems, sunsetDeps)
+					if err != nil {
+						slog.Error("Failed to queue sunset items", "component", "poller",
+							"mount", group.MountPath, "error", err)
+					} else {
+						slog.Info("Sunset items queued", "component", "poller",
+							"mount", group.MountPath, "count", created,
+							"deletionDate", deletionDate.Format("2006-01-02"))
+						groupAcc.Candidates += int64(created)
+						groupAcc.SunsetQueued += created
+					}
 				}
 			}
 		}

@@ -12,6 +12,7 @@
 | `CORS_ORIGINS` | (none) | Comma-separated CORS origins (e.g. `http://localhost:3000`) |
 | `DEBUG` | `false` | Enable debug logging |
 | `AUTH_HEADER` | (none) | Trusted reverse proxy authentication header name |
+| `TRUSTED_PROXIES` | (none) | Comma-separated proxy IPs/CIDRs allowed to send `AUTH_HEADER` |
 | `PUID` | `1000` | User ID for the container process (Docker only) |
 | `PGID` | `1000` | Group ID for the container process (Docker only) |
 
@@ -186,18 +187,21 @@ Set `AUTH_HEADER` to the name of the header your auth proxy sets:
 services:
   capacitarr:
     image: ghcr.io/ghent/capacitarr:stable
+    ports:
+      - "127.0.0.1:2187:2187"
     environment:
       - AUTH_HEADER=Remote-User
+      - TRUSTED_PROXIES=127.0.0.1
       - JWT_SECRET=your-secret-here
 ```
 
 **How it works:**
-1. When `AUTH_HEADER` is set and the configured header is present in a request, Capacitarr trusts the header value as the authenticated username
-2. If the user doesn't exist in the database, Capacitarr auto-creates a user record
-3. JWT validation is skipped entirely for requests with the trusted header
-4. Built-in JWT authentication continues to work as a fallback
+1. When `AUTH_HEADER` is set, the header is trusted only if `RemoteAddr` is in `TRUSTED_PROXIES`
+2. If the user doesn't exist in the database, Capacitarr auto-creates a user record (trusted proxy only)
+3. A spoofed header from an untrusted address is ignored; JWT and API key auth still work
+4. Header-only requests from an untrusted address (or with empty `TRUSTED_PROXIES`) receive 401
 
-> **⚠️ Security:** Only enable `AUTH_HEADER` when Capacitarr is exclusively accessible through your auth proxy. If Capacitarr is also directly reachable, an attacker could forge the header and bypass authentication.
+> **⚠️ Security:** `AUTH_HEADER` without `TRUSTED_PROXIES` does not authenticate anyone. Bind Capacitarr to localhost (`127.0.0.1:2187:2187`) so only the reverse proxy can connect.
 
 ---
 

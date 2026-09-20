@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path"
@@ -167,6 +168,21 @@ func generateRequestID() string {
 	return fmt.Sprintf("%x", b)
 }
 
+// redactRequestURI replaces apikey query values so request logs cannot leak
+// integration credentials passed as ?apikey=. Other query params are kept.
+func redactRequestURI(uri string) string {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return uri
+	}
+	q := u.Query()
+	if q.Has("apikey") {
+		q.Set("apikey", "[redacted]")
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
+}
+
 // Build-time injected via -ldflags
 var (
 	version   = "dev"
@@ -193,7 +209,13 @@ func main() {
 		slog.Info("CORS origins configured", "component", "main", "origins", cfg.CORSOrigins)
 	}
 	if cfg.AuthHeader != "" {
-		slog.Info("Reverse proxy auth header enabled", "component", "main", "header", cfg.AuthHeader)
+		if len(cfg.TrustedProxyNets) == 0 {
+			slog.Warn("Reverse proxy auth header enabled but TRUSTED_PROXIES is empty — header authentication is ignored",
+				"component", "main", "header", cfg.AuthHeader)
+		} else {
+			slog.Info("Reverse proxy auth header enabled",
+				"component", "main", "header", cfg.AuthHeader, "trustedProxies", cfg.TrustedProxies)
+		}
 	}
 
 	// ─── Pre-init: detect and handle 1.x legacy database ───────────────────
@@ -402,7 +424,7 @@ func main() {
 			slog.Info("request",
 				"component", "middleware",
 				"method", v.Method,
-				"uri", v.URI,
+				"uri", redactRequestURI(v.URI),
 				"status", v.Status,
 				"requestId", reqID,
 			)

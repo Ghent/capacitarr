@@ -61,7 +61,9 @@ func (s *NotificationChannelService) Update(id uint, config db.NotificationConfi
 
 // PartialUpdate merges the provided fields into the existing notification channel
 // and saves the result. Empty Name and Type are treated as "not provided" (keep existing).
-// All other fields are always applied from req (they have meaningful zero values).
+// Empty or masked WebhookURL values are ignored so a round-trip save of a masked
+// URL cannot clobber the stored secret. All other fields are always applied from
+// req (they have meaningful zero values).
 func (s *NotificationChannelService) PartialUpdate(id uint, req db.NotificationConfig) (*db.NotificationConfig, error) {
 	existing, err := s.GetByID(id)
 	if err != nil {
@@ -77,7 +79,9 @@ func (s *NotificationChannelService) PartialUpdate(id uint, req db.NotificationC
 	}
 
 	// These fields always apply (zero values are meaningful)
-	existing.WebhookURL = req.WebhookURL
+	if req.WebhookURL != "" && !db.IsMaskedKey(req.WebhookURL) {
+		existing.WebhookURL = req.WebhookURL
+	}
 	existing.AppriseTags = req.AppriseTags
 	existing.Enabled = req.Enabled
 	existing.NotificationLevel = req.NotificationLevel

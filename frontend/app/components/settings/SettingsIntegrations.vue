@@ -96,11 +96,7 @@
             class="font-mono text-xs truncate max-w-[180px] inline-block align-bottom"
             :title="integration.apiKey"
           >
-            {{
-              integration.apiKey.length > 16
-                ? integration.apiKey.slice(0, 8) + '••••' + integration.apiKey.slice(-4)
-                : integration.apiKey
-            }}
+            {{ formatApiKeyForDisplay(integration.apiKey) }}
           </span>
         </div>
         <div v-if="integration.lastSync" class="flex items-center gap-2">
@@ -269,7 +265,7 @@
           <UiLabel>{{ formState.type === 'plex' ? 'Plex Token' : 'API Key' }}</UiLabel>
           <UiInput
             v-model="formState.apiKey"
-            :type="editingIntegration && formState.apiKey.includes('•') ? 'text' : 'password'"
+            :type="editingIntegration && isMaskedApiKey(formState.apiKey) ? 'text' : 'password'"
             :placeholder="
               editingIntegration
                 ? 'Enter new API key to change, or leave as-is'
@@ -484,6 +480,7 @@ import {
   urlHelpTexts,
 } from '~/utils/integrationHelpers';
 import { toast } from 'vue-sonner';
+import { formatApiKeyForDisplay, isMaskedApiKey } from '~/utils/apiKeyDisplay';
 
 const api = useApi();
 const { t } = useI18n();
@@ -680,7 +677,7 @@ function openAddModal() {
 }
 
 function onApiKeyFocus() {
-  if (formState.apiKey.includes('•')) formState.apiKey = '';
+  if (isMaskedApiKey(formState.apiKey)) formState.apiKey = '';
 }
 
 function openEditModal(integration: IntegrationConfig) {

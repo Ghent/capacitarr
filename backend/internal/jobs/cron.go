@@ -10,13 +10,29 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// recoverJob logs and swallows a panic from a cron callback so one job
+// cannot take down the scheduler.
+func recoverJob(name string) {
+	if rec := recover(); rec != nil {
+		slog.Error("Panic recovered in cron job", "component", "jobs", "job", name, "panic", rec)
+	}
+}
+
+// wrapJob returns fn wrapped with recoverJob so panics are isolated per job.
+func wrapJob(name string, fn func()) func() {
+	return func() {
+		defer recoverJob(name)
+		fn()
+	}
+}
+
 // Start creates and starts the background cron scheduler for time-series rollup and pruning jobs.
 func Start(reg *services.Registry) *cron.Cron {
 	c := cron.New()
 
 	// 1. Rollup "raw" to "hourly" every hour at minute 0.
 	// Uses persisted checkpoints so rollups are idempotent and delay-tolerant.
-	_, err := c.AddFunc("@hourly", func() {
+	_, err := c.AddFunc("@hourly", wrapJob("hourly_rollup", func() {
 		slog.Info("Running hourly rollup", "component", "jobs")
 		start := reg.Metrics.GetRollupCheckpoint("hourly")
 		end := time.Now().UTC().Truncate(time.Hour)
@@ -32,13 +48,13 @@ func Start(reg *services.Registry) *cron.Cron {
 		if _, pruneErr := reg.Metrics.PruneHistory("raw", time.Now().Add(-2*time.Hour)); pruneErr != nil {
 			slog.Error("Failed to prune raw history", "component", "jobs", "error", pruneErr)
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add hourly cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// 2. Rollup "hourly" to "daily" every day at midnight.
-	_, err = c.AddFunc("@daily", func() {
+	_, err = c.AddFunc("@daily", wrapJob("daily_rollup", func() {
 		slog.Info("Running daily rollup", "component", "jobs")
 		start := reg.Metrics.GetRollupCheckpoint("daily")
 		end := time.Now().UTC().Truncate(24 * time.Hour)
@@ -54,13 +70,13 @@ func Start(reg *services.Registry) *cron.Cron {
 		if _, pruneErr := reg.Metrics.PruneHistory("hourly", time.Now().Add(-7*24*time.Hour)); pruneErr != nil {
 			slog.Error("Failed to prune hourly history", "component", "jobs", "error", pruneErr)
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add daily cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// 3. Rollup "daily" to "weekly" every week on Sunday at midnight.
-	_, err = c.AddFunc("@weekly", func() {
+	_, err = c.AddFunc("@weekly", wrapJob("weekly_rollup", func() {
 		slog.Info("Running weekly rollup", "component", "jobs")
 		start := reg.Metrics.GetRollupCheckpoint("weekly")
 		end := time.Now().UTC().Truncate(24 * time.Hour)
@@ -76,48 +92,48 @@ func Start(reg *services.Registry) *cron.Cron {
 		if _, pruneErr := reg.Metrics.PruneHistory("daily", time.Now().Add(-30*24*time.Hour)); pruneErr != nil {
 			slog.Error("Failed to prune daily history", "component", "jobs", "error", pruneErr)
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add weekly cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// 4. Prune "weekly" data older than 1 year
-	_, err = c.AddFunc("@monthly", func() {
+	_, err = c.AddFunc("@monthly", wrapJob("monthly_prune", func() {
 		slog.Info("Running pruning of old data", "component", "jobs")
 		if _, pruneErr := reg.Metrics.PruneHistory("weekly", time.Now().Add(-365*24*time.Hour)); pruneErr != nil {
 			slog.Error("Failed to prune weekly history", "component", "jobs", "error", pruneErr)
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add monthly cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// 5. Prune old engine run stats — keep the last 1000 rows
-	_, err = c.AddFunc("@daily", func() {
+	_, err = c.AddFunc("@daily", wrapJob("engine_stats_prune", func() {
 		if deleted, pruneErr := reg.Engine.PruneOldStats(1000); pruneErr != nil {
 			slog.Error("Failed to prune engine run stats", "component", "jobs", "error", pruneErr)
 		} else if deleted > 0 {
 			slog.Info("Pruned old engine run stats", "component", "jobs", "deleted", deleted, "kept", 1000)
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add engine stats cleanup cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// 6. Prune old activity events — fixed 7-day retention
-	_, err = c.AddFunc("@daily", func() {
+	_, err = c.AddFunc("@daily", wrapJob("activity_prune", func() {
 		if deleted, pruneErr := reg.Settings.PruneOldActivities(7); pruneErr != nil {
 			slog.Error("Failed to prune activity events", "component", "jobs", "error", pruneErr)
 		} else if deleted > 0 {
 			slog.Info("Pruned old activity events", "component", "jobs", "deleted", deleted, "retention", "7 days")
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add activity events cleanup cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// 7. Prune old audit log entries — uses audit log retention setting
-	_, err = c.AddFunc("@daily", func() {
+	_, err = c.AddFunc("@daily", wrapJob("audit_log_prune", func() {
 		prefs, prefsErr := reg.Settings.GetPreferences()
 		if prefsErr != nil {
 			slog.Error("Failed to fetch preferences for audit log cleanup", "component", "jobs", "error", prefsErr)
@@ -128,23 +144,23 @@ func Start(reg *services.Registry) *cron.Cron {
 		} else if deleted > 0 {
 			slog.Info("Pruned old audit log entries", "component", "jobs", "deleted", deleted, "retentionDays", prefs.AuditLogRetentionDays)
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add audit log cleanup cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// Job 8: Daily database backup — VACUUM INTO with rotation
-	_, err = c.AddFunc("@daily", func() {
+	_, err = c.AddFunc("@daily", wrapJob("database_backup", func() {
 		if backupErr := reg.DatabaseBackup.RunScheduledBackup(); backupErr != nil {
 			slog.Error("Scheduled database backup failed", "component", "jobs", "error", backupErr)
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add database backup cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}
 
 	// Job 9: Daily sunset processing — expire countdowns, rescore, cleanup saved, update poster overlays.
-	_, err = c.AddFunc("@daily", func() {
+	_, err = c.AddFunc("@daily", wrapJob("sunset", func() {
 		// Build integration registry for label/poster operations
 		registry, registryErr := reg.Integration.BuildIntegrationRegistry()
 		if registryErr != nil {
@@ -219,7 +235,7 @@ func Start(reg *services.Registry) *cron.Cron {
 					"component", "jobs", "removed", cleaned)
 			}
 		}
-	})
+	}))
 	if err != nil {
 		slog.Error("Failed to add sunset expiry cron", "component", "jobs", "operation", "add_cron", "error", err)
 	}

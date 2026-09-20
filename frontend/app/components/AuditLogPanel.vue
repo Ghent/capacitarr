@@ -375,10 +375,11 @@ const selectedItem = ref<SelectedDetailItem | null>(null);
 const auditSearch = ref('');
 const auditActionFilter = ref<string | null>(null);
 // Action values must match the backend db.Action* constants exactly
-// (deleted, dry_delete, cancelled) — sent as ?action= query param.
+// (deleted, dry_delete, cancelled, pending_delete) — sent as ?action= query param.
 const auditActionTypes = [
   { value: 'deleted', label: 'Deleted' },
   { value: 'dry_delete', label: 'Dry-Delete' },
+  { value: 'pending_delete', label: 'Pending' },
 ] as const;
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -586,6 +587,7 @@ function extractSeasonLabel(mediaName: string): string {
 function actionBadgeVariant(action: string): 'destructive' | 'outline' | 'secondary' | 'default' {
   if (action === 'deleted') return 'destructive';
   if (action === 'dry_delete') return 'outline';
+  if (action === 'pending_delete') return 'secondary';
   return 'default';
 }
 
@@ -598,6 +600,8 @@ function actionLabel(action: string): string {
       return 'Dry-Delete';
     case 'cancelled':
       return 'Cancelled';
+    case 'pending_delete':
+      return 'Pending';
     default:
       return action;
   }

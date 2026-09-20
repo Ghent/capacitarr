@@ -25,6 +25,16 @@ func TestSettingsService_GetPreferences(t *testing.T) {
 	}
 }
 
+func TestSettingsService_Ping(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewSettingsService(database, bus)
+
+	if err := svc.Ping(); err != nil {
+		t.Fatalf("Ping returned error: %v", err)
+	}
+}
+
 func TestSettingsService_UpdatePreferences(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

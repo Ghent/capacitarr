@@ -335,6 +335,7 @@ import {
   PawPrintIcon,
   ExternalLinkIcon,
 } from 'lucide-vue-next';
+import { logoutSession } from '~/utils/sessionLogout';
 import type { ThemeMeta } from '~/composables/useTheme';
 
 const { slideUpFromBottom } = useMotionPresets();
@@ -350,12 +351,18 @@ const { uiVersion, apiVersion, updateAvailable, latestVersion, releaseUrl, check
 
 const router = useRouter();
 const authenticated = useAuthCookie();
+const runtimeConfig = useRuntimeConfig();
 
 const { locale, locales, setLocale } = useI18n();
 
-function logout() {
+async function logout() {
+  try {
+    await logoutSession(runtimeConfig.public.apiBaseUrl);
+  } catch {
+    // Best-effort: still clear local cookie even if the request fails.
+  }
   authenticated.value = null;
-  router.push('/login');
+  await router.push('/login');
 }
 
 /** Return the actual primary color for the theme swatch */

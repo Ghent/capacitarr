@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"capacitarr/internal/db"
@@ -68,15 +70,19 @@ type GroupAccumulator struct {
 // Poller orchestrates periodic media library polling and capacity evaluation.
 // All state is on the struct — no package-level globals.
 type Poller struct {
-	reg  *services.Registry
-	done chan struct{}
+	reg      *services.Registry
+	done     chan struct{}
+	stopped  chan struct{}
+	started  atomic.Bool
+	stopOnce sync.Once
 }
 
 // New creates a new Poller bound to the given service registry.
 func New(reg *services.Registry) *Poller {
 	return &Poller{
-		reg:  reg,
-		done: make(chan struct{}),
+		reg:     reg,
+		done:    make(chan struct{}),
+		stopped: make(chan struct{}),
 	}
 }
 
@@ -86,9 +92,14 @@ func New(reg *services.Registry) *Poller {
 //   - ManualRunTriggeredEvent: immediate engine run (replaces the old RunNowCh)
 //   - SettingsChangedEvent: reset the poll timer to pick up interval changes
 func (p *Poller) Start() {
+	if !p.started.CompareAndSwap(false, true) {
+		return
+	}
+
 	busCh := p.reg.Bus.Subscribe()
 
 	go func() {
+		defer close(p.stopped)
 		defer p.reg.Bus.Unsubscribe(busCh)
 
 		// Run immediately on startup so users see results without waiting
@@ -125,9 +136,15 @@ func (p *Poller) Start() {
 	}()
 }
 
-// Stop signals the poller goroutine to exit.
+// Stop signals the poller goroutine to exit and waits for it to finish.
+// Safe to call if Start was never invoked.
 func (p *Poller) Stop() {
-	close(p.done)
+	p.stopOnce.Do(func() {
+		close(p.done)
+	})
+	if p.started.Load() {
+		<-p.stopped
+	}
 }
 
 // getPollInterval reads PollIntervalSeconds from the database preference set.

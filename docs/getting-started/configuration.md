@@ -17,10 +17,11 @@ Capacitarr is configured entirely through environment variables. All variables a
 |----------|---------|----------|-------------|
 | `JWT_SECRET` | *(auto-generated)* | Recommended | Secret key for signing JWT authentication tokens. If not set, a random secret is generated at startup — sessions will not persist across container restarts. Set this for stable sessions. |
 | `SECURE_COOKIES` | `false` | No | Set to `true` when serving Capacitarr over HTTPS. Marks authentication cookies with the `Secure` flag so they are only sent over encrypted connections. |
-| `AUTH_HEADER` | *(none)* | No | Trusted reverse proxy authentication header name. When set, Capacitarr trusts this header for authentication instead of requiring JWT login. Common values: `Remote-User` (Authelia), `X-authentik-username` (Authentik), `X-WEBAUTH-USER` (Organizr). |
+| `AUTH_HEADER` | *(none)* | No | Trusted reverse proxy authentication header name. When set, Capacitarr trusts this header **only from addresses listed in `TRUSTED_PROXIES`**. Common values: `Remote-User` (Authelia), `X-authentik-username` (Authentik), `X-WEBAUTH-USER` (Organizr). |
+| `TRUSTED_PROXIES` | *(none)* | Required when `AUTH_HEADER` is set | Comma-separated IP addresses or CIDRs of reverse proxies allowed to send `AUTH_HEADER`. Bare IPv4 addresses are treated as `/32`. If empty, the proxy header is ignored (JWT and API key auth still work). Example: `127.0.0.1,10.0.0.0/8`. |
 
 !!! warning "AUTH_HEADER Security"
-    Only enable `AUTH_HEADER` when Capacitarr is **exclusively** accessible through your reverse proxy. If the server is directly reachable, any client can forge this header and bypass authentication entirely.
+    Set `TRUSTED_PROXIES` to your reverse proxy's address and bind Capacitarr so clients cannot reach it except through that proxy (for example `127.0.0.1:2187:2187` in Compose). A request that only spoofs `AUTH_HEADER` from an untrusted IP is rejected.
 
 ## CORS
 
@@ -97,7 +98,15 @@ When using Authelia, Authentik, or Organizr for authentication:
 ```yaml
 environment:
   - AUTH_HEADER=Remote-User
+  - TRUSTED_PROXIES=127.0.0.1
   - JWT_SECRET=change-me-to-a-random-string
+```
+
+When using proxy authentication, publish the HTTP port only on localhost so untrusted clients cannot reach Capacitarr directly:
+
+```yaml
+ports:
+  - "127.0.0.1:2187:2187"
 ```
 
 See the [Deployment Guide](deployment.md#proxy-authentication-authelia--authentik--organizr) for details on proxy authentication setup.
