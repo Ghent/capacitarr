@@ -223,7 +223,7 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 - Shipped Docker images contain patched dependency versions, not just silenced findings
 - The security posture is not weakened by `allow_failure` or audit `--ignore` flags
 
-**Current overrides** (as of 2026-04-05):
+**Current overrides** (as of 2026-09-20):
 
 | Package | Override | Advisory | Severity | Upstream Dep |
 |---------|----------|----------|----------|--------------|
@@ -231,16 +231,16 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 | `picomatch` | `2.3.2` (for <2.3.2) / `4.0.4` (for >=4.0.0 <4.0.4) | [GHSA-c2c7-rcm5-vvqj](https://github.com/advisories/GHSA-c2c7-rcm5-vvqj), [GHSA-3v7f-55p6-f55p](https://github.com/advisories/GHSA-3v7f-55p6-f55p) | High / Moderate | `@vite-pwa/nuxt > workbox-build > @rollup/pluginutils`, `nuxt > unstorage > anymatch` |
 | `rollup` | `>=4.59.0` | [GHSA-mw96-cpmx-2vgc](https://github.com/advisories/GHSA-mw96-cpmx-2vgc) | High | `nuxt > vite` |
 | `serialize-javascript` | `>=7.0.5` | [GHSA-5c6j-r48x-rmvq](https://github.com/advisories/GHSA-5c6j-r48x-rmvq), [GHSA-qj8w-gfj5-8c6v](https://github.com/advisories/GHSA-qj8w-gfj5-8c6v) | Moderate | `@vite-pwa/nuxt > vite-plugin-pwa > workbox-build > @rollup/plugin-terser` |
-| `svgo` | `>=4.0.1` | [GHSA-xpqw-6gx7-v673](https://github.com/advisories/GHSA-xpqw-6gx7-v673) | High | `nuxt > @nuxt/vite-builder > cssnano > postcss-svgo` |
+| `svgo` | `>=4.1.0` | [GHSA-xpqw-6gx7-v673](https://github.com/advisories/GHSA-xpqw-6gx7-v673), [GHSA-2p49-hgcm-8545](https://github.com/advisories/GHSA-2p49-hgcm-8545), [GHSA-w27v-7q3p-w38r](https://github.com/advisories/GHSA-w27v-7q3p-w38r) | High | `nuxt > @nuxt/vite-builder > cssnano > postcss-svgo` |
 | `simple-git` | `>=3.32.3` | [GHSA-r275-fr43-pm7q](https://github.com/advisories/GHSA-r275-fr43-pm7q) | Critical | `nuxt > @nuxt/devtools` |
-| `tar` | `>=7.5.11` | [GHSA-9ppj-qmqm-q256](https://github.com/advisories/GHSA-9ppj-qmqm-q256) | High | `nuxt > nitropack > @vercel/nft > @mapbox/node-pre-gyp` |
+| `tar` | `>=7.5.21` | [GHSA-9ppj-qmqm-q256](https://github.com/advisories/GHSA-9ppj-qmqm-q256), [GHSA-23hp-3jrh-7fpw](https://github.com/advisories/GHSA-23hp-3jrh-7fpw) | Critical / High | `nuxt > nitropack > @vercel/nft > @mapbox/node-pre-gyp` |
 | `flatted` | `>=3.4.2` | [GHSA-25h7-pfq9-p65f](https://github.com/advisories/GHSA-25h7-pfq9-p65f) | High | `eslint > file-entry-cache > flat-cache` |
-| `devalue` | `>=5.6.4` | [GHSA-cfw5-2vxh-hr84](https://github.com/advisories/GHSA-cfw5-2vxh-hr84), [GHSA-mwv9-gp5h-frr4](https://github.com/advisories/GHSA-mwv9-gp5h-frr4) | Moderate / Low | `nuxt` |
+| `devalue` | `>=5.9.2` | [GHSA-cfw5-2vxh-hr84](https://github.com/advisories/GHSA-cfw5-2vxh-hr84), [GHSA-9rgm-9g3h-6x36](https://github.com/advisories/GHSA-9rgm-9g3h-6x36) | High / Moderate | `nuxt` |
 | `unhead` | `>=2.1.11` | [GHSA-g5xx-pwrp-g3fv](https://github.com/advisories/GHSA-g5xx-pwrp-g3fv), [GHSA-5339-hvwr-7582](https://github.com/advisories/GHSA-5339-hvwr-7582) | Moderate / Low | `nuxt > @unhead/vue` |
 | `h3` | `>=1.15.9` | [GHSA-22cc-p3c6-wpvm](https://github.com/advisories/GHSA-22cc-p3c6-wpvm), [GHSA-wr4h-v87w-p3r7](https://github.com/advisories/GHSA-wr4h-v87w-p3r7), [GHSA-72gr-qfp7-vwhw](https://github.com/advisories/GHSA-72gr-qfp7-vwhw), [GHSA-4hxc-9384-m385](https://github.com/advisories/GHSA-4hxc-9384-m385) | High / Moderate | `nuxt > nitropack > h3` |
 | `yaml` | `>=2.8.3` | [GHSA-48c2-rrv3-qjmp](https://github.com/advisories/GHSA-48c2-rrv3-qjmp) | Moderate | `@nuxt/eslint > @nuxt/devtools-kit > vite > yaml` |
 | `srvx` | `>=0.11.13` | [GHSA-p36q-q72m-gchr](https://github.com/advisories/GHSA-p36q-q72m-gchr) | Moderate | `nuxt > nitropack > srvx` |
-| `brace-expansion` | `>=5.0.5` (for <5.0.5) / `>=2.0.3` (for >=2.0.0 <2.0.3) | [GHSA-f886-m6hf-6m8v](https://github.com/advisories/GHSA-f886-m6hf-6m8v) | Moderate | `nuxt > nitropack > @vercel/nft > glob > brace-expansion` |
+| `brace-expansion` | `>=5.0.9` (for >=3.0.0) / `>=2.0.3` (for >=2.0.0 <2.0.3) | [GHSA-f886-m6hf-6m8v](https://github.com/advisories/GHSA-f886-m6hf-6m8v), [GHSA-3jxr-9vmj-r5cp](https://github.com/advisories/GHSA-3jxr-9vmj-r5cp), [GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg) | High / Moderate | `nuxt > nitropack > @vercel/nft > glob > brace-expansion` |
 | `brace-expansion` (`site/`) | `>=5.0.6` (for >=5.0.0 <5.0.6) | [GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2) | Moderate | `@nuxt/content > minimatch > brace-expansion` |
 | `postcss` (`site/`) | `>=8.5.10` (for <8.5.10) | [GHSA-qx2v-qp2m-jg93](https://github.com/advisories/GHSA-qx2v-qp2m-jg93) | Moderate | `nuxt > @nuxt/vite-builder > postcss` |
 | `ws` (`site/`) | `>=8.20.1` (for >=8.0.0 <8.20.1) | [GHSA-58qx-3vcg-4xpx](https://github.com/advisories/GHSA-58qx-3vcg-4xpx) | Moderate | `@nuxt/content > socket.io-client > engine.io-client > ws` |
@@ -249,6 +249,20 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 | `lodash-es` | `>=4.18.0` | [GHSA-r5fr-rjxr-66jc](https://github.com/advisories/GHSA-r5fr-rjxr-66jc), [GHSA-f23m-r3pf-42rh](https://github.com/advisories/GHSA-f23m-r3pf-42rh) | High / Moderate | `@vite-pwa/nuxt > workbox-build` (ESM variant of lodash) |
 | `defu` | `>=6.1.5` | [GHSA-737v-mqg7-c878](https://github.com/advisories/GHSA-737v-mqg7-c878) | High | `nuxt > nitropack`, `nuxt > c12`, `nuxt > @nuxt/kit` (UnJS config defaults utility) |
 | `socket.io-parser` | `>=4.2.6` | [GHSA-677m-j7p3-52f9](https://github.com/advisories/GHSA-677m-j7p3-52f9) | High | `nuxt > @nuxt/devtools > socket.io` |
+| `@nuxt/devtools` | `>=3.3.1` | [GHSA-279x-mwfv-vcqv](https://github.com/advisories/GHSA-279x-mwfv-vcqv) | Critical | `nuxt > @nuxt/devtools` |
+| `@vitest/mocker` | `>=4.1.11` | [GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9) | High | `vitest` |
+| `@humanfs/node` | `>=0.16.8` | [GHSA-p498-v437-472g](https://github.com/advisories/GHSA-p498-v437-472g) | High | `eslint` |
+| `baseline-browser-mapping` | `>=2.11.0` | [GHSA-w5vr-8v7q-w6rv](https://github.com/advisories/GHSA-w5vr-8v7q-w6rv) | High | `browserslist` |
+| `browserslist` | `>=4.28.7` | [GHSA-c83g-rgw3-j3cx](https://github.com/advisories/GHSA-c83g-rgw3-j3cx), [GHSA-73wf-gq98-2v4g](https://github.com/advisories/GHSA-73wf-gq98-2v4g) | High | `autoprefixer` / `caniuse-lite` |
+| `esbuild` | `>=0.28.1` (for >=0.27.3 <0.28.1) | [GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr) | High | `vite` / `nuxt` |
+| `fast-uri` | `>=3.1.6` | [GHSA-v2hh-gcrm-f6hx](https://github.com/advisories/GHSA-v2hh-gcrm-f6hx), [GHSA-f65p-4m7j-42xc](https://github.com/advisories/GHSA-f65p-4m7j-42xc) | High | `ajv` |
+| `js-yaml` | `4.3.2` / `3.15.2` (per-major, pinned) | [GHSA-52cp-r559-cp3m](https://github.com/advisories/GHSA-52cp-r559-cp3m), [GHSA-5p4m-2wfm-xmqj](https://github.com/advisories/GHSA-5p4m-2wfm-xmqj) | High | `gray-matter`, `@nuxt/eslint` |
+| `launch-editor` | `>=2.14.1` | [GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3) | Moderate | `nuxt > launch-editor` |
+| `nanoid` | `>=3.3.18` (for 3.x) | [GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv), [GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8) | High | `postcss` |
+| `postcss` | `>=8.5.23` | [GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849), [GHSA-fxqj-rqcc-2cmp](https://github.com/advisories/GHSA-fxqj-rqcc-2cmp) | High | `nuxt > @nuxt/vite-builder > postcss` |
+| `postcss-selector-parser` | `>=7.1.3` | [GHSA-w9m9-85wc-3x92](https://github.com/advisories/GHSA-w9m9-85wc-3x92) | High | `postcss` |
+| `shell-quote` | `>=1.9.0` | [GHSA-395f-4hp3-45gv](https://github.com/advisories/GHSA-395f-4hp3-45gv) | High | `nuxt` |
+| `vite` | `>=8.0.16` / `>=7.3.5` (per-major) | [GHSA-fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff) | High | `nuxt > @nuxt/vite-builder > vite`, `vitest` |
 
 **When to remove overrides:** After upstream packages release versions that natively depend on the patched versions, `pnpm audit` will pass without overrides. At that point, remove the override entries and verify. Overrides that remain after upstream updates are harmless (they match or are lower than the naturally resolved version) but should be cleaned up for hygiene.
 
@@ -308,6 +322,7 @@ All Docker images used in CI pipelines and local `Makefile` targets are **pinned
 #### Pinning Policy
 
 - **No `:latest` tags:** Every Docker image reference in CI workflows and `Makefile` must use a specific version tag (e.g., `:0.69.3`, `:v2.11.4`, `:3.21`)
+- **GitHub Actions SHA pinning:** Every `uses:` step in `.github/workflows/` must pin the action to a full 40-character commit SHA (with the version tag in a trailing comment). Mutable tags such as `@v4` can be silently retargeted by the action owner.
 - **No curl-pipe-to-shell:** CI jobs must not download and execute scripts from external URLs at runtime. All tools must be consumed via their official Docker images
 - **Makefile ↔ CI parity:** Every tool version in CI workflows must match the corresponding version in the `Makefile`. Both files are updated together. Note: CI uses GitHub Actions (which install tool binaries directly), while the Makefile uses Docker images. Tool versions are kept in sync even though the delivery mechanism differs
 - **Digest pinning for runtime image:** The production Dockerfile runtime base image (`alpine`) is pinned to a specific SHA-256 digest for reproducible, auditable builds
@@ -318,7 +333,7 @@ Pinned Docker image versions are **re-evaluated on a regular basis** to pick up 
 
 1. Check each pinned image for newer stable releases
 2. Pull and test updated versions locally with `make ci`
-3. Update version tags in both `Makefile` and CI workflows
+3. Update version tags in both `Makefile` and CI workflows (and GitHub Action SHAs when bumping `uses:` steps)
 4. Update the Dockerfile runtime base image digest if a new Alpine patch is available
 5. Commit with `chore(deps): bump <tool> to v<version>`
 
@@ -336,7 +351,7 @@ Pinned Docker image versions are **re-evaluated on a regular basis** to pick up 
 | `ghcr.io/zaproxy/zaproxy` | `stable` | OWASP ZAP DAST scanning (see note below) |
 | `alpine` | `3.21` | Production runtime base image (digest-pinned in Dockerfile) |
 | `node` | `24-alpine` | Frontend build and test |
-| `golang` | `1.26.3-alpine` | Backend build and test |
+| `golang` | `1.26.8-alpine` | Backend build and test |
 | `pnpm` (CLI) | `10.32.1` | Node.js package manager (pinned in Makefile and Dockerfile) |
 
 > **Note on ZAP `:stable` tag:** The OWASP ZAP proxy image (`ghcr.io/zaproxy/zaproxy`) uses the `:stable` tag because ZAP does not publish individually versioned image tags. The `:stable` tag tracks the latest stable release. This is an accepted exception to the pinning policy — ZAP is used only for local DAST scanning (`make security:zap`), not in CI pipelines, so a compromised image cannot affect builds or releases.
