@@ -14,6 +14,10 @@ Releases are created when you push a `v*` tag to the repository. The CI pipeline
 4. **Pushes Docker images** — multi-arch images (`linux/amd64` + `linux/arm64`) to GHCR and Docker Hub
 5. **Sends release notification** — posts to Discord via webhook
 
+GoReleaser is configured with `prerelease: auto`. Tags with a SemVer pre-release suffix (`-rc.1`, `-beta`, `-alpha`) become GitHub pre-releases and are not marked Latest. Stable tags remain full releases.
+
+The Release workflow also uses a per-tag concurrency group (`release-${{ github.ref }}`, `cancel-in-progress: true`). A tag push can be delivered twice; without this, two workflows race and GoReleaser fails uploading assets that already exist.
+
 ### On Every Push and PR
 
 The standard CI pipeline runs on every push and pull request:

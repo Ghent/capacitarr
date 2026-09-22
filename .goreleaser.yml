@@ -62,6 +62,9 @@ release:
   github:
     owner: Ghent
     name: capacitarr
+  # SemVer pre-release tags (alpha/beta/rc) become GitHub pre-releases so
+  # they are not marked Latest. Stable tags remain full releases.
+  prerelease: auto
   # Release notes are provided by git-cliff via --release-notes in CI.
   # Do NOT set header/footer here — they override the --release-notes content.
   mode: replace
