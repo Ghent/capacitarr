@@ -1,3 +1,14 @@
+## [3.4.1-rc.1] - 2026-09-22
+
+### 🐛 Bug Fixes
+
+- *(deletion)* Stabilize cancel, snooze, and health/security quick wins ([d138eb5](https://github.com/Ghent/capacitarr/commit/d138eb560f11aff1bdfb3c3b24151c47ee3cd39b))
+- *(deletion)* Add phase 2 audit intent, CAS handoffs, and proxy auth ([e48035d](https://github.com/Ghent/capacitarr/commit/e48035d8dc3ddff6e7878fc5cce6800fb38fdbed))
+- *(ci)* Clear golangci-lint G706 and ESLint import/first failures ([8e34c8f](https://github.com/Ghent/capacitarr/commit/8e34c8f687d66ebcff2184045a95bc03bf722615))
+- *(security)* Resolve govulncheck, SCA, and Semgrep CI failures ([f246b25](https://github.com/Ghent/capacitarr/commit/f246b257ae1903f1c21dadb5dcde76e8a82ac35a))
+- *(deps)* Restore CI workflows and unblock the Docker image build ([1cf61f9](https://github.com/Ghent/capacitarr/commit/1cf61f945ba99ebac7a0d3164632650ddfd54d8d))
+- *(jellyfin)* Send MediaBrowser Authorization for Jellyfin 12 ([311c32b](https://github.com/Ghent/capacitarr/commit/311c32bd6722271c6a8a0d1852cf41d67924c3b3)) — reported by @coolhand72 ([#42](https://github.com/Ghent/capacitarr/issues/42))
+- *(health)* Track integrations enabled after startup ([a754382](https://github.com/Ghent/capacitarr/commit/a7543820a1b0cd7463c1d3b8b6c2fafdee7637a1)) — reported by @trevorswanson ([#41](https://github.com/Ghent/capacitarr/issues/41))
 ## [3.4.0] - 2026-06-01
 
 ### 🚀 Features
@@ -146,10 +157,14 @@
 
 ### 🐛 Bug Fixes
 
-- *(ci)* Use consistent DISCORD_WEBHOOK_URL env var name ([23aa85a](https://github.com/Ghent/capacitarr/commit/23aa85a8341258255e11c090354f0797a2596411))
-- Resolve snooze queue, batch progress, sparkline, and approval queue bugs ([f451886](https://github.com/Ghent/capacitarr/commit/f451886c661317f3480812fb85b892b2cce54975))
 - *(dashboard)* Wrap VChart sparklines in explicit height containers ([20468ae](https://github.com/Ghent/capacitarr/commit/20468ae5e19d9e3a2fde8280a567f8062f43b175))
 - *(announcements)* Correct GHCR registry URL typo ([e49682b](https://github.com/Ghent/capacitarr/commit/e49682b83d5c426e1eb993af4e5c9f4bd4ae800a))
+## [2.3.1-rc.1] - 2026-03-28
+
+### 🐛 Bug Fixes
+
+- *(ci)* Use consistent DISCORD_WEBHOOK_URL env var name ([23aa85a](https://github.com/Ghent/capacitarr/commit/23aa85a8341258255e11c090354f0797a2596411))
+- Resolve snooze queue, batch progress, sparkline, and approval queue bugs ([f451886](https://github.com/Ghent/capacitarr/commit/f451886c661317f3480812fb85b892b2cce54975))
 ## [2.3.0] - 2026-03-28
 
 ### 🚀 Features
