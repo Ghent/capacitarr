@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -440,6 +441,67 @@ func (h *IntegrationHealthService) reloadIntegration(id uint) {
 		LastError:           cfg.LastError,
 		ConsecutiveFailures: cfg.ConsecutiveFailures,
 		NextCheck:           time.Now().Add(healthCheckInterval),
+	}
+}
+
+// Refresh synchronizes one integration's in-memory health state after it is
+// created, updated, or deleted. Disabled or deleted integrations are removed
+// from the map; enabled ones are added or updated and made immediately
+// eligible for health checks and polling via HealthyIDs().
+//
+// The DB read and map replacement share one lock so concurrent create/update
+// calls cannot apply an older snapshot after a newer one (the race that left
+// newly enabled integrations absent from HealthyIDs() until restart).
+func (h *IntegrationHealthService) Refresh(id uint) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	cfg, err := h.integrationSvc.GetByID(id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			delete(h.states, id)
+			return
+		}
+		slog.Warn("Health: failed to refresh integration from DB",
+			"component", "health", "integrationID", id, "error", err)
+		return
+	}
+
+	if !cfg.Enabled {
+		delete(h.states, id)
+		return
+	}
+
+	now := time.Now()
+	if existing, ok := h.states[id]; ok {
+		existing.IntegrationType = cfg.Type
+		existing.Name = cfg.Name
+		existing.URL = cfg.URL
+		existing.APIKey = cfg.APIKey
+		// PartialUpdate clears LastError when config changes. Treat the
+		// integration as immediately eligible so the poller does not skip
+		// it until the next process restart.
+		if cfg.LastError == "" {
+			existing.Healthy = true
+			existing.LastError = ""
+			existing.ConsecutiveFailures = 0
+			existing.NotificationSent = false
+			existing.NextCheck = now
+		}
+		return
+	}
+
+	h.states[id] = &healthState{
+		IntegrationID:       cfg.ID,
+		IntegrationType:     cfg.Type,
+		Name:                cfg.Name,
+		URL:                 cfg.URL,
+		APIKey:              cfg.APIKey,
+		Healthy:             cfg.LastError == "",
+		LastError:           cfg.LastError,
+		ConsecutiveFailures: cfg.ConsecutiveFailures,
+		NextCheck:           now,
+		NotificationSent:    cfg.LastError != "" && cfg.ConsecutiveFailures >= connectionFailureThreshold,
 	}
 }
 
