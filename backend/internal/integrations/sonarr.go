@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -64,8 +65,62 @@ type sonarrSeason struct {
 // The dateAdded field represents when the episode file was actually imported/downloaded.
 type sonarrEpisodeFile struct {
 	ID           int    `json:"id"`
+	SeriesID     int    `json:"seriesId"`
 	SeasonNumber int    `json:"seasonNumber"`
 	DateAdded    string `json:"dateAdded"`
+}
+
+// sonarrSeasonDateIndex maps seriesID → seasonNumber → latest episodefile.dateAdded.
+type sonarrSeasonDateIndex map[int]map[int]time.Time
+
+func sonarrRecordFileDate(dst map[int]time.Time, f sonarrEpisodeFile) {
+	if f.DateAdded == "" {
+		return
+	}
+	t, err := time.Parse(time.RFC3339, f.DateAdded)
+	if err != nil {
+		return
+	}
+	if existing, ok := dst[f.SeasonNumber]; !ok || t.After(existing) {
+		dst[f.SeasonNumber] = t
+	}
+}
+
+func sonarrIndexEpisodeFiles(files []sonarrEpisodeFile) sonarrSeasonDateIndex {
+	index := make(sonarrSeasonDateIndex)
+	for _, f := range files {
+		seasons := index[f.SeriesID]
+		if seasons == nil {
+			seasons = make(map[int]time.Time)
+			index[f.SeriesID] = seasons
+		}
+		sonarrRecordFileDate(seasons, f)
+	}
+	return index
+}
+
+func sonarrParseEpisodeFiles(body []byte) ([]sonarrEpisodeFile, error) {
+	var files []sonarrEpisodeFile
+	if err := json.Unmarshal(body, &files); err != nil {
+		return nil, err
+	}
+	return files, nil
+}
+
+// sonarrFetchAllEpisodeFileDates fetches every episode file in one request
+// (GET /api/v3/episodefile with no seriesId) and groups max(dateAdded) by
+// seriesId + season. Some Sonarr builds reject the unfiltered list (400 unless
+// seriesId or episodeFileIds is set); callers must fall back per series.
+func sonarrFetchAllEpisodeFileDates(doRequest func(string) ([]byte, error)) (sonarrSeasonDateIndex, error) {
+	body, err := doRequest("/api/v3/episodefile")
+	if err != nil {
+		return nil, err
+	}
+	files, err := sonarrParseEpisodeFiles(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse episode files: %w", err)
+	}
+	return sonarrIndexEpisodeFiles(files), nil
 }
 
 // sonarrFetchEpisodeFileDates fetches episode files for a series and returns
@@ -79,24 +134,14 @@ func sonarrFetchEpisodeFileDates(doRequest func(string) ([]byte, error), seriesI
 		return nil // Non-fatal: fall back to show-level added date
 	}
 
-	var files []sonarrEpisodeFile
-	if err := json.Unmarshal(body, &files); err != nil {
+	files, err := sonarrParseEpisodeFiles(body)
+	if err != nil {
 		return nil
 	}
 
-	// Build map: seasonNumber → latest dateAdded in that season
 	seasonDates := make(map[int]time.Time)
 	for _, f := range files {
-		if f.DateAdded == "" {
-			continue
-		}
-		t, err := time.Parse(time.RFC3339, f.DateAdded)
-		if err != nil {
-			continue
-		}
-		if existing, ok := seasonDates[f.SeasonNumber]; !ok || t.After(existing) {
-			seasonDates[f.SeasonNumber] = t
-		}
+		sonarrRecordFileDate(seasonDates, f)
 	}
 	return seasonDates
 }
@@ -165,6 +210,32 @@ func (s *SonarrClient) GetMediaItems() ([]MediaItem, error) {
 	}
 
 	items := make([]MediaItem, 0, len(seriesList)*2)
+
+	// Prefer one GET /api/v3/episodefile for the whole library (O(1) HTTP)
+	// instead of one request per series. Fall back to per-series only if the
+	// bulk call fails — some Sonarr versions require seriesId.
+	var (
+		bulkDates    sonarrSeasonDateIndex
+		useBulkDates bool
+	)
+	needsFileDates := false
+	for _, show := range seriesList {
+		if show.Statistics.SizeOnDisk > 0 {
+			needsFileDates = true
+			break
+		}
+	}
+	if needsFileDates {
+		var bulkErr error
+		bulkDates, bulkErr = sonarrFetchAllEpisodeFileDates(s.doRequest)
+		if bulkErr != nil {
+			slog.Warn("Sonarr bulk episodefile fetch failed; falling back to per-series requests",
+				"component", "sonarr", "error", bulkErr)
+		} else {
+			useBulkDates = true
+		}
+	}
+
 	for _, show := range seriesList {
 		if show.Statistics.SizeOnDisk == 0 {
 			continue
@@ -172,10 +243,15 @@ func (s *SonarrClient) GetMediaItems() ([]MediaItem, error) {
 
 		tagNames := arrResolveTagNames(show.Tags, tagMap)
 
-		// Fetch per-season file dates for accurate "time in library" calculation.
-		// This uses episodefile.dateAdded (actual file import time) instead of
-		// series.added (entry creation time). Falls back gracefully on failure.
-		seasonDates := sonarrFetchEpisodeFileDates(s.doRequest, show.ID)
+		// Season AddedAt uses episodefile.dateAdded (file import time), not
+		// series.added (entry creation time). Falls back to series.added when
+		// a season has no file dates.
+		var seasonDates map[int]time.Time
+		if useBulkDates {
+			seasonDates = bulkDates[show.ID]
+		} else {
+			seasonDates = sonarrFetchEpisodeFileDates(s.doRequest, show.ID)
+		}
 
 		posterURL := arrExtractPosterURL(show.Images, s.URL)
 
