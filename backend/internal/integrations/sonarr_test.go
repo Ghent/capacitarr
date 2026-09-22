@@ -188,12 +188,14 @@ func TestSonarrClient_GetMediaItems(t *testing.T) {
 				t.Fatalf("Failed to encode response: %v", err)
 			}
 		case "/api/v3/episodefile":
-			// Return episode files with dateAdded for series 1
-			if r.URL.Query().Get("seriesId") == "1" {
+			// Bulk (no seriesId) and per-series both return series 1 files so
+			// AddedAt fixtures stay the same on either fetch path.
+			seriesID := r.URL.Query().Get("seriesId")
+			if seriesID == "" || seriesID == "1" {
 				resp := []sonarrEpisodeFile{
-					{ID: 101, SeasonNumber: 1, DateAdded: "2023-06-15T12:00:00Z"},
-					{ID: 102, SeasonNumber: 1, DateAdded: "2023-06-20T12:00:00Z"}, // Latest for S1
-					{ID: 103, SeasonNumber: 0, DateAdded: "2023-03-01T00:00:00Z"}, // Specials
+					{ID: 101, SeriesID: 1, SeasonNumber: 1, DateAdded: "2023-06-15T12:00:00Z"},
+					{ID: 102, SeriesID: 1, SeasonNumber: 1, DateAdded: "2023-06-20T12:00:00Z"}, // Latest for S1
+					{ID: 103, SeriesID: 1, SeasonNumber: 0, DateAdded: "2023-03-01T00:00:00Z"}, // Specials
 				}
 				if err := json.NewEncoder(w).Encode(resp); err != nil {
 					t.Fatalf("Failed to encode response: %v", err)
@@ -714,4 +716,283 @@ func TestSonarrFetchEpisodeFileDates(t *testing.T) {
 			t.Errorf("Expected season 2 Mar 5, got %v", d)
 		}
 	})
+}
+
+func TestSonarrIndexEpisodeFiles(t *testing.T) {
+	files := []sonarrEpisodeFile{
+		{ID: 1, SeriesID: 10, SeasonNumber: 1, DateAdded: "2024-01-10T00:00:00Z"},
+		{ID: 2, SeriesID: 10, SeasonNumber: 1, DateAdded: "2024-06-20T00:00:00Z"},
+		{ID: 3, SeriesID: 10, SeasonNumber: 2, DateAdded: "2024-03-05T00:00:00Z"},
+		{ID: 4, SeriesID: 20, SeasonNumber: 1, DateAdded: "2024-07-01T00:00:00Z"},
+		{ID: 5, SeriesID: 20, SeasonNumber: 1, DateAdded: ""},
+		{ID: 6, SeriesID: 20, SeasonNumber: 2, DateAdded: "not-a-date"},
+	}
+
+	index := sonarrIndexEpisodeFiles(files)
+	if len(index) != 2 {
+		t.Fatalf("Expected 2 series entries, got %d", len(index))
+	}
+	if d := index[10][1]; d.Month() != 6 || d.Day() != 20 {
+		t.Errorf("Expected series 10 season 1 Jun 20, got %v", d)
+	}
+	if d := index[10][2]; d.Month() != 3 || d.Day() != 5 {
+		t.Errorf("Expected series 10 season 2 Mar 5, got %v", d)
+	}
+	if d := index[20][1]; d.Month() != 7 || d.Day() != 1 {
+		t.Errorf("Expected series 20 season 1 Jul 1, got %v", d)
+	}
+	if _, ok := index[20][2]; ok {
+		t.Error("Expected unparseable dateAdded to be skipped")
+	}
+}
+
+func TestSonarrFetchAllEpisodeFileDates(t *testing.T) {
+	t.Run("returns error on API failure", func(t *testing.T) {
+		doRequest := func(endpoint string) ([]byte, error) {
+			if endpoint != "/api/v3/episodefile" {
+				t.Errorf("Expected bulk /api/v3/episodefile, got %s", endpoint)
+			}
+			return nil, fmt.Errorf("unexpected status: 400")
+		}
+		_, err := sonarrFetchAllEpisodeFileDates(doRequest)
+		if err == nil {
+			t.Fatal("Expected error on API failure")
+		}
+	})
+
+	t.Run("returns error on malformed JSON", func(t *testing.T) {
+		doRequest := func(_ string) ([]byte, error) {
+			return []byte(`{broken`), nil
+		}
+		_, err := sonarrFetchAllEpisodeFileDates(doRequest)
+		if err == nil {
+			t.Fatal("Expected error on malformed JSON")
+		}
+	})
+
+	t.Run("groups dateAdded by seriesId and season", func(t *testing.T) {
+		doRequest := func(endpoint string) ([]byte, error) {
+			if endpoint != "/api/v3/episodefile" {
+				t.Errorf("Expected bulk /api/v3/episodefile, got %s", endpoint)
+			}
+			return []byte(`[
+				{"id":1,"seriesId":10,"seasonNumber":1,"dateAdded":"2024-01-10T00:00:00Z"},
+				{"id":2,"seriesId":10,"seasonNumber":1,"dateAdded":"2024-06-20T00:00:00Z"},
+				{"id":3,"seriesId":11,"seasonNumber":1,"dateAdded":"2024-03-05T00:00:00Z"}
+			]`), nil
+		}
+		index, err := sonarrFetchAllEpisodeFileDates(doRequest)
+		if err != nil {
+			t.Fatalf("Expected success, got %v", err)
+		}
+		if d := index[10][1]; d.Month() != 6 || d.Day() != 20 {
+			t.Errorf("Expected series 10 season 1 Jun 20, got %v", d)
+		}
+		if d := index[11][1]; d.Month() != 3 || d.Day() != 5 {
+			t.Errorf("Expected series 11 season 1 Mar 5, got %v", d)
+		}
+	})
+}
+
+func testSonarrOnDiskSeries(id int, title string, added string) sonarrSeries {
+	return sonarrSeries{
+		ID:               id,
+		Title:            title,
+		Year:             2000 + id,
+		TmdbID:           1000 + id,
+		Path:             "/media/tv/" + title,
+		Monitored:        true,
+		Status:           "ended",
+		QualityProfileID: 1,
+		Added:            added,
+		Statistics: struct {
+			SizeOnDisk   int64 `json:"sizeOnDisk"`
+			SeasonCount  int   `json:"seasonCount"`
+			EpisodeCount int   `json:"episodeCount"`
+		}{SizeOnDisk: 10_000_000_000, SeasonCount: 1, EpisodeCount: 8},
+		Seasons: []sonarrSeason{
+			{
+				SeasonNumber: 1,
+				Monitored:    true,
+				Statistics: struct {
+					SizeOnDisk        int64 `json:"sizeOnDisk"`
+					EpisodeFileCount  int   `json:"episodeFileCount"`
+					TotalEpisodeCount int   `json:"totalEpisodeCount"`
+				}{SizeOnDisk: 10_000_000_000, EpisodeFileCount: 8, TotalEpisodeCount: 8},
+			},
+		},
+	}
+}
+
+func TestSonarrClient_GetMediaItems_EpisodeFileCallCountIsO1(t *testing.T) {
+	const nSeries = 20
+	var episodeFileCalls int
+	var episodeFileWithSeriesID int
+
+	series := make([]sonarrSeries, 0, nSeries+1)
+	files := make([]sonarrEpisodeFile, 0, nSeries)
+	for i := 1; i <= nSeries; i++ {
+		series = append(series, testSonarrOnDiskSeries(i, fmt.Sprintf("Show %02d", i), "2023-01-15T00:00:00Z"))
+		files = append(files, sonarrEpisodeFile{
+			ID:           1000 + i,
+			SeriesID:     i,
+			SeasonNumber: 1,
+			DateAdded:    "2023-06-20T12:00:00Z",
+		})
+	}
+	// Size-0 series must not force extra episodefile traffic.
+	series = append(series, sonarrSeries{
+		ID:    99,
+		Title: "Empty Show",
+		Statistics: struct {
+			SizeOnDisk   int64 `json:"sizeOnDisk"`
+			SeasonCount  int   `json:"seasonCount"`
+			EpisodeCount int   `json:"episodeCount"`
+		}{SizeOnDisk: 0},
+	})
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case testRadarrPathQuality:
+			_, _ = w.Write([]byte(`[{"id":1,"name":"HD-1080p"}]`))
+		case testRadarrPathTag:
+			_, _ = w.Write([]byte(`[]`))
+		case "/api/v3/series":
+			if err := json.NewEncoder(w).Encode(series); err != nil {
+				t.Fatalf("Failed to encode series: %v", err)
+			}
+		case "/api/v3/episodefile":
+			episodeFileCalls++
+			if r.URL.Query().Get("seriesId") != "" {
+				episodeFileWithSeriesID++
+			}
+			if err := json.NewEncoder(w).Encode(files); err != nil {
+				t.Fatalf("Failed to encode episode files: %v", err)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewSonarrClient(srv.URL, testTautulliAPIKey)
+	items, err := client.GetMediaItems()
+	if err != nil {
+		t.Fatalf("GetMediaItems should succeed: %v", err)
+	}
+
+	if episodeFileCalls != 1 {
+		t.Errorf("Expected 1 bulk episodefile request (O(1) in series), got %d", episodeFileCalls)
+	}
+	if episodeFileWithSeriesID != 0 {
+		t.Errorf("Expected 0 per-series episodefile requests, got %d", episodeFileWithSeriesID)
+	}
+
+	// 20 seasons + 20 show-level items; empty show skipped
+	if len(items) != nSeries*2 {
+		t.Fatalf("Expected %d items, got %d", nSeries*2, len(items))
+	}
+
+	for _, item := range items {
+		if item.AddedAt == nil {
+			t.Fatalf("Expected AddedAt from episodefile for %q", item.Title)
+		}
+		if item.AddedAt.Month() != 6 || item.AddedAt.Day() != 20 {
+			t.Errorf("Expected AddedAt from episodefile (Jun 20), not series.added, got %v for %q", item.AddedAt, item.Title)
+		}
+	}
+}
+
+func TestSonarrClient_GetMediaItems_BulkEpisodeFileFallback(t *testing.T) {
+	var bulkCalls int
+	var perSeriesCalls int
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case testRadarrPathQuality:
+			_, _ = w.Write([]byte(`[{"id":1,"name":"HD-1080p"}]`))
+		case testRadarrPathTag:
+			_, _ = w.Write([]byte(`[]`))
+		case "/api/v3/series":
+			resp := []sonarrSeries{
+				testSonarrOnDiskSeries(1, "Firefly", "2023-01-15T00:00:00Z"),
+				testSonarrOnDiskSeries(2, "Serenity", "2023-02-01T00:00:00Z"),
+				{
+					ID:    3,
+					Title: "Empty Show",
+					Statistics: struct {
+						SizeOnDisk   int64 `json:"sizeOnDisk"`
+						SeasonCount  int   `json:"seasonCount"`
+						EpisodeCount int   `json:"episodeCount"`
+					}{SizeOnDisk: 0},
+				},
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Fatalf("Failed to encode series: %v", err)
+			}
+		case "/api/v3/episodefile":
+			if r.URL.Query().Get("seriesId") == "" {
+				bulkCalls++
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"message":"seriesId or episodeFileIds must be provided"}`))
+				return
+			}
+			perSeriesCalls++
+			seriesID := r.URL.Query().Get("seriesId")
+			var resp []sonarrEpisodeFile
+			switch seriesID {
+			case "1":
+				resp = []sonarrEpisodeFile{{ID: 101, SeriesID: 1, SeasonNumber: 1, DateAdded: "2023-06-20T12:00:00Z"}}
+			case "2":
+				resp = []sonarrEpisodeFile{{ID: 201, SeriesID: 2, SeasonNumber: 1, DateAdded: "2023-07-04T12:00:00Z"}}
+			default:
+				resp = []sonarrEpisodeFile{}
+			}
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Fatalf("Failed to encode episode files: %v", err)
+			}
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer srv.Close()
+
+	client := NewSonarrClient(srv.URL, testTautulliAPIKey)
+	items, err := client.GetMediaItems()
+	if err != nil {
+		t.Fatalf("GetMediaItems should succeed after bulk failure: %v", err)
+	}
+
+	if bulkCalls != 1 {
+		t.Errorf("Expected 1 bulk episodefile probe, got %d", bulkCalls)
+	}
+	if perSeriesCalls != 2 {
+		t.Errorf("Expected per-series fallback for 2 on-disk series, got %d calls", perSeriesCalls)
+	}
+	if len(items) != 4 {
+		t.Fatalf("Expected 4 items (2 seasons + 2 shows), got %d", len(items))
+	}
+
+	want := map[string][2]int{
+		"Firefly - Season 1":  {6, 20},
+		"Firefly":             {6, 20},
+		"Serenity - Season 1": {7, 4},
+		"Serenity":            {7, 4},
+	}
+	for _, item := range items {
+		expect, ok := want[item.Title]
+		if !ok {
+			t.Errorf("Unexpected item %q", item.Title)
+			continue
+		}
+		if item.AddedAt == nil {
+			t.Errorf("Expected AddedAt from fallback episodefile for %q", item.Title)
+			continue
+		}
+		if int(item.AddedAt.Month()) != expect[0] || item.AddedAt.Day() != expect[1] {
+			t.Errorf("Expected AddedAt %d/%d from episodefile for %q, got %v", expect[0], expect[1], item.Title, item.AddedAt)
+		}
+	}
 }
