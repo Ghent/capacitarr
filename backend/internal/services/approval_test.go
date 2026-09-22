@@ -1345,29 +1345,6 @@ func TestApprovalService_RemoveEntry_NotFound(t *testing.T) {
 	}
 }
 
-func TestApprovalReturnedToPendingEvent_EventType(t *testing.T) {
-	evt := events.ApprovalReturnedToPendingEvent{
-		EntryID:   1,
-		MediaName: "Firefly",
-		MediaType: "show",
-	}
-	if got := evt.EventType(); got != "approval_returned_to_pending" {
-		t.Errorf("expected EventType() = %q, got %q", "approval_returned_to_pending", got)
-	}
-}
-
-func TestApprovalReturnedToPendingEvent_EventMessage(t *testing.T) {
-	evt := events.ApprovalReturnedToPendingEvent{
-		EntryID:   1,
-		MediaName: "Firefly",
-		MediaType: "show",
-	}
-	expected := "Returned to pending after dry-delete: Firefly"
-	if got := evt.EventMessage(); got != expected {
-		t.Errorf("expected EventMessage() = %q, got %q", expected, got)
-	}
-}
-
 func TestApprovalService_ListSnoozedKeys(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)

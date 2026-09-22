@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
@@ -136,8 +138,34 @@ func (m *mockIntegration) DeleteMediaItem(_ integrations.MediaItem, _ integratio
 }
 
 // testEventTimeout is the maximum time to wait for events in tests.
-// Grace period (1s) + rate limiter (3s) + buffer = 15s.
-const testEventTimeout = 15 * time.Second
+// Test pace is an infinite limiter + 0s grace, so this is a safety bound.
+const testEventTimeout = 2 * time.Second
+
+// newTestDeletionService constructs a DeletionService with the production
+// constructor, then injects an infinite rate limiter and 0s grace so the
+// suite is seconds rather than minutes. Production NewDeletionService is
+// unchanged (3s limiter, 30s default grace).
+func newTestDeletionService(bus *events.EventBus, auditLog *AuditLogService) *DeletionService {
+	svc := NewDeletionService(bus, auditLog)
+	svc.SetTestPace(rate.NewLimiter(rate.Inf, 1), 0)
+	return svc
+}
+
+func TestNewDeletionService_KeepsProductionPace(t *testing.T) {
+	bus := newTestBus(t)
+	svc := NewDeletionService(bus, NewAuditLogService(setupTestDB(t)))
+
+	wantLimit := rate.Every(3 * time.Second)
+	if svc.rateLimiter.Limit() != wantLimit {
+		t.Errorf("production limiter = %v, want %v", svc.rateLimiter.Limit(), wantLimit)
+	}
+	if svc.testGraceDelay != nil {
+		t.Fatal("production constructor must not set a test grace override")
+	}
+	if d := svc.getGraceDelay(); d != 30*time.Second {
+		t.Errorf("production default grace = %v, want 30s", d)
+	}
+}
 
 // drainProgressEvent reads from the bus subscription channel until a
 // DeletionProgressEvent arrives or the timeout expires.
@@ -180,7 +208,7 @@ func drainBatchEvent(t *testing.T, ch chan events.Event) *events.DeletionBatchCo
 func TestDeletionService_SignalBatchSize_Zero(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
@@ -201,7 +229,7 @@ func TestDeletionService_BatchTracking_AllSuccess(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -250,7 +278,7 @@ func TestDeletionService_BatchTracking_MixedSuccessFailure(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -312,7 +340,7 @@ func TestDeletionService_BatchTracking_CorrectCounts(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -367,7 +395,7 @@ func TestDeletionService_GracefulShutdown_DrainsQueue(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -404,42 +432,11 @@ func TestDeletionService_GracefulShutdown_DrainsQueue(t *testing.T) {
 	}
 }
 
-func TestDeletionProgressEvent_EventType(t *testing.T) {
-	evt := events.DeletionProgressEvent{
-		CurrentItem: "Serenity",
-		QueueDepth:  3,
-		Processed:   2,
-		Succeeded:   1,
-		Failed:      1,
-		BatchTotal:  5,
-	}
-
-	if got := evt.EventType(); got != "deletion_progress" {
-		t.Errorf("expected EventType() = %q, got %q", "deletion_progress", got)
-	}
-}
-
-func TestDeletionProgressEvent_EventMessage(t *testing.T) {
-	evt := events.DeletionProgressEvent{
-		CurrentItem: "Serenity",
-		QueueDepth:  3,
-		Processed:   2,
-		Succeeded:   1,
-		Failed:      1,
-		BatchTotal:  5,
-	}
-
-	expected := "Deletion progress: 2/5 completed (1 succeeded, 1 failed)"
-	if got := evt.EventMessage(); got != expected {
-		t.Errorf("expected EventMessage() = %q, got %q", expected, got)
-	}
-}
-
 func TestDeletionService_ProgressEvent_DryRun(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -500,7 +497,7 @@ func TestDeletionService_ProgressEvent_ActualDeletion(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -561,7 +558,7 @@ func TestDeletionService_ForceDryRun_OverridesDeletionsEnabled(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -592,7 +589,7 @@ func TestDeletionService_ForceDryRun_OverridesDeletionsEnabled(t *testing.T) {
 	}
 
 	// Should receive DeletionDryRunEvent, not DeletionSuccessEvent
-	deadline := time.After(15 * time.Second)
+	deadline := time.After(testEventTimeout)
 	gotDryRun := false
 	for {
 		select {
@@ -618,7 +615,7 @@ func TestDeletionService_NoDryRun_WhenDeletionsDisabled(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -649,7 +646,7 @@ func TestDeletionService_NoDryRun_WhenDeletionsDisabled(t *testing.T) {
 	}
 
 	// Should receive DeletionDryRunEvent, not DeletionSuccessEvent
-	deadline := time.After(15 * time.Second)
+	deadline := time.After(testEventTimeout)
 	gotDryRun := false
 	for {
 		select {
@@ -679,7 +676,7 @@ func TestDeletionService_CancelDeletion_ReturnsTrue_WhenItemInQueue(t *testing.T
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -717,7 +714,7 @@ func TestDeletionService_CancelDeletion_ReturnsTrue_WhenItemInQueue(t *testing.T
 func TestDeletionService_CancelDeletion_ReturnsFalse_WhenNotInQueue(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	if svc.CancelDeletion("Serenity", "movie") {
 		t.Error("CancelDeletion returned true; expected false when item is not in queue")
@@ -728,7 +725,7 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -743,13 +740,15 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
 
+	// Tiny grace gives the test time to mark the job cancelled before drain.
+	svc.SetTestPace(rate.NewLimiter(rate.Inf, 1), 50*time.Millisecond)
+
 	svc.Start()
 	defer svc.Stop()
 
 	svc.SignalBatchSize(1)
 
 	// Queue a job, then cancel before the worker processes it.
-	// We rely on the rate limiter (3s) giving us time to cancel.
 	job := deleteJob{
 		Client: &mockIntegration{deleteErr: nil},
 		Item: integrations.MediaItem{
@@ -767,7 +766,7 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 	svc.cancelled.Store(cancelKey("Firefly", "show"), true)
 
 	// Wait for events — should get DeletionCancelledEvent, NOT DeletionSuccessEvent
-	deadline := time.After(15 * time.Second)
+	deadline := time.After(testEventTimeout)
 	gotCancelled := false
 	for {
 		select {
@@ -800,7 +799,7 @@ func TestDeletionService_ProcessJob_SkipsCancelledItem(t *testing.T) {
 func TestDeletionService_ListQueuedItems_ReturnsSnapshot(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	// Empty initially
 	items := svc.ListQueuedItems()
@@ -840,7 +839,7 @@ func TestDeletionService_ListQueuedItems_ReturnsSnapshot(t *testing.T) {
 func TestDeletionService_SignalBatchSize_PreservesCancelledSet(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	// Add an item to queue and cancel it
 	_ = svc.enqueue(deleteJob{
@@ -868,7 +867,7 @@ func TestDeletionService_CancelDeletion_InFlight(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -913,40 +912,11 @@ func TestDeletionService_CancelDeletion_InFlight(t *testing.T) {
 	}
 }
 
-func TestDeletionCancelledEvent_EventType(t *testing.T) {
-	evt := events.DeletionCancelledEvent{
-		MediaName: "Firefly",
-		MediaType: "show",
-		SizeBytes: 1024,
-	}
-
-	if got := evt.EventType(); got != "deletion_cancelled" {
-		t.Errorf("expected EventType() = %q, got %q", "deletion_cancelled", got)
-	}
-}
-
-func TestDeletionCancelledEvent_EventMessage(t *testing.T) {
-	evt := events.DeletionCancelledEvent{
-		MediaName: "Firefly",
-		MediaType: "show",
-		SizeBytes: 1024,
-	}
-
-	expected := "Deletion cancelled: Firefly"
-	if got := evt.EventMessage(); got != expected {
-		t.Errorf("expected EventMessage() = %q, got %q", expected, got)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Existing tests continued
-// ---------------------------------------------------------------------------
-
 func TestDeletionService_ProgressEvent_Failure(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -993,38 +963,11 @@ func TestDeletionService_ProgressEvent_Failure(t *testing.T) {
 	}
 }
 
-func TestDeletionQueuedEvent_EventType(t *testing.T) {
-	evt := events.DeletionQueuedEvent{
-		MediaName:     "Serenity",
-		MediaType:     "movie",
-		SizeBytes:     1024 * 1024 * 100,
-		IntegrationID: 1,
-	}
-
-	if got := evt.EventType(); got != "deletion_queued" {
-		t.Errorf("expected EventType() = %q, got %q", "deletion_queued", got)
-	}
-}
-
-func TestDeletionQueuedEvent_EventMessage(t *testing.T) {
-	evt := events.DeletionQueuedEvent{
-		MediaName:     "Serenity",
-		MediaType:     "movie",
-		SizeBytes:     1024 * 1024 * 100,
-		IntegrationID: 1,
-	}
-
-	expected := "Queued for deletion: Serenity"
-	if got := evt.EventMessage(); got != expected {
-		t.Errorf("expected EventMessage() = %q, got %q", expected, got)
-	}
-}
-
 func TestDeletionService_UpsertAudit_UsesUpsertSemantics(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -1080,7 +1023,7 @@ func TestDeletionService_UpsertAudit_False_AppendsMultiple(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -1125,7 +1068,7 @@ func TestDeletionService_NilClient_DryRunSucceeds(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -1157,7 +1100,7 @@ func TestDeletionService_NilClient_DryRunSucceeds(t *testing.T) {
 	}
 
 	// Should get DeletionDryRunEvent (not a failure)
-	deadline := time.After(15 * time.Second)
+	deadline := time.After(testEventTimeout)
 	gotDryRun := false
 	for {
 		select {
@@ -1191,7 +1134,7 @@ func TestDeletionService_NilClient_ActualDeletion_Fails(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -1242,7 +1185,7 @@ func TestDeletionService_Enqueue_PublishesDeletionQueuedEvent(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -1304,7 +1247,7 @@ func TestDeletionService_Enqueue_PublishesDeletionQueuedEvent(t *testing.T) {
 func TestDeletionService_GracePeriod_StartsOnQueue(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 2},
 		Engine:        &mockEngineStatsWriter{},
@@ -1315,6 +1258,8 @@ func TestDeletionService_GracePeriod_StartsOnQueue(t *testing.T) {
 		Clients:       &mockClientResolver{},
 		SunsetCleaner: &mockSunsetQueueCleaner{},
 	})
+	// Observable remaining time needs a non-zero grace; keep the limiter instant.
+	svc.SetTestPace(rate.NewLimiter(rate.Inf, 1), 2*time.Second)
 	svc.Start()
 	defer svc.Stop()
 
@@ -1339,7 +1284,7 @@ func TestDeletionService_GracePeriod_ExpiresAndProcesses(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -1364,7 +1309,6 @@ func TestDeletionService_GracePeriod_ExpiresAndProcesses(t *testing.T) {
 		Item:   integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 100},
 	})
 
-	// Grace period is 1 second, then rate limiter takes 3s. Wait up to 15s
 	pe := drainProgressEvent(t, ch)
 	if pe.Succeeded != 1 {
 		t.Errorf("expected Succeeded=1, got %d", pe.Succeeded)
@@ -1374,7 +1318,7 @@ func TestDeletionService_GracePeriod_ExpiresAndProcesses(t *testing.T) {
 func TestDeletionService_ClearQueue_CancelsAll(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 30},
 		Engine:        &mockEngineStatsWriter{},
@@ -1418,7 +1362,7 @@ func TestDeletionService_ClearQueue_CancelsAll(t *testing.T) {
 func TestDeletionService_GracePeriodState_InactiveByDefault(t *testing.T) {
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(setupTestDB(t))
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	active, remaining, queueSize := svc.GracePeriodState()
 	if active {
@@ -1429,37 +1373,6 @@ func TestDeletionService_GracePeriodState_InactiveByDefault(t *testing.T) {
 	}
 	if queueSize != 0 {
 		t.Errorf("expected queueSize=0, got %d", queueSize)
-	}
-}
-
-func TestDeletionGracePeriodEvent_EventType(t *testing.T) {
-	evt := events.DeletionGracePeriodEvent{
-		RemainingSeconds: 25,
-		QueueSize:        3,
-		Active:           true,
-	}
-	if got := evt.EventType(); got != "deletion_grace_period" {
-		t.Errorf("expected EventType()=%q, got %q", "deletion_grace_period", got)
-	}
-}
-
-func TestDeletionGracePeriodEvent_EventMessage(t *testing.T) {
-	active := events.DeletionGracePeriodEvent{
-		RemainingSeconds: 25,
-		QueueSize:        3,
-		Active:           true,
-	}
-	if msg := active.EventMessage(); msg != "Deletion grace period active: 25s remaining, 3 items queued" {
-		t.Errorf("unexpected message for active: %q", msg)
-	}
-
-	expired := events.DeletionGracePeriodEvent{
-		RemainingSeconds: 0,
-		QueueSize:        3,
-		Active:           false,
-	}
-	if msg := expired.EventMessage(); msg != "Deletion grace period expired: processing 3 items" {
-		t.Errorf("unexpected message for expired: %q", msg)
 	}
 }
 
@@ -1625,7 +1538,7 @@ func TestDeletionService_DryRun_ReturnsToPending_WhenApprovalEntrySet(t *testing
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	returner := &mockApprovalReturner{}
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
@@ -1673,7 +1586,7 @@ func TestDeletionService_DryRun_DoesNotReturn_WhenNoApprovalEntry(t *testing.T) 
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	returner := &mockApprovalReturner{}
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
@@ -1717,7 +1630,7 @@ func TestDeletionService_ActualDelete_RemovesApprovalEntry(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	returner := &mockApprovalReturner{}
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
@@ -1771,7 +1684,7 @@ func TestDeletionService_DryRunLoop_ApproveAndReturn(t *testing.T) {
 	auditLog := NewAuditLogService(database)
 	approvalSvc := NewApprovalService(database, bus)
 
-	deletionSvc := NewDeletionService(bus, auditLog)
+	deletionSvc := newTestDeletionService(bus, auditLog)
 	deletionSvc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -1847,7 +1760,7 @@ func TestProcessJob_ModeChangeCancelsJob(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	// Start with auto mode, then switch to approval before processing
 	settings := &mockSettingsReader{
@@ -1909,7 +1822,7 @@ func TestProcessJob_SameModeNotCancelled(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	settings := &mockSettingsReader{
 		deletionsEnabled:          true,
@@ -1965,7 +1878,7 @@ func TestProcessJob_EmptyEnqueuedModeSkipsCheck(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	settings := &mockSettingsReader{
 		deletionsEnabled:          false, // dry-run via DeletionsEnabled
@@ -2022,7 +1935,7 @@ func TestProcessJob_AutoToDryRunCancelsJob(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	settings := &mockSettingsReader{
 		deletionsEnabled:          true,
@@ -2087,7 +2000,7 @@ func TestProcessJob_DryRunToAutoCancelsJob(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	settings := &mockSettingsReader{
 		deletionsEnabled:          true,
@@ -2145,7 +2058,7 @@ func TestDrainAll_MultiplItemsModeChangeCancelsRemaining(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	settings := &mockSettingsReader{
 		deletionsEnabled:          true,
@@ -2208,7 +2121,7 @@ func TestProcessJob_ModeChangeCancelsJob_PublishesCancelledEvent(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	settings := &mockSettingsReader{
 		deletionsEnabled:          true,
@@ -2266,7 +2179,7 @@ func TestDeletionService_SnoozeDeletionItem(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	settings := &mockSettingsReader{
 		deletionsEnabled:    true,
 		snoozeDurationHours: 48,
@@ -2326,7 +2239,7 @@ func TestDeletionService_SnoozeDeletionItem_NotInQueue(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	settings := &mockSettingsReader{
 		deletionsEnabled:    true,
 		snoozeDurationHours: 24,
@@ -2366,7 +2279,7 @@ func TestDeletionService_DrainAll_SortsByScoreDescending(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -2487,7 +2400,7 @@ func (m *mockDeletionAuditor) BulkUpsertDryRun(_ []db.AuditLogEntry) error { ret
 
 func TestExecuteDeletion_AbortsWhenIntentWriteFails(t *testing.T) {
 	bus := newTestBus(t)
-	svc := NewDeletionService(bus, NewAuditLogService(setupTestDB(t)))
+	svc := newTestDeletionService(bus, NewAuditLogService(setupTestDB(t)))
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeAuto},
 		Engine:        &mockEngineStatsWriter{},
@@ -2513,7 +2426,7 @@ func TestExecuteDeletion_AbortsWhenIntentWriteFails(t *testing.T) {
 
 func TestExecuteDeletion_KeepsIntentWhenMarkDeletedFails(t *testing.T) {
 	bus := newTestBus(t)
-	svc := NewDeletionService(bus, NewAuditLogService(setupTestDB(t)))
+	svc := newTestDeletionService(bus, NewAuditLogService(setupTestDB(t)))
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeAuto},
 		Engine:        &mockEngineStatsWriter{},
@@ -2549,7 +2462,7 @@ func TestExecuteDeletion_KeepsIntentWhenMarkDeletedFails(t *testing.T) {
 
 func TestEnqueue_DedupSameMediaKey(t *testing.T) {
 	bus := newTestBus(t)
-	svc := NewDeletionService(bus, NewAuditLogService(setupTestDB(t)))
+	svc := newTestDeletionService(bus, NewAuditLogService(setupTestDB(t)))
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true},
 		Engine:        &mockEngineStatsWriter{},

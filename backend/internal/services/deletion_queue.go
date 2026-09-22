@@ -73,6 +73,9 @@ func (s *DeletionService) GracePeriodState() (active bool, remainingSeconds int,
 // The route handler validates the range (10-300). Here we accept any positive
 // value to support fast tests without artificial minimums.
 func (s *DeletionService) getGraceDelay() time.Duration {
+	if s.testGraceDelay != nil {
+		return *s.testGraceDelay
+	}
 	if s.settings == nil {
 		return 30 * time.Second
 	}

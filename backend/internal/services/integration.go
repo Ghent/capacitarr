@@ -105,6 +105,9 @@ type IntegrationService struct {
 	diskGroups     DiskGroupManager
 	healthReporter HealthReporter
 	ruleValueCache *cache.TTLCache
+	// testClients, when set, are registered by BuildIntegrationRegistry instead
+	// of factory-created HTTP clients. Tests only.
+	testClients map[uint]interface{}
 }
 
 // Wired returns true when all lazily-injected dependencies are non-nil.
@@ -763,6 +766,15 @@ func (s *IntegrationService) DetectEnrichment() EnrichmentPresence {
 	return p
 }
 
+// SetTestClient registers an in-memory client for BuildIntegrationRegistry.
+// Tests only — production callers must not use this.
+func (s *IntegrationService) SetTestClient(id uint, client interface{}) {
+	if s.testClients == nil {
+		s.testClients = make(map[uint]interface{})
+	}
+	s.testClients[id] = client
+}
+
 // BuildIntegrationRegistry creates an IntegrationRegistry populated with clients
 // for all enabled integrations, using the factory + capability-based pattern.
 // Clients are created via RegisterAllFactories and auto-discovered for their
@@ -778,6 +790,10 @@ func (s *IntegrationService) BuildIntegrationRegistry() (*integrations.Integrati
 
 	registry := integrations.NewIntegrationRegistry()
 	for _, cfg := range configs {
+		if client, ok := s.testClients[cfg.ID]; ok && client != nil {
+			registry.Register(cfg.ID, client)
+			continue
+		}
 		client := integrations.CreateClient(cfg.Type, cfg.URL, cfg.APIKey)
 		if client != nil {
 			registry.Register(cfg.ID, client)

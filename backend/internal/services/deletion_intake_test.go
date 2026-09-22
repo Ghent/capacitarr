@@ -29,7 +29,7 @@ func TestQueueFromEngine_ConvertsRequest(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 1},
 		Engine:        &mockEngineStatsWriter{},
@@ -78,7 +78,7 @@ func TestQueueFromEngine_SetsTriggerAndMode(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 300},
 		Engine:        &mockEngineStatsWriter{},
@@ -124,7 +124,7 @@ func TestQueueFromApproval_FullResolution(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	dgID := uint(5)
 	svc.SetDependencies(DeletionDeps{
@@ -189,7 +189,7 @@ func TestQueueFromApproval_ClientResolutionFailure(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 300},
@@ -220,7 +220,7 @@ func TestQueueFromSunset_FullResolution(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 300},
@@ -283,7 +283,7 @@ func TestQueueFromSunset_ClientResolutionFailure(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	svc.SetDependencies(DeletionDeps{
 		Settings:      &mockSettingsReader{deletionsEnabled: true, deletionQueueDelaySeconds: 300},
@@ -311,7 +311,7 @@ func TestQueueManual_QueuesInAutoMode(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	dgID := uint(3)
 	svc.SetDependencies(DeletionDeps{
@@ -352,7 +352,7 @@ func TestQueueManual_RoutesToApprovalQueue(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	dgID := uint(5)
 	svc.SetDependencies(DeletionDeps{
@@ -396,7 +396,7 @@ func TestQueueManual_ClientFailureSkipsItem(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	svc := NewDeletionService(bus, auditLog)
+	svc := newTestDeletionService(bus, auditLog)
 
 	dgID := uint(3)
 	svc.SetDependencies(DeletionDeps{

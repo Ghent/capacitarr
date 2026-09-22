@@ -74,10 +74,12 @@ func setupEvaluateTestDB(t *testing.T) (*gorm.DB, *services.Registry) {
 	return database, reg
 }
 
-// TestApprovalDedup_SingleEntry verifies that running the approval dedup logic
-// twice for the same media item produces only one "pending" approval queue
-// entry, with the second run updating the existing entry rather than creating
-// a duplicate.
+// TestApprovalDedup_SingleEntry verifies that running the production
+// approval upsert twice for the same media item produces only one
+// "pending" approval queue entry, with the second run updating the
+// existing entry rather than creating a duplicate. Goes through
+// ApprovalService.BulkUpsertPending (the poller dispatch path) so a
+// query change in production code fails this test.
 func TestApprovalDedup_SingleEntry(t *testing.T) {
 	database, reg := setupEvaluateTestDB(t)
 
@@ -85,94 +87,56 @@ func TestApprovalDedup_SingleEntry(t *testing.T) {
 	mediaType := "season"
 	integrationID := uint(1)
 
-	// Simulate first engine run: create initial entry
-	firstEntry := db.ApprovalQueueItem{
+	created, updated, err := reg.Approval.BulkUpsertPending([]db.ApprovalQueueItem{{
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		ScoreDetails:  `[{"name":"size","contribution":3.0},{"name":"age","contribution":2.5}]`,
-		Status:        db.StatusPending,
 		SizeBytes:     1000000000,
 		Score:         5.50,
 		IntegrationID: integrationID,
 		ExternalID:    "ext-1",
-		CreatedAt:     time.Now().Add(-1 * time.Hour),
-		UpdatedAt:     time.Now().Add(-1 * time.Hour),
+	}})
+	if err != nil {
+		t.Fatalf("first BulkUpsertPending: %v", err)
+	}
+	if created != 1 || updated != 0 {
+		t.Fatalf("first upsert: created=%d updated=%d, want created=1 updated=0", created, updated)
 	}
 
-	// Run the dedup logic (mirrors evaluate.go approval dedup path)
-	var existing db.ApprovalQueueItem
-	result := reg.DB.Where(
-		"media_name = ? AND media_type = ? AND status = ?",
-		mediaName, mediaType, db.StatusPending,
-	).First(&existing)
-	if result.Error == nil {
-		reg.DB.Model(&existing).Updates(map[string]any{
-			"score_details":  firstEntry.ScoreDetails,
-			"size_bytes":     firstEntry.SizeBytes,
-			"score":          firstEntry.Score,
-			"integration_id": firstEntry.IntegrationID,
-			"external_id":    firstEntry.ExternalID,
-		})
-	} else {
-		reg.DB.Create(&firstEntry)
-	}
-
-	// Verify: one entry exists
 	var count int64
 	database.Model(&db.ApprovalQueueItem{}).Where("media_name = ? AND status = ?", mediaName, db.StatusPending).Count(&count)
 	if count != 1 {
 		t.Fatalf("Expected 1 approval queue entry after first run, got %d", count)
 	}
 
-	// Simulate second engine run: updated score and size
-	secondEntry := db.ApprovalQueueItem{
+	created, updated, err = reg.Approval.BulkUpsertPending([]db.ApprovalQueueItem{{
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		ScoreDetails:  `[{"name":"size","contribution":3.5},{"name":"age","contribution":2.7}]`,
-		Status:        db.StatusPending,
 		SizeBytes:     1100000000,
 		Score:         6.20,
 		IntegrationID: integrationID,
 		ExternalID:    "ext-1",
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+	}})
+	if err != nil {
+		t.Fatalf("second BulkUpsertPending: %v", err)
+	}
+	if created != 0 || updated != 1 {
+		t.Errorf("second upsert: created=%d updated=%d, want created=0 updated=1", created, updated)
 	}
 
-	// Run the dedup logic again (should update, not create)
-	var existing2 db.ApprovalQueueItem
-	result2 := reg.DB.Where(
-		"media_name = ? AND media_type = ? AND status = ?",
-		mediaName, mediaType, db.StatusPending,
-	).First(&existing2)
-	if result2.Error == nil {
-		reg.DB.Model(&existing2).Updates(map[string]any{
-			"score_details":  secondEntry.ScoreDetails,
-			"size_bytes":     secondEntry.SizeBytes,
-			"score":          secondEntry.Score,
-			"integration_id": secondEntry.IntegrationID,
-			"external_id":    secondEntry.ExternalID,
-		})
-	} else {
-		reg.DB.Create(&secondEntry)
-	}
-
-	// Verify: still only one entry
 	database.Model(&db.ApprovalQueueItem{}).Where("media_name = ? AND status = ?", mediaName, db.StatusPending).Count(&count)
 	if count != 1 {
 		t.Errorf("Expected 1 approval queue entry after second run (dedup), got %d", count)
 	}
 
-	// Verify: the entry was updated with the new values
-	var updated db.ApprovalQueueItem
-	database.Where("media_name = ? AND status = ?", mediaName, db.StatusPending).First(&updated)
-	if updated.Score != 6.20 {
-		t.Errorf("Expected updated score=6.20, got %f", updated.Score)
+	var row db.ApprovalQueueItem
+	database.Where("media_name = ? AND status = ?", mediaName, db.StatusPending).First(&row)
+	if row.Score != 6.20 {
+		t.Errorf("Expected updated score=6.20, got %f", row.Score)
 	}
-	if updated.SizeBytes != 1100000000 {
-		t.Errorf("Expected updated sizeBytes=1100000000, got %d", updated.SizeBytes)
-	}
-	if updated.Score != 6.20 {
-		t.Errorf("Expected updated score=6.20, got %f", updated.Score)
+	if row.SizeBytes != 1100000000 {
+		t.Errorf("Expected updated sizeBytes=1100000000, got %d", row.SizeBytes)
 	}
 }
 
@@ -365,37 +329,21 @@ func TestApprovalDedup_DoesNotTouchApproved(t *testing.T) {
 	}
 	database.Create(&approvedEntry)
 
-	// Now simulate the engine trying to re-queue this item for approval
-	newEntry := db.ApprovalQueueItem{
+	// Engine re-queues via the production upsert (matches pending only).
+	created, updated, err := reg.Approval.BulkUpsertPending([]db.ApprovalQueueItem{{
 		MediaName:     mediaName,
 		MediaType:     mediaType,
 		ScoreDetails:  `[{"name":"size","contribution":4.5}]`,
-		Status:        db.StatusPending,
 		SizeBytes:     550000000,
 		Score:         4.50,
 		IntegrationID: integrationID,
 		ExternalID:    "ext-2",
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+	}})
+	if err != nil {
+		t.Fatalf("BulkUpsertPending: %v", err)
 	}
-
-	// Run the approval dedup logic (WHERE status = "pending")
-	var existing db.ApprovalQueueItem
-	result := reg.DB.Where(
-		"media_name = ? AND media_type = ? AND status = ?",
-		mediaName, mediaType, db.StatusPending,
-	).First(&existing)
-	if result.Error == nil {
-		reg.DB.Model(&existing).Updates(map[string]any{
-			"score_details":  newEntry.ScoreDetails,
-			"size_bytes":     newEntry.SizeBytes,
-			"score":          newEntry.Score,
-			"integration_id": newEntry.IntegrationID,
-			"external_id":    newEntry.ExternalID,
-		})
-	} else {
-		// No existing "pending" entry found — create a new one
-		reg.DB.Create(&newEntry)
+	if created != 1 || updated != 0 {
+		t.Errorf("expected a new pending row (created=1 updated=0), got created=%d updated=%d", created, updated)
 	}
 
 	// Verify: the approved entry is untouched
