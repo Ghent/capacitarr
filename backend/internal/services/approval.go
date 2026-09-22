@@ -26,6 +26,9 @@ var (
 type ApprovalService struct {
 	db  *gorm.DB
 	bus *events.EventBus
+	// listSnoozedKeysErr, when set, is returned by ListSnoozedKeys.
+	// Tests use SetListSnoozedKeysError to exercise fail-closed poller behavior.
+	listSnoozedKeysErr error
 }
 
 // NewApprovalService creates a new ApprovalService.
@@ -332,11 +335,20 @@ func (s *ApprovalService) IsSnoozed(mediaName, mediaType string, diskGroupID ...
 	return count > 0
 }
 
+// SetListSnoozedKeysError forces ListSnoozedKeys to return err.
+// Tests only — production callers must not use this.
+func (s *ApprovalService) SetListSnoozedKeysError(err error) {
+	s.listSnoozedKeysErr = err
+}
+
 // ListSnoozedKeys returns the set of db.MediaKey keys that are currently
 // snoozed for the given disk group in a single query. Rows with a NULL
 // disk_group_id are treated as global snoozes and match every group.
 // The caller can do O(1) map lookups instead of per-item IsSnoozed() DB queries.
 func (s *ApprovalService) ListSnoozedKeys(diskGroupID uint) (map[string]bool, error) {
+	if s.listSnoozedKeysErr != nil {
+		return nil, s.listSnoozedKeysErr
+	}
 	type row struct {
 		MediaName string
 		MediaType string

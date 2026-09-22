@@ -68,6 +68,7 @@ type DeletionService struct {
 	clients          ClientResolver
 	sunsetCleaner    SunsetQueueCleaner
 	rateLimiter      *rate.Limiter
+	testGraceDelay   *time.Duration // tests only; overrides preference-based grace
 	done             chan struct{}
 
 	// Observable state
@@ -220,6 +221,16 @@ func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *Deleti
 		stopCancel:  cancel,
 		inFlight:    make(map[string]deleteJob),
 	}
+}
+
+// SetTestPace replaces the production 3s rate limiter and preference-based
+// grace delay. Production callers must not use this — NewDeletionService
+// keeps the 3s limiter and getGraceDelay() still defaults to 30s.
+func (s *DeletionService) SetTestPace(limiter *rate.Limiter, grace time.Duration) {
+	if limiter != nil {
+		s.rateLimiter = limiter
+	}
+	s.testGraceDelay = &grace
 }
 
 // Wired returns true when all lazily-injected dependencies are non-nil.
