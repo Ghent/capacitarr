@@ -38,17 +38,16 @@ func TestJellyfinClient_TestConnection_Success(t *testing.T) {
 }
 
 func TestJellyfinClient_AuthHeaders_Jellyfin12Authorization(t *testing.T) {
-	const apiKey = "jf12-api-key"
 	var sawAuth, sawLegacy bool
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Jellyfin 12 disables legacy X-Emby-Token; only Authorization is accepted.
-		if r.Header.Get("Authorization") != jellyfinAuthorization(apiKey) {
+		if r.Header.Get("Authorization") != jellyfinAuthorization(testTautulliAPIKey) {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		sawAuth = true
-		if r.Header.Get("X-Emby-Token") == apiKey {
+		if r.Header.Get("X-Emby-Token") == testTautulliAPIKey {
 			sawLegacy = true
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -56,7 +55,7 @@ func TestJellyfinClient_AuthHeaders_Jellyfin12Authorization(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := NewJellyfinClient(srv.URL, apiKey)
+	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
 	if err := client.TestConnection(); err != nil {
 		t.Fatalf("TestConnection should succeed with MediaBrowser Authorization: %v", err)
 	}
