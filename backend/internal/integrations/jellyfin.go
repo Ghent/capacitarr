@@ -46,9 +46,27 @@ func NewJellyfinClient(url, apiKey string) *JellyfinClient {
 	}
 }
 
+// jellyfinAuthorization builds the MediaBrowser Authorization header required
+// by Jellyfin 12. Legacy X-Emby-Token is disabled by default there.
+func jellyfinAuthorization(apiKey string) string {
+	return fmt.Sprintf(
+		`MediaBrowser Client="Capacitarr", Device="Capacitarr", DeviceId="capacitarr", Version="1.0", Token="%s"`,
+		apiKey,
+	)
+}
+
+// authHeaders returns Jellyfin 12 Authorization plus the legacy X-Emby-Token
+// header so older servers that only read the deprecated header still work.
+func (j *JellyfinClient) authHeaders() map[string]string {
+	return map[string]string{
+		"Authorization": jellyfinAuthorization(j.APIKey),
+		"X-Emby-Token":  j.APIKey,
+	}
+}
+
 func (j *JellyfinClient) doRequest(endpoint string) ([]byte, error) {
 	fullURL := j.URL + endpoint
-	return DoAPIRequest(fullURL, "X-Emby-Token", j.APIKey)
+	return DoAPIRequestWithHeaderMap(fullURL, j.authHeaders())
 }
 
 // TestConnection verifies the Jellyfin URL and API key by calling /System/Info
@@ -776,7 +794,7 @@ func (j *JellyfinClient) updateItem(itemID string, item *jellyfinItem) error {
 	}
 
 	fullURL := j.URL + "/Items/" + itemID
-	return DoAPIRequestWithBody("POST", fullURL, body, "X-Emby-Token", j.APIKey)
+	return DoAPIRequestWithHeaders("POST", fullURL, body, j.authHeaders())
 }
 
 // GetPosterImage downloads the current primary poster for a Jellyfin item.
@@ -797,17 +815,16 @@ func (j *JellyfinClient) GetPosterImage(itemID string) ([]byte, string, error) {
 func (j *JellyfinClient) UploadPosterImage(itemID string, imageData []byte, contentType string) error {
 	fullURL := j.URL + "/Items/" + itemID + "/Images/Primary"
 	encoded := []byte(base64.StdEncoding.EncodeToString(imageData))
-	return DoAPIRequestWithHeaders("POST", fullURL, encoded, map[string]string{
-		"Content-Type": contentType,
-		"X-Emby-Token": j.APIKey,
-	})
+	headers := j.authHeaders()
+	headers["Content-Type"] = contentType
+	return DoAPIRequestWithHeaders("POST", fullURL, encoded, headers)
 }
 
 // RestorePosterImage removes the custom primary poster from a Jellyfin item,
 // reverting to the default provider-sourced poster.
 func (j *JellyfinClient) RestorePosterImage(itemID string) error {
 	fullURL := j.URL + "/Items/" + itemID + "/Images/Primary"
-	return DoAPIRequestWithBody("DELETE", fullURL, nil, "X-Emby-Token", j.APIKey)
+	return DoAPIRequestWithHeaders("DELETE", fullURL, nil, j.authHeaders())
 }
 
 // GetTMDbToItemIDMap builds a mapping from TMDb ID to Jellyfin item ID by

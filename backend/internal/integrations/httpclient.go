@@ -67,6 +67,17 @@ const maxResponseBytes = 64 << 20 // 64 MiB
 // The response body is limited to maxResponseBytes to prevent denial-of-service
 // via oversized upstream responses.
 func DoAPIRequest(url, headerKey, headerValue string) ([]byte, error) {
+	headers := map[string]string{}
+	if headerKey != "" {
+		headers[headerKey] = headerValue
+	}
+	return DoAPIRequestWithHeaderMap(url, headers)
+}
+
+// DoAPIRequestWithHeaderMap is DoAPIRequest with multiple request headers.
+// Used by Jellyfin, which must send both Authorization (Jellyfin 12) and
+// the legacy X-Emby-Token header for older servers.
+func DoAPIRequestWithHeaderMap(url string, headers map[string]string) ([]byte, error) {
 	start := time.Now()
 	sanitizedURL := logger.SanitizeURL(url)
 
@@ -74,8 +85,8 @@ func DoAPIRequest(url, headerKey, headerValue string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("create request for %s: %w", sanitizedURL, err)
 	}
-	if headerKey != "" {
-		req.Header.Set(headerKey, headerValue)
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 
 	resp, err := sharedHTTPClient.Do(req) //nolint:gosec // G704: URL is from admin-configured integration settings
@@ -208,8 +219,8 @@ func DoMultipartUpload(url string, imageData []byte, fieldName, fileName string,
 }
 
 // DoAPIRequestWithHeaders creates an HTTP request with multiple headers.
-// Used when both Content-Type and an auth header are needed (e.g., Jellyfin/Emby
-// poster uploads that require Content-Type: image/jpeg AND X-Emby-Token).
+// Used when both Content-Type and auth headers are needed (e.g., Jellyfin/Emby
+// poster uploads that require Content-Type: image/jpeg AND auth headers).
 func DoAPIRequestWithHeaders(method, url string, body []byte, headers map[string]string) error {
 	start := time.Now()
 	sanitizedURL := logger.SanitizeURL(url)
