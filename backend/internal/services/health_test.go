@@ -443,6 +443,126 @@ func TestHealthService_HealthStatus_Empty(t *testing.T) {
 	}
 }
 
+func TestHealthService_RefreshesWhenIntegrationEnabledOrDisabled(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	integrationSvc := NewIntegrationService(database, bus)
+
+	config := db.IntegrationConfig{
+		Type: "sonarr", Name: "Toggleable Sonarr", URL: "http://localhost:8989",
+		APIKey: "test-key", Enabled: false,
+	}
+	if err := database.Create(&config).Error; err != nil {
+		t.Fatal(err)
+	}
+	// The model's DB default is enabled=true, so force the deliberately
+	// disabled starting condition after creation.
+	if err := database.Model(&config).Update("enabled", false).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	healthSvc := NewIntegrationHealthService(integrationSvc, bus)
+	integrationSvc.SetHealthReporter(healthSvc)
+	healthSvc.seed()
+	initialTracked := healthSvc.TrackedCount()
+
+	enabled := true
+	if _, err := integrationSvc.PartialUpdate(config.ID, IntegrationUpdate{Enabled: &enabled}); err != nil {
+		t.Fatal(err)
+	}
+	if got := healthSvc.TrackedCount(); got != initialTracked+1 {
+		t.Fatalf("expected enabled integration to be tracked; got %d entries, want %d", got, initialTracked+1)
+	}
+	if !healthSvc.IsHealthy(config.ID) {
+		t.Fatal("expected newly enabled integration to be eligible for polling")
+	}
+	if !healthSvc.HealthyIDs()[config.ID] {
+		t.Fatal("expected newly enabled integration in the healthy-ID polling set")
+	}
+
+	disabled := false
+	if _, err := integrationSvc.PartialUpdate(config.ID, IntegrationUpdate{Enabled: &disabled}); err != nil {
+		t.Fatal(err)
+	}
+	if got := healthSvc.TrackedCount(); got != initialTracked {
+		t.Fatalf("expected disabled integration to be removed from health tracking; got %d entries, want %d", got, initialTracked)
+	}
+	if healthSvc.HealthyIDs()[config.ID] {
+		t.Fatal("expected disabled integration absent from the healthy-ID polling set")
+	}
+}
+
+func TestHealthService_RefreshOnCreateAndDelete(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	integrationSvc := NewIntegrationService(database, bus)
+	healthSvc := NewIntegrationHealthService(integrationSvc, bus)
+	integrationSvc.SetHealthReporter(healthSvc)
+	healthSvc.seed()
+
+	created, err := integrationSvc.Create(db.IntegrationConfig{
+		Type: "radarr", Name: "New Radarr", URL: "http://localhost:7878",
+		APIKey: "new-key", Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !healthSvc.HealthyIDs()[created.ID] {
+		t.Fatal("expected created integration in HealthyIDs without restart")
+	}
+
+	if err := integrationSvc.Delete(created.ID); err != nil {
+		t.Fatal(err)
+	}
+	if healthSvc.TrackedCount() != 0 {
+		t.Fatalf("expected deleted integration removed from health tracking, got %d", healthSvc.TrackedCount())
+	}
+	if healthSvc.HealthyIDs()[created.ID] {
+		t.Fatal("expected deleted integration absent from HealthyIDs")
+	}
+}
+
+func TestHealthService_RefreshUpdatesConnectionDetails(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	integrationSvc := NewIntegrationService(database, bus)
+	healthSvc := NewIntegrationHealthService(integrationSvc, bus)
+	integrationSvc.SetHealthReporter(healthSvc)
+
+	created, err := integrationSvc.Create(db.IntegrationConfig{
+		Type: "sonarr", Name: "Old Name", URL: "http://old:8989",
+		APIKey: "old-key", Enabled: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := integrationSvc.PartialUpdate(created.ID, IntegrationUpdate{
+		Name: "New Name", URL: "http://new:8989", APIKey: "new-key",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	healthSvc.mu.Lock()
+	state := healthSvc.states[created.ID]
+	healthSvc.mu.Unlock()
+	if state == nil {
+		t.Fatal("expected health state after update")
+	}
+	if state.Name != "New Name" {
+		t.Errorf("Name = %q, want New Name", state.Name)
+	}
+	if state.URL != "http://new:8989" {
+		t.Errorf("URL = %q, want http://new:8989", state.URL)
+	}
+	if state.APIKey != "new-key" {
+		t.Errorf("APIKey = %q, want new-key", state.APIKey)
+	}
+	if !state.Healthy {
+		t.Error("expected updated integration to remain poll-eligible")
+	}
+}
+
 // --------------------------------------------------------------------------
 // Recovery event: IntegrationRecoveryAttemptEvent
 // --------------------------------------------------------------------------

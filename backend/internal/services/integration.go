@@ -86,12 +86,14 @@ type DiskGroupManager interface {
 	SunsetLinkedIntegrationIDs() (map[uint]bool, error)
 }
 
-// HealthReporter is the interface consumed by IntegrationService.SyncAll to
-// report connection test results to the health monitor. Defined as an interface
-// to avoid import cycles (IntegrationHealthService depends on IntegrationService).
+// HealthReporter is the interface consumed by IntegrationService to keep the
+// in-memory health map aligned with persisted integration state. Defined as an
+// interface to avoid import cycles (IntegrationHealthService depends on
+// IntegrationService).
 type HealthReporter interface {
 	ReportFailure(id uint, err error)
 	ReportSuccess(id uint)
+	Refresh(id uint)
 }
 
 // IntegrationService manages integration CRUD, connection testing, and
@@ -475,6 +477,9 @@ func (s *IntegrationService) Create(config db.IntegrationConfig) (*db.Integratio
 	if err := s.db.Create(&config).Error; err != nil {
 		return nil, fmt.Errorf("failed to create integration: %w", err)
 	}
+	if s.healthReporter != nil {
+		s.healthReporter.Refresh(config.ID)
+	}
 
 	s.bus.Publish(events.IntegrationAddedEvent{
 		IntegrationID:   config.ID,
@@ -496,6 +501,9 @@ func (s *IntegrationService) Update(id uint, config db.IntegrationConfig) (*db.I
 	config.ID = id
 	if err := s.db.Save(&config).Error; err != nil {
 		return nil, fmt.Errorf("failed to update integration: %w", err)
+	}
+	if s.healthReporter != nil {
+		s.healthReporter.Refresh(config.ID)
 	}
 
 	s.bus.Publish(events.IntegrationUpdatedEvent{
@@ -557,6 +565,9 @@ func (s *IntegrationService) PartialUpdate(id uint, update IntegrationUpdate) (*
 	if err := s.db.Save(existing).Error; err != nil {
 		return nil, fmt.Errorf("failed to update integration: %w", err)
 	}
+	if s.healthReporter != nil {
+		s.healthReporter.Refresh(existing.ID)
+	}
 
 	s.bus.Publish(events.IntegrationUpdatedEvent{
 		IntegrationID:   existing.ID,
@@ -580,6 +591,9 @@ func (s *IntegrationService) Delete(id uint) error {
 
 	if err := s.db.Delete(&config).Error; err != nil {
 		return fmt.Errorf("failed to delete integration: %w", err)
+	}
+	if s.healthReporter != nil {
+		s.healthReporter.Refresh(config.ID)
 	}
 
 	s.bus.Publish(events.IntegrationRemovedEvent{
