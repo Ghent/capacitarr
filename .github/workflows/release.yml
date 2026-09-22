@@ -17,6 +17,13 @@ on:
   push:
     tags: ["v*"]
 
+# A tag push can be delivered twice (duplicate webhook or a follow-up
+# ref update). Without this, two Release workflows race and GoReleaser
+# fails uploading assets that already exist.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
   packages: write
