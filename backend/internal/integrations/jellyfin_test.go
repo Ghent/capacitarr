@@ -9,14 +9,23 @@ import (
 
 const testJellyfinPathItems = "/Users/admin-1/Items"
 
+func assertJellyfinAuthHeaders(t *testing.T, r *http.Request, apiKey string) {
+	t.Helper()
+	if got := r.Header.Get("X-Emby-Token"); got != apiKey {
+		t.Errorf("X-Emby-Token = %q, want %q", got, apiKey)
+	}
+	wantAuth := jellyfinAuthorization(apiKey)
+	if got := r.Header.Get("Authorization"); got != wantAuth {
+		t.Errorf("Authorization = %q, want %q", got, wantAuth)
+	}
+}
+
 func TestJellyfinClient_TestConnection_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/System/Info" {
 			t.Errorf("Unexpected path: %s", r.URL.Path)
 		}
-		if r.Header.Get("X-Emby-Token") != testTautulliAPIKey {
-			t.Errorf("Missing or wrong API key header")
-		}
+		assertJellyfinAuthHeaders(t, r, testTautulliAPIKey)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"ServerName":"My Jellyfin","Version":"10.8.0"}`))
 	}))
@@ -25,6 +34,75 @@ func TestJellyfinClient_TestConnection_Success(t *testing.T) {
 	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
 	if err := client.TestConnection(); err != nil {
 		t.Fatalf("TestConnection should succeed: %v", err)
+	}
+}
+
+func TestJellyfinClient_AuthHeaders_Jellyfin12Authorization(t *testing.T) {
+	const apiKey = "jf12-api-key"
+	var sawAuth, sawLegacy bool
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Jellyfin 12 disables legacy X-Emby-Token; only Authorization is accepted.
+		if r.Header.Get("Authorization") != jellyfinAuthorization(apiKey) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		sawAuth = true
+		if r.Header.Get("X-Emby-Token") == apiKey {
+			sawLegacy = true
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"ServerName":"JF12","Version":"12.0.0"}`))
+	}))
+	defer srv.Close()
+
+	client := NewJellyfinClient(srv.URL, apiKey)
+	if err := client.TestConnection(); err != nil {
+		t.Fatalf("TestConnection should succeed with MediaBrowser Authorization: %v", err)
+	}
+	if !sawAuth {
+		t.Fatal("expected Authorization MediaBrowser header")
+	}
+	if !sawLegacy {
+		t.Fatal("expected legacy X-Emby-Token to still be sent for older Jellyfin")
+	}
+}
+
+func TestJellyfinClient_UploadPosterImage_SendsAuthHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/Items/item-1/Images/Primary" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		assertJellyfinAuthHeaders(t, r, testTautulliAPIKey)
+		if r.Header.Get("Content-Type") != "image/jpeg" {
+			t.Errorf("Content-Type = %q, want image/jpeg", r.Header.Get("Content-Type"))
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
+	if err := client.UploadPosterImage("item-1", []byte("poster-bytes"), "image/jpeg"); err != nil {
+		t.Fatalf("UploadPosterImage should succeed: %v", err)
+	}
+}
+
+func TestJellyfinClient_RestorePosterImage_SendsAuthHeaders(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			t.Errorf("expected DELETE, got %s", r.Method)
+		}
+		assertJellyfinAuthHeaders(t, r, testTautulliAPIKey)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	client := NewJellyfinClient(srv.URL, testTautulliAPIKey)
+	if err := client.RestorePosterImage("item-1"); err != nil {
+		t.Fatalf("RestorePosterImage should succeed: %v", err)
 	}
 }
 
