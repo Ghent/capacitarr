@@ -9,6 +9,7 @@ package orchestrator
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -125,6 +126,10 @@ type evaluationContext struct {
 	snoozedKeys            map[string]bool
 	expandedCollections    map[string]bool
 	integrationConfigCache map[uint]*db.IntegrationConfig
+
+	// Set when QueueFromEngine hits the in-memory cap. dispatchFiltered
+	// stops sending more items for this disk group.
+	queueFull bool
 }
 
 // EvaluateDiskGroup scores all media items on a disk group and, when the
@@ -498,7 +503,10 @@ func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, p
 			CollectionGroup:    pi.collectionGroup,
 			AddImportExclusion: addImportExclusion,
 		}); err != nil {
-			slog.Warn("Deletion queue full, skipping item", "component", "poller", "item", pi.item.Title)
+			if errors.Is(err, services.ErrDeletionQueueFull) {
+				ectx.queueFull = true
+				ectx.groupAcc.QueueFullSkipped++
+			}
 			return 0, 0
 		}
 		ectx.groupAcc.Candidates++
@@ -548,7 +556,10 @@ func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, p
 			ForceDryRun:     true,
 			UpsertAudit:     true,
 		}); err != nil {
-			slog.Warn("Deletion queue full, skipping dry-run item", "component", "poller", "item", pi.item.Title)
+			if errors.Is(err, services.ErrDeletionQueueFull) {
+				ectx.queueFull = true
+				ectx.groupAcc.QueueFullSkipped++
+			}
 			return 0, 0
 		}
 		ectx.groupAcc.Candidates++
@@ -594,7 +605,15 @@ func (o *Orchestrator) dispatchFiltered(ectx *evaluationContext, filtered []engi
 	var pendingBatch []db.ApprovalQueueItem
 	neededKeys := make(map[string]bool)
 
-	for _, ev := range filtered {
+	for i, ev := range filtered {
+		if ectx.queueFull {
+			remaining := len(filtered) - i
+			ectx.groupAcc.QueueFullSkipped += remaining
+			slog.Warn("Deletion queue full — pausing further dispatch for this disk group",
+				"component", "poller", "mount", ectx.group.MountPath,
+				"skipped", remaining, "queueFullSkipped", ectx.groupAcc.QueueFullSkipped)
+			break
+		}
 		if bytesFreed >= targetBytesToFree {
 			break
 		}
@@ -610,7 +629,11 @@ func (o *Orchestrator) dispatchFiltered(ectx *evaluationContext, filtered []engi
 		}
 
 		// Dispatch each item through the appropriate mode
-		for _, pi := range itemsToProcess {
+		for j, pi := range itemsToProcess {
+			if ectx.queueFull {
+				ectx.groupAcc.QueueFullSkipped += len(itemsToProcess) - j
+				break
+			}
 			queued, freed := o.dispatchByMode(ectx, pi, &pendingBatch, neededKeys)
 			deletionsQueued += queued
 			bytesFreed += freed

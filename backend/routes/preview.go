@@ -12,7 +12,7 @@ import (
 func RegisterPreviewRoutes(protected *echo.Group, reg *services.Registry) {
 	protected.GET("/preview", func(c echo.Context) error {
 		force := c.QueryParam("force") == "true"
-		result, err := reg.Preview.GetPreview(force)
+		result, err := reg.Preview.GetPreviewForAPI(force)
 		if err != nil {
 			return apiError(c, http.StatusInternalServerError, "Failed to generate preview")
 		}

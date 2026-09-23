@@ -69,6 +69,15 @@ func TestEventTypeAndMessage(t *testing.T) {
 			wantMsg: "Deletion grace period expired: processing 3 items",
 		},
 		{
+			name: "deletion queue full",
+			event: DeletionQueueFullEvent{
+				QueueSize: 500,
+				MediaName: "Serenity",
+			},
+			wantTyp: "deletion_queue_full",
+			wantMsg: "Deletion queue full (500 items) — rejected Serenity",
+		},
+		{
 			name: "approval returned to pending",
 			event: ApprovalReturnedToPendingEvent{
 				EntryID:   1,

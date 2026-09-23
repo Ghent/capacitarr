@@ -383,6 +383,7 @@ func (s *MetricsService) GetWorkerMetrics() map[string]any {
 	stats["failed"] = s.deletion.Failed()
 	stats["auditPostDeleteFailures"] = s.deletion.AuditPostDeleteFailures()
 	stats["auditFailIntentFailures"] = s.deletion.AuditFailIntentFailures()
+	stats["queueFullRejections"] = s.deletion.QueueFullRejections()
 
 	return stats
 }

@@ -2311,6 +2311,10 @@ export interface components {
             items: components["schemas"]["EvaluatedItem"][];
             /** @description Disk context for the most relevant disk group, or null if no disk groups exist */
             diskContext: components["schemas"]["DiskContext"] | null;
+            /** @description True when items were capped (at most 2000) for the API response */
+            truncated?: boolean;
+            /** @description Full evaluated item count before the API cap */
+            totalItems?: number;
         };
         /** @description Historical capacity snapshot. */
         LibraryHistory: {
@@ -2383,6 +2387,11 @@ export interface components {
             auditPostDeleteFailures?: number;
             /** Format: int64 */
             auditFailIntentFailures?: number;
+            /**
+             * Format: int64
+             * @description Enqueue attempts rejected because the in-memory deletion queue was full
+             */
+            queueFullRejections?: number;
         };
         DashboardStats: {
             /**

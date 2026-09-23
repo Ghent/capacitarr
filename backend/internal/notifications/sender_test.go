@@ -120,6 +120,7 @@ func TestHasActivity(t *testing.T) {
 		{"sunset expired", GroupDigest{SunsetExpired: 1}, true},
 		{"sunset saved", GroupDigest{SunsetSaved: 1}, true},
 		{"escalated items", GroupDigest{EscalatedItems: 1}, true},
+		{"queue full skipped", GroupDigest{QueueFullSkipped: 3}, true},
 		{"no activity", GroupDigest{Evaluated: 100}, false},
 	}
 

@@ -31,10 +31,18 @@ func (s *DeletionService) enqueue(job deleteJob) error {
 	}
 	if len(s.queuedItems) >= 500 {
 		s.queuedMu.Unlock()
+		s.queueFullRejections.Add(1)
+		if s.queueFullSignaled.CompareAndSwap(false, true) {
+			s.bus.Publish(events.DeletionQueueFullEvent{
+				QueueSize: 500,
+				MediaName: job.Item.Title,
+			})
+		}
 		return ErrDeletionQueueFull
 	}
 	s.queuedItems = append(s.queuedItems, job)
 	queueSize := len(s.queuedItems)
+	s.queueFullSignaled.Store(false)
 	s.queuedMu.Unlock()
 
 	s.bus.Publish(events.DeletionQueuedEvent{

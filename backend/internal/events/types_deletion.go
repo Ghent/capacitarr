@@ -146,3 +146,22 @@ func (e DeletionGracePeriodEvent) EventMessage() string {
 	}
 	return fmt.Sprintf("Deletion grace period expired: processing %d items", e.QueueSize)
 }
+
+// DeletionQueueFullEvent is published the first time enqueue rejects an item
+// because the in-memory queue is at its 500-item cap. A successful enqueue
+// after that clears the burst so the next overflow is visible again.
+type DeletionQueueFullEvent struct {
+	QueueSize int    `json:"queueSize"`
+	MediaName string `json:"mediaName,omitempty"`
+}
+
+// EventType implements Event.
+func (e DeletionQueueFullEvent) EventType() string { return "deletion_queue_full" }
+
+// EventMessage implements Event.
+func (e DeletionQueueFullEvent) EventMessage() string {
+	if e.MediaName != "" {
+		return fmt.Sprintf("Deletion queue full (%d items) — rejected %s", e.QueueSize, e.MediaName)
+	}
+	return fmt.Sprintf("Deletion queue full (%d items)", e.QueueSize)
+}

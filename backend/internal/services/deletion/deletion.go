@@ -119,6 +119,10 @@ type DeletionService struct {
 	// flipped to cancelled. The intent row remains even though the file
 	// is still on disk — the worse of the two audit-intent holes.
 	auditFailIntentFailures atomic.Uint64
+
+	// Count of enqueue attempts rejected because the in-memory queue is full.
+	queueFullRejections atomic.Uint64
+	queueFullSignaled   atomic.Bool
 }
 
 // ---------------------------------------------------------------------------
@@ -321,4 +325,10 @@ func (s *DeletionService) AuditPostDeleteFailures() uint64 {
 // flip their pending_delete row to cancelled.
 func (s *DeletionService) AuditFailIntentFailures() uint64 {
 	return s.auditFailIntentFailures.Load()
+}
+
+// QueueFullRejections returns how many enqueue attempts were rejected
+// because the in-memory deletion queue was at its cap.
+func (s *DeletionService) QueueFullRejections() uint64 {
+	return s.queueFullRejections.Load()
 }
