@@ -99,6 +99,12 @@ func (s *DeletionService) executeDeletion(job deleteJob, factorsJSON []byte) {
 		s.failed.Add(1)
 		s.batchFailed.Add(1)
 
+		if failErr := s.auditLog.FailIntent(intentID); failErr != nil {
+			s.auditFailIntentFailures.Add(1)
+			slog.Error("Failed to cancel pending delete audit after *arr failure — intent row remains",
+				"component", "services", "auditID", intentID, "media", job.Item.Title, "error", failErr)
+		}
+
 		s.bus.Publish(events.DeletionFailedEvent{
 			MediaName:     job.Item.Title,
 			MediaType:     string(job.Item.Type),

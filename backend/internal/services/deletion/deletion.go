@@ -114,6 +114,11 @@ type DeletionService struct {
 	// flipped to deleted. The intent row remains, which is the fail-open
 	// post-delete path (file is gone; history still exists).
 	auditPostDeleteFailures atomic.Uint64
+
+	// Count of failed live deletes whose pending_delete row could not be
+	// flipped to cancelled. The intent row remains even though the file
+	// is still on disk — the worse of the two audit-intent holes.
+	auditFailIntentFailures atomic.Uint64
 }
 
 // ---------------------------------------------------------------------------
@@ -185,6 +190,7 @@ type deletionAuditor interface {
 	Create(entry db.AuditLogEntry) error
 	CreateIntent(entry db.AuditLogEntry) (uint, error)
 	MarkDeleted(id uint) error
+	FailIntent(id uint) error
 	UpsertDryRun(entry db.AuditLogEntry) error
 	BulkUpsertDryRun(entries []db.AuditLogEntry) error
 }
@@ -303,4 +309,16 @@ func (s *DeletionService) Processed() int64 {
 // Failed returns the total number of failed deletion attempts.
 func (s *DeletionService) Failed() int64 {
 	return s.failed.Load()
+}
+
+// AuditPostDeleteFailures returns how many successful live deletes could
+// not flip their pending_delete row to deleted.
+func (s *DeletionService) AuditPostDeleteFailures() uint64 {
+	return s.auditPostDeleteFailures.Load()
+}
+
+// AuditFailIntentFailures returns how many failed live deletes could not
+// flip their pending_delete row to cancelled.
+func (s *DeletionService) AuditFailIntentFailures() uint64 {
+	return s.auditFailIntentFailures.Load()
 }

@@ -387,6 +387,8 @@ func TestMetricsService_GetWorkerMetrics_ReturnsExpectedKeys(t *testing.T) {
 		"currentlyDeleting",
 		"processed",
 		"failed",
+		"auditPostDeleteFailures",
+		"auditFailIntentFailures",
 	}
 
 	for _, key := range expectedKeys {

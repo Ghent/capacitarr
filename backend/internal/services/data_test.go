@@ -106,3 +106,87 @@ func TestDataService_Reset_EmptyDB(t *testing.T) {
 		t.Errorf("expected auditLog=0 on empty DB, got %d", summary["auditLog"])
 	}
 }
+
+func TestDataService_Reset_RollsBackOnMidwayFailure(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDataService(database, bus)
+
+	intID := seedIntegration(t, database)
+	if err := database.Create(&db.AuditLogEntry{
+		MediaName: "Serenity", MediaType: "movie",
+		Action: db.ActionDeleted, SizeBytes: 1000,
+	}).Error; err != nil {
+		t.Fatalf("failed to seed audit log: %v", err)
+	}
+	if err := database.Create(&db.ApprovalQueueItem{
+		MediaName: "Firefly", MediaType: "show",
+		SizeBytes: 2000, IntegrationID: intID, ExternalID: "1",
+		Status: db.StatusPending,
+	}).Error; err != nil {
+		t.Fatalf("failed to seed approval queue: %v", err)
+	}
+	if err := database.Model(&db.LifetimeStats{}).Where("id = ?", 1).Updates(map[string]any{
+		"total_bytes_reclaimed": 42,
+		"total_items_removed":   3,
+		"total_engine_runs":     7,
+	}).Error; err != nil {
+		t.Fatalf("failed to seed lifetime stats: %v", err)
+	}
+
+	var prefBefore db.PreferenceSet
+	if err := database.First(&prefBefore, 1).Error; err != nil {
+		t.Fatalf("failed to load preferences: %v", err)
+	}
+
+	if err := database.Exec(`
+		CREATE TRIGGER fail_reset_after_audit
+		BEFORE DELETE ON approval_queue
+		BEGIN
+			SELECT RAISE(ABORT, 'injected reset failure');
+		END;
+	`).Error; err != nil {
+		t.Fatalf("failed to install reset failure trigger: %v", err)
+	}
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	if _, err := svc.Reset(); err == nil {
+		t.Fatal("expected Reset to fail after step 1")
+	}
+
+	var auditCount int64
+	database.Model(&db.AuditLogEntry{}).Count(&auditCount)
+	if auditCount != 1 {
+		t.Errorf("expected audit log to be unchanged, got count %d", auditCount)
+	}
+
+	var approvalCount int64
+	database.Model(&db.ApprovalQueueItem{}).Count(&approvalCount)
+	if approvalCount != 1 {
+		t.Errorf("expected approval queue to be unchanged, got count %d", approvalCount)
+	}
+
+	var lifetime db.LifetimeStats
+	if err := database.First(&lifetime, 1).Error; err != nil {
+		t.Fatalf("failed to reload lifetime stats: %v", err)
+	}
+	if lifetime.TotalBytesReclaimed != 42 || lifetime.TotalItemsRemoved != 3 || lifetime.TotalEngineRuns != 7 {
+		t.Errorf("lifetime stats changed: %+v", lifetime)
+	}
+
+	var prefAfter db.PreferenceSet
+	if err := database.First(&prefAfter, 1).Error; err != nil {
+		t.Fatalf("failed to reload preferences: %v", err)
+	}
+	if prefAfter.LogLevel != prefBefore.LogLevel || prefAfter.DefaultDiskGroupMode != prefBefore.DefaultDiskGroupMode {
+		t.Errorf("preferences changed: %+v", prefAfter)
+	}
+
+	select {
+	case evt := <-ch:
+		t.Errorf("expected no data_reset event after rollback, got %q", evt.EventType())
+	default:
+	}
+}

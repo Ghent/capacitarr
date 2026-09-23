@@ -59,7 +59,8 @@ func NewAuditLogService(database *gorm.DB) *AuditLogService {
 }
 
 // Create appends a new audit log entry. Entries are immutable after creation
-// except for CreateIntent/MarkDeleted (pending_delete → deleted) and dry-run upserts.
+// except for CreateIntent/MarkDeleted (pending_delete → deleted),
+// FailIntent (pending_delete → cancelled), and dry-run upserts.
 func (s *AuditLogService) Create(entry db.AuditLogEntry) error {
 	entry.CreatedAt = time.Now().UTC()
 	if err := s.db.Create(&entry).Error; err != nil {
@@ -94,6 +95,22 @@ func (s *AuditLogService) MarkDeleted(id uint) error {
 		Update("action", db.ActionDeleted)
 	if result.Error != nil {
 		return fmt.Errorf("failed to mark audit entry deleted: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("pending delete audit entry %d not found", id)
+	}
+	return nil
+}
+
+// FailIntent moves a pending_delete intent to cancelled after a live *arr
+// delete fails. The file is still on disk; leaving pending_delete would
+// claim otherwise.
+func (s *AuditLogService) FailIntent(id uint) error {
+	result := s.db.Model(&db.AuditLogEntry{}).
+		Where("id = ? AND action = ?", id, db.ActionPendingDelete).
+		Update("action", db.ActionCancelled)
+	if result.Error != nil {
+		return fmt.Errorf("failed to fail pending delete audit: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
 		return fmt.Errorf("pending delete audit entry %d not found", id)

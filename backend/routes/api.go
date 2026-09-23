@@ -21,11 +21,19 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 	// 503 so container HEALTHCHECKs fail closed.
 	g.GET("/health", func(c echo.Context) error {
 		dropped := reg.Bus.DroppedCount()
+		postDeleteAudit := uint64(0)
+		failIntentAudit := uint64(0)
+		if reg.Deletion != nil {
+			postDeleteAudit = reg.Deletion.AuditPostDeleteFailures()
+			failIntentAudit = reg.Deletion.AuditFailIntentFailures()
+		}
 		if err := reg.Settings.Ping(); err != nil {
 			slog.Error("Health check database ping failed", "component", "routes", "error", err)
 			return c.JSON(http.StatusServiceUnavailable, map[string]any{
-				"status":        "unhealthy",
-				"eventsDropped": dropped,
+				"status":                  "unhealthy",
+				"eventsDropped":           dropped,
+				"auditPostDeleteFailures": postDeleteAudit,
+				"auditFailIntentFailures": failIntentAudit,
 			})
 		}
 		status := "ok"
@@ -33,8 +41,10 @@ func RegisterAPIRoutes(g *echo.Group, reg *services.Registry, appVersion, appCom
 			status = "degraded"
 		}
 		return c.JSON(http.StatusOK, map[string]any{
-			"status":        status,
-			"eventsDropped": dropped,
+			"status":                  status,
+			"eventsDropped":           dropped,
+			"auditPostDeleteFailures": postDeleteAudit,
+			"auditFailIntentFailures": failIntentAudit,
 		})
 	})
 

@@ -125,20 +125,18 @@ func (s *BackupService) Import(envelope SettingsExportEnvelope, sections ImportS
 		result.ItemsDeleted += deleted
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		return nil, fmt.Errorf("failed to commit import transaction: %w", err)
-	}
-
-	// Disk groups are imported outside the main transaction because the
-	// DiskGroupService uses its own *gorm.DB handle, which would deadlock
-	// with SQLite's single-writer constraint if called inside a transaction.
 	if sections.DiskGroups && len(envelope.DiskGroups) > 0 {
-		count, deleted, err := s.importDiskGroups(envelope.DiskGroups, syncMode)
+		count, deleted, err := s.importDiskGroups(tx, envelope.DiskGroups, syncMode)
 		if err != nil {
+			tx.Rollback()
 			return nil, fmt.Errorf("failed to import disk groups: %w", err)
 		}
 		result.DiskGroupsImported = count
 		result.ItemsDeleted += deleted
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, fmt.Errorf("failed to commit import transaction: %w", err)
 	}
 
 	result.PreImportSnapshot = snapshot
@@ -618,18 +616,18 @@ func (s *BackupService) CommitImport(envelope SettingsExportEnvelope, sections I
 		result.ItemsDeleted += deleted
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		return nil, fmt.Errorf("failed to commit import transaction: %w", err)
-	}
-
-	// Disk groups imported outside transaction (see Import() comment)
 	if sections.DiskGroups && len(envelope.DiskGroups) > 0 {
-		count, deleted, err := s.importDiskGroups(envelope.DiskGroups, syncMode)
+		count, deleted, err := s.importDiskGroups(tx, envelope.DiskGroups, syncMode)
 		if err != nil {
+			tx.Rollback()
 			return nil, fmt.Errorf("failed to import disk groups: %w", err)
 		}
 		result.DiskGroupsImported = count
 		result.ItemsDeleted += deleted
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, fmt.Errorf("failed to commit import transaction: %w", err)
 	}
 
 	result.PreImportSnapshot = snapshot
