@@ -1,4 +1,5 @@
-package services
+// Package deletion owns live and dry-run deletion: intake, queue, worker, and execution.
+package deletion
 
 import (
 	"context"
@@ -55,6 +56,8 @@ type DeleteJobSummary struct {
 // processed with rate limiting. Items added during processing are queued
 // normally but do not restart the grace period until the current batch
 // completes and a new item arrives.
+//
+//nolint:revive // existing type name; package split is not a rename
 type DeletionService struct {
 	bus              *events.EventBus
 	auditLog         deletionAuditor
@@ -129,6 +132,8 @@ type EngineStatsWriter interface {
 }
 
 // DeletionStatsWriter provides write access to lifetime deletion stats.
+//
+//nolint:revive // existing type name; package split is not a rename
 type DeletionStatsWriter interface {
 	IncrementDeletionStats(sizeBytes int64) error
 }
@@ -190,6 +195,8 @@ type deletionAuditor interface {
 // ---------------------------------------------------------------------------
 
 // DeletionDeps holds all lazily-injected dependencies for DeletionService.
+//
+//nolint:revive // existing type name; package split is not a rename
 type DeletionDeps struct {
 	Settings      SettingsReader
 	Engine        EngineStatsWriter
@@ -208,7 +215,7 @@ type DeletionDeps struct {
 // NewDeletionService creates a new DeletionService.
 // The settings, engine, and metrics dependencies are injected via SetDependencies()
 // after registry construction to avoid circular initialization.
-func NewDeletionService(bus *events.EventBus, auditLog *AuditLogService) *DeletionService {
+func NewDeletionService(bus *events.EventBus, auditLog deletionAuditor) *DeletionService {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &DeletionService{
 		bus:         bus,

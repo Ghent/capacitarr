@@ -1,11 +1,15 @@
-package services
+package deletion
 
 import (
+	"errors"
 	"time"
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
 )
+
+// ErrDeletionQueueFull is returned when enqueue would exceed the 500-item cap.
+var ErrDeletionQueueFull = errors.New("deletion queue is full")
 
 // enqueue enqueues a media item for background deletion.
 // Starts or resets the grace period timer.

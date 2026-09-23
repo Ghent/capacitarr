@@ -1,4 +1,4 @@
-package services
+package backup
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ func TestBackupService_Export_AllSections(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed test data
 	intID := seedIntegration(t, database)
@@ -101,7 +101,7 @@ func TestBackupService_Export_OnlyRules(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	database.Create(&db.CustomRule{
 		Field: "tag", Operator: "contains", Value: "anime", Effect: "prefer_keep", Enabled: true,
@@ -135,7 +135,7 @@ func TestBackupService_Export_SensitiveFieldsExcluded(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed data with sensitive fields
 	database.Create(&db.IntegrationConfig{
@@ -195,7 +195,7 @@ func TestBackupService_Import_AllSections(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	sonarrType := "sonarr"
 	sonarrName := "Firefly Sonarr"
@@ -331,7 +331,7 @@ func TestBackupService_Import_OnlyPreferences(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	envelope := SettingsExportEnvelope{
 		Version:    1,
@@ -395,7 +395,7 @@ func TestBackupService_Import_RejectsUnsupportedVersion(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	envelope := SettingsExportEnvelope{
 		Version:    99,
@@ -417,7 +417,7 @@ func TestBackupService_Import_DiskGroupUpsert(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed an existing disk group
 	database.Create(&db.DiskGroup{
@@ -463,7 +463,7 @@ func TestBackupService_Import_RulesWithIntegrationResolution(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed an integration for auto-match
 	database.Create(&db.IntegrationConfig{
@@ -512,7 +512,7 @@ func TestBackupService_Import_IntegrationUpsert(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed existing integration with real API key
 	database.Create(&db.IntegrationConfig{
@@ -563,7 +563,7 @@ func TestBackupService_Import_NotificationChannelUpsert(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed existing channel with real webhook
 	database.Create(&db.NotificationConfig{
@@ -612,7 +612,7 @@ func TestBackupService_Import_RulesTypeOnlyFallback(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed one sonarr integration with a DIFFERENT name than what the export has
 	database.Create(&db.IntegrationConfig{
@@ -662,7 +662,7 @@ func TestBackupService_Import_RulesTypeOnlyFallback_AmbiguousSkips(t *testing.T)
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed TWO sonarr integrations — type-only fallback should NOT match
 	database.Create(&db.IntegrationConfig{
@@ -712,7 +712,7 @@ func TestBackupService_Import_RulesResolveToImportedIntegrations(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	sonarrType := "sonarr"
 	sonarrName := "Firefly Sonarr"
@@ -775,7 +775,7 @@ func TestBackupService_Import_RejectsInvalidRuleEffect(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	envelope := SettingsExportEnvelope{
 		Version: 1,
@@ -796,7 +796,7 @@ func TestBackupService_Import_RejectsInvalidIntegrationType(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	envelope := SettingsExportEnvelope{
 		Version: 1,
@@ -819,7 +819,7 @@ func TestBackupService_Import_ReplaceMode_Rules(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed an integration for rule matching
 	database.Create(&db.IntegrationConfig{
@@ -873,7 +873,7 @@ func TestBackupService_PreviewImport_MatchedAndUnmatched(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed one sonarr integration
 	database.Create(&db.IntegrationConfig{
@@ -942,7 +942,7 @@ func TestBackupService_CommitImport_WithOverrides(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed a radarr integration for manual assignment
 	database.Create(&db.IntegrationConfig{
@@ -1005,7 +1005,7 @@ func TestBackupService_Import_SyncMode_DeletesOrphanIntegrations(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed 3 integrations
 	database.Create(&db.IntegrationConfig{
@@ -1055,7 +1055,7 @@ func TestBackupService_Import_MergeMode_PreservesUnmatchedIntegrations(t *testin
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed 3 integrations
 	database.Create(&db.IntegrationConfig{
@@ -1105,7 +1105,7 @@ func TestBackupService_Import_SyncMode_DeletesOrphanRules(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed integration
 	intID := seedIntegration(t, database)
@@ -1163,7 +1163,7 @@ func TestBackupService_Import_SyncMode_DeletesOrphanNotifications(t *testing.T) 
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed 2 notification channels
 	database.Create(&db.NotificationConfig{
@@ -1210,7 +1210,7 @@ func TestBackupService_Import_SyncMode_CascadeDeletesOrphanRules(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed 2 integrations
 	database.Create(&db.IntegrationConfig{
@@ -1267,7 +1267,7 @@ func TestBackupService_Import_SyncMode_IncludesPreImportSnapshot(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed integration
 	database.Create(&db.IntegrationConfig{
@@ -1301,7 +1301,7 @@ func TestBackupService_PreviewImport_AllSections(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Seed existing data
 	database.Create(&db.IntegrationConfig{
@@ -1413,7 +1413,7 @@ func TestBackupService_Import_LegacyModes(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Verify legacy "append" works like merge (no deletions)
 	database.Create(&db.IntegrationConfig{
@@ -1453,7 +1453,7 @@ func TestBackupService_IntegrationExport_ShowLevelOnlyRoundTrip(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Create integrations with toggle fields set
 	database.Create(&db.IntegrationConfig{
@@ -1500,7 +1500,7 @@ func TestBackupService_IntegrationExport_ShowLevelOnlyRoundTrip(t *testing.T) {
 	freshDB := setupTestDB(t)
 	freshBus := newTestBus(t)
 	freshSvc := NewBackupService(freshDB, freshBus)
-	freshSvc.SetDiskGroupService(NewDiskGroupService(freshDB, freshBus))
+	freshSvc.SetDiskGroupService(newTestDiskGroups(freshDB))
 
 	importSections := ImportSections{Integrations: true}
 	_, importErr := freshSvc.Import(*envelope, importSections)
@@ -1539,7 +1539,7 @@ func TestBackupService_IntegrationExport_AddImportExclusionRoundTrip(t *testing.
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	svc := NewBackupService(database, bus)
-	svc.SetDiskGroupService(NewDiskGroupService(database, bus))
+	svc.SetDiskGroupService(newTestDiskGroups(database))
 
 	// Create integrations with AddImportExclusion toggled differently.
 	// GORM skips false booleans on Create() when the DB has DEFAULT 1,
@@ -1584,7 +1584,7 @@ func TestBackupService_IntegrationExport_AddImportExclusionRoundTrip(t *testing.
 	freshDB := setupTestDB(t)
 	freshBus := newTestBus(t)
 	freshSvc := NewBackupService(freshDB, freshBus)
-	freshSvc.SetDiskGroupService(NewDiskGroupService(freshDB, freshBus))
+	freshSvc.SetDiskGroupService(newTestDiskGroups(freshDB))
 
 	importSections := ImportSections{Integrations: true}
 	_, importErr := freshSvc.Import(*envelope, importSections)

@@ -1,4 +1,4 @@
-package services
+package deletion
 
 import (
 	"errors"
@@ -11,6 +11,7 @@ import (
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
+	"capacitarr/internal/services/approval"
 )
 
 // errMockDelete is a sentinel error for simulating deletion failures in tests.
@@ -1383,7 +1384,7 @@ func TestDeletionService_GracePeriodState_InactiveByDefault(t *testing.T) {
 func TestApprovalService_CreateSnoozedEntry_New(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
-	svc := NewApprovalService(database, bus)
+	svc := approval.NewApprovalService(database, bus)
 
 	// Create an integration first (FK constraint)
 	integration := db.IntegrationConfig{
@@ -1420,7 +1421,7 @@ func TestApprovalService_CreateSnoozedEntry_New(t *testing.T) {
 func TestApprovalService_CreateSnoozedEntry_PersistsDiskGroupID(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
-	svc := NewApprovalService(database, bus)
+	svc := approval.NewApprovalService(database, bus)
 
 	integration := db.IntegrationConfig{
 		Type: "sonarr", Name: "Test Sonarr", URL: "http://localhost:8989", APIKey: "test-key",
@@ -1450,7 +1451,7 @@ func TestApprovalService_CreateSnoozedEntry_PersistsDiskGroupID(t *testing.T) {
 func TestApprovalService_CreateSnoozedEntry_UpdatesExisting(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
-	svc := NewApprovalService(database, bus)
+	svc := approval.NewApprovalService(database, bus)
 
 	// Create an integration first (FK constraint)
 	integration := db.IntegrationConfig{
@@ -1682,7 +1683,7 @@ func TestDeletionService_DryRunLoop_ApproveAndReturn(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
 	auditLog := NewAuditLogService(database)
-	approvalSvc := NewApprovalService(database, bus)
+	approvalSvc := approval.NewApprovalService(database, bus)
 
 	deletionSvc := newTestDeletionService(bus, auditLog)
 	deletionSvc.SetDependencies(DeletionDeps{

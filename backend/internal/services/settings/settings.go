@@ -1,4 +1,5 @@
-package services
+// Package settings manages application preferences and scoring factor weights.
+package settings
 
 import (
 	"fmt"
@@ -25,6 +26,8 @@ type SunsetLabelMigrator interface {
 }
 
 // SettingsService manages application preferences and activity events.
+//
+//nolint:revive // existing type name; package split is not a rename
 type SettingsService struct {
 	db              *gorm.DB
 	bus             *events.EventBus
@@ -59,29 +62,6 @@ func (s *SettingsService) SetDeletionClearer(clearer DeletionQueueClearer) {
 // label preference changes.
 func (s *SettingsService) SetLabelMigrator(migrator SunsetLabelMigrator) {
 	s.labelMigrator = migrator
-}
-
-// sunsetLabelMigratorAdapter implements SunsetLabelMigrator by building a
-// fresh integration registry and delegating to SunsetService.MigrateLabel.
-type sunsetLabelMigratorAdapter struct {
-	sunset      *SunsetService
-	integration *IntegrationService
-	mapping     *MappingService
-}
-
-// MigrateSunsetLabel builds a fresh integration registry and migrates labels.
-func (a *sunsetLabelMigratorAdapter) MigrateSunsetLabel(oldLabel, newLabel string) error {
-	registry, err := a.integration.BuildIntegrationRegistry()
-	if err != nil {
-		return fmt.Errorf("build registry for label migration: %w", err)
-	}
-	return a.sunset.MigrateLabel(oldLabel, newLabel, registry, a.mapping)
-}
-
-// NewSunsetLabelMigrator creates a SunsetLabelMigrator that delegates to the
-// given services. Used to wire SettingsService without a direct SunsetService import.
-func NewSunsetLabelMigrator(sunset *SunsetService, integration *IntegrationService, mapping *MappingService) SunsetLabelMigrator {
-	return &sunsetLabelMigratorAdapter{sunset: sunset, integration: integration, mapping: mapping}
 }
 
 // GetPreferences returns the current preferences (singleton row).

@@ -1,3 +1,6 @@
+// Package services is the composition root for business logic. Domain
+// implementations live in subpackages (deletion, approval, backup, settings);
+// leftover services and NewRegistry stay here.
 package services
 
 import (

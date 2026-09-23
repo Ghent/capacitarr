@@ -1,4 +1,4 @@
-package services
+package deletion
 
 import (
 	"errors"
@@ -9,6 +9,7 @@ import (
 	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
+	"capacitarr/internal/services/approval"
 )
 
 // mockApprovalUpserter implements ApprovalReturnerUpserter for intake tests.
@@ -326,7 +327,7 @@ func TestQueueManual_QueuesInAutoMode(t *testing.T) {
 	})
 
 	upserter := &mockApprovalUpserter{}
-	result, err := svc.QueueManual([]ManualDeleteRequest{
+	result, err := svc.QueueManual([]approval.ManualDeleteRequest{
 		{MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 500, Score: 0.8, ScoreDetails: `[]`},
 		{MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, SizeBytes: 1000, Score: 0.9, ScoreDetails: `[]`},
 	}, upserter)
@@ -367,7 +368,7 @@ func TestQueueManual_RoutesToApprovalQueue(t *testing.T) {
 	})
 
 	upserter := &mockApprovalUpserter{}
-	result, err := svc.QueueManual([]ManualDeleteRequest{
+	result, err := svc.QueueManual([]approval.ManualDeleteRequest{
 		{MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 500, Score: 0.8},
 	}, upserter)
 	if err != nil {
@@ -411,7 +412,7 @@ func TestQueueManual_ClientFailureSkipsItem(t *testing.T) {
 	})
 
 	upserter := &mockApprovalUpserter{}
-	result, err := svc.QueueManual([]ManualDeleteRequest{
+	result, err := svc.QueueManual([]approval.ManualDeleteRequest{
 		{MediaName: "Firefly", MediaType: "show", IntegrationID: 99},
 	}, upserter)
 	if err != nil {
