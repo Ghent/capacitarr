@@ -1,3 +1,6 @@
+// Package poller is the clock and I/O shell for capacity evaluation:
+// timer, fetch/enrich, disk upsert, and finalize. The product loop lives
+// in internal/orchestrator.
 package poller
 
 import (
@@ -17,12 +20,9 @@ import (
 	"capacitarr/internal/services"
 )
 
-// RunAccumulator and GroupAccumulator stay available to poller tests and
-// finalizeCycle. The types live with the product loop they measure.
-type (
-	RunAccumulator   = orchestrator.RunAccumulator
-	GroupAccumulator = orchestrator.GroupAccumulator
-)
+// RunAccumulator is the per-cycle metrics bag written by the orchestrator
+// and read by finalizeCycle. The type lives with the product loop it measures.
+type RunAccumulator = orchestrator.RunAccumulator
 
 // NewRunAccumulator creates a RunAccumulator with an initialized map.
 func NewRunAccumulator() *RunAccumulator {
