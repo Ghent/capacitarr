@@ -1,3 +1,15 @@
+## [3.4.1-rc.2] - 2026-09-23
+
+### 🚀 Features
+
+- Generate frontend API types from OpenAPI ([60c2771](https://github.com/Ghent/capacitarr/commit/60c2771744348e7948bf782bd18c1a71055e37a2))
+
+### 🐛 Bug Fixes
+
+- *(release)* Mark SemVer pre-releases and serialize tag workflows ([77e2b98](https://github.com/Ghent/capacitarr/commit/77e2b981438cd70540a3c5b54f4b14e233b99300))
+- *(sonarr)* Fetch episode files in one request per poll ([1c02bfc](https://github.com/Ghent/capacitarr/commit/1c02bfc94a2de9ac6564af0c96f03b0acf995096))
+- Keep delete, import, and reset on one trust path ([26fe8d5](https://github.com/Ghent/capacitarr/commit/26fe8d5b4313ce3d2670a78a9b512ee5e228c113))
+- Make deletion queue overflow and preview scale visible ([693842d](https://github.com/Ghent/capacitarr/commit/693842daf31cd4c8d55c4edb6ee9df9ca4d25c57))
 ## [3.4.1-rc.1] - 2026-09-22
 
 ### 🐛 Bug Fixes
