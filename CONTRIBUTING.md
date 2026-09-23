@@ -56,6 +56,10 @@ Capacitarr uses a layered architecture with clear separation of concerns:
 
 For the full architecture documentation with diagrams, see [docs/reference/architecture.md](docs/reference/architecture.md).
 
+### Internal plans
+
+Active design work lives in `docs/plans/00-active/`. Completed plans go to a private archive and must not be added back onto `main`. Product code and published docs should state still-true constraints directly; they must not cite plan file paths.
+
 ### Code Standards
 
 - **Go backend**: Follow `gofmt` formatting; `golangci-lint` is run automatically via Docker

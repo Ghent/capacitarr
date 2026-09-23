@@ -2,7 +2,6 @@
 -- Capacitarr 2.0 baseline migration.
 -- Clean-slate schema — no migration path from 1.x incremental migrations.
 -- For 1.x users, a separate migration tool imports configuration data.
--- See: docs/plans/20260318T2119Z-capacitarr-2.0-plan.md
 
 -- ============================================================================
 -- Auth
