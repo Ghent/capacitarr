@@ -194,6 +194,7 @@ export interface WorkerStats {
   protectedCount: number;
   processed: number;
   failed: number;
+  queueFullRejections?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +273,8 @@ export interface EvaluatedItem {
 export interface PreviewResponse {
   items: EvaluatedItem[];
   diskContext: DiskContext | null;
+  truncated?: boolean;
+  totalItems?: number;
 }
 
 export interface DiskContext {

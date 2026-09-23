@@ -2,6 +2,7 @@ package deletion
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -190,7 +191,7 @@ func (s *DeletionService) QueueManual(items []approval.ManualDeleteRequest, appr
 		return approval.ManualDeleteResult{}, fmt.Errorf("deletion service not fully wired")
 	}
 
-	var queuedCount, approvalCount int
+	var queuedCount, approvalCount, queueFullSkipped int
 	var firstResolvedMode string
 
 	prefs, err := s.settings.GetPreferences()
@@ -286,8 +287,9 @@ func (s *DeletionService) QueueManual(items []approval.ManualDeleteRequest, appr
 			EnqueuedMode:       resolvedMode,
 			AddImportExclusion: addImportExclusion,
 		}); queueErr != nil {
-			slog.Warn("Deletion queue full for manual delete",
-				"component", "services", "media", item.MediaName, "error", queueErr)
+			if errors.Is(queueErr, ErrDeletionQueueFull) {
+				queueFullSkipped++
+			}
 			continue
 		}
 		queuedCount++
@@ -300,8 +302,9 @@ func (s *DeletionService) QueueManual(items []approval.ManualDeleteRequest, appr
 	}
 
 	return approval.ManualDeleteResult{
-		Queued: queuedCount + approvalCount,
-		Total:  len(items),
-		Mode:   reportedMode,
+		Queued:           queuedCount + approvalCount,
+		Total:            len(items),
+		Mode:             reportedMode,
+		QueueFullSkipped: queueFullSkipped,
 	}, nil
 }

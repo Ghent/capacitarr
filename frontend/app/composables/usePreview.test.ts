@@ -59,12 +59,30 @@ describe('usePreview', () => {
       diskContext: { mountPath: '/media', usedPct: 80 },
     });
 
-    const { items, diskContext, refresh } = usePreview();
+    const { items, diskContext, truncated, totalItems, refresh } = usePreview();
     await refresh();
 
     expect(items.value).toHaveLength(2);
     expect(items.value[0]!.item.title).toBe('Firefly');
     expect(diskContext.value).toEqual({ mountPath: '/media', usedPct: 80 });
+    expect(truncated.value).toBe(false);
+    expect(totalItems.value).toBe(2);
+  });
+
+  it('refresh records truncated preview cap', async () => {
+    mockApiFetch.mockResolvedValueOnce({
+      items: [{ item: { title: 'Firefly', type: 'show' }, score: 5.0 }],
+      diskContext: null,
+      truncated: true,
+      totalItems: 2500,
+    });
+
+    const { items, truncated, totalItems, refresh } = usePreview();
+    await refresh();
+
+    expect(items.value).toHaveLength(1);
+    expect(truncated.value).toBe(true);
+    expect(totalItems.value).toBe(2500);
   });
 
   it('refresh(force=true) adds force query param', async () => {

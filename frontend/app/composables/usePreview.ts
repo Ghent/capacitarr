@@ -23,6 +23,8 @@ export function usePreview() {
 
   const items = ref<EvaluatedItem[]>([]);
   const diskContext = ref<DiskContext | null>(null);
+  const truncated = ref(false);
+  const totalItems = ref(0);
   const loading = ref(false);
   const stale = ref(false);
 
@@ -37,11 +39,15 @@ export function usePreview() {
       const data = (await api(url)) as PreviewResponse;
       items.value = data?.items ?? [];
       diskContext.value = data?.diskContext ?? null;
+      truncated.value = data?.truncated ?? false;
+      totalItems.value = data?.totalItems ?? items.value.length;
       stale.value = false;
     } catch (err) {
       console.warn('[usePreview] fetch failed:', err);
       items.value = [];
       diskContext.value = null;
+      truncated.value = false;
+      totalItems.value = 0;
     } finally {
       loading.value = false;
     }
@@ -132,6 +138,10 @@ export function usePreview() {
     items,
     /** Disk context from the preview cache. */
     diskContext: readonly(diskContext),
+    /** True when GET /preview capped the item list. */
+    truncated: readonly(truncated),
+    /** Full evaluated count before the API cap. */
+    totalItems: readonly(totalItems),
     /** Whether a fetch is in progress. */
     loading: readonly(loading),
     /** Whether the cached data is stale (invalidated, awaiting refresh). */

@@ -609,9 +609,10 @@ type ManualDeleteRequest struct {
 
 // ManualDeleteResult contains the outcome of a QueueManual call.
 type ManualDeleteResult struct {
-	Queued int    `json:"queued"`
-	Total  int    `json:"total"`
-	Mode   string `json:"mode"`
+	Queued           int    `json:"queued"`
+	Total            int    `json:"total"`
+	Mode             string `json:"mode"`
+	QueueFullSkipped int    `json:"queueFullSkipped,omitempty"`
 }
 
 // ApprovalReturnerUpserter is the subset of ApprovalService needed by QueueManual

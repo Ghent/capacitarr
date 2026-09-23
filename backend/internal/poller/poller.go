@@ -467,6 +467,7 @@ func (p *Poller) finalizeCycle(pctx *pollContext, totalDeletionsQueued int, medi
 			DiskTargetPct:      ga.DiskTargetPct,
 			CollectionsDeleted: int(ga.Collections),
 			SunsetQueued:       ga.SunsetQueued,
+			QueueFullSkipped:   ga.QueueFullSkipped,
 		})
 	}
 

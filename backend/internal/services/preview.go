@@ -50,10 +50,24 @@ type DeletionStateReader interface {
 	CurrentlyDeleting() string
 }
 
+// Preview persist/API guardrails. The in-memory cache may still hold the
+// full evaluated set; these limits apply to SQLite persistence and GET /preview.
+const (
+	defaultPreviewPersistMaxBytes = 8 << 20
+	defaultPreviewAPIItemCap      = 2000
+)
+
+var (
+	previewPersistMaxBytes = defaultPreviewPersistMaxBytes
+	previewAPIItemCap      = defaultPreviewAPIItemCap
+)
+
 // PreviewResult holds the full result of a score preview computation.
 type PreviewResult struct {
 	Items       []engine.EvaluatedItem `json:"items"`
 	DiskContext *DiskContext           `json:"diskContext"`
+	Truncated   bool                   `json:"truncated,omitempty"`
+	TotalItems  int                    `json:"totalItems,omitempty"`
 }
 
 // DiskContext provides disk usage information for the deletion line in the UI.
@@ -169,6 +183,35 @@ func (s *PreviewService) GetPreview(force bool) (*PreviewResult, error) {
 	}
 
 	return val.(*PreviewResult), nil
+}
+
+// GetPreviewForAPI returns the preview for GET /preview, capped so a large
+// library is not serialized as one unbounded JSON response. The in-memory
+// cache is left intact for analytics.
+func (s *PreviewService) GetPreviewForAPI(force bool) (*PreviewResult, error) {
+	result, err := s.GetPreview(force)
+	if err != nil || result == nil {
+		return result, err
+	}
+	return capPreviewForAPI(result), nil
+}
+
+func capPreviewForAPI(result *PreviewResult) *PreviewResult {
+	total := len(result.Items)
+	if total <= previewAPIItemCap {
+		out := *result
+		out.TotalItems = total
+		out.Truncated = false
+		return &out
+	}
+	items := make([]engine.EvaluatedItem, previewAPIItemCap)
+	copy(items, result.Items[:previewAPIItemCap])
+	return &PreviewResult{
+		Items:       items,
+		DiskContext: result.DiskContext,
+		Truncated:   true,
+		TotalItems:  total,
+	}
 }
 
 // SetPreviewCache populates the cache with pre-fetched, enriched items.
@@ -563,6 +606,13 @@ func (s *PreviewService) PersistToDB() {
 	if err != nil {
 		slog.Error("Failed to serialize preview cache for persistence",
 			"component", "preview", "error", err)
+		return
+	}
+
+	if len(data) > previewPersistMaxBytes {
+		slog.Warn("Skipping preview persist — JSON exceeds size guard; keeping previous row",
+			"component", "preview", "bytes", len(data), "limit", previewPersistMaxBytes,
+			"items", len(cache.Items))
 		return
 	}
 

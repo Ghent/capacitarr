@@ -427,6 +427,42 @@ func TestQueueManual_ClientFailureSkipsItem(t *testing.T) {
 	}
 }
 
+func TestQueueManual_ReportsQueueFullSkipped(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := newTestDeletionService(bus, NewAuditLogService(database))
+
+	dgID := uint(3)
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeAuto, deletionQueueDelaySeconds: 300},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeAuto, diskGroupID: &dgID},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+	fillDeletionQueue(svc, 500)
+
+	result, err := svc.QueueManual([]approval.ManualDeleteRequest{
+		{MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 500, Score: 0.8},
+		{MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, SizeBytes: 1000, Score: 0.9},
+	}, &mockApprovalUpserter{})
+	if err != nil {
+		t.Fatalf("QueueManual returned error: %v", err)
+	}
+	if result.Queued != 0 {
+		t.Errorf("queued = %d, want 0", result.Queued)
+	}
+	if result.QueueFullSkipped != 2 {
+		t.Errorf("QueueFullSkipped = %d, want 2", result.QueueFullSkipped)
+	}
+	if result.Total != 2 {
+		t.Errorf("Total = %d, want 2", result.Total)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // Helper: drainQueuedEvent
 // ---------------------------------------------------------------------------

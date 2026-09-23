@@ -3407,6 +3407,12 @@ components:
             - $ref: "#/components/schemas/DiskContext"
             - type: "null"
           description: Disk context for the most relevant disk group, or null if no disk groups exist
+        truncated:
+          type: boolean
+          description: True when items were capped (at most 2000) for the API response
+        totalItems:
+          type: integer
+          description: Full evaluated item count before the API cap
       required: [items, diskContext]
 
     # ---- Metrics History ----
@@ -3508,6 +3514,10 @@ components:
           type: integer
           format: int64
           description: Total items that failed during deletion
+        queueFullRejections:
+          type: integer
+          format: int64
+          description: Enqueue attempts rejected because the in-memory deletion queue was full
       required:
         - defaultDiskGroupMode
         - isRunning

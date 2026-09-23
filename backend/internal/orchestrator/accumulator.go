@@ -49,4 +49,6 @@ type GroupAccumulator struct {
 	DiskTargetPct float64
 	// Sunset-mode counters (zero for other modes)
 	SunsetQueued int
+	// Items not dispatched because the in-memory deletion queue was full.
+	QueueFullSkipped int
 }

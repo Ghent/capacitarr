@@ -24,6 +24,7 @@ export const EVENT_DELETION_FAILED = 'deletion_failed' as const;
 export const EVENT_DELETION_CANCELLED = 'deletion_cancelled' as const;
 export const EVENT_DELETION_BATCH_COMPLETE = 'deletion_batch_complete' as const;
 export const EVENT_DELETION_GRACE_PERIOD = 'deletion_grace_period' as const;
+export const EVENT_DELETION_QUEUE_FULL = 'deletion_queue_full' as const;
 
 // Approval events
 export const EVENT_APPROVAL_APPROVED = 'approval_approved' as const;

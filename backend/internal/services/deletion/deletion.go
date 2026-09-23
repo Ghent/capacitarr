@@ -114,6 +114,10 @@ type DeletionService struct {
 	// flipped to deleted. The intent row remains, which is the fail-open
 	// post-delete path (file is gone; history still exists).
 	auditPostDeleteFailures atomic.Uint64
+
+	// Count of enqueue attempts rejected because the in-memory queue is full.
+	queueFullRejections atomic.Uint64
+	queueFullSignaled   atomic.Bool
 }
 
 // ---------------------------------------------------------------------------
@@ -303,4 +307,10 @@ func (s *DeletionService) Processed() int64 {
 // Failed returns the total number of failed deletion attempts.
 func (s *DeletionService) Failed() int64 {
 	return s.failed.Load()
+}
+
+// QueueFullRejections returns how many enqueue attempts were rejected
+// because the in-memory deletion queue was at its cap.
+func (s *DeletionService) QueueFullRejections() uint64 {
+	return s.queueFullRejections.Load()
 }

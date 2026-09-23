@@ -387,6 +387,7 @@ func TestMetricsService_GetWorkerMetrics_ReturnsExpectedKeys(t *testing.T) {
 		"currentlyDeleting",
 		"processed",
 		"failed",
+		"queueFullRejections",
 	}
 
 	for _, key := range expectedKeys {

@@ -58,6 +58,7 @@ type GroupDigest struct {
 	SunsetSaved        int     `json:"sunsetSaved"`
 	EscalatedItems     int     `json:"escalatedItems"`
 	EscalatedBytes     int64   `json:"escalatedBytes"`
+	QueueFullSkipped   int     `json:"queueFullSkipped,omitempty"`
 }
 
 // TotalEvaluated returns the sum of Evaluated across all groups.
@@ -288,7 +289,7 @@ func filterGroups(groups []GroupDigest, level NotificationTier) []GroupDigest {
 func hasActivity(g GroupDigest) bool {
 	return g.Deleted > 0 || g.Candidates > 0 || g.FreedBytes > 0 ||
 		g.SunsetQueued > 0 || g.SunsetExpired > 0 || g.SunsetSaved > 0 ||
-		g.EscalatedItems > 0
+		g.EscalatedItems > 0 || g.QueueFullSkipped > 0
 }
 
 // groupDescription returns a mode-specific summary line for a group.

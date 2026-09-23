@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -499,5 +500,93 @@ func TestPreviewService_EnrichWithQueueStatus_NilDependencies(t *testing.T) {
 
 	if items[0].QueueStatus != "" {
 		t.Errorf("expected empty queueStatus with nil dependencies, got %q", items[0].QueueStatus)
+	}
+}
+
+func TestPreviewService_PersistToDB_SkipsOversizeJSON(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewPreviewService(database, bus)
+
+	old := previewPersistMaxBytes
+	t.Cleanup(func() { previewPersistMaxBytes = old })
+
+	svc.previewCache = &PreviewResult{
+		Items: []engine.EvaluatedItem{
+			{Item: integrations.MediaItem{Title: "ok"}, Score: 1},
+		},
+	}
+	svc.PersistToDB()
+
+	var first db.MediaCache
+	if err := database.First(&first, 1).Error; err != nil {
+		t.Fatalf("expected first persist: %v", err)
+	}
+	if first.ItemCount != 1 {
+		t.Errorf("ItemCount = %d, want 1", first.ItemCount)
+	}
+
+	previewPersistMaxBytes = 1
+
+	huge := make([]engine.EvaluatedItem, 20)
+	for i := range huge {
+		huge[i] = engine.EvaluatedItem{
+			Item:  integrations.MediaItem{Title: "this-title-is-long-enough-to-blow-the-tiny-persist-cap"},
+			Score: float64(i),
+		}
+	}
+	svc.previewCache = &PreviewResult{Items: huge}
+	svc.PersistToDB()
+
+	var second db.MediaCache
+	if err := database.First(&second, 1).Error; err != nil {
+		t.Fatalf("expected previous row kept: %v", err)
+	}
+	if second.ItemCount != 1 {
+		t.Errorf("oversize persist replaced row: ItemCount=%d", second.ItemCount)
+	}
+	if second.PreviewJSON != first.PreviewJSON {
+		t.Error("oversize persist mutated previous JSON")
+	}
+}
+
+func TestPreviewService_GetPreviewForAPI_CapsItems(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewPreviewService(database, bus)
+
+	old := previewAPIItemCap
+	previewAPIItemCap = 2
+	t.Cleanup(func() { previewAPIItemCap = old })
+
+	items := make([]engine.EvaluatedItem, 5)
+	for i := range items {
+		items[i] = engine.EvaluatedItem{
+			Item:  integrations.MediaItem{Title: fmt.Sprintf("item-%d", i)},
+			Score: float64(i),
+		}
+	}
+	svc.previewCache = &PreviewResult{Items: items}
+
+	capped, err := svc.GetPreviewForAPI(false)
+	if err != nil {
+		t.Fatalf("GetPreviewForAPI: %v", err)
+	}
+	if !capped.Truncated {
+		t.Error("expected Truncated")
+	}
+	if capped.TotalItems != 5 {
+		t.Errorf("TotalItems = %d, want 5", capped.TotalItems)
+	}
+	if len(capped.Items) != 2 {
+		t.Errorf("capped items = %d, want 2", len(capped.Items))
+	}
+
+	full, err := svc.GetPreview(false)
+	if err != nil {
+		t.Fatalf("GetPreview: %v", err)
+	}
+	if len(full.Items) != 5 {
+		t.Errorf("in-memory cache mutated: %d items", len(full.Items))
 	}
 }
