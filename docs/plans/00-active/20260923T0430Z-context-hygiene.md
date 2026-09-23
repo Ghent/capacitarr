@@ -34,6 +34,7 @@ These are already decided. Do not re-litigate them in implementation.
 | What stays on `main` | `docs/plans/00-active/` + a short `docs/plans/README.md` | Inbox only. `ls docs/plans/00-active` is “what is in flight” |
 | What moves | Category folders `01`–`10` (137 files) | Finished journals |
 | History rewrite | **No** | Old commits on `capacitarr` keep the files. That is fine. We only change the current tree |
+| Code ↔ plans | **No product code cites plan files** | Comments, migrations, and scripts must not point at `docs/plans/…`. Facts stay in the code; journals stay in the archive |
 | This plan’s scope | Context hygiene only | Type generation, preview pagination, auth roles, etc. are other items |
 
 ### Archive repo constraints (non-negotiable)
@@ -95,16 +96,19 @@ Site publish already excludes `docs/plans/` (`site/scripts/sync-docs.mjs`). User
 | `20260413T0205Z-approval-queue-visibility-fix.md` | ✅ Complete | **Move to archive** (`04-bugfixes/`) |
 | `20260317T1323Z-absolute-byte-thresholds.md` | ⏸️ Deferred to post-2.0 | **Decision:** product is well past 2.0. Either retitle to `Backlog` and keep, or archive as deferred. Default if nobody picks: **keep as Backlog** so the inbox stays honest |
 
-### Citations that will break if we only delete
+### Citations (done — do not reintroduce)
 
-| Location | What to do |
-|----------|------------|
-| `backend/internal/db/validation.go` (~L45) | Replace plan path with one sentence: Overseerr was renamed to Seerr in 2.0 |
-| `SECURITY.md` Gitleaks table | After the move, `docs/plans/` on `main` is inbox-only. Keep the allowlist (active plans can still have example credentials). Add a line that the private archive is out of this repo’s scan |
-| `.gitleaks.toml` | Keep `docs/plans/` allowlist for the inbox |
-| `site/scripts/sync-docs.mjs` | Keep excluding `plans`. Update the “see docs/plans/ for conversion” comment to point at the README, not a conversion process that does not exist |
+Product code must not name plan files. These were the only citations; they are removed on this branch:
 
-Do **not** leave 20 comments that 404. One real citation is enough to fix. Intra-plan “Supersedes:” links live in the archive and can stay relative.
+| Location | Change |
+|----------|--------|
+| `backend/internal/db/validation.go` | Dropped the plan path. Comment is now: `"overseerr" was renamed to "seerr" in 2.0.` |
+| `backend/internal/db/migrations/00001_v2_baseline.sql` | Dropped the `See: docs/plans/…` line. Baseline comments stay factual. |
+| `site/scripts/sync-docs.mjs` | Still excludes the `plans` directory from publish. Comments no longer send readers to plan files. |
+
+`SECURITY.md` and `.gitleaks.toml` may keep a **directory** allowlist for `docs/plans/` (inbox can contain example credentials). That is a scan rule, not a citation of a journal.
+
+Intra-plan “Supersedes:” links live only inside the archive.
 
 ### Screenshots
 
@@ -214,13 +218,15 @@ Blocked on Ghent. Agents in this environment cannot create GitHub repos.
 - [ ] Absolute byte thresholds: keep as `Backlog` **or** include in the archive move (default: keep)
 - [ ] Leave the four still-open plans + this hygiene plan in `00-active`
 
-### Phase 2 — Promote still-true facts; fix citations
+### Phase 2 — Promote still-true facts; no code citations
 
-Do this **before** deleting files from `main`, so we do not need the archive to understand the product.
+Done on this branch except the optional doc skim.
 
-- [ ] `validation.go`: drop the plan path; keep the Seerr rename in one sentence
+- [x] `validation.go`: drop the plan path; keep the Seerr rename in one sentence
+- [x] `00001_v2_baseline.sql`: drop the plan path
+- [x] `sync-docs.mjs`: stop pointing at plan files
 - [ ] Skim `docs/development.md` and `docs/reference/architecture.md` — if a closed plan is the only place a still-true invariant lives, lift that paragraph now. Do not lift implementation checklists
-- [ ] Known candidate already lifted: per-disk-group execution mode vs `DefaultDiskGroupMode` (already in `docs/development.md`). No action unless something else is similarly stranded
+- [x] Known candidate already lifted: per-disk-group execution mode vs `DefaultDiskGroupMode` (already in `docs/development.md`)
 
 ### Phase 3 — Seed the archive, then remove from `main`
 

@@ -6,7 +6,7 @@
  *
  * Features:
  * - Auto-discovers all .md files in docs/ (no hardcoded file lists)
- * - Excludes docs/plans/ (internal development documents)
+ * - Excludes the docs/plans directory from the published site
  * - Syncs root-level project files (SECURITY.md, CONTRIBUTING.md, etc.)
  * - Rewrites relative markdown links to absolute Nuxt Content paths
  * - Injects navigation ordering for sidebar display
@@ -20,8 +20,7 @@ const DOCS_SRC = join(ROOT, '..', 'docs')
 const PROJECT_ROOT = join(ROOT, '..')
 const CONTENT_DOCS = join(ROOT, 'content', 'docs')
 
-// Directories within docs/ to exclude from sync.
-// docs/plans/ contains internal development documents (per .kilocoderules).
+// Directories within docs/ to exclude from the published site.
 const EXCLUDED_DIRS = new Set(['plans'])
 
 // ── Navigation ordering ────────────────────────────────────────────
@@ -388,9 +387,8 @@ if (existsSync(changelogSrc)) {
   changelogSynced = true
 }
 
-// Screenshots are managed as lossless WebP files in public/screenshots/.
-// They are converted once from ../screenshots/*.png using sharp.
-// The sync script does not manage them — see docs/plans/ for the conversion process.
+// Screenshots are lossless WebP files in public/screenshots/.
+// This script does not convert or copy images.
 
 console.log(
   `✓ Docs synced to content/docs/ (${docsCount} files from docs/`
