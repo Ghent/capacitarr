@@ -22,7 +22,6 @@ var (
 	ErrUnsupportedIntegrationType = errors.New("unsupported integration type for rule values")
 	ErrIntegrationNoRuleValues    = errors.New("integration does not support rule value lookups")
 	ErrUnknownAction              = errors.New("unknown action")
-	ErrDeletionQueueFull          = errors.New("deletion queue is full")
 )
 
 // Rule value action identifiers used in FetchRuleValues switch.

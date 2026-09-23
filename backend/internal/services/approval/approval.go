@@ -1,6 +1,5 @@
-// Package services contains business logic separated from HTTP handlers.
-// Services are injectable and publish typed events to the event bus.
-package services
+// Package approval manages the approval queue lifecycle.
+package approval
 
 import (
 	"errors"
@@ -23,6 +22,8 @@ var (
 )
 
 // ApprovalService manages the approval queue lifecycle.
+//
+//nolint:revive // existing type name; package split is not a rename
 type ApprovalService struct {
 	db  *gorm.DB
 	bus *events.EventBus
@@ -584,15 +585,48 @@ func (s *ApprovalService) ExecuteGroupApproval(collectionGroup string, deps Exec
 }
 
 // ExecuteApprovalDeps holds the service dependencies needed by ExecuteApproval.
-// This avoids circular references — ApprovalService doesn't need to import
-// the full Registry.
+// Deletion is the QueueFromApproval surface (satisfied by *deletion.DeletionService).
+// The field is an interface so this package does not import deletion — that
+// would cycle with deletion tests that import approval to exercise handoff.
 type ExecuteApprovalDeps struct {
-	Deletion *DeletionService
+	Deletion interface {
+		QueueFromApproval(item *db.ApprovalQueueItem) error
+	}
+}
+
+// ManualDeleteRequest contains user-submitted identity data for manual deletion.
+// The deletion intake layer resolves the integration client, disk group, and mode.
+type ManualDeleteRequest struct {
+	MediaName     string
+	MediaType     string
+	IntegrationID uint
+	ExternalID    string
+	SizeBytes     int64
+	Score         float64
+	ScoreDetails  string
+	PosterURL     string
+}
+
+// ManualDeleteResult contains the outcome of a QueueManual call.
+type ManualDeleteResult struct {
+	Queued int    `json:"queued"`
+	Total  int    `json:"total"`
+	Mode   string `json:"mode"`
+}
+
+// ApprovalReturnerUpserter is the subset of ApprovalService needed by QueueManual
+// to route items to the approval queue when their disk group is in approval mode.
+//
+//nolint:revive // existing type name; package split is not a rename
+type ApprovalReturnerUpserter interface {
+	UpsertPending(item db.ApprovalQueueItem) (bool, error)
 }
 
 // ManualDeleteDeps holds the service dependencies needed by ManualDelete.
 type ManualDeleteDeps struct {
-	Deletion *DeletionService
+	Deletion interface {
+		QueueManual(items []ManualDeleteRequest, approvalUpserter ApprovalReturnerUpserter) (ManualDeleteResult, error)
+	}
 }
 
 // ManualDelete encapsulates mode-aware deletion for user-initiated actions.

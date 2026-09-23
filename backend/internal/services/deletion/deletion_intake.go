@@ -1,4 +1,4 @@
-package services
+package deletion
 
 import (
 	"encoding/json"
@@ -8,6 +8,7 @@ import (
 	"capacitarr/internal/db"
 	"capacitarr/internal/engine"
 	"capacitarr/internal/integrations"
+	"capacitarr/internal/services/approval"
 )
 
 // EngineDeleteRequest contains everything the engine has already resolved.
@@ -25,26 +26,6 @@ type EngineDeleteRequest struct {
 	AddImportExclusion bool
 	UpsertAudit        bool
 	ForceDryRun        bool // When true, item is from a dry-run disk group (Client may be nil)
-}
-
-// ManualDeleteRequest contains user-submitted identity data for manual deletion.
-// The intake layer resolves the integration client, disk group, and mode.
-type ManualDeleteRequest struct {
-	MediaName     string
-	MediaType     string
-	IntegrationID uint
-	ExternalID    string
-	SizeBytes     int64
-	Score         float64
-	ScoreDetails  string
-	PosterURL     string
-}
-
-// ManualDeleteResult contains the outcome of a QueueManual call.
-type ManualDeleteResult struct {
-	Queued int    `json:"queued"`
-	Total  int    `json:"total"`
-	Mode   string `json:"mode"`
 }
 
 // ---------------------------------------------------------------------------
@@ -204,9 +185,9 @@ func (s *DeletionService) QueueFromSunset(item *db.SunsetQueueItem) error {
 // QueueManual enqueues user-initiated deletions. Resolves each item's
 // integration client, disk group, and mode. Items whose resolved mode is
 // "approval" are routed to the approval queue instead of being deleted.
-func (s *DeletionService) QueueManual(items []ManualDeleteRequest, approvalUpserter ApprovalReturnerUpserter) (ManualDeleteResult, error) {
+func (s *DeletionService) QueueManual(items []approval.ManualDeleteRequest, approvalUpserter approval.ApprovalReturnerUpserter) (approval.ManualDeleteResult, error) {
 	if s.clients == nil || s.diskGroupsFull == nil {
-		return ManualDeleteResult{}, fmt.Errorf("deletion service not fully wired")
+		return approval.ManualDeleteResult{}, fmt.Errorf("deletion service not fully wired")
 	}
 
 	var queuedCount, approvalCount int
@@ -214,7 +195,7 @@ func (s *DeletionService) QueueManual(items []ManualDeleteRequest, approvalUpser
 
 	prefs, err := s.settings.GetPreferences()
 	if err != nil {
-		return ManualDeleteResult{}, fmt.Errorf("failed to load preferences for manual delete: %w", err)
+		return approval.ManualDeleteResult{}, fmt.Errorf("failed to load preferences for manual delete: %w", err)
 	}
 
 	for _, item := range items {
@@ -318,15 +299,9 @@ func (s *DeletionService) QueueManual(items []ManualDeleteRequest, approvalUpser
 		reportedMode = prefs.DefaultDiskGroupMode
 	}
 
-	return ManualDeleteResult{
+	return approval.ManualDeleteResult{
 		Queued: queuedCount + approvalCount,
 		Total:  len(items),
 		Mode:   reportedMode,
 	}, nil
-}
-
-// ApprovalReturnerUpserter is the subset of ApprovalService needed by QueueManual
-// to route items to the approval queue when their disk group is in approval mode.
-type ApprovalReturnerUpserter interface {
-	UpsertPending(item db.ApprovalQueueItem) (bool, error)
 }

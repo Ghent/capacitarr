@@ -1,4 +1,4 @@
-package services
+package deletion
 
 import (
 	"fmt"
