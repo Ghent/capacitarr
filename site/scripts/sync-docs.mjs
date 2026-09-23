@@ -6,7 +6,7 @@
  *
  * Features:
  * - Auto-discovers all .md files in docs/ (no hardcoded file lists)
- * - Excludes the docs/plans directory from the published site
+ * - Excludes the docs/plans inbox from the published site (not a journal citation)
  * - Syncs root-level project files (SECURITY.md, CONTRIBUTING.md, etc.)
  * - Rewrites relative markdown links to absolute Nuxt Content paths
  * - Injects navigation ordering for sidebar display
@@ -20,7 +20,7 @@ const DOCS_SRC = join(ROOT, '..', 'docs')
 const PROJECT_ROOT = join(ROOT, '..')
 const CONTENT_DOCS = join(ROOT, 'content', 'docs')
 
-// Directories within docs/ to exclude from the published site.
+// Inbox only — historical journals live in the private archive, not this tree.
 const EXCLUDED_DIRS = new Set(['plans'])
 
 // ── Navigation ordering ────────────────────────────────────────────

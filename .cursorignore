@@ -1,0 +1,17 @@
+# Lockfiles — needed by CI, useless as source
+**/pnpm-lock.yaml
+**/package-lock.json
+**/go.sum
+
+# i18n copies — en.json is the source of truth
+frontend/app/locales/*
+!frontend/app/locales/en.json
+
+# Release journal — @-mention when doing a release
+CHANGELOG.md
+
+# Unused after Phase 5; keep the rule so they do not come back
+screenshots/
+
+# Marketing site is a separate app
+site/

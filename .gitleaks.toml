@@ -4,7 +4,7 @@
 # not real secrets. Gitleaks is configured to skip:
 #   - Test files (*_test.go) — contain fake API keys, JWT tokens, etc.
 #   - API documentation (docs/reference/api/) — contains example tokens and keys
-#   - Plan documents (docs/plans/) — may reference example credentials
+#   - Plan inbox (docs/plans/) — 00-active only after archive; may contain example credentials
 
 [allowlist]
 description = "Test fixtures and documentation examples"

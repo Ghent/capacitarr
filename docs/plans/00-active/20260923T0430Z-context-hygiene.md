@@ -1,6 +1,6 @@
 # Context Hygiene — Archive Plans, Ignore Noise, Drop PNG Duplicates
 
-**Status:** Planned
+**Status:** In Progress
 **Priority:** High (agent correctness + clone/index noise; no product behavior change)
 **Estimated Effort:** S–M (mostly mechanical; one human gate to create the archive repo)
 **Origin:** Repo-size / token review (2026-09-23). Implements item #1 (context hygiene) only.
@@ -205,18 +205,18 @@ After category folders leave `main`, there is nothing extra to ignore under `doc
 
 Blocked on Ghent. Agents in this environment cannot create GitHub repos.
 
-- [ ] Create `Ghent/capacitarr-plans` as **private**
-- [ ] Confirm the GitHub UI shows **Private** (lock) before any push
-- [ ] Do **not** add a license template, `.gitignore` template that implies OSS, or public README badges
-- [ ] Push an initial commit: proprietary `LICENSE` (text above) + `README.md` that states private / not open source / not licensed for use / not the Capacitarr product
-- [ ] Grant access only to people who should read internal plans (default: just you)
-- [ ] Record the canonical URL in Capacitarr’s `docs/plans/README.md` in Phase 3 (use the private GitHub URL; do not advertise it in the public README root unless you want it visible — **prefer linking only from `docs/plans/README.md`**, which the site already does not publish)
+- [x] Create `Ghent/capacitarr-plans` as **private**
+- [x] Confirm the GitHub UI shows **Private** (lock) before any push
+- [x] Do **not** add a license template, `.gitignore` template that implies OSS, or public README badges
+- [x] Push an initial commit: proprietary `LICENSE` (text above) + `README.md` that states private / not open source / not licensed for use / not the Capacitarr product
+- [x] Grant access only to people who should read internal plans (default: just you)
+- [x] Record the canonical URL in Capacitarr’s `docs/plans/README.md` in Phase 3 (use the private GitHub URL; do not advertise it in the public README root unless you want it visible — **prefer linking only from `docs/plans/README.md`**, which the site already does not publish)
 
 ### Phase 1 — Curate `00-active` on Capacitarr
 
-- [ ] Move `20260413T0205Z-approval-queue-visibility-fix.md` with the category folders (Complete; does not belong in the inbox)
-- [ ] Absolute byte thresholds: keep as `Backlog` **or** include in the archive move (default: keep)
-- [ ] Leave the four still-open plans + this hygiene plan in `00-active`
+- [x] Move `20260413T0205Z-approval-queue-visibility-fix.md` with the category folders (Complete; does not belong in the inbox)
+- [x] Absolute byte thresholds: keep as `Backlog` **or** include in the archive move (default: keep)
+- [x] Leave the four still-open plans + this hygiene plan in `00-active`
 
 ### Phase 2 — Promote still-true facts; no code citations
 
@@ -230,13 +230,13 @@ Done on this branch except the optional doc skim.
 
 ### Phase 3 — Seed the archive, then remove from `main`
 
-- [ ] Copy folders `01`–`10` (and the Complete approval-queue plan) into the private repo, **preserving relative paths** so intra-plan links keep working
-- [ ] Do **not** copy `00-active/` as a whole (those files are still live). Exception: the Complete approval-queue file goes to `04-bugfixes/`
-- [ ] Do **not** copy Capacitarr `LICENSE`, `CONTRIBUTING.md`, screenshots, or user docs
-- [ ] Archive `README.md` lists the category folders and repeats the proprietary notice
-- [ ] Push to the **private** remote; re-check the repo is still private
-- [ ] On Capacitarr: `git rm -r` the moved folders (`01`–`10`)
-- [ ] Add `docs/plans/README.md`:
+- [x] Copy folders `01`–`10` (and the Complete approval-queue plan) into the private repo, **preserving relative paths** so intra-plan links keep working
+- [x] Do **not** copy `00-active/` as a whole (those files are still live). Exception: the Complete approval-queue file goes to `04-bugfixes/`
+- [x] Do **not** copy Capacitarr `LICENSE`, `CONTRIBUTING.md`, screenshots, or user docs
+- [x] Archive `README.md` lists the category folders and repeats the proprietary notice
+- [x] Push to the **private** remote; re-check the repo is still private
+- [x] On Capacitarr: `git rm -r` the moved folders (`01`–`10`)
+- [x] Add `docs/plans/README.md`:
 
   - What `00-active` is
   - How to open / close a plan (lifecycle above)
@@ -245,23 +245,23 @@ Done on this branch except the optional doc skim.
 
 ### Phase 4 — `.cursorignore`
 
-- [ ] Add the file as specified under Design
-- [ ] Confirm `frontend/app/locales/en.json` is un-ignored (`!` exception)
-- [ ] Confirm `docs/`, `backend/`, `frontend/app/` (except extra locales) stay indexed
+- [x] Add the file as specified under Design
+- [x] Confirm `frontend/app/locales/en.json` is un-ignored (`!` exception)
+- [x] Confirm `docs/`, `backend/`, `frontend/app/` (except extra locales) stay indexed
 
 ### Phase 5 — Drop root PNG duplicates
 
-- [ ] `git rm screenshots/*.png` (and the directory if empty)
-- [ ] Update `SECURITY.md` Semgrep skip table: remove the `screenshots/*.png` rows; the 1 MB skip no longer applies to those files
-- [ ] Confirm README and site gallery still point at `site/public/screenshots/*.webp` only
-- [ ] One-line note in `docs/plans/README.md` or `docs/development.md`: new marketing shots are authored as WebP under `site/public/screenshots/`. Do not commit a root `screenshots/` PNG tree
+- [x] `git rm screenshots/*.png` (and the directory if empty)
+- [x] Update `SECURITY.md` Semgrep skip table: remove the `screenshots/*.png` rows; the 1 MB skip no longer applies to those files
+- [x] Confirm README and site gallery still point at `site/public/screenshots/*.webp` only
+- [x] One-line note in `docs/plans/README.md` or `docs/development.md`: new marketing shots are authored as WebP under `site/public/screenshots/`. Do not commit a root `screenshots/` PNG tree
 
 ### Phase 6 — Housekeeping on Capacitarr
 
-- [ ] `.gitleaks.toml`: keep `docs/plans/` allowlist; comment that it covers the inbox only
-- [ ] `SECURITY.md`: Gitleaks row stays; Semgrep screenshot row goes (Phase 5)
-- [ ] `site/scripts/sync-docs.mjs`: keep `EXCLUDED_DIRS = plans`; fix the stale “conversion process” / `.kilocoderules` comments
-- [ ] `CONTRIBUTING.md`: short “Internal plans” note — active plans in `docs/plans/00-active/`, completed plans go to the private archive, do not add finished journals back onto `main`
+- [x] `.gitleaks.toml`: keep `docs/plans/` allowlist; comment that it covers the inbox only
+- [x] `SECURITY.md`: Gitleaks row stays; Semgrep screenshot row goes (Phase 5)
+- [x] `site/scripts/sync-docs.mjs`: keep `EXCLUDED_DIRS = plans`; fix the stale “conversion process” / `.kilocoderules` comments
+- [x] `CONTRIBUTING.md`: short “Internal plans” note — active plans in `docs/plans/00-active/`, completed plans go to the private archive, do not add finished journals back onto `main`
 - [ ] Mark this plan Complete only after Phases 0–6 and Verify. Then copy it to the archive and remove it from `00-active` (dogfood the lifecycle)
 
 ### Verify
