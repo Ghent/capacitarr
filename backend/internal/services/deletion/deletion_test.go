@@ -2372,9 +2372,11 @@ func TestDeletionService_DrainAll_SortsByScoreDescending(t *testing.T) {
 type mockDeletionAuditor struct {
 	createIntentErr error
 	markDeletedErr  error
+	failIntentErr   error
 	nextID          uint
 	intents         []db.AuditLogEntry
 	markCalls       int
+	failCalls       int
 }
 
 func (m *mockDeletionAuditor) Create(_ db.AuditLogEntry) error { return nil }
@@ -2393,6 +2395,20 @@ func (m *mockDeletionAuditor) CreateIntent(entry db.AuditLogEntry) (uint, error)
 func (m *mockDeletionAuditor) MarkDeleted(_ uint) error {
 	m.markCalls++
 	return m.markDeletedErr
+}
+
+func (m *mockDeletionAuditor) FailIntent(id uint) error {
+	m.failCalls++
+	if m.failIntentErr != nil {
+		return m.failIntentErr
+	}
+	for i := range m.intents {
+		if m.intents[i].ID == id && m.intents[i].Action == db.ActionPendingDelete {
+			m.intents[i].Action = db.ActionCancelled
+			return nil
+		}
+	}
+	return errors.New("pending delete audit entry not found")
 }
 
 func (m *mockDeletionAuditor) UpsertDryRun(_ db.AuditLogEntry) error { return nil }
@@ -2458,6 +2474,55 @@ func TestExecuteDeletion_KeepsIntentWhenMarkDeletedFails(t *testing.T) {
 	}
 	if svc.auditPostDeleteFailures.Load() != 1 {
 		t.Errorf("expected auditPostDeleteFailures=1, got %d", svc.auditPostDeleteFailures.Load())
+	}
+}
+
+func TestExecuteDeletion_ClearsIntentWhenArrDeleteFails(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	audit := NewAuditLogService(database)
+	svc := newTestDeletionService(bus, audit)
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeAuto},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeAuto},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+	client := &mockIntegration{deleteErr: errors.New("radarr 500")}
+
+	svc.executeDeletion(deleteJob{
+		Client: client,
+		Item:   integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 100},
+	}, nil)
+
+	if client.deleteCalls != 1 {
+		t.Errorf("expected live delete to be attempted, got %d calls", client.deleteCalls)
+	}
+
+	var pending []db.AuditLogEntry
+	if err := database.Where("action = ?", db.ActionPendingDelete).Find(&pending).Error; err != nil {
+		t.Fatalf("failed to query pending_delete rows: %v", err)
+	}
+	if len(pending) != 0 {
+		t.Errorf("expected zero leftover pending_delete rows, got %d: %+v", len(pending), pending)
+	}
+
+	var cancelled []db.AuditLogEntry
+	if err := database.Where("action = ?", db.ActionCancelled).Find(&cancelled).Error; err != nil {
+		t.Fatalf("failed to query cancelled rows: %v", err)
+	}
+	if len(cancelled) != 1 || cancelled[0].MediaName != "Serenity" {
+		t.Errorf("expected one cancelled intent for Serenity, got %+v", cancelled)
+	}
+	if svc.Failed() != 1 {
+		t.Errorf("expected failed=1, got %d", svc.Failed())
+	}
+	if svc.AuditFailIntentFailures() != 0 {
+		t.Errorf("expected FailIntent to succeed, got auditFailIntentFailures=%d", svc.AuditFailIntentFailures())
 	}
 }
 

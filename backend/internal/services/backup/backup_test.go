@@ -3,6 +3,8 @@ package backup
 import (
 	"testing"
 
+	"gorm.io/gorm"
+
 	"capacitarr/internal/db"
 )
 
@@ -1611,4 +1613,158 @@ func TestBackupService_IntegrationExport_AddImportExclusionRoundTrip(t *testing.
 			}
 		}
 	}
+}
+
+const failImportMountPath = "/mnt/fail-import"
+
+func installDiskGroupImportFailureTrigger(t *testing.T, database *gorm.DB) {
+	t.Helper()
+	if err := database.Exec(`
+		CREATE TRIGGER fail_disk_group_import
+		BEFORE INSERT ON disk_groups
+		WHEN NEW.mount_path = '` + failImportMountPath + `'
+		BEGIN
+			SELECT RAISE(ABORT, 'injected disk group import failure');
+		END;
+	`).Error; err != nil {
+		t.Fatalf("failed to install disk group import trigger: %v", err)
+	}
+}
+
+func seedImportRollbackFixture(t *testing.T, database *gorm.DB) (prefLogLevel, integrationName, ruleField, existingMount string) {
+	t.Helper()
+	var pref db.PreferenceSet
+	if err := database.First(&pref, 1).Error; err != nil {
+		t.Fatalf("failed to load preferences: %v", err)
+	}
+	intID := seedIntegration(t, database)
+	rule := db.CustomRule{
+		Field: "quality", Operator: "==", Value: "1080p", Effect: "always_keep",
+		Enabled: true, IntegrationID: &intID,
+	}
+	if err := database.Create(&rule).Error; err != nil {
+		t.Fatalf("failed to seed rule: %v", err)
+	}
+	existing := db.DiskGroup{
+		MountPath: "/mnt/existing", ThresholdPct: 85, TargetPct: 75,
+		TotalBytes: 1_000_000, UsedBytes: 500_000,
+	}
+	if err := database.Create(&existing).Error; err != nil {
+		t.Fatalf("failed to seed disk group: %v", err)
+	}
+	return pref.LogLevel, "Test Sonarr", rule.Field, existing.MountPath
+}
+
+func assertImportUnchanged(t *testing.T, database *gorm.DB, prefLogLevel, integrationName, ruleField, existingMount string) {
+	t.Helper()
+	var pref db.PreferenceSet
+	if err := database.First(&pref, 1).Error; err != nil {
+		t.Fatalf("failed to reload preferences: %v", err)
+	}
+	if pref.LogLevel != prefLogLevel {
+		t.Errorf("preferences changed after failed import: logLevel %q → %q", prefLogLevel, pref.LogLevel)
+	}
+
+	var integrations []db.IntegrationConfig
+	if err := database.Find(&integrations).Error; err != nil {
+		t.Fatalf("failed to list integrations: %v", err)
+	}
+	if len(integrations) != 1 || integrations[0].Name != integrationName {
+		t.Errorf("integrations changed after failed import: %+v", integrations)
+	}
+
+	var rules []db.CustomRule
+	if err := database.Find(&rules).Error; err != nil {
+		t.Fatalf("failed to list rules: %v", err)
+	}
+	if len(rules) != 1 || rules[0].Field != ruleField {
+		t.Errorf("rules changed after failed import: %+v", rules)
+	}
+
+	var groups []db.DiskGroup
+	if err := database.Find(&groups).Error; err != nil {
+		t.Fatalf("failed to list disk groups: %v", err)
+	}
+	if len(groups) != 1 || groups[0].MountPath != existingMount {
+		t.Errorf("disk groups changed after failed import: %+v", groups)
+	}
+	for _, g := range groups {
+		if g.MountPath == failImportMountPath || g.MountPath == "/mnt/ok" {
+			t.Errorf("partial disk-group import leaked: %+v", g)
+		}
+	}
+}
+
+func failingDiskGroupEnvelope() SettingsExportEnvelope {
+	return SettingsExportEnvelope{
+		Version:    1,
+		ExportedAt: "2026-09-23T05:32:00Z",
+		AppVersion: "v1.0.0",
+		Preferences: &PreferencesExport{
+			LogLevel:              "debug",
+			AuditLogRetentionDays: 90,
+			PollIntervalSeconds:   600,
+			DefaultDiskGroupMode:  db.ModeAuto,
+			TiebreakerMethod:      "name_asc",
+			DeletionsEnabled:      false,
+			SnoozeDurationHours:   48,
+			CheckForUpdates:       false,
+		},
+		Integrations: []IntegrationExport{
+			{Name: "Imported Sonarr", Type: "sonarr", URL: "http://sonarr:8989", Enabled: true},
+		},
+		Rules: []RuleExport{
+			{Field: "tag", Operator: "contains", Value: "keep", Effect: "always_keep", Enabled: true},
+		},
+		DiskGroups: []DiskGroupExport{
+			{MountPath: "/mnt/ok", ThresholdPct: 90, TargetPct: 80},
+			{MountPath: failImportMountPath, ThresholdPct: 95, TargetPct: 85},
+		},
+	}
+}
+
+func TestBackupService_Import_DiskGroupFailureRollsBackMerge(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(newTestDiskGroups(database))
+
+	prefLogLevel, integrationName, ruleField, existingMount := seedImportRollbackFixture(t, database)
+	installDiskGroupImportFailureTrigger(t, database)
+
+	_, err := svc.Import(failingDiskGroupEnvelope(), ImportSections{
+		Preferences:  true,
+		Integrations: true,
+		Rules:        true,
+		DiskGroups:   true,
+		Mode:         ImportModeMerge,
+	})
+	if err == nil {
+		t.Fatal("expected disk-group import failure")
+	}
+
+	assertImportUnchanged(t, database, prefLogLevel, integrationName, ruleField, existingMount)
+}
+
+func TestBackupService_Import_DiskGroupFailureRollsBackSync(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewBackupService(database, bus)
+	svc.SetDiskGroupService(newTestDiskGroups(database))
+
+	prefLogLevel, integrationName, ruleField, existingMount := seedImportRollbackFixture(t, database)
+	installDiskGroupImportFailureTrigger(t, database)
+
+	_, err := svc.Import(failingDiskGroupEnvelope(), ImportSections{
+		Preferences:  true,
+		Integrations: true,
+		Rules:        true,
+		DiskGroups:   true,
+		Mode:         ImportModeSync,
+	})
+	if err == nil {
+		t.Fatal("expected disk-group import failure")
+	}
+
+	assertImportUnchanged(t, database, prefLogLevel, integrationName, ruleField, existingMount)
 }

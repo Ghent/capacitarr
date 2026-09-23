@@ -390,3 +390,35 @@ func TestAuditLogService_CreateIntentAndMarkDeleted(t *testing.T) {
 		t.Errorf("expected action %q, got %q", db.ActionDeleted, completed.Action)
 	}
 }
+
+func TestAuditLogService_FailIntent(t *testing.T) {
+	database := setupTestDB(t)
+	svc := NewAuditLogService(database)
+
+	id, err := svc.CreateIntent(db.AuditLogEntry{
+		MediaName: "Serenity",
+		MediaType: "movie",
+		SizeBytes: 2000,
+		Score:     0.4,
+		Trigger:   db.TriggerEngine,
+	})
+	if err != nil {
+		t.Fatalf("CreateIntent returned error: %v", err)
+	}
+
+	if err := svc.FailIntent(id); err != nil {
+		t.Fatalf("FailIntent returned error: %v", err)
+	}
+
+	var cancelled db.AuditLogEntry
+	if err := database.First(&cancelled, id).Error; err != nil {
+		t.Fatalf("failed to load cancelled row: %v", err)
+	}
+	if cancelled.Action != db.ActionCancelled {
+		t.Errorf("expected action %q, got %q", db.ActionCancelled, cancelled.Action)
+	}
+
+	if err := svc.FailIntent(id); err == nil {
+		t.Error("expected FailIntent on a non-pending row to fail")
+	}
+}

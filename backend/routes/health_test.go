@@ -49,6 +49,12 @@ func TestHealth_OK(t *testing.T) {
 	if resp["status"] != "ok" {
 		t.Errorf("expected status ok, got %v", resp["status"])
 	}
+	if _, ok := resp["auditPostDeleteFailures"]; !ok {
+		t.Error("expected auditPostDeleteFailures in health response")
+	}
+	if _, ok := resp["auditFailIntentFailures"]; !ok {
+		t.Error("expected auditFailIntentFailures in health response")
+	}
 }
 
 func TestHealth_UnhealthyWhenDBClosed(t *testing.T) {

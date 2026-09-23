@@ -381,6 +381,8 @@ func (s *MetricsService) GetWorkerMetrics() map[string]any {
 	stats["currentlyDeleting"] = s.deletion.CurrentlyDeleting()
 	stats["processed"] = s.deletion.Processed()
 	stats["failed"] = s.deletion.Failed()
+	stats["auditPostDeleteFailures"] = s.deletion.AuditPostDeleteFailures()
+	stats["auditFailIntentFailures"] = s.deletion.AuditFailIntentFailures()
 
 	return stats
 }

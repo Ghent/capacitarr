@@ -132,6 +132,19 @@ func (s *AuditLogService) MarkDeleted(id uint) error {
 	return nil
 }
 
+func (s *AuditLogService) FailIntent(id uint) error {
+	result := s.db.Model(&db.AuditLogEntry{}).
+		Where("id = ? AND action = ?", id, db.ActionPendingDelete).
+		Update("action", db.ActionCancelled)
+	if result.Error != nil {
+		return fmt.Errorf("failed to fail pending delete audit: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("pending delete audit entry %d not found", id)
+	}
+	return nil
+}
+
 func (s *AuditLogService) UpsertDryRun(entry db.AuditLogEntry) error {
 	entry.CreatedAt = time.Now().UTC()
 	entry.Action = db.ActionDryDelete

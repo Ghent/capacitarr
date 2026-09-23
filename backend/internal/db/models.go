@@ -279,9 +279,10 @@ const (
 )
 
 // AuditLogEntry stores a permanent record of deletions and dry-runs.
-// Rows are append-only except for two documented exceptions:
+// Rows are append-only except for three documented exceptions:
 //   - dry-run upserts (same media_name/media_type, action=dry_delete)
 //   - pending_delete → deleted after a successful live *arr API call
+//   - pending_delete → cancelled after a live *arr API call fails
 type AuditLogEntry struct {
 	ID              uint      `gorm:"primarykey" json:"id"`
 	MediaName       string    `gorm:"index;not null" json:"mediaName"`

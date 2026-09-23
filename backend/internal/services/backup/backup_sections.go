@@ -333,36 +333,35 @@ func (s *BackupService) importIntegrations(tx *gorm.DB, integrations []Integrati
 	return count, deleted, nil
 }
 
-// importDiskGroups creates or updates disk groups by mount path via DiskGroupService.
-// In sync mode, disk groups not in the import file are deleted.
-// Returns (upserted count, deleted count, error).
-func (s *BackupService) importDiskGroups(groups []DiskGroupExport, syncMode bool) (int, int, error) {
+// importDiskGroups creates or updates disk groups by mount path on the given
+// transaction. Using tx (not DiskGroupService's own handle) keeps import
+// atomic under SQLite's single-writer pool. In sync mode, disk groups not
+// in the import file are deleted. Returns (upserted count, deleted count, error).
+func (s *BackupService) importDiskGroups(tx *gorm.DB, groups []DiskGroupExport, syncMode bool) (int, int, error) {
 	if s.diskGroups == nil {
 		return 0, 0, fmt.Errorf("disk group service not available")
 	}
 
-	// Build set of imported mount paths for sync-mode orphan detection
 	importedPaths := make(map[string]bool, len(groups))
 
 	count := 0
 	for _, dge := range groups {
 		importedPaths[dge.MountPath] = true
-		if err := s.diskGroups.ImportUpsert(dge.MountPath, dge.ThresholdPct, dge.TargetPct, dge.TotalBytesOverride); err != nil {
+		if err := upsertDiskGroupConfig(tx, dge); err != nil {
 			return count, 0, err
 		}
 		count++
 	}
 
-	// Sync mode: delete disk groups not present in the import file
 	deleted := 0
 	if syncMode {
-		allGroups, err := s.diskGroups.List()
-		if err != nil {
+		allGroups := make([]db.DiskGroup, 0)
+		if err := tx.Find(&allGroups).Error; err != nil {
 			return count, 0, fmt.Errorf("failed to list disk groups for sync: %w", err)
 		}
 		for _, g := range allGroups {
 			if !importedPaths[g.MountPath] {
-				if delErr := s.db.Delete(&g).Error; delErr != nil {
+				if delErr := tx.Delete(&g).Error; delErr != nil {
 					return count, deleted, fmt.Errorf("failed to delete orphaned disk group %q: %w", g.MountPath, delErr)
 				}
 				deleted++
@@ -373,6 +372,37 @@ func (s *BackupService) importDiskGroups(groups []DiskGroupExport, syncMode bool
 	}
 
 	return count, deleted, nil
+}
+
+// upsertDiskGroupConfig writes configuration fields for one disk group on tx.
+// Matches DiskGroupService.ImportUpsert: new groups start at zero discovery
+// bytes; stale groups are resurrected.
+func upsertDiskGroupConfig(tx *gorm.DB, dge DiskGroupExport) error {
+	var existing db.DiskGroup
+	err := tx.Where("mount_path = ?", dge.MountPath).First(&existing).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return fmt.Errorf("failed to check disk group %q: %w", dge.MountPath, err)
+	}
+	if err == gorm.ErrRecordNotFound {
+		dg := db.DiskGroup{
+			MountPath:          dge.MountPath,
+			ThresholdPct:       dge.ThresholdPct,
+			TargetPct:          dge.TargetPct,
+			TotalBytesOverride: dge.TotalBytesOverride,
+		}
+		if createErr := tx.Create(&dg).Error; createErr != nil {
+			return fmt.Errorf("failed to create disk group %q: %w", dge.MountPath, createErr)
+		}
+		return nil
+	}
+	existing.ThresholdPct = dge.ThresholdPct
+	existing.TargetPct = dge.TargetPct
+	existing.TotalBytesOverride = dge.TotalBytesOverride
+	existing.StaleSince = nil
+	if saveErr := tx.Save(&existing).Error; saveErr != nil {
+		return fmt.Errorf("failed to update disk group %q: %w", dge.MountPath, saveErr)
+	}
+	return nil
 }
 
 // placeholderWebhookURL is the sentinel value used for imported notification
