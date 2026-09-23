@@ -7,7 +7,7 @@ import (
 
 // Evaluator performs reusable scoring and filtering of media items.
 // Decoupled from the poller so it can be called from:
-//   - The poller (orchestration)
+//   - The orchestrator (product loop)
 //   - Library page (preview evaluations)
 //   - Analytics APIs (composition analysis)
 //   - Dry-run / audit reporting
