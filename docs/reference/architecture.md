@@ -472,12 +472,13 @@ capacitarr/
 │   │   ├── config/                 # Environment variable loading
 │   │   ├── cache/                  # Generic TTL cache
 │   │   ├── db/                     # SQLite models, schema migrations
-│   │   ├── engine/                 # Scoring + rule evaluation
+│   │   ├── engine/                 # Scoring + rule evaluation (pure: no DB, no queues)
 │   │   ├── events/                 # Event bus, typed events, SSE broadcaster, activity persister
 │   │   ├── integrations/           # *arr, Plex, Jellyfin, Emby, Seerr, Tautulli, Jellystat, Tracearr clients + registry + enrichment pipeline
 │   │   ├── jobs/                   # Cron scheduling (retention cleanup, time-series rollups)
 │   │   ├── notifications/          # Discord, Apprise notification senders + HTTP client
-│   │   ├── poller/                 # Engine orchestrator (scheduled disk monitoring)
+│   │   ├── orchestrator/           # Product loop (score → filter → expand → dispatch by mode)
+│   │   ├── poller/                 # Clock + I/O shell (timer, fetch/enrich, disk upsert, finalize)
 │   │   ├── migration/              # 1.x → 2.0 database migration detection + import
 │   │   ├── services/               # Service layer (business logic)
 │   │   ├── testutil/               # Shared test helpers (in-memory DB, fixtures)

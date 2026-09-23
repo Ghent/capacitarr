@@ -49,7 +49,8 @@ Capacitarr uses a layered architecture with clear separation of concerns:
 - **Service Layer** — All business logic lives in `backend/internal/services/`. Each service receives a `*gorm.DB` and `*events.EventBus` via constructor injection — no global state
 - **Integration Layer** — Capability-based interfaces (`CollectionDataProvider`, `CollectionNameFetcher`, `CollectionResolver`, `Connectable`, `DiskReporter`, `LabelDataProvider`, `LabelManager`, `LabelNameFetcher`, `MediaDeleter`, `MediaSource`, `PosterManager`, `RequestProvider`, `RuleValueFetcher`, `WatchDataProvider`, `WatchlistProvider`). The `IntegrationRegistry` provides runtime capability discovery.
 - **Enrichment Pipeline** — Composable enrichers auto-discovered from registry capabilities (watch data, requests, watchlists, collections, cross-references)
-- **Scoring Engine** — Pluggable `ScoringFactor` interface for each scoring dimension. New factors can be added without modifying the evaluator.
+- **Scoring Engine** — Pluggable `ScoringFactor` interface for each scoring dimension. New factors can be added without modifying the evaluator. `engine.Evaluate` is pure (no DB, no queues).
+- **Orchestrator** — Named product loop in `internal/orchestrator`: threshold → score → filter → expand collections → dispatch by mode. Depends on small interfaces (approval, deletion, sunset, integration config, event publisher), not `*services.Registry`. The poller is the clock and I/O shell.
 - **Event Bus** — A typed pub/sub system with fan-out to three subscribers: activity persister (dashboard feed), notification dispatcher (Discord/Apprise), and SSE broadcaster (real-time browser updates)
 - **Data Layer** — SQLite via GORM with SQL migrations
 

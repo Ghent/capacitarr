@@ -13,64 +13,28 @@ import (
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 	"capacitarr/internal/notifications"
+	"capacitarr/internal/orchestrator"
 	"capacitarr/internal/services"
 )
 
-// RunAccumulator collects per-cycle metrics across multiple disk group
-// evaluations within a single engine run. Each disk group gets its own
-// GroupAccumulator. Not shared across goroutines — the poller runs
-// single-threaded.
-type RunAccumulator struct {
-	Groups map[uint]*GroupAccumulator
-}
+// RunAccumulator and GroupAccumulator stay available to poller tests and
+// finalizeCycle. The types live with the product loop they measure.
+type (
+	RunAccumulator   = orchestrator.RunAccumulator
+	GroupAccumulator = orchestrator.GroupAccumulator
+)
 
 // NewRunAccumulator creates a RunAccumulator with an initialized map.
 func NewRunAccumulator() *RunAccumulator {
-	return &RunAccumulator{Groups: make(map[uint]*GroupAccumulator)}
+	return orchestrator.NewRunAccumulator()
 }
 
-// GetOrCreate returns the accumulator for a disk group, creating it if needed.
-func (a *RunAccumulator) GetOrCreate(groupID uint, mountPath, mode string) *GroupAccumulator {
-	if ga, ok := a.Groups[groupID]; ok {
-		return ga
-	}
-	ga := &GroupAccumulator{MountPath: mountPath, Mode: mode}
-	a.Groups[groupID] = ga
-	return ga
-}
-
-// Totals returns aggregate counts across all groups for engine stats.
-func (a *RunAccumulator) Totals() (evaluated, candidates, protected, collections int64, freedBytes int64) {
-	for _, ga := range a.Groups {
-		evaluated += ga.Evaluated
-		candidates += ga.Candidates
-		protected += ga.Protected
-		collections += ga.Collections
-		freedBytes += ga.FreedBytes
-	}
-	return
-}
-
-// GroupAccumulator collects per-group metrics for a single disk group evaluation.
-type GroupAccumulator struct {
-	MountPath     string
-	Mode          string
-	Evaluated     int64
-	Candidates    int64
-	Protected     int64
-	FreedBytes    int64
-	Collections   int64
-	DiskUsagePct  float64
-	DiskThreshold float64
-	DiskTargetPct float64
-	// Sunset-mode counters (zero for other modes)
-	SunsetQueued int
-}
-
-// Poller orchestrates periodic media library polling and capacity evaluation.
-// All state is on the struct — no package-level globals.
+// Poller is the clock and I/O shell: timer, fetch/enrich, disk upsert,
+// and finalize. The product loop (score → filter → expand → dispatch)
+// lives on orchestrator.Orchestrator.
 type Poller struct {
 	reg      *services.Registry
+	orch     *orchestrator.Orchestrator
 	done     chan struct{}
 	stopped  chan struct{}
 	started  atomic.Bool
@@ -78,12 +42,33 @@ type Poller struct {
 }
 
 // New creates a new Poller bound to the given service registry.
+// The orchestrator is constructed once with narrow interfaces — not the
+// whole Registry.
 func New(reg *services.Registry) *Poller {
 	return &Poller{
 		reg:     reg,
+		orch:    newOrchestrator(reg),
 		done:    make(chan struct{}),
 		stopped: make(chan struct{}),
 	}
+}
+
+func newOrchestrator(reg *services.Registry) *orchestrator.Orchestrator {
+	return orchestrator.New(orchestrator.Deps{
+		Approval:     reg.Approval,
+		Deletion:     reg.Deletion,
+		Integrations: reg.Integration,
+		Sunset:       reg.Sunset,
+		Bus:          reg.Bus,
+		SunsetDeps: services.SunsetDeps{
+			Deletion:      reg.Deletion,
+			Engine:        reg.Engine,
+			Settings:      reg.Settings,
+			Preview:       reg.Preview,
+			PosterOverlay: reg.PosterOverlay,
+			Mapping:       reg.Mapping,
+		},
+	})
 }
 
 // Start begins the continuous polling loop. Call Stop() to terminate.
