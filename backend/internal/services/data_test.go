@@ -126,8 +126,10 @@ func TestDataService_Reset_RollsBackOnMidwayFailure(t *testing.T) {
 	}).Error; err != nil {
 		t.Fatalf("failed to seed approval queue: %v", err)
 	}
-	if err := database.Create(&db.LifetimeStats{
-		ID: 1, TotalBytesReclaimed: 42, TotalItemsRemoved: 3, TotalEngineRuns: 7,
+	if err := database.Model(&db.LifetimeStats{}).Where("id = ?", 1).Updates(map[string]any{
+		"total_bytes_reclaimed": 42,
+		"total_items_removed":   3,
+		"total_engine_runs":     7,
 	}).Error; err != nil {
 		t.Fatalf("failed to seed lifetime stats: %v", err)
 	}
