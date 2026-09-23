@@ -14,11 +14,10 @@ const out = resolve(frontendRoot, 'app/types/generated/openapi.ts');
 
 mkdirSync(dirname(out), { recursive: true });
 
-const result = spawnSync(
-  'pnpm',
-  ['exec', 'openapi-typescript', spec, '-o', out],
-  { cwd: frontendRoot, stdio: 'inherit' },
-);
+const result = spawnSync('pnpm', ['exec', 'openapi-typescript', spec, '-o', out], {
+  cwd: frontendRoot,
+  stdio: 'inherit',
+});
 
 if (result.status !== 0) {
   process.exit(result.status ?? 1);
