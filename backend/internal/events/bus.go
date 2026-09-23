@@ -8,14 +8,6 @@ import (
 	"sync/atomic"
 )
 
-// Event is the interface all typed events implement.
-type Event interface {
-	// EventType returns a machine-readable event type string (e.g. "engine_start").
-	EventType() string
-	// EventMessage returns a human-readable description of the event.
-	EventMessage() string
-}
-
 // subscriberBufferSize is the capacity of each subscriber's buffered channel.
 // Events are dropped (with a warning log) if a subscriber falls this far behind.
 const subscriberBufferSize = 256
