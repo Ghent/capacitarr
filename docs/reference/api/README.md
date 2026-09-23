@@ -2,6 +2,8 @@
 
 The Capacitarr REST API provides programmatic access to capacity management for media servers such as Sonarr, Radarr, and Plex. Use it to manage disk groups, integrations, protection rules, and the scoring engine that evaluates media for potential deletion when disk space runs low.
 
+Frontend TypeScript types are generated from `openapi.yaml`. Run `make api:generate` after editing the spec and `make api:check` (also run in CI) to fail on drift. Do not hand-edit `frontend/app/types/generated/openapi.ts`.
+
 ## Base URL
 
 ```

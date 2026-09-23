@@ -1,5 +1,5 @@
 .PHONY: lint format check build build\:frontend build\:backend down clean clean\:all help
-.PHONY: ci lint\:ci test\:ci security\:ci cache\:clean
+.PHONY: ci lint\:ci test\:ci security\:ci cache\:clean api\:generate api\:check
 
 # ─── Docker Cache Volumes ──────────────────────────────────────────────────────
 # Named volumes persist Go/Node downloads across ephemeral 'docker run --rm'
@@ -32,8 +32,20 @@ format:
 	gofmt -w backend/
 	@echo "✓ Format complete"
 
+## Generate frontend API types from docs/reference/api/openapi.yaml
+api\:generate:
+	cd frontend && pnpm api:generate
+
+## Fail if generated API types are stale or were hand-edited
+api\:check:
+	@echo "→ Checking generated API types..."
+	cd frontend && pnpm api:generate
+	@git diff --exit-code -- docs/reference/api/openapi.yaml frontend/app/types/generated/openapi.ts \
+		|| (echo "✗ API types are stale. Run 'make api:generate' and commit the result." && exit 1)
+	@echo "✓ Generated API types match OpenAPI"
+
 ## Verify code quality (no auto-fixes — CI-safe, matches CI pipeline exactly)
-check:
+check: api\:check
 	@echo "→ Checking frontend lint..."
 	cd frontend && pnpm lint
 	@echo "→ Checking frontend format..."
@@ -223,6 +235,8 @@ help:
 	@echo "  make lint           - Auto-fix lint issues (ESLint --fix + golangci-lint)"
 	@echo "  make format         - Auto-format code (Prettier + gofmt)"
 	@echo "  make check          - Verify code quality (no auto-fixes)"
+	@echo "  make api:generate   - Generate frontend types from openapi.yaml"
+	@echo "  make api:check      - Fail if generated API types drifted"
 	@echo ""
 	@echo "Standalone Builds:"
 	@echo "  make build:frontend - Build frontend SPA"

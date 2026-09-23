@@ -4,6 +4,9 @@ import prettierConfig from '@vue/eslint-config-prettier';
 
 export default withNuxt(
   {
+    ignores: ['app/types/generated/**'],
+  },
+  {
     rules: {
       'vue/multi-word-component-names': 'off',
       '@typescript-eslint/no-explicit-any': 'error',

@@ -2648,6 +2648,17 @@ components:
       required: [api_key]
 
     # ---- Disk Group ----
+    DiskGroupIntegration:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+      required: [id, name, type]
+
     DiskGroup:
       type: object
       properties:
@@ -2665,6 +2676,10 @@ components:
           type: integer
           format: int64
           example: 879609302221
+        totalBytesOverride:
+          type: ["integer", "null"]
+          format: int64
+          description: User-defined total capacity; null uses the detected total
         thresholdPct:
           type: number
           format: double
@@ -2675,13 +2690,29 @@ components:
           format: double
           description: Cleanup frees space down to this percentage
           example: 75.0
+        mode:
+          type: string
+          enum: [dry-run, approval, auto, sunset]
+          description: Per-group execution mode
+        sunsetPct:
+          type: ["number", "null"]
+          format: double
+          description: Sunset countdown starts at this percentage
+        staleSince:
+          type: ["string", "null"]
+          format: date-time
+          description: Non-null when no integration currently reports this mount
+        integrations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiskGroupIntegration"
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-      required: [id, mountPath, totalBytes, usedBytes, thresholdPct, targetPct]
+      required: [id, mountPath, totalBytes, usedBytes, thresholdPct, targetPct, mode]
 
     DiskGroupThresholdUpdate:
       type: object
@@ -2730,6 +2761,9 @@ components:
           maximum: 10
           description: Default weight from the engine
           example: 10
+        integrationError:
+          type: boolean
+          description: True when the required integration has a connection error
       required: [key, name, weight, defaultWeight]
 
     # ---- Integration ----
@@ -2741,7 +2775,6 @@ components:
           example: 1
         type:
           type: string
-          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby, tracearr, jellystat]
           example: sonarr
         name:
           type: string
@@ -2762,6 +2795,19 @@ components:
           description: When enabled, deleting one collection member deletes all
           default: false
           example: false
+        showLevelOnly:
+          type: boolean
+          description: Sonarr only — evaluate entire shows instead of seasons
+        showLevelOnlyOverride:
+          type: boolean
+          description: True when a sunset-mode disk group forces show-level evaluation
+        showLevelOnlyOverrideReason:
+          type: string
+        addImportExclusion:
+          type: boolean
+          description: "*arr only — add to import exclusion list on delete"
+        consecutiveFailures:
+          type: integer
         mediaSizeBytes:
           type: integer
           format: int64
@@ -2781,7 +2827,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, type, name, url, apiKey, enabled]
+      required: [id, type, name, url, apiKey, enabled, collectionDeletion, showLevelOnly, showLevelOnlyOverride, showLevelOnlyOverrideReason, addImportExclusion, mediaSizeBytes, mediaCount, consecutiveFailures]
 
     IntegrationConfigCreate:
       type: object
@@ -2948,13 +2994,54 @@ components:
           description: Days since last watch for stale content report
           default: 180
           example: 180
+        sunsetDays:
+          type: integer
+          description: Default sunset countdown period in days
+          default: 30
+        sunsetLabel:
+          type: string
+        posterOverlayStyle:
+          type: string
+          enum: [off, countdown, simple]
+        sunsetRescoreEnabled:
+          type: boolean
+        savedDurationDays:
+          type: integer
+        savedLabel:
+          type: string
+        backupRetentionDays:
+          type: integer
+        diskGroupGracePeriodDays:
+          type: integer
+        logLevelOverridden:
+          type: boolean
+          description: True when DEBUG=true pins log level to debug
         updatedAt:
           type: string
           format: date-time
       required:
+        - id
         - logLevel
+        - auditLogRetentionDays
+        - pollIntervalSeconds
         - defaultDiskGroupMode
         - tiebreakerMethod
+        - deletionsEnabled
+        - snoozeDurationHours
+        - deletionQueueDelaySeconds
+        - checkForUpdates
+        - deadContentMinDays
+        - staleContentDays
+        - sunsetDays
+        - sunsetLabel
+        - posterOverlayStyle
+        - sunsetRescoreEnabled
+        - savedDurationDays
+        - savedLabel
+        - backupRetentionDays
+        - diskGroupGracePeriodDays
+        - logLevelOverridden
+        - updatedAt
 
     # ---- Rules ----
     CustomRule:
@@ -2964,8 +3051,8 @@ components:
           type: integer
           example: 1
         integrationId:
-          type: ["integer", "null"]
-          description: FK to IntegrationConfig; required — every rule belongs to an integration
+          type: integer
+          description: FK to IntegrationConfig; every rule belongs to an integration
         field:
           type: string
           description: "The field to match (e.g., quality, tag, rating, genre)"
@@ -2982,6 +3069,10 @@ components:
           type: string
           enum: [always_keep, prefer_keep, lean_keep, lean_remove, prefer_remove, always_remove]
           example: always_keep
+        enabled:
+          type: boolean
+        sortOrder:
+          type: integer
         type:
           type: string
           description: "Deprecated: legacy rule type"
@@ -2996,7 +3087,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, field, operator, value, effect]
+      required: [id, integrationId, field, operator, value, effect, enabled, sortOrder]
 
     CustomRuleCreate:
       type: object
@@ -3046,8 +3137,7 @@ components:
           description: Capacitarr version that created the export
           example: "1.2.0"
         preferences:
-          type: object
-          description: Scoring weights, execution mode, tiebreaker (if included)
+          $ref: "#/components/schemas/PreferencesExport"
         rules:
           type: array
           description: Custom protection rules (if included)
@@ -3057,17 +3147,17 @@ components:
           type: array
           description: Integration configs without API keys (if included)
           items:
-            type: object
+            $ref: "#/components/schemas/IntegrationExport"
         diskGroups:
           type: array
           description: Disk group thresholds (if included)
           items:
-            type: object
+            $ref: "#/components/schemas/DiskGroupExport"
         notificationChannels:
           type: array
           description: Notification channels without webhook URLs (if included)
           items:
-            type: object
+            $ref: "#/components/schemas/NotificationExport"
       required: [version, exportedAt, appVersion]
 
     PortableRule:
@@ -3167,6 +3257,14 @@ components:
           description: |
             Snapshot of the affected sections before the import was applied.
             Only included in sync mode. Can be used to restore previous state.
+      required:
+        - preferencesImported
+        - rulesImported
+        - rulesUnmatched
+        - integrationsImported
+        - diskGroupsImported
+        - notificationChannelsImported
+        - itemsDeleted
 
     RuleField:
       type: object
@@ -3260,6 +3358,8 @@ components:
         path:
           type: string
           example: "/media/movies/The Shawshank Redemption (1994)"
+        posterUrl:
+          type: string
         seasonNumber:
           type: integer
           description: TV-specific
@@ -3316,6 +3416,10 @@ components:
           type: string
           description: Original language
           example: "English"
+        collections:
+          type: array
+          items:
+            type: string
       required: [externalId, integrationId, type, title, sizeBytes, path, monitored]
 
     ScoreFactor:
@@ -3325,6 +3429,9 @@ components:
           type: string
           description: "Factor name (e.g., Watch History, File Size, Rule: ...)"
           example: "Watch History"
+        key:
+          type: string
+          description: Stable machine identifier for color mapping
         rawScore:
           type: number
           format: double
@@ -3343,6 +3450,14 @@ components:
           type: string
           enum: [weight, rule]
           description: Whether this factor comes from a weight or a rule
+        matchedValue:
+          type: string
+        ruleId:
+          type: integer
+        skipped:
+          type: boolean
+        skipReason:
+          type: string
       required: [name, rawScore, weight, contribution, type]
 
     EvaluatedItem:
@@ -3366,6 +3481,14 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ScoreFactor"
+        queueStatus:
+          type: string
+          enum: [pending, approved, user_initiated, deleting]
+        approvalQueueId:
+          type: integer
+        scoreDetails:
+          type: string
+          description: Legacy embedded score details as a JSON string
       required: [item, score, isProtected, reason, factors]
 
     DiskContext:
@@ -3452,10 +3575,9 @@ components:
     WorkerStats:
       type: object
       properties:
-        defaultDiskGroupMode:
+        diskGroupModes:
           type: string
-          enum: [dry-run, approval, auto, sunset]
-          example: dry-run
+          description: JSON map of disk group ID to execution mode from the latest run
         isRunning:
           type: boolean
           description: Whether the poller is currently executing
@@ -3469,7 +3591,7 @@ components:
           type: integer
           format: int64
           description: Items evaluated in the last (or current) run
-        lastRunFlagged:
+        lastRunCandidates:
           type: integer
           format: int64
           description: Items flagged for deletion in the last (or current) run
@@ -3488,18 +3610,6 @@ components:
           type: integer
           format: int64
           description: Number of protected items in the last run
-        evaluated:
-          type: integer
-          format: int64
-          description: Cumulative total items evaluated across all runs
-        actioned:
-          type: integer
-          format: int64
-          description: Cumulative total items actioned (flagged/deleted) across all runs
-        freedBytes:
-          type: integer
-          format: int64
-          description: Cumulative total bytes freed across all runs
         processed:
           type: integer
           format: int64
@@ -3508,20 +3618,23 @@ components:
           type: integer
           format: int64
           description: Total items that failed during deletion
+        auditPostDeleteFailures:
+          type: integer
+          format: int64
+        auditFailIntentFailures:
+          type: integer
+          format: int64
       required:
-        - defaultDiskGroupMode
+        - diskGroupModes
         - isRunning
         - pollIntervalSeconds
         - queueDepth
         - lastRunEvaluated
-        - lastRunFlagged
+        - lastRunCandidates
         - lastRunFreedBytes
         - lastRunEpoch
         - currentlyDeleting
         - protectedCount
-        - evaluated
-        - actioned
-        - freedBytes
         - processed
         - failed
 
@@ -3614,15 +3727,28 @@ components:
           type: integer
           format: int64
           example: 5368709120
+        score:
+          type: number
+          format: double
+        trigger:
+          type: string
+          enum: [engine, user, approval]
+        dryRunReason:
+          type: string
         integrationId:
           type: integer
           nullable: true
           description: FK to integration (nullable — preserved when integration is deleted)
           example: 1
+        diskGroupId:
+          type: integer
+          nullable: true
+        collectionGroup:
+          type: string
         createdAt:
           type: string
           format: date-time
-      required: [id, mediaName, mediaType, action, sizeBytes, createdAt]
+      required: [id, mediaName, mediaType, scoreDetails, action, sizeBytes, score, trigger, dryRunReason, createdAt]
 
     AuditLogResponse:
       type: object
@@ -3664,6 +3790,11 @@ components:
           type: integer
           format: int64
           example: 5368709120
+        score:
+          type: number
+          format: double
+        posterUrl:
+          type: string
         integrationId:
           type: integer
           description: FK to integration (required)
@@ -3672,10 +3803,18 @@ components:
           type: string
           description: External ID in the source integration
           example: "12345"
+        diskGroupId:
+          type: integer
         status:
           type: string
           enum: [pending, approved, rejected]
           example: pending
+        trigger:
+          type: string
+        userInitiated:
+          type: boolean
+        collectionGroup:
+          type: string
         snoozedUntil:
           type: string
           format: date-time
@@ -3687,7 +3826,7 @@ components:
         updatedAt:
           type: string
           format: date-time
-      required: [id, mediaName, mediaType, reason, sizeBytes, integrationId, status, createdAt, updatedAt]
+      required: [id, mediaName, mediaType, scoreDetails, sizeBytes, score, integrationId, externalId, status, trigger, createdAt, updatedAt]
 
     EngineHistoryPoint:
       type: object
@@ -3782,6 +3921,7 @@ components:
         createdAt:
           type: string
           format: date-time
+      required: [id, eventType, message, metadata, createdAt]
 
     NotificationChannel:
       type: object
@@ -3802,7 +3942,7 @@ components:
           type: boolean
         notificationLevel:
           type: string
-          enum: [all, normal, important, minimal]
+          enum: [off, critical, important, normal, verbose]
           description: Controls which event tiers trigger this channel
         overrideCycleDigest:
           type: ["boolean", "null"]
@@ -3834,6 +3974,7 @@ components:
         updatedAt:
           type: string
           format: date-time
+      required: [id, type, name, enabled, notificationLevel, createdAt, updatedAt]
 
     NotificationChannelInput:
       type: object
@@ -3853,7 +3994,7 @@ components:
           type: boolean
         notificationLevel:
           type: string
-          enum: [all, normal, important, minimal]
+          enum: [off, critical, important, normal, verbose]
           description: Controls which event tiers trigger this channel
         overrideCycleDigest:
           type: ["boolean", "null"]
@@ -3919,3 +4060,405 @@ components:
               type: integer
               format: int64
       required: [status, message, cleared]
+
+    SunsetQueueItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        mediaName:
+          type: string
+        mediaType:
+          type: string
+        tmdbId:
+          type: integer
+        integrationId:
+          type: integer
+        sizeBytes:
+          type: integer
+          format: int64
+        score:
+          type: number
+          format: double
+        scoreDetails:
+          type: string
+        posterUrl:
+          type: string
+        diskGroupId:
+          type: integer
+        collectionGroup:
+          type: string
+        trigger:
+          type: string
+        deletionDate:
+          type: string
+        daysRemaining:
+          type: integer
+        labelApplied:
+          type: boolean
+        posterOverlayActive:
+          type: boolean
+        status:
+          type: string
+          enum: [pending, saved, expired]
+        savedAt:
+          type: string
+        savedScore:
+          type: number
+          format: double
+        savedReason:
+          type: string
+        expiredAt:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - mediaName
+        - mediaType
+        - integrationId
+        - sizeBytes
+        - score
+        - diskGroupId
+        - trigger
+        - deletionDate
+        - daysRemaining
+        - labelApplied
+        - posterOverlayActive
+        - status
+        - createdAt
+
+    DeletionQueueItem:
+      type: object
+      properties:
+        mediaName:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        integrationId:
+          type: integer
+        score:
+          type: number
+          format: double
+        posterUrl:
+          type: string
+        collectionGroup:
+          type: string
+      required: [mediaName, mediaType, sizeBytes, integrationId, score]
+
+    DeletionCompletedItem:
+      type: object
+      properties:
+        mediaName:
+          type: string
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [success, failed, cancelled]
+        timestamp:
+          type: string
+          format: date-time
+      required: [mediaName, mediaType, sizeBytes, status, timestamp]
+
+    DeletionProgress:
+      type: object
+      description: SSE deletion_progress payload
+      properties:
+        currentItem:
+          type: string
+        queueDepth:
+          type: integer
+        processed:
+          type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+        batchTotal:
+          type: integer
+      required: [currentItem, queueDepth, processed, succeeded, failed, batchTotal]
+
+    ConnectionTestResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+      required: [success]
+
+    PreferencesExport:
+      type: object
+      properties:
+        logLevel:
+          type: string
+        auditLogRetentionDays:
+          type: integer
+        pollIntervalSeconds:
+          type: integer
+        defaultDiskGroupMode:
+          type: string
+        tiebreakerMethod:
+          type: string
+        deletionsEnabled:
+          type: boolean
+        snoozeDurationHours:
+          type: integer
+        checkForUpdates:
+          type: boolean
+        sunsetDays:
+          type: integer
+        sunsetLabel:
+          type: string
+        posterOverlayStyle:
+          type: string
+        factorWeights:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+        - logLevel
+        - auditLogRetentionDays
+        - pollIntervalSeconds
+        - defaultDiskGroupMode
+        - tiebreakerMethod
+        - deletionsEnabled
+        - snoozeDurationHours
+        - checkForUpdates
+        - sunsetDays
+        - sunsetLabel
+        - posterOverlayStyle
+        - factorWeights
+
+    IntegrationExport:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+        enabled:
+          type: boolean
+        collectionDeletion:
+          type: boolean
+        showLevelOnly:
+          type: boolean
+        addImportExclusion:
+          type: boolean
+      required: [name, type, url, enabled]
+
+    DiskGroupExport:
+      type: object
+      properties:
+        mountPath:
+          type: string
+        thresholdPct:
+          type: number
+          format: double
+        targetPct:
+          type: number
+          format: double
+        totalBytesOverride:
+          type: ["integer", "null"]
+          format: int64
+      required: [mountPath, thresholdPct, targetPct]
+
+    NotificationExport:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        enabled:
+          type: boolean
+        appriseTags:
+          type: string
+        notificationLevel:
+          type: string
+        overrideCycleDigest:
+          type: ["boolean", "null"]
+        overrideError:
+          type: ["boolean", "null"]
+        overrideModeChanged:
+          type: ["boolean", "null"]
+        overrideServerStarted:
+          type: ["boolean", "null"]
+        overrideThresholdBreach:
+          type: ["boolean", "null"]
+        overrideUpdateAvailable:
+          type: ["boolean", "null"]
+        overrideApprovalActivity:
+          type: ["boolean", "null"]
+        overrideIntegrationStatus:
+          type: ["boolean", "null"]
+      required: [name, type, enabled, notificationLevel]
+
+    ExportSections:
+      type: object
+      properties:
+        preferences:
+          type: boolean
+        rules:
+          type: boolean
+        integrations:
+          type: boolean
+        diskGroups:
+          type: boolean
+        notificationChannels:
+          type: boolean
+      required: [preferences, rules, integrations, diskGroups, notificationChannels]
+
+    ImportSections:
+      type: object
+      properties:
+        preferences:
+          type: boolean
+        rules:
+          type: boolean
+        integrations:
+          type: boolean
+        diskGroups:
+          type: boolean
+        notificationChannels:
+          type: boolean
+        mode:
+          type: string
+          enum: [merge, sync]
+      required: [preferences, rules, integrations, diskGroups, notificationChannels]
+
+    IntCandidate:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+      required: [id, name, type]
+
+    FieldChange:
+      type: object
+      properties:
+        field:
+          type: string
+        oldValue:
+          type: string
+        newValue:
+          type: string
+      required: [field, oldValue, newValue]
+
+    RuleResolution:
+      type: object
+      properties:
+        index:
+          type: integer
+        rule:
+          $ref: "#/components/schemas/PortableRule"
+        resolution:
+          type: string
+          enum: [matched, type_fallback, unmatched]
+        matchedIntegrationId:
+          type: ["integer", "null"]
+        matchedIntegrationName:
+          type: string
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/IntCandidate"
+      required: [index, rule, resolution, matchedIntegrationId, candidates]
+
+    ItemResolution:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        action:
+          type: string
+          enum: [create, update, unchanged]
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldChange"
+      required: [name, action]
+
+    PreferencesResolution:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [update, unchanged]
+        changes:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldChange"
+      required: [action]
+
+    DeletionPreview:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            type: string
+        integrations:
+          type: array
+          items:
+            type: string
+        notifications:
+          type: array
+          items:
+            type: string
+        diskGroups:
+          type: array
+          items:
+            type: string
+
+    ImportPreview:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleResolution"
+        integrations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemResolution"
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemResolution"
+        diskGroups:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItemResolution"
+        preferences:
+          $ref: "#/components/schemas/PreferencesResolution"
+        deletions:
+          $ref: "#/components/schemas/DeletionPreview"
+      required: [rules]
+
+    RuleOverride:
+      type: object
+      properties:
+        index:
+          type: integer
+        integrationId:
+          type: ["integer", "null"]
+        skip:
+          type: boolean
+      required: [index, integrationId, skip]

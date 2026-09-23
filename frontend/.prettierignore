@@ -4,3 +4,4 @@ node_modules
 dist
 .pnpm-store
 pnpm-lock.yaml
+app/types/generated/

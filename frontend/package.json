@@ -15,7 +15,8 @@
     "typecheck": "nuxt typecheck",
     "check": "pnpm lint && pnpm format:check",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "api:generate": "node scripts/generate-api-types.mjs"
   },
   "dependencies": {
     "@fontsource/geist-mono": "^5.2.7",
@@ -49,6 +50,7 @@
     "eslint-plugin-vue": "^10.8.0",
     "gray-matter": "^4.0.3",
     "happy-dom": "^20.8.8",
+    "openapi-typescript": "7.10.1",
     "prettier": "^3.8.1",
     "typescript": "^5.9.3",
     "vite": "8.0.16",

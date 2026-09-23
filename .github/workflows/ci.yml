@@ -52,6 +52,8 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install dependencies
         run: cd frontend && pnpm install --frozen-lockfile
+      - name: API contract drift
+        run: make api:check
       - name: Lint
         run: cd frontend && pnpm lint
       - name: Format check
