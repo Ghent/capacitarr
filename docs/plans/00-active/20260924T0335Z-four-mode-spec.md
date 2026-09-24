@@ -463,7 +463,7 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 
 ## 13. Implementation slices (this PR)
 
-All slices land on this branch (`feature/four-mode`, PR #64). Do not open a follow-up branch unless Ghent asks. Order:
+All slices land on this branch (`feature/four-mode`, PR #66). Do not open a follow-up branch unless Ghent asks. Order:
 
 | Slice | What | Why first |
 |---|---|---|
