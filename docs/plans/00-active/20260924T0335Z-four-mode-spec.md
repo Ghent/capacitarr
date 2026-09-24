@@ -6,6 +6,8 @@
 
 This is the behavior spec for all four execution presets. Implementation is later PRs. If a later PR disagrees with a row here, change this file in the same PR.
 
+**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md) (slices A+B). Do not redesign from this file.
+
 ---
 
 ## 1. What a mode is
