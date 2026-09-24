@@ -147,6 +147,9 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	diskGroupSvc.SetEngineService(engineSvc)
 	diskGroupSvc.SetSettingsReader(settingsSvc)
 	diskGroupSvc.SetDeletionClearer(deletionSvc)
+	diskGroupSvc.SetSunsetExiter(NewSunsetGroupExiter(
+		sunsetSvc, reg.Integration, settingsSvc, reg.PosterOverlay, reg.Mapping, deletionSvc, engineSvc,
+	))
 
 	// Wire BackupService's cross-service dependency on DiskGroupService
 	backupSvc.SetDiskGroupService(diskGroupSvc)

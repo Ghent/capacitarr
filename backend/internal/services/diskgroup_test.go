@@ -932,6 +932,150 @@ func TestDiskGroupService_UpdateThresholds_NoClearWhenModeUnchanged(t *testing.T
 	}
 }
 
+// mockSunsetGroupExiter implements SunsetGroupExiter for tests.
+type mockSunsetGroupExiter struct {
+	exitedIDs []uint
+}
+
+func (m *mockSunsetGroupExiter) Exit(diskGroupID uint) (int, error) {
+	m.exitedIDs = append(m.exitedIDs, diskGroupID)
+	return 1, nil
+}
+
+func TestDiskGroupService_UpdateThresholds_ExitsSunsetOnLeave(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldMode     string
+		newMode     string
+		wantExit    bool
+		wantCleared bool
+	}{
+		{name: "sunset to dry-run", oldMode: db.ModeSunset, newMode: db.ModeDryRun, wantExit: true, wantCleared: true},
+		{name: "sunset to auto", oldMode: db.ModeSunset, newMode: db.ModeAuto, wantExit: true, wantCleared: true},
+		{name: "sunset to approval", oldMode: db.ModeSunset, newMode: db.ModeApproval, wantExit: true, wantCleared: true},
+		{name: "auto to dry-run does not exit", oldMode: db.ModeAuto, newMode: db.ModeDryRun, wantExit: false, wantCleared: true},
+		{name: "dry-run to auto does not exit", oldMode: db.ModeDryRun, newMode: db.ModeAuto, wantExit: false, wantCleared: true},
+		{name: "auto to sunset does not exit", oldMode: db.ModeAuto, newMode: db.ModeSunset, wantExit: false, wantCleared: true},
+		{name: "sunset unchanged does not exit", oldMode: db.ModeSunset, newMode: db.ModeSunset, wantExit: false, wantCleared: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			database := setupTestDB(t)
+			bus := newTestBus(t)
+			svc := NewDiskGroupService(database, bus)
+			clearer := &mockDeletionQueueGroupClearer{}
+			exiter := &mockSunsetGroupExiter{}
+			svc.SetDeletionClearer(clearer)
+			svc.SetSunsetExiter(exiter)
+			svc.SetEngineService(&mockEngineRunTrigger{})
+
+			group := createDiskGroupWithMode(t, database, "/mnt/media", tc.oldMode)
+			var sunsetPct *float64
+			if tc.newMode == db.ModeSunset {
+				pct := 60.0
+				sunsetPct = &pct
+			}
+
+			if _, err := svc.UpdateThresholds(group.ID, 80, 70, nil, tc.newMode, sunsetPct); err != nil {
+				t.Fatalf("UpdateThresholds error: %v", err)
+			}
+
+			if tc.wantExit {
+				if len(exiter.exitedIDs) != 1 {
+					t.Fatalf("expected 1 Exit call, got %d", len(exiter.exitedIDs))
+				}
+				if exiter.exitedIDs[0] != group.ID {
+					t.Errorf("expected Exit group ID %d, got %d", group.ID, exiter.exitedIDs[0])
+				}
+			} else if len(exiter.exitedIDs) != 0 {
+				t.Errorf("expected no Exit calls, got %d", len(exiter.exitedIDs))
+			}
+
+			if tc.wantCleared {
+				if len(clearer.clearedGroupIDs) != 1 {
+					t.Fatalf("expected 1 ClearQueueForDiskGroup call, got %d", len(clearer.clearedGroupIDs))
+				}
+			} else if len(clearer.clearedGroupIDs) != 0 {
+				t.Errorf("expected no ClearQueueForDiskGroup calls, got %d", len(clearer.clearedGroupIDs))
+			}
+		})
+	}
+}
+
+func TestDiskGroupService_UpdateThresholds_NilSunsetExiterDoesNotPanic(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+	svc.SetDeletionClearer(&mockDeletionQueueGroupClearer{})
+	svc.SetEngineService(&mockEngineRunTrigger{})
+
+	group := createDiskGroupWithMode(t, database, "/mnt/media", db.ModeSunset)
+	if _, err := svc.UpdateThresholds(group.ID, 80, 70, nil, db.ModeDryRun, nil); err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+}
+
+func TestDiskGroupService_UpdateThresholds_ExitSunsetCancelsOnlyThatGroup(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	sunsetSvc := NewSunsetService(database, bus)
+	settingsSvc := NewSettingsService(database, bus)
+
+	svc := NewDiskGroupService(database, bus)
+	clearer := &mockDeletionQueueGroupClearer{}
+	engine := &mockEngineRunTrigger{}
+	svc.SetDeletionClearer(clearer)
+	svc.SetEngineService(engine)
+	svc.SetSunsetExiter(NewSunsetGroupExiter(sunsetSvc, nil, settingsSvc, nil, nil, nil, nil))
+
+	g1 := createDiskGroupWithMode(t, database, "/mnt/a", db.ModeSunset)
+	g2 := createDiskGroupWithMode(t, database, "/mnt/b", db.ModeSunset)
+	intID := seedIntegration(t, database)
+
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: intID,
+		SizeBytes: 100, DiskGroupID: g1.ID, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+		LabelApplied: true, PosterOverlayActive: true,
+	}).Error; err != nil {
+		t.Fatalf("create group 1 sunset item: %v", err)
+	}
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: intID,
+		SizeBytes: 100, DiskGroupID: g2.ID, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+		LabelApplied: true, PosterOverlayActive: true,
+	}).Error; err != nil {
+		t.Fatalf("create group 2 sunset item: %v", err)
+	}
+
+	if _, err := svc.UpdateThresholds(g1.ID, 80, 70, nil, db.ModeDryRun, nil); err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+
+	remaining, err := sunsetSvc.ListAll()
+	if err != nil {
+		t.Fatalf("ListAll error: %v", err)
+	}
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining sunset item, got %d", len(remaining))
+	}
+	if remaining[0].DiskGroupID != g2.ID {
+		t.Errorf("expected remaining item on group %d, got %d", g2.ID, remaining[0].DiskGroupID)
+	}
+	if remaining[0].MediaName != "Serenity" {
+		t.Errorf("expected remaining item Serenity, got %q", remaining[0].MediaName)
+	}
+
+	if len(clearer.clearedGroupIDs) != 1 || clearer.clearedGroupIDs[0] != g1.ID {
+		t.Errorf("expected deletion queue cleared for group %d, got %v", g1.ID, clearer.clearedGroupIDs)
+	}
+	if !engine.triggered {
+		t.Error("expected engine run after leaving sunset")
+	}
+}
+
 func TestDiskGroupService_GetModeForIntegration(t *testing.T) {
 	database := setupTestDB(t)
 	bus := newTestBus(t)
