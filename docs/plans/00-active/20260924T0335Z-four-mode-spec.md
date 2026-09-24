@@ -486,5 +486,139 @@ This document is the source of truth when:
 - [x] 4×4 transition table is explicit
 - [x] CHANGE vs today is listed
 - [x] Implementation is sliced so auto/approval/dry-run are not rewritten for sport
+- [x] Before/after flow diagrams for the engine cycle, mode change, and sunset release
 
 This document is **not** implemented when those boxes are checked. Implementation done-when is: each slice’s tests, plus the same-candidate fixture (dry-run vs sunset) and an Exit-sunset test that leaves zero rows and compensated comms.
+
+---
+
+## 15. Flow diagrams (today vs spec)
+
+### 15.1 Engine cycle — today
+
+Sunset is a second program. The other three share a pipeline. `dispatchByMode` has no sunset arm.
+
+```mermaid
+flowchart TD
+  START["EvaluateDiskGroup"] --> FORK{"group.Mode?"}
+
+  FORK -->|"sunset"| SUN["evaluateSunsetMode"]
+  FORK -->|"dry-run / approval / auto"| TH{"used >= thresholdPct?"}
+
+  TH -->|"No"| CLR["Clear approval queue for this group"]
+  TH -->|"Yes"| PIPE["scoreCandidates"]
+  PIPE --> FILT["filterCandidates<br/>dedup / snooze / zero-score"]
+  FILT --> DISP["dispatchFiltered"]
+  DISP --> EXP["expandCollections"]
+  EXP --> DM{"dispatchByMode"}
+  DM -->|"auto"| LIVE["QueueFromEngine live"]
+  DM -->|"approval"| AQ["approval_queue batch<br/>+ ReconcileQueue"]
+  DM -->|"else"| DRY["QueueFromEngine ForceDryRun"]
+
+  SUN --> CFG{"sunsetPct set?"}
+  CFG -->|"No"| MISC["SunsetMisconfigured<br/>return 0"]
+  CFG -->|"Yes"| S1{"used >= sunsetPct?"}
+  S1 -->|"Yes"| SSCORE["Score only<br/>no filter, no expand"]
+  SSCORE --> SQ["BulkQueueSunset<br/>deletion_date = now + sunsetDays"]
+  S1 -->|"No"| S2
+  SQ --> S2{"used >= thresholdPct?"}
+  S2 -->|"Yes"| ESC["Escalate<br/>due holds then score-desc<br/>no step 3, no snooze skip"]
+  S2 -->|"No"| ZERO["return 0"]
+  ESC --> ZERO
+  CLR --> END["Done"]
+  LIVE --> END
+  AQ --> END
+  DRY --> END
+  MISC --> END
+  ZERO --> END
+```
+
+### 15.2 Engine cycle — spec complete
+
+One pipeline. The preset is the last step (Admit), plus escalate only when the preset has a duration-hold.
+
+```mermaid
+flowchart TD
+  START["EvaluateDiskGroup"] --> MEAS["evaluateAt / target / escalateAt<br/>from preset binding"]
+  MEAS --> EV{"used >= evaluateAt?"}
+
+  EV -->|"No"| BELOW["Below-threshold policy"]
+  BELOW -->|"approval"| CLR["Clear engine-queued holds<br/>keep user_initiated"]
+  BELOW -->|"sunset"| KEEP["Keep existing sunset holds"]
+  BELOW -->|"dry-run / auto"| NOP["No-op"]
+
+  EV -->|"Yes"| PIPE["score → filter → expand<br/>same for all four presets"]
+  PIPE --> ADMIT{"Admit"}
+  ADMIT -->|"dry-run"| SIM["Executor simulate"]
+  ADMIT -->|"approval"| HOLD_A["approval_queue + reconcile<br/>do not dismiss user_initiated"]
+  ADMIT -->|"auto"| LIVE["Executor live"]
+  ADMIT -->|"sunset"| HOLD_S["sunset_queue<br/>label + poster on create"]
+
+  HOLD_S --> ESC{"used >= escalateAt?"}
+  ESC -->|"No"| DONE["Done"]
+  ESC -->|"Yes"| LADDER["Escalate to target:<br/>1 due holds<br/>2 remaining holds score-desc, skip snooze<br/>3 more candidates as immediate live"]
+
+  CLR --> DONE
+  KEEP --> DONE
+  NOP --> DONE
+  SIM --> DONE
+  HOLD_A --> DONE
+  LIVE --> DONE
+  LADDER --> DONE
+```
+
+### 15.3 Mode change — today
+
+A column write plus deletion-queue clear. Sunset rows and media-server comms stay. Approval engine-queued rows stay unless the *new* mode is still approval and the next run reconciles.
+
+```mermaid
+flowchart LR
+  A["UpdateThresholds"] --> B["Write mode + thresholds"]
+  B --> C["If leaving sunset:<br/>NULL sunset_pct"]
+  C --> D["Clear in-memory deletion queue"]
+  D --> E["Trigger engine run"]
+  E --> F["New mode Admits<br/>old sunset holds still there<br/>labels / posters still on"]
+```
+
+### 15.4 Mode change — spec complete
+
+Exit compensates. Enter does not convert old holds into live deletes. The new preset re-admits under its own budget.
+
+```mermaid
+flowchart LR
+  A["UpdateThresholds"] --> X{"OnExit from"}
+  X -->|"sunset"| XS["CancelAllForDiskGroup<br/>restore posters, remove labels<br/>clear deletion jobs"]
+  X -->|"approval"| XA["Dismiss engine-queued pending/rejected<br/>keep user_initiated and snoozes<br/>clear deletion jobs"]
+  X -->|"auto / dry-run"| XD["Clear deletion jobs"]
+  XS --> W["Write new mode"]
+  XA --> W
+  XD --> W
+  W --> EN["OnEnter: next Admit uses new preset"]
+  EN --> RUN["Engine run<br/>budget-limited re-admit"]
+```
+
+### 15.5 Sunset release — today vs spec
+
+Today two clocks and a consumed hold on simulate. Spec: same two clocks, honest executor, step 3.
+
+```mermaid
+flowchart TD
+  subgraph TODAY["Today"]
+    T1["Daily cron ProcessExpired"] --> T2["claim expired_at"]
+    T2 --> T3["strip label / poster"]
+    T3 --> T4["QueueFromSunset"]
+    T4 --> T5{"DeletionsEnabled?"}
+    T5 -->|"No"| T6["Dry-run — hold already consumed"]
+    T5 -->|"Yes"| T7["Live delete"]
+    TE["Engine Escalate"] --> T2
+  end
+
+  subgraph SPEC["Spec"]
+    S1["Daily cron or Escalate"] --> S2["CAS expired_at"]
+    S2 --> S3["QueueFromSunset with IntegrationID"]
+    S3 --> S4{"DeletionsEnabled?"}
+    S4 -->|"No"| S5["Simulate, unclaim, keep comms"]
+    S4 -->|"Yes"| S6["Live delete, then compensate comms"]
+    SE["Escalate step 3"] --> S7["Immediate live Admit<br/>of non-held candidates"]
+  end
+```
