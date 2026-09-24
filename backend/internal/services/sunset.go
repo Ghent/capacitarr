@@ -497,8 +497,9 @@ func (s *SunsetService) CancelAll(deps SunsetDeps) (int, error) {
 }
 
 // CancelAllForDiskGroup cancels all sunset items for a specific disk group.
-// Production code uses CancelAll (all groups); this per-group variant exists
-// for test convenience.
+// Production Exit (leaving sunset) calls this via SunsetGroupExiter so labels
+// and posters are restored and rows are deleted. Restore failures are logged;
+// rows are still deleted.
 func (s *SunsetService) CancelAllForDiskGroup(diskGroupID uint, deps SunsetDeps) (int, error) {
 	items, err := s.ListForDiskGroup(diskGroupID)
 	if err != nil {

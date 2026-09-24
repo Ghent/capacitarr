@@ -28,6 +28,13 @@ type DeletionQueueGroupClearer interface {
 	ClearQueueForDiskGroup(diskGroupID uint) int
 }
 
+// SunsetGroupExiter cancels sunset holds for one disk group (restore
+// labels/posters, then delete rows). Defined as an interface to avoid a
+// direct dependency on SunsetService.
+type SunsetGroupExiter interface {
+	Exit(diskGroupID uint) (int, error)
+}
+
 // DiskGroupService manages disk group lifecycle: discovery, reconciliation,
 // threshold configuration, and integration tracking.
 type DiskGroupService struct {
@@ -36,6 +43,7 @@ type DiskGroupService struct {
 	engine          EngineRunTrigger          // optional; wired via SetEngineService()
 	settings        SettingsReader            // optional; wired via SetSettingsReader()
 	deletionClearer DeletionQueueGroupClearer // optional; wired via SetDeletionClearer()
+	sunsetExiter    SunsetGroupExiter         // optional; wired via SetSunsetExiter()
 }
 
 // NewDiskGroupService creates a new DiskGroupService.
@@ -46,7 +54,7 @@ func NewDiskGroupService(database *gorm.DB, bus *events.EventBus) *DiskGroupServ
 // Wired returns true when all lazily-injected dependencies are non-nil.
 // Used by Registry.Validate() to catch missing wiring at startup.
 func (s *DiskGroupService) Wired() bool {
-	return s.engine != nil && s.settings != nil && s.deletionClearer != nil
+	return s.engine != nil && s.settings != nil && s.deletionClearer != nil && s.sunsetExiter != nil
 }
 
 // SetEngineService wires the EngineService dependency so that threshold changes
@@ -65,6 +73,13 @@ func (s *DiskGroupService) SetSettingsReader(settings SettingsReader) {
 // mode changes on a disk group clear its queued deletion items.
 func (s *DiskGroupService) SetDeletionClearer(clearer DeletionQueueGroupClearer) {
 	s.deletionClearer = clearer
+}
+
+// SetSunsetExiter wires the SunsetGroupExiter so leaving sunset cancels that
+// group's holds and restores labels/posters. Nil-safe in UpdateThresholds
+// so unit tests that omit it still compile; production NewRegistry must set it.
+func (s *DiskGroupService) SetSunsetExiter(exiter SunsetGroupExiter) {
+	s.sunsetExiter = exiter
 }
 
 // List returns all disk groups.
@@ -274,6 +289,28 @@ func (s *DiskGroupService) UpdateThresholds(groupID uint, threshold, target floa
 		// Clear sunset_pct when switching away from sunset mode
 		if err := s.db.Model(&group).Update("sunset_pct", gorm.Expr("NULL")).Error; err != nil {
 			return nil, fmt.Errorf("failed to clear sunset threshold: %w", err)
+		}
+	}
+
+	// Exit sunset after the mode column is written and before TriggerRun so
+	// the next engine cycle observes the new preset with holds already gone.
+	// Rows must still delete if label/poster restore fails (handled inside Exit).
+	if mode != "" && mode != oldMode && oldMode == db.ModeSunset && s.sunsetExiter != nil {
+		cancelled, exitErr := s.sunsetExiter.Exit(group.ID)
+		if exitErr != nil {
+			slog.Error("Failed to exit sunset on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath,
+				"oldMode", oldMode,
+				"newMode", mode,
+				"error", exitErr)
+		} else if cancelled > 0 {
+			slog.Info("Cancelled sunset holds on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath,
+				"oldMode", oldMode,
+				"newMode", mode,
+				"cancelled", cancelled)
 		}
 	}
 
