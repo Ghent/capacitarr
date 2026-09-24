@@ -1,12 +1,12 @@
 # Four-Mode Spec
 
-**Status:** Draft (spec only — no code in this PR)
+**Status:** Draft (spec + slices A+B on this PR)
 **Priority:** High (architecture + trust)
 **Origin:** Principal-engineer review of `dry-run` / `approval` / `auto` / `sunset`
 
-This is the behavior spec for all four execution presets. Implementation is later PRs. If a later PR disagrees with a row here, change this file in the same PR.
+This is the behavior spec for all four execution presets. Implementation continues on this same PR / branch (`cursor/four-mode-spec-fe9a`). If a later slice disagrees with a row here, change this file in the same commit.
 
-**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md) (slices A+B). Do not redesign from this file.
+**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A+B are on this branch. Next is C. Do not redesign from this file. Do not open a new branch.
 
 ---
 
@@ -268,9 +268,9 @@ Today mode change clears the deletion queue and triggers a run. It does not dism
 | In-flight sunset jobs | Clear deletion queue for the group. |
 | Cron | Subsequent `ProcessExpired` finds nothing. |
 
-Today `UpdateThresholds` clears `sunset_pct` and the deletion queue. It does **not** cancel sunset rows or compensate comms. `CancelAllForDiskGroup` exists for tests. **CHANGE:** production Exit must call it.
+**A shipped** on this PR: `UpdateThresholds` writes the new mode, then `SunsetGroupExiter.Exit` → `CancelAllForDiskGroup`, then clears the deletion queue, then `TriggerRun`. Rows still delete if label/poster restore fails.
 
-Publish a per-group mode-changed event (Important). Today a per-group preset change only emits `threshold_changed`. **CHANGE.**
+Publish a per-group mode-changed event (Important). Today a per-group preset change only emits `threshold_changed`. **CHANGE** (slice E).
 
 ---
 
@@ -361,7 +361,7 @@ Escalation counts as actions for `SignalBatchSize` and as `SunsetEscalated` / `t
 
 Keep the product. Implementation today is a stub (preview-cache compare, `weights` discarded, 50% hardcoded).
 
-Spec for the later PR that finishes it:
+Spec for the later slice (I) that finishes it:
 
 - Daily, if `sunsetRescoreEnabled`.
 - Re-score pending holds through the **engine**, same weights/rules as Admit.
@@ -411,6 +411,8 @@ Digest sections are per-group and use that group’s template (§8).
 | Help page | Already matches sunset spec. Keep. |
 | Safety-guard help | Name sunset too: brake simulates auto, approval, **and** sunset releases. |
 
+**B shipped** on this PR.
+
 ### 10.5 Rules and protection
 
 `always_keep` and score ≤ 0 never admit, any preset. Collection member with `always_keep` blocks the collection. Unchanged.
@@ -430,7 +432,7 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 | Sunset filter/expand | Skipped | Required |
 | Sunset identity | `MediaKey(title, type)`, no unique | `(disk_group_id, integration_id, external_id)` unique |
 | `SunsetStatusExpired` | Defined, never written | Written on handoff |
-| Exit sunset | Clears `sunset_pct` + deletion queue | Compensate holds + comms |
+| Exit sunset | ✅ Compensate holds + comms (`SunsetGroupExiter`) | Shipped (A) |
 | Exit approval | Deletion queue only | Also dismiss engine-queued pending/rejected |
 | Escalation step 3 | Missing | Required |
 | Escalate vs snooze | Not checked | Skip snoozed |
@@ -439,10 +441,10 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 | Kill switch + sunset | Consumes hold, strips labels | Unclaim, keep comms |
 | `SignalBatchSize` | Sunset returns 0 | Count cycle releases + escalations |
 | Posters | Daily cron first paint | On hold create |
-| Rescore | Preview cache, unused weights | Engine score (later PR) |
+| Rescore | Preview cache, unused weights | Engine score (slice I) |
 | Reconcile vs `user_initiated` | Reconcile can dismiss them | Must not |
 | Mixed-mode UI | “Most aggressive” shim | Per-group only |
-| Sunset tooltip | Wind-down-until-empty | Countdown + escalate |
+| Sunset tooltip | ✅ Countdown + escalate | Shipped (B) |
 | Per-group mode-changed event | Missing | Required |
 | Two tables / four pills / kill switch / grace / intent / `EnqueuedMode` / `ValidateSunsetConfig` / ShowLevelOnly override | Present | Keep |
 
@@ -459,19 +461,19 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 
 ---
 
-## 13. Implementation slices (later PRs)
+## 13. Implementation slices (this PR)
 
-Do not implement this spec in one PR. Order:
+All slices land on this branch (`cursor/four-mode-spec-fe9a`, PR #64). Do not open a follow-up branch unless Ghent asks. Order:
 
 | Slice | What | Why first |
 |---|---|---|
-| **A** | Exit sunset → `CancelAllForDiskGroup` + comms restore. Tests. | Trust. |
-| **B** | Tooltip / `diskGroupMode.ts` / safety-guard copy. | Stop describing the wrong product. |
+| **A** | ✅ Exit sunset → `CancelAllForDiskGroup` + comms restore. Tests. | Trust. |
+| **B** | ✅ Tooltip / `diskGroupMode.ts` / safety-guard copy. | Stop describing the wrong product. |
 | **C** | `QueueFromSunset` IntegrationID; kill switch unclaims; `SignalBatchSize` from sunset cycle actions. | Honest executor. |
 | **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. Collection expand on. | End the private evaluator. |
 | **E** | `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | Transitions. |
 | **F** | Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | Protocol completeness. |
-| **G** | Escalation step 3. | Capacity. Behavior change — own PR. |
+| **G** | Escalation step 3. | Capacity. Behavior change — review carefully; still this branch. |
 | **H** | Posters on create. | Comms reliability. |
 | **I** | Rescore through the engine. | Finish or keep hidden. |
 | **J** | Optional: `DiskGroupPolicy` type wrapping §2–§3. Refactor only, no product change. | After D–G exist. |
