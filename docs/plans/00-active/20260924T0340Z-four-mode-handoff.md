@@ -1,6 +1,6 @@
 # Four-Mode Implementation Handoff
 
-**Status:** A+B+C shipped on this PR; next is D
+**Status:** A+B+C+D shipped on this PR; next is E
 **Priority:** High
 **Spec:** [`20260924T0335Z-four-mode-spec.md`](./20260924T0335Z-four-mode-spec.md)
 **PR / branch:** https://github.com/Ghent/capacitarr/pull/66 — `feature/four-mode`
@@ -13,7 +13,7 @@ This is the start-here doc for a new session. Do not redesign the four modes. Im
 
 1. This file.
 2. The spec — especially §2 (shared machine), §6–§7 (matrix + transitions), §11 (vs today), §13 (slices), §15 (flows).
-3. Current engine fork: `backend/internal/orchestrator/orchestrator.go` (`EvaluateDiskGroup` early-return at sunset, `evaluateSunsetMode`, `dispatchByMode`).
+3. Shared pipeline: `backend/internal/orchestrator/orchestrator.go` (`EvaluateDiskGroup` → `scoreCandidates` → `filterCandidates` → `expandCollections` → `dispatchByMode`, including the sunset arm).
 4. Mode write path: `backend/internal/services/diskgroup.go` `UpdateThresholds` (writes mode → Exit sunset if leaving → clear deletion queue → `TriggerRun`).
 5. Sunset exit: `backend/internal/services/sunset_wiring.go` `SunsetGroupExiter` → `CancelAllForDiskGroup`.
 
@@ -35,7 +35,7 @@ Conversation that produced the spec (do not relitigate unless Ghent overrides):
 | **A** | Leaving sunset cancels that group’s sunset holds and restores labels/posters | **Done** on this PR. |
 | **B** | Copy matches the product | **Done** on this PR. |
 | **C** | Honest executor: `QueueFromSunset` IntegrationID; kill-switch unclaim; `SignalBatchSize` from sunset cycle | **Done** on this PR. |
-| **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. | **Next.** Do not start unless asked. |
+| **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. | **Done** on this PR. |
 
 ---
 
@@ -86,11 +86,17 @@ Tests in `backend/internal/services/diskgroup_test.go`:
 
 ---
 
-## After C (do not start unless asked)
+## Slice D — shipped (do not redo)
+
+- `EvaluateDiskGroup` no longer early-returns to `evaluateSunsetMode`. Sunset uses `evaluateAt` / hold budget bindings, then `scoreCandidates` → `filterCandidates` → `expandCollections` → `dispatchByMode` sunset arm (`BulkQueueSunset`, collection group set).
+- Escalate still runs after Admit when `used >= thresholdPct`. No step 3.
+- Below `sunsetPct`: no new admits, existing holds stay (approval queue is not cleared).
+- `TestEvaluateDiskGroup_DryRunAndSunsetAdmitSameTitles` — one fixture library; dry-run and sunset admit the same titles (show/season dedup, snooze, MCU expand).
+
+## After D (do not start unless asked)
 
 | Slice | Entry points |
 |---|---|
-| **D** | Delete the sunset early-return. Sunset uses `scoreCandidates` → `filterCandidates` → `expandCollections` → new `dispatchByMode` arm. **Prove with a test that dry-run and sunset admit the same titles** on one fixture library. This is the first change that can change who gets queued. |
 | **E** | `onDiskGroupModeChange` for approval Exit + per-group mode-changed event. |
 | **F–J** | Spec §13. Do not combine with D. |
 
@@ -113,11 +119,11 @@ from `backend/`.
 
 ---
 
-## Current-code map (after A+B+C)
+## Current-code map (after A+B+C+D)
 
 | Concern | Where it lives today |
 |---|---|
-| Sunset private evaluator | `orchestrator.go` `evaluateSunsetMode` (~684) |
+| Sunset admit | `orchestrator.go` `dispatchByMode` sunset arm; escalate after Admit |
 | Shared pipeline | `scoreCandidates`, `filterCandidates`, `expandCollections`, `dispatchByMode` |
 | Sunset hold create | `BulkQueueSunset`; `deletion_date = now + prefs.SunsetDays` |
 | Sunset expire / escalate | `ProcessExpired` (cron `jobs/cron.go`), `Escalate` (no step 3, no snooze) |
@@ -133,6 +139,4 @@ from `backend/`.
 
 ## What success looks like for the next session
 
-- Slice D on PR #66, tests green. Same branch. Same-candidate fixture: dry-run and sunset admit the same titles.
-- Do not fold sunset until that test exists.
-- Spec §13 ticks D. Do not combine D with E–J.
+- Slice E on PR #66, tests green. Same branch. Do not combine E with F–J.

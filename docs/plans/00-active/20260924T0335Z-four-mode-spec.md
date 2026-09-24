@@ -1,12 +1,12 @@
 # Four-Mode Spec
 
-**Status:** Draft (spec + slices A+B+C on this PR)
+**Status:** Draft (spec + slices A+B+C+D on this PR)
 **Priority:** High (architecture + trust)
 **Origin:** Principal-engineer review of `dry-run` / `approval` / `auto` / `sunset`
 
 This is the behavior spec for all four execution presets. Implementation continues on this same PR / branch (`feature/four-mode`). If a later slice disagrees with a row here, change this file in the same commit.
 
-**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A+B+C are on this branch. Next is D. Do not redesign from this file. Do not open a new branch.
+**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A+B+C+D are on this branch. Next is E. Do not redesign from this file. Do not open a new branch.
 
 ---
 
@@ -427,9 +427,9 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 
 | Area | Today | Spec |
 |---|---|---|
-| Shared pipeline | dry-run / approval / auto | All four |
-| Sunset evaluator | Early return, private score | Forbidden |
-| Sunset filter/expand | Skipped | Required |
+| Shared pipeline | All four (D) | All four |
+| Sunset evaluator | Folded into shared pipeline (D) | Forbidden as a private scorer |
+| Sunset filter/expand | Shared filter + collection expand (D) | Required |
 | Sunset identity | `MediaKey(title, type)`, no unique | `(disk_group_id, integration_id, external_id)` unique |
 | `SunsetStatusExpired` | Defined, never written | Written on handoff |
 | Exit sunset | ✅ Compensate holds + comms (`SunsetGroupExiter`) | Shipped (A) |
@@ -470,7 +470,7 @@ All slices land on this branch (`feature/four-mode`, PR #66). Do not open a foll
 | **A** | ✅ Exit sunset → `CancelAllForDiskGroup` + comms restore. Tests. | Trust. |
 | **B** | ✅ Tooltip / `diskGroupMode.ts` / safety-guard copy. | Stop describing the wrong product. |
 | **C** | ✅ `QueueFromSunset` IntegrationID; kill switch unclaims; `SignalBatchSize` from sunset cycle actions. | Honest executor. |
-| **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. Collection expand on. | End the private evaluator. |
+| **D** | ✅ Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. Collection expand on. | End the private evaluator. |
 | **E** | `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | Transitions. |
 | **F** | Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | Protocol completeness. |
 | **G** | Escalation step 3. | Capacity. Behavior change — review carefully; still this branch. |

@@ -859,8 +859,8 @@ func TestEvaluateSunsetMode_BelowSunsetThreshold_NoQueue(t *testing.T) {
 
 // TestEvaluateSunsetMode_EscalateCountsTowardSignalBatchSize verifies that
 // a sunset cycle that escalates holds reports those releases as executor
-// actions (spec §5). evaluateSunsetMode used to return 0, so SignalBatchSize(0)
-// fired an empty batch-complete on escalate.
+// actions (spec §5). The sunset path used to return 0 from the private
+// evaluator, so SignalBatchSize(0) fired an empty batch-complete on escalate.
 func TestEvaluateSunsetMode_EscalateCountsTowardSignalBatchSize(t *testing.T) {
 	database, reg := setupEvaluateTestDB(t)
 	p := New(reg)
