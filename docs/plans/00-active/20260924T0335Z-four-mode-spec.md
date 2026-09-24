@@ -4,7 +4,7 @@
 **Priority:** High (architecture + trust)
 **Origin:** Principal-engineer review of `dry-run` / `approval` / `auto` / `sunset`
 
-This is the behavior spec for all four execution presets. Implementation continues on this same PR / branch (`cursor/four-mode-spec-fe9a`). If a later slice disagrees with a row here, change this file in the same commit.
+This is the behavior spec for all four execution presets. Implementation continues on this same PR / branch (`feature/four-mode`). If a later slice disagrees with a row here, change this file in the same commit.
 
 **Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A+B are on this branch. Next is C. Do not redesign from this file. Do not open a new branch.
 
@@ -463,7 +463,7 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 
 ## 13. Implementation slices (this PR)
 
-All slices land on this branch (`cursor/four-mode-spec-fe9a`, PR #64). Do not open a follow-up branch unless Ghent asks. Order:
+All slices land on this branch (`feature/four-mode`, PR #64). Do not open a follow-up branch unless Ghent asks. Order:
 
 | Slice | What | Why first |
 |---|---|---|

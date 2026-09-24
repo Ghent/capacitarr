@@ -3,7 +3,7 @@
 **Status:** A+B shipped on this PR; next is C
 **Priority:** High
 **Spec:** [`20260924T0335Z-four-mode-spec.md`](./20260924T0335Z-four-mode-spec.md)
-**PR / branch:** https://github.com/Ghent/capacitarr/pull/64 — `cursor/four-mode-spec-fe9a`
+**PR / branch:** https://github.com/Ghent/capacitarr/pull/64 — `feature/four-mode`
 
 This is the start-here doc for a new session. Do not redesign the four modes. Implement the spec, slice by slice, **on this same branch**. Do not open a new PR.
 
@@ -28,7 +28,7 @@ Conversation that produced the spec (do not relitigate unless Ghent overrides):
 
 ## Your job this session
 
-**Stay on `cursor/four-mode-spec-fe9a`.** Push and update PR #64. Do not branch off `main`. Do not open a second PR.
+**Stay on `feature/four-mode`.** Push and update PR #64. Do not branch off `main`. Do not open a second PR.
 
 | Slice | What | Status |
 |---|---|---|
@@ -102,7 +102,7 @@ Do not fold sunset into `dispatchByMode` (that is D). Do not add unique indexes 
 
 ## Repo / process
 
-- **One branch:** `cursor/four-mode-spec-fe9a`. Fetch it, checkout, continue. Do not create `cursor/<slice>-*` off `main`.
+- **One branch:** `feature/four-mode` (`feature/` per CONTRIBUTING.md). Fetch it, checkout, continue. Do not create a second branch off `main`.
 - Conventional commits (`fix:`, `docs:`).
 - Do not use `gh` / forge CLIs to open a PR — this work already has PR #64. Use the session’s PR tool to **update** #64.
 - Plans live in `docs/plans/00-active/`. When a slice ships, tick it in spec §13 on this same branch.
