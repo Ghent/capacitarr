@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/engine"
@@ -236,6 +237,36 @@ func (s *DeletionService) QueueManual(items []approval.ManualDeleteRequest, appr
 						"component", "services", "media", item.MediaName, "error", upsertErr)
 					continue
 				}
+			}
+			approvalCount++
+			continue
+		}
+
+		// 2b. Sunset: user-initiated hold, not a live delete (spec §6.2).
+		if resolvedMode == db.ModeSunset {
+			if s.sunsetHolds == nil || diskGroupID == nil {
+				slog.Error("Failed to queue manual sunset hold — missing hold creator or disk group",
+					"component", "services", "media", item.MediaName)
+				continue
+			}
+			deletionDate := time.Now().UTC().AddDate(0, 0, prefs.SunsetDays)
+			_, holdErr := s.sunsetHolds.QueueUserHold(db.SunsetQueueItem{
+				MediaName:     item.MediaName,
+				MediaType:     item.MediaType,
+				IntegrationID: item.IntegrationID,
+				ExternalID:    item.ExternalID,
+				SizeBytes:     item.SizeBytes,
+				Score:         item.Score,
+				ScoreDetails:  item.ScoreDetails,
+				PosterURL:     item.PosterURL,
+				DiskGroupID:   *diskGroupID,
+				Trigger:       db.TriggerUser,
+				DeletionDate:  deletionDate,
+			})
+			if holdErr != nil {
+				slog.Error("Failed to queue manual sunset hold",
+					"component", "services", "media", item.MediaName, "error", holdErr)
+				continue
 			}
 			approvalCount++
 			continue

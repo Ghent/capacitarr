@@ -43,6 +43,7 @@ func (m *mockSettingsReader) GetPreferences() (db.PreferenceSet, error) {
 		DeletionQueueDelaySeconds: delay,
 		DefaultDiskGroupMode:      mode,
 		SnoozeDurationHours:       snooze,
+		SunsetDays:                30,
 	}, nil
 }
 

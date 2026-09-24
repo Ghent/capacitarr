@@ -2,6 +2,7 @@ package db
 
 import (
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -75,6 +76,12 @@ var ValidNotificationLevels = map[string]bool{
 // common delimiter characters like "|" or ":".
 func MediaKey(name, mediaType string) string {
 	return name + "\x00" + mediaType
+}
+
+// ItemKey is the hold identity: (integration_id, external_id), scoped by
+// disk_group_id at the call site. Never title + type (spec §2 / §4.2).
+func ItemKey(integrationID uint, externalID string) string {
+	return strconv.FormatUint(uint64(integrationID), 10) + "\x00" + externalID
 }
 
 // FormatValidKeys returns a sorted, comma-separated string of keys from a

@@ -40,6 +40,7 @@ type SunsetDeps struct {
 	Preview       PreviewScoreReader    // Optional: provides current scores for rescore comparisons
 	PosterOverlay *PosterOverlayService // Optional: if set, posters are restored on cancel/expire/escalate
 	Mapping       *MappingService       // Persistent TMDb→NativeID mapping; replaces ephemeral BuildMappingMaps()
+	SnoozedKeys   map[string]bool       // MediaKey set; escalate skips these (spec §4.3 / §6.4)
 }
 
 // NewSunsetService creates a new sunset queue service.
@@ -429,6 +430,9 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 		if freedBytes >= targetBytes {
 			break
 		}
+		if deps.SnoozedKeys[db.MediaKey(item.MediaName, item.MediaType)] {
+			continue
+		}
 		if s.processExpiredItem(item, prefs, deps) {
 			freedBytes += item.SizeBytes
 			itemsExpired++
@@ -451,6 +455,9 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 	for _, item := range oldest {
 		if freedBytes >= targetBytes {
 			break
+		}
+		if deps.SnoozedKeys[db.MediaKey(item.MediaName, item.MediaType)] {
+			continue
 		}
 		if s.processExpiredItem(item, prefs, deps) {
 			freedBytes += item.SizeBytes
@@ -540,7 +547,7 @@ func (s *SunsetService) RemoveCompleted(id uint) error {
 	return s.db.Delete(&db.SunsetQueueItem{}, id).Error
 }
 
-// IsSunsetted checks if a media item is already in the sunset queue.
+// IsSunsetted reports whether a title+type is already held. Prefer IsHeld.
 func (s *SunsetService) IsSunsetted(mediaName, mediaType string, diskGroupID uint) bool {
 	var count int64
 	s.db.Model(&db.SunsetQueueItem{}).
@@ -549,11 +556,35 @@ func (s *SunsetService) IsSunsetted(mediaName, mediaType string, diskGroupID uin
 	return count > 0
 }
 
-// ListSunsettedKeys returns db.MediaKey keys for O(1) lookups.
-// Same pattern as ApprovalService.ListSnoozedKeys().
+// IsHeld reports whether the identity is already in this group's sunset queue.
+func (s *SunsetService) IsHeld(diskGroupID, integrationID uint, externalID string) bool {
+	var count int64
+	s.db.Model(&db.SunsetQueueItem{}).
+		Where("disk_group_id = ? AND integration_id = ? AND external_id = ?", diskGroupID, integrationID, externalID).
+		Count(&count)
+	return count > 0
+}
+
+// QueueUserHold inserts a user-initiated sunset hold. No-op if the identity
+// is already held. Returns created=true when a new row was written.
+func (s *SunsetService) QueueUserHold(item db.SunsetQueueItem) (bool, error) {
+	if item.DiskGroupID == 0 {
+		return false, fmt.Errorf("sunset hold requires a disk group")
+	}
+	if s.IsHeld(item.DiskGroupID, item.IntegrationID, item.ExternalID) {
+		return false, nil
+	}
+	item.Trigger = db.TriggerUser
+	if err := s.QueueSunset(item, SunsetDeps{}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// ListSunsettedKeys returns db.ItemKey keys for O(1) lookups.
 func (s *SunsetService) ListSunsettedKeys(diskGroupID uint) (map[string]bool, error) {
 	var items []db.SunsetQueueItem
-	err := s.db.Select("media_name, media_type").
+	err := s.db.Select("integration_id, external_id").
 		Where("disk_group_id = ?", diskGroupID).Find(&items).Error
 	if err != nil {
 		return nil, err
@@ -561,7 +592,7 @@ func (s *SunsetService) ListSunsettedKeys(diskGroupID uint) (map[string]bool, er
 
 	keys := make(map[string]bool, len(items))
 	for _, item := range items {
-		keys[db.MediaKey(item.MediaName, item.MediaType)] = true
+		keys[db.ItemKey(item.IntegrationID, item.ExternalID)] = true
 	}
 	return keys, nil
 }
@@ -777,7 +808,10 @@ func (s *SunsetService) claimExpired(id uint) (bool, error) {
 	now := time.Now().UTC()
 	result := s.db.Model(&db.SunsetQueueItem{}).
 		Where("id = ? AND expired_at IS NULL", id).
-		Update("expired_at", now)
+		Updates(map[string]any{
+			"expired_at": now,
+			"status":     db.SunsetStatusExpired,
+		})
 	if result.Error != nil {
 		return false, result.Error
 	}
@@ -789,7 +823,10 @@ func (s *SunsetService) claimExpired(id uint) (bool, error) {
 func (s *SunsetService) UnclaimExpired(id uint) error {
 	return s.db.Model(&db.SunsetQueueItem{}).
 		Where("id = ?", id).
-		Update("expired_at", gorm.Expr("NULL")).Error
+		Updates(map[string]any{
+			"expired_at": gorm.Expr("NULL"),
+			"status":     db.SunsetStatusPending,
+		}).Error
 }
 
 // ValidateSunsetConfig validates sunset-mode configuration on a disk group.

@@ -223,13 +223,13 @@ type SunsetQueueItem struct {
 	MediaName           string     `gorm:"index;not null" json:"mediaName"`
 	MediaType           string     `gorm:"not null" json:"mediaType"`                            // movie, show, season, episode, artist, book
 	TmdbID              *int       `gorm:"index" json:"tmdbId,omitempty"`                        // TMDb ID for media server label/poster targeting; nil if not matched
-	IntegrationID       uint       `gorm:"not null" json:"integrationId"`                        // FK to IntegrationConfig
-	ExternalID          string     `gorm:"not null;default:''" json:"externalId"`                // *arr external ID
-	SizeBytes           int64      `gorm:"not null;default:0" json:"sizeBytes"`                  // File size in bytes
-	Score               float64    `gorm:"not null;default:0" json:"score"`                      // Score at time of scheduling
-	ScoreDetails        string     `gorm:"type:text" json:"scoreDetails"`                        // JSON-encoded score factors
-	PosterURL           string     `json:"posterUrl,omitempty"`                                  // Original poster URL from *arr
-	DiskGroupID         uint       `gorm:"index;not null" json:"diskGroupId"`                    // FK to DiskGroup
+	IntegrationID       uint       `gorm:"uniqueIndex:idx_sunset_queue_identity;not null" json:"integrationId"`           // FK to IntegrationConfig
+	ExternalID          string     `gorm:"uniqueIndex:idx_sunset_queue_identity;not null;default:''" json:"externalId"`   // *arr external ID
+	SizeBytes           int64      `gorm:"not null;default:0" json:"sizeBytes"`                                          // File size in bytes
+	Score               float64    `gorm:"not null;default:0" json:"score"`                                              // Score at time of scheduling
+	ScoreDetails        string     `gorm:"type:text" json:"scoreDetails"`                                                // JSON-encoded score factors
+	PosterURL           string     `json:"posterUrl,omitempty"`                                                          // Original poster URL from *arr
+	DiskGroupID         uint       `gorm:"uniqueIndex:idx_sunset_queue_identity;index;not null" json:"diskGroupId"`      // FK to DiskGroup
 	CollectionGroup     string     `gorm:"not null;default:''" json:"collectionGroup,omitempty"` // Collection deletion group
 	Trigger             string     `gorm:"not null;default:'engine'" json:"trigger"`             // "engine", "user"
 	DeletionDate        time.Time  `gorm:"index;not null" json:"deletionDate"`                   // When to hand to DeletionService

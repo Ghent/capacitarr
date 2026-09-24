@@ -262,7 +262,9 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 			"targetPct", group.TargetPct)
 
 		targetBytes := int64((currentPct - group.TargetPct) / 100.0 * float64(effectiveTotal))
-		freed, released, err := o.sunset.Escalate(group.ID, targetBytes, o.sunsetDepsFor(registry))
+		sunsetDeps := o.sunsetDepsFor(registry)
+		sunsetDeps.SnoozedKeys = ectx.snoozedKeys
+		freed, released, err := o.sunset.Escalate(group.ID, targetBytes, sunsetDeps)
 		if err != nil {
 			slog.Error("Sunset escalation failed", "component", "poller",
 				"mount", group.MountPath, "error", err)
@@ -596,7 +598,7 @@ func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, p
 			CollectionGroup: pi.collectionGroup,
 		})
 
-		neededKeys[db.MediaKey(pi.item.Title, string(pi.item.Type))] = true
+		neededKeys[db.ItemKey(pi.item.IntegrationID, pi.item.ExternalID)] = true
 		ectx.groupAcc.Candidates++
 		ectx.groupAcc.FreedBytes += pi.item.SizeBytes
 
@@ -609,7 +611,7 @@ func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, p
 		if ectx.skipSunsetAdmit {
 			return 0, 0
 		}
-		key := db.MediaKey(pi.item.Title, string(pi.item.Type))
+		key := db.ItemKey(pi.item.IntegrationID, pi.item.ExternalID)
 		if ectx.sunsettedKeys[key] {
 			return 0, 0
 		}

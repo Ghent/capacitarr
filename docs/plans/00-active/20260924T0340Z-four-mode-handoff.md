@@ -1,6 +1,6 @@
 # Four-Mode Implementation Handoff
 
-**Status:** A+B+C+D shipped on this PR; next is E
+**Status:** A+B+C+D+E+F shipped on this PR; next is G
 **Priority:** High
 **Spec:** [`20260924T0335Z-four-mode-spec.md`](./20260924T0335Z-four-mode-spec.md)
 **PR / branch:** https://github.com/Ghent/capacitarr/pull/66 — `feature/four-mode`
@@ -36,6 +36,8 @@ Conversation that produced the spec (do not relitigate unless Ghent overrides):
 | **B** | Copy matches the product | **Done** on this PR. |
 | **C** | Honest executor: `QueueFromSunset` IntegrationID; kill-switch unclaim; `SignalBatchSize` from sunset cycle | **Done** on this PR. |
 | **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. | **Done** on this PR. |
+| **E** | `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | **Done** on this PR. |
+| **F** | Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | **Done** on this PR. |
 
 ---
 
@@ -93,12 +95,26 @@ Tests in `backend/internal/services/diskgroup_test.go`:
 - Below `sunsetPct`: no new admits, existing holds stay (approval queue is not cleared).
 - `TestEvaluateDiskGroup_DryRunAndSunsetAdmitSameTitles` — one fixture library; dry-run and sunset admit the same titles (show/season dedup, snooze, MCU expand).
 
-## After D (do not start unless asked)
+## Slice E — shipped (do not redo)
+
+- `UpdateThresholds` calls `onDiskGroupModeChange` after the mode write: sunset Exit, clear in-flight deletion jobs, approval Exit, then `mode_changed`.
+- Approval Exit returns approved → pending, then dismisses engine-queued pending/rejected. `user_initiated` and active snoozes stay.
+- Per-group `DiskGroupModeChangedEvent` (`mode_changed`, Important).
+
+## Slice F — shipped (do not redo)
+
+- Sunset unique identity `(disk_group_id, integration_id, external_id)` + `db.ItemKey` for hold lookup / reconcile.
+- Successful handoff writes `status=expired` with `expired_at`. Unclaim returns the row to pending.
+- `ReconcileQueue` still skips `user_initiated` (explicit + test).
+- Escalate skips snoozed `MediaKey`s (`SunsetDeps.SnoozedKeys`).
+- Manual delete on a sunset group creates a user sunset hold; already-held is a no-op.
+
+## After F (do not start unless asked)
 
 | Slice | Entry points |
 |---|---|
-| **E** | `onDiskGroupModeChange` for approval Exit + per-group mode-changed event. |
-| **F–J** | Spec §13. Do not combine with D. |
+| **G** | Escalation step 3. Behavior change — review carefully. |
+| **H–J** | Spec §13. Do not combine with E/F. |
 
 ---
 
@@ -119,18 +135,18 @@ from `backend/`.
 
 ---
 
-## Current-code map (after A+B+C+D)
+## Current-code map (after A+B+C+D+E+F)
 
 | Concern | Where it lives today |
 |---|---|
 | Sunset admit | `orchestrator.go` `dispatchByMode` sunset arm; escalate after Admit |
 | Shared pipeline | `scoreCandidates`, `filterCandidates`, `expandCollections`, `dispatchByMode` |
-| Sunset hold create | `BulkQueueSunset`; `deletion_date = now + prefs.SunsetDays` |
-| Sunset expire / escalate | `ProcessExpired` (cron `jobs/cron.go`), `Escalate` (no step 3, no snooze) |
+| Sunset hold create | `BulkQueueSunset` / `QueueUserHold`; `deletion_date = now + prefs.SunsetDays` |
+| Sunset expire / escalate | `ProcessExpired`; `Escalate` skips snooze; writes `expired`; no step 3 |
 | Handoff to delete | `QueueFromSunset` sets `IntegrationID`; simulate unclaims |
-| Mode write + sunset exit | `DiskGroupService.UpdateThresholds` → `SunsetGroupExiter` |
-| Approval reconcile | `approval/approval.go` `ReconcileQueue` — can dismiss `user_initiated` |
-| Manual delete | `deletion_intake.go` `QueueManual` — only approval is special-cased |
+| Mode write + exits | `onDiskGroupModeChange` → sunset Exit / approval Exit / queue clear / `mode_changed` |
+| Approval reconcile | `ReconcileQueue` uses `ItemKey`; keeps `user_initiated` |
+| Manual delete | Approval → approval hold; sunset → sunset hold; else live/dry-run |
 | Kill switch | `deletion_worker.go` process-time `DeletionsEnabled`; sunset simulate unclaims |
 | Sunset tooltip | `frontend/app/locales/en.json` `mode.sunsetTooltip` (countdown + escalate) |
 | Help text | `help.executionModes.sunsetDesc` + safety-guard names sunset |
@@ -139,4 +155,4 @@ from `backend/`.
 
 ## What success looks like for the next session
 
-- Slice E on PR #66, tests green. Same branch. Do not combine E with F–J.
+- Slice G on PR #66 only if asked. Same branch. Do not combine G with H–J.

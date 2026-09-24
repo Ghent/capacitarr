@@ -24,6 +24,23 @@ type ThresholdChangedEvent struct {
 	TargetPct    float64 `json:"targetPct"`
 }
 
+// DiskGroupModeChangedEvent is published when a disk group's execution
+// preset changes. Important-tier; per-group (spec §7 / §10.3).
+type DiskGroupModeChangedEvent struct {
+	DiskGroupID uint   `json:"diskGroupId"`
+	MountPath   string `json:"mountPath"`
+	OldMode     string `json:"oldMode"`
+	NewMode     string `json:"newMode"`
+}
+
+// EventType implements Event.
+func (e DiskGroupModeChangedEvent) EventType() string { return "mode_changed" }
+
+// EventMessage implements Event.
+func (e DiskGroupModeChangedEvent) EventMessage() string {
+	return fmt.Sprintf("Mode changed for %s: %s → %s", e.MountPath, e.OldMode, e.NewMode)
+}
+
 // EventType implements Event.
 func (e ThresholdChangedEvent) EventType() string { return "threshold_changed" }
 

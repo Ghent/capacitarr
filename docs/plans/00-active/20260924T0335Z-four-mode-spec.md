@@ -1,12 +1,12 @@
 # Four-Mode Spec
 
-**Status:** Draft (spec + slices A+B+C+D on this PR)
+**Status:** Draft (spec + slices A+B+C+D+E+F on this PR)
 **Priority:** High (architecture + trust)
 **Origin:** Principal-engineer review of `dry-run` / `approval` / `auto` / `sunset`
 
 This is the behavior spec for all four execution presets. Implementation continues on this same PR / branch (`feature/four-mode`). If a later slice disagrees with a row here, change this file in the same commit.
 
-**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A+B+C+D are on this branch. Next is E. Do not redesign from this file. Do not open a new branch.
+**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A–F are on this branch. Next is G. Do not redesign from this file. Do not open a new branch.
 
 ---
 
@@ -430,13 +430,13 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 | Shared pipeline | All four (D) | All four |
 | Sunset evaluator | Folded into shared pipeline (D) | Forbidden as a private scorer |
 | Sunset filter/expand | Shared filter + collection expand (D) | Required |
-| Sunset identity | `MediaKey(title, type)`, no unique | `(disk_group_id, integration_id, external_id)` unique |
-| `SunsetStatusExpired` | Defined, never written | Written on handoff |
+| Sunset identity | `(disk_group_id, integration_id, external_id)` unique (F) | `(disk_group_id, integration_id, external_id)` unique |
+| `SunsetStatusExpired` | Written on successful handoff (F) | Written on handoff |
 | Exit sunset | ✅ Compensate holds + comms (`SunsetGroupExiter`) | Shipped (A) |
-| Exit approval | Deletion queue only | Also dismiss engine-queued pending/rejected |
+| Exit approval | ✅ Dismiss engine-queued pending/rejected; keep user_initiated + snooze (E) | Shipped (E) |
 | Escalation step 3 | Missing | Required |
-| Escalate vs snooze | Not checked | Skip snoozed |
-| Manual delete + sunset | Live | Sunset hold |
+| Escalate vs snooze | Skips snoozed `MediaKey`s (F) | Skip snoozed |
+| Manual delete + sunset | Sunset hold, already-held is no-op (F) | Sunset hold |
 | `QueueFromSunset` IntegrationID | ✅ Set on MediaItem | Shipped (C) |
 | Kill switch + sunset | ✅ Unclaim, keep comms | Shipped (C) |
 | `SignalBatchSize` | ✅ Escalate count returned from sunset cycle | Shipped (C) |
@@ -471,8 +471,8 @@ All slices land on this branch (`feature/four-mode`, PR #66). Do not open a foll
 | **B** | ✅ Tooltip / `diskGroupMode.ts` / safety-guard copy. | Stop describing the wrong product. |
 | **C** | ✅ `QueueFromSunset` IntegrationID; kill switch unclaims; `SignalBatchSize` from sunset cycle actions. | Honest executor. |
 | **D** | ✅ Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. Collection expand on. | End the private evaluator. |
-| **E** | `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | Transitions. |
-| **F** | Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | Protocol completeness. |
+| **E** | ✅ `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | Transitions. |
+| **F** | ✅ Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | Protocol completeness. |
 | **G** | Escalation step 3. | Capacity. Behavior change — review carefully; still this branch. |
 | **H** | Posters on create. | Comms reliability. |
 | **I** | Rescore through the engine. | Finish or keep hidden. |

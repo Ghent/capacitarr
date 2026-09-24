@@ -35,6 +35,13 @@ type SunsetGroupExiter interface {
 	Exit(diskGroupID uint) (int, error)
 }
 
+// ApprovalGroupExiter dismisses engine-queued approval holds for one disk
+// group (keep user_initiated and active snoozes). Defined as an interface
+// so DiskGroupService does not import the approval package.
+type ApprovalGroupExiter interface {
+	Exit(diskGroupID uint) (int, error)
+}
+
 // DiskGroupService manages disk group lifecycle: discovery, reconciliation,
 // threshold configuration, and integration tracking.
 type DiskGroupService struct {
@@ -44,6 +51,7 @@ type DiskGroupService struct {
 	settings        SettingsReader            // optional; wired via SetSettingsReader()
 	deletionClearer DeletionQueueGroupClearer // optional; wired via SetDeletionClearer()
 	sunsetExiter    SunsetGroupExiter         // optional; wired via SetSunsetExiter()
+	approvalExiter  ApprovalGroupExiter       // optional; wired via SetApprovalExiter()
 }
 
 // NewDiskGroupService creates a new DiskGroupService.
@@ -54,7 +62,7 @@ func NewDiskGroupService(database *gorm.DB, bus *events.EventBus) *DiskGroupServ
 // Wired returns true when all lazily-injected dependencies are non-nil.
 // Used by Registry.Validate() to catch missing wiring at startup.
 func (s *DiskGroupService) Wired() bool {
-	return s.engine != nil && s.settings != nil && s.deletionClearer != nil && s.sunsetExiter != nil
+	return s.engine != nil && s.settings != nil && s.deletionClearer != nil && s.sunsetExiter != nil && s.approvalExiter != nil
 }
 
 // SetEngineService wires the EngineService dependency so that threshold changes
@@ -80,6 +88,12 @@ func (s *DiskGroupService) SetDeletionClearer(clearer DeletionQueueGroupClearer)
 // so unit tests that omit it still compile; production NewRegistry must set it.
 func (s *DiskGroupService) SetSunsetExiter(exiter SunsetGroupExiter) {
 	s.sunsetExiter = exiter
+}
+
+// SetApprovalExiter wires the ApprovalGroupExiter so leaving approval
+// dismisses engine-queued holds. Nil-safe in onDiskGroupModeChange.
+func (s *DiskGroupService) SetApprovalExiter(exiter ApprovalGroupExiter) {
+	s.approvalExiter = exiter
 }
 
 // List returns all disk groups.
@@ -292,41 +306,8 @@ func (s *DiskGroupService) UpdateThresholds(groupID uint, threshold, target floa
 		}
 	}
 
-	// Exit sunset after the mode column is written and before TriggerRun so
-	// the next engine cycle observes the new preset with holds already gone.
-	// Rows must still delete if label/poster restore fails (handled inside Exit).
-	if mode != "" && mode != oldMode && oldMode == db.ModeSunset && s.sunsetExiter != nil {
-		cancelled, exitErr := s.sunsetExiter.Exit(group.ID)
-		if exitErr != nil {
-			slog.Error("Failed to exit sunset on disk group mode change",
-				"component", "diskgroup_service",
-				"mount", group.MountPath,
-				"oldMode", oldMode,
-				"newMode", mode,
-				"error", exitErr)
-		} else if cancelled > 0 {
-			slog.Info("Cancelled sunset holds on disk group mode change",
-				"component", "diskgroup_service",
-				"mount", group.MountPath,
-				"oldMode", oldMode,
-				"newMode", mode,
-				"cancelled", cancelled)
-		}
-	}
-
-	// Clear deletion queue for this disk group when mode changes.
-	// Any mode change invalidates the assumptions under which items were queued —
-	// the engine will re-evaluate and re-queue as appropriate under the new mode.
-	if mode != "" && mode != oldMode && s.deletionClearer != nil {
-		cleared := s.deletionClearer.ClearQueueForDiskGroup(group.ID)
-		if cleared > 0 {
-			slog.Info("Cleared deletion queue on disk group mode change",
-				"component", "diskgroup_service",
-				"mount", group.MountPath,
-				"oldMode", oldMode,
-				"newMode", mode,
-				"cleared", cleared)
-		}
+	if mode != "" && mode != oldMode {
+		s.onDiskGroupModeChange(group, oldMode, mode)
 	}
 
 	s.bus.Publish(events.ThresholdChangedEvent{
@@ -347,6 +328,56 @@ func (s *DiskGroupService) UpdateThresholds(groupID uint, threshold, target floa
 	// Reload the updated group
 	s.db.First(&group, groupID)
 	return &group, nil
+}
+
+// onDiskGroupModeChange runs OnExit for the old preset, clears in-flight
+// deletion jobs, and publishes the per-group mode-changed event. Mode column
+// is already written. Exit never converts holds into live deletes.
+func (s *DiskGroupService) onDiskGroupModeChange(group db.DiskGroup, oldMode, newMode string) {
+	if oldMode == db.ModeSunset && s.sunsetExiter != nil {
+		cancelled, exitErr := s.sunsetExiter.Exit(group.ID)
+		if exitErr != nil {
+			slog.Error("Failed to exit sunset on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath, "oldMode", oldMode, "newMode", newMode, "error", exitErr)
+		} else if cancelled > 0 {
+			slog.Info("Cancelled sunset holds on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath, "oldMode", oldMode, "newMode", newMode, "cancelled", cancelled)
+		}
+	}
+
+	if s.deletionClearer != nil {
+		cleared := s.deletionClearer.ClearQueueForDiskGroup(group.ID)
+		if cleared > 0 {
+			slog.Info("Cleared deletion queue on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath, "oldMode", oldMode, "newMode", newMode, "cleared", cleared)
+		}
+	}
+
+	// After in-flight jobs are cancelled: return approved → pending, then
+	// dismiss engine-queued pending/rejected. User-initiated and active
+	// snoozes stay (spec §7.1).
+	if oldMode == db.ModeApproval && s.approvalExiter != nil {
+		dismissed, exitErr := s.approvalExiter.Exit(group.ID)
+		if exitErr != nil {
+			slog.Error("Failed to exit approval on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath, "oldMode", oldMode, "newMode", newMode, "error", exitErr)
+		} else if dismissed > 0 {
+			slog.Info("Dismissed engine-queued approval holds on disk group mode change",
+				"component", "diskgroup_service",
+				"mount", group.MountPath, "oldMode", oldMode, "newMode", newMode, "dismissed", dismissed)
+		}
+	}
+
+	s.bus.Publish(events.DiskGroupModeChangedEvent{
+		DiskGroupID: group.ID,
+		MountPath:   group.MountPath,
+		OldMode:     oldMode,
+		NewMode:     newMode,
+	})
 }
 
 // RemoveAll deletes all disk groups. Used when no enabled integrations remain.

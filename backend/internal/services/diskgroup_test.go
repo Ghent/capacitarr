@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"capacitarr/internal/db"
+	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 )
 
@@ -1073,6 +1074,101 @@ func TestDiskGroupService_UpdateThresholds_ExitSunsetCancelsOnlyThatGroup(t *tes
 	}
 	if !engine.triggered {
 		t.Error("expected engine run after leaving sunset")
+	}
+}
+
+type mockApprovalGroupExiter struct {
+	exitedIDs []uint
+}
+
+func (m *mockApprovalGroupExiter) Exit(diskGroupID uint) (int, error) {
+	m.exitedIDs = append(m.exitedIDs, diskGroupID)
+	return 1, nil
+}
+
+func TestDiskGroupService_UpdateThresholds_ExitsApprovalOnLeave(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewDiskGroupService(database, bus)
+	clearer := &mockDeletionQueueGroupClearer{}
+	approvalExiter := &mockApprovalGroupExiter{}
+	svc.SetDeletionClearer(clearer)
+	svc.SetApprovalExiter(approvalExiter)
+	svc.SetEngineService(&mockEngineRunTrigger{})
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	group := createDiskGroupWithMode(t, database, "/mnt/media", db.ModeApproval)
+	if _, err := svc.UpdateThresholds(group.ID, 80, 70, nil, db.ModeAuto, nil); err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+
+	if len(approvalExiter.exitedIDs) != 1 || approvalExiter.exitedIDs[0] != group.ID {
+		t.Fatalf("expected Exit on group %d, got %v", group.ID, approvalExiter.exitedIDs)
+	}
+	if len(clearer.clearedGroupIDs) != 1 {
+		t.Fatalf("expected deletion queue cleared, got %v", clearer.clearedGroupIDs)
+	}
+
+	var sawModeChanged, sawThreshold bool
+	deadline := time.After(time.Second)
+	for !sawModeChanged || !sawThreshold {
+		select {
+		case evt := <-ch:
+			switch e := evt.(type) {
+			case events.DiskGroupModeChangedEvent:
+				sawModeChanged = true
+				if e.OldMode != db.ModeApproval || e.NewMode != db.ModeAuto {
+					t.Errorf("mode changed %s → %s, want approval → auto", e.OldMode, e.NewMode)
+				}
+				if e.DiskGroupID != group.ID {
+					t.Errorf("mode changed group %d, want %d", e.DiskGroupID, group.ID)
+				}
+			case events.ThresholdChangedEvent:
+				sawThreshold = true
+			}
+		case <-deadline:
+			t.Fatalf("timeout waiting for events: modeChanged=%v threshold=%v", sawModeChanged, sawThreshold)
+		}
+	}
+}
+
+func TestDiskGroupService_UpdateThresholds_ApprovalExitUsesRealService(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	approvalSvc := NewApprovalService(database, bus)
+	svc := NewDiskGroupService(database, bus)
+	svc.SetDeletionClearer(&mockDeletionQueueGroupClearer{})
+	svc.SetEngineService(&mockEngineRunTrigger{})
+	svc.SetApprovalExiter(approvalSvc)
+
+	group := createDiskGroupWithMode(t, database, "/mnt/media", db.ModeApproval)
+	intID := seedIntegration(t, database)
+	if err := database.Create(&db.ApprovalQueueItem{
+		MediaName: "Engine Pick", MediaType: "movie", Status: db.StatusPending,
+		IntegrationID: intID, ExternalID: "eng-1", DiskGroupID: &group.ID,
+	}).Error; err != nil {
+		t.Fatalf("create approval item: %v", err)
+	}
+	if err := database.Create(&db.ApprovalQueueItem{
+		MediaName: "User Pick", MediaType: "movie", Status: db.StatusPending,
+		IntegrationID: intID, ExternalID: "usr-1", DiskGroupID: &group.ID, UserInitiated: true,
+	}).Error; err != nil {
+		t.Fatalf("create user item: %v", err)
+	}
+
+	if _, err := svc.UpdateThresholds(group.ID, 80, 70, nil, db.ModeDryRun, nil); err != nil {
+		t.Fatalf("UpdateThresholds error: %v", err)
+	}
+
+	var remaining []db.ApprovalQueueItem
+	database.Where("disk_group_id = ?", group.ID).Find(&remaining)
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining approval item, got %d", len(remaining))
+	}
+	if !remaining[0].UserInitiated {
+		t.Error("expected user-initiated hold to survive approval Exit")
 	}
 }
 

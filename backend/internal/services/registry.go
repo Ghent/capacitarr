@@ -79,6 +79,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 		DiskGroups:    diskGroupSvc,
 		Clients:       NewClientResolver(integrationSvc),
 		SunsetCleaner: sunsetSvc,
+		SunsetHolds:   sunsetSvc,
 	})
 
 	notifChannelSvc := NewNotificationChannelService(database, bus)
@@ -150,6 +151,7 @@ func NewRegistry(database *gorm.DB, bus *events.EventBus, cfg *config.Config) *R
 	diskGroupSvc.SetSunsetExiter(NewSunsetGroupExiter(
 		sunsetSvc, reg.Integration, settingsSvc, reg.PosterOverlay, reg.Mapping, deletionSvc, engineSvc,
 	))
+	diskGroupSvc.SetApprovalExiter(approvalSvc)
 
 	// Wire BackupService's cross-service dependency on DiskGroupService
 	backupSvc.SetDiskGroupService(diskGroupSvc)
