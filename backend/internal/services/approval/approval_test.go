@@ -1249,7 +1249,11 @@ func TestApprovalService_Exit_KeepsUserInitiatedAndSnooze(t *testing.T) {
 
 	intID := seedIntegration(t, database)
 	dgID := seedDiskGroup(t, database)
-	other := seedDiskGroup(t, database)
+	otherGroup := db.DiskGroup{MountPath: "/mnt/other", TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70}
+	if err := database.Create(&otherGroup).Error; err != nil {
+		t.Fatalf("Failed to seed other disk group: %v", err)
+	}
+	other := otherGroup.ID
 	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
 
 	for _, item := range []db.ApprovalQueueItem{
