@@ -278,6 +278,9 @@ func TestQueueFromSunset_FullResolution(t *testing.T) {
 	if job.CollectionGroup != "Action" {
 		t.Errorf("expected CollectionGroup 'Action', got %q", job.CollectionGroup)
 	}
+	if job.Item.IntegrationID != 2 {
+		t.Errorf("expected MediaItem.IntegrationID 2, got %d", job.Item.IntegrationID)
+	}
 }
 
 func TestQueueFromSunset_ClientResolutionFailure(t *testing.T) {

@@ -1,12 +1,12 @@
 # Four-Mode Spec
 
-**Status:** Draft (spec + slices A+B on this PR)
+**Status:** Draft (spec + slices A+B+C on this PR)
 **Priority:** High (architecture + trust)
 **Origin:** Principal-engineer review of `dry-run` / `approval` / `auto` / `sunset`
 
 This is the behavior spec for all four execution presets. Implementation continues on this same PR / branch (`feature/four-mode`). If a later slice disagrees with a row here, change this file in the same commit.
 
-**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A+B are on this branch. Next is C. Do not redesign from this file. Do not open a new branch.
+**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A+B+C are on this branch. Next is D. Do not redesign from this file. Do not open a new branch.
 
 ---
 
@@ -437,9 +437,9 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 | Escalation step 3 | Missing | Required |
 | Escalate vs snooze | Not checked | Skip snoozed |
 | Manual delete + sunset | Live | Sunset hold |
-| `QueueFromSunset` IntegrationID | Missing | Required |
-| Kill switch + sunset | Consumes hold, strips labels | Unclaim, keep comms |
-| `SignalBatchSize` | Sunset returns 0 | Count cycle releases + escalations |
+| `QueueFromSunset` IntegrationID | ✅ Set on MediaItem | Shipped (C) |
+| Kill switch + sunset | ✅ Unclaim, keep comms | Shipped (C) |
+| `SignalBatchSize` | ✅ Escalate count returned from sunset cycle | Shipped (C) |
 | Posters | Daily cron first paint | On hold create |
 | Rescore | Preview cache, unused weights | Engine score (slice I) |
 | Reconcile vs `user_initiated` | Reconcile can dismiss them | Must not |
@@ -469,7 +469,7 @@ All slices land on this branch (`feature/four-mode`, PR #66). Do not open a foll
 |---|---|---|
 | **A** | ✅ Exit sunset → `CancelAllForDiskGroup` + comms restore. Tests. | Trust. |
 | **B** | ✅ Tooltip / `diskGroupMode.ts` / safety-guard copy. | Stop describing the wrong product. |
-| **C** | `QueueFromSunset` IntegrationID; kill switch unclaims; `SignalBatchSize` from sunset cycle actions. | Honest executor. |
+| **C** | ✅ `QueueFromSunset` IntegrationID; kill switch unclaims; `SignalBatchSize` from sunset cycle actions. | Honest executor. |
 | **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. Collection expand on. | End the private evaluator. |
 | **E** | `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | Transitions. |
 | **F** | Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | Protocol completeness. |

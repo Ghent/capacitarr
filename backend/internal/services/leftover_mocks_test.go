@@ -91,11 +91,17 @@ func (m *mockClientResolver) GetIntegrationConfig(_ uint) (*db.IntegrationConfig
 }
 
 type mockSunsetQueueCleaner struct {
-	removedIDs []uint
+	removedIDs   []uint
+	unclaimedIDs []uint
 }
 
 func (m *mockSunsetQueueCleaner) RemoveCompleted(id uint) error {
 	m.removedIDs = append(m.removedIDs, id)
+	return nil
+}
+
+func (m *mockSunsetQueueCleaner) UnclaimExpired(id uint) error {
+	m.unclaimedIDs = append(m.unclaimedIDs, id)
 	return nil
 }
 

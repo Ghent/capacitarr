@@ -404,8 +404,8 @@ func (s *SunsetService) CleanupSaved(deps SunsetDeps) (int, error) {
 
 // Escalate force-expires sunset items for a disk group during threshold breach.
 // Processes expired first, then oldest-in-queue, freeing only enough to reach
-// targetBytes. Returns bytes freed.
-func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps SunsetDeps) (int64, error) {
+// targetBytes. Returns bytes freed and the number of items handed to the executor.
+func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps SunsetDeps) (int64, int, error) {
 	var freedBytes int64
 	itemsExpired := 0
 
@@ -437,7 +437,7 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 
 	if freedBytes >= targetBytes {
 		s.publishEscalationEvent(diskGroupID, itemsExpired, freedBytes)
-		return freedBytes, nil
+		return freedBytes, itemsExpired, nil
 	}
 
 	// Step 2: Delete highest-score items that haven't expired yet.
@@ -459,7 +459,7 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 	}
 
 	s.publishEscalationEvent(diskGroupID, itemsExpired, freedBytes)
-	return freedBytes, nil
+	return freedBytes, itemsExpired, nil
 }
 
 // CancelAll cancels all sunset items (emergency button). Returns count removed.
@@ -533,9 +533,9 @@ func (s *SunsetService) CancelAllForDiskGroup(diskGroupID uint, deps SunsetDeps)
 	return int(result.RowsAffected), nil
 }
 
-// RemoveCompleted hard-deletes a sunset queue item after the file has been
-// successfully deleted by DeletionService. No label removal or poster restore
-// is needed — processExpiredItem already handled those before handoff.
+// RemoveCompleted hard-deletes a sunset queue item after a live delete.
+// Comms stay on the hold until this point so a simulated delete can unclaim
+// without stripping labels/posters.
 func (s *SunsetService) RemoveCompleted(id uint) error {
 	return s.db.Delete(&db.SunsetQueueItem{}, id).Error
 }
@@ -707,17 +707,19 @@ func (s *SunsetService) removeLabel(item db.SunsetQueueItem, label string, regis
 	}
 }
 
-// processExpiredItem handles a single expired/escalated item: restores poster,
-// removes label, claims expired_at, then queues for deletion. The item is NOT
-// deleted from sunset_queue — it remains visible in the dashboard until the
-// user removes it via Cancel or Clear All. The ExpiredAt timestamp prevents
-// re-processing on subsequent engine cycles and cron runs.
+// processExpiredItem handles a single expired/escalated item: claims expired_at,
+// then queues for deletion. Comms (labels/posters) stay until a live delete
+// succeeds. Simulate / kill switch unclaims via SunsetQueueCleaner so the hold
+// is not consumed (spec §6.3). The row stays until RemoveCompleted after a
+// live delete.
 //
 // expired_at is claimed with a compare-and-swap (WHERE expired_at IS NULL)
 // so concurrent ProcessExpired and Escalate cannot both hand off the same item.
 // If deletion handoff fails after the claim, expired_at is cleared so the
 // next cycle retries.
 func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.PreferenceSet, deps SunsetDeps) bool {
+	_ = prefs // reserved: comms compensate after live delete, not here
+
 	// Skip if already expired or saved
 	if item.ExpiredAt != nil || item.Status == db.SunsetStatusSaved {
 		return false
@@ -733,25 +735,13 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 		return false
 	}
 
-	// Restore poster overlay before deletion
-	if item.PosterOverlayActive && deps.PosterOverlay != nil && deps.Registry != nil {
-		if err := deps.PosterOverlay.RestoreOriginal(item, PosterDeps{Registry: deps.Registry, Mapping: deps.Mapping}); err != nil {
-			slog.Error("Failed to restore poster before expiry/escalation",
-				"component", "services", "mediaName", item.MediaName, "error", err)
-		}
-	}
-
-	// Remove label
-	if item.LabelApplied && deps.Registry != nil && prefs.SunsetLabel != "" {
-		s.removeLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping)
-	}
-
 	// Hand off to DeletionService intake layer — it handles client resolution,
-	// config lookup, and factor parsing internally.
+	// config lookup, and factor parsing internally. Do not strip labels/posters
+	// here: a simulated delete must keep household comms (spec §6.3 / §15.5).
 	if deps.Deletion == nil {
 		slog.Warn("Skipping sunset item expiry — deletion service unavailable (will retry)",
 			"component", "services", "mediaName", item.MediaName)
-		if unclaimErr := s.unclaimExpired(item.ID); unclaimErr != nil {
+		if unclaimErr := s.UnclaimExpired(item.ID); unclaimErr != nil {
 			slog.Error("Failed to clear sunset expired_at after skipped handoff",
 				"component", "services", "mediaName", item.MediaName, "error", unclaimErr)
 		}
@@ -764,7 +754,7 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 		s.bus.Publish(events.EngineErrorEvent{
 			Error: fmt.Sprintf("sunset expiry queue failed for %q: %v", item.MediaName, queueErr),
 		})
-		if unclaimErr := s.unclaimExpired(item.ID); unclaimErr != nil {
+		if unclaimErr := s.UnclaimExpired(item.ID); unclaimErr != nil {
 			slog.Error("Failed to clear sunset expired_at after queue failure",
 				"component", "services", "mediaName", item.MediaName, "error", unclaimErr)
 		}
@@ -794,8 +784,9 @@ func (s *SunsetService) claimExpired(id uint) (bool, error) {
 	return result.RowsAffected == 1, nil
 }
 
-// unclaimExpired clears expired_at so a failed handoff can be retried.
-func (s *SunsetService) unclaimExpired(id uint) error {
+// UnclaimExpired clears expired_at so a failed or simulated handoff can be
+// retried. Satisfies deletion.SunsetQueueCleaner.
+func (s *SunsetService) UnclaimExpired(id uint) error {
 	return s.db.Model(&db.SunsetQueueItem{}).
 		Where("id = ?", id).
 		Update("expired_at", gorm.Expr("NULL")).Error

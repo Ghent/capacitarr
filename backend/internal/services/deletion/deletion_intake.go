@@ -159,12 +159,14 @@ func (s *DeletionService) QueueFromSunset(item *db.SunsetQueueItem) error {
 		}
 	}
 
-	// 4. Construct MediaItem from sunset data
+	// 4. Construct MediaItem from sunset data. IntegrationID must match
+	// QueueFromApproval so the executor can attribute the job (spec §5).
 	mediaItem := integrations.MediaItem{
-		Title:      item.MediaName,
-		Type:       integrations.MediaType(item.MediaType),
-		SizeBytes:  item.SizeBytes,
-		ExternalID: item.ExternalID,
+		Title:         item.MediaName,
+		Type:          integrations.MediaType(item.MediaType),
+		SizeBytes:     item.SizeBytes,
+		ExternalID:    item.ExternalID,
+		IntegrationID: item.IntegrationID,
 	}
 
 	// 5. Enqueue

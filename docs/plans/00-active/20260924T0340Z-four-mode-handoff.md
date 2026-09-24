@@ -1,6 +1,6 @@
 # Four-Mode Implementation Handoff
 
-**Status:** A+B shipped on this PR; next is C
+**Status:** A+B+C shipped on this PR; next is D
 **Priority:** High
 **Spec:** [`20260924T0335Z-four-mode-spec.md`](./20260924T0335Z-four-mode-spec.md)
 **PR / branch:** https://github.com/Ghent/capacitarr/pull/66 — `feature/four-mode`
@@ -34,9 +34,8 @@ Conversation that produced the spec (do not relitigate unless Ghent overrides):
 |---|---|---|
 | **A** | Leaving sunset cancels that group’s sunset holds and restores labels/posters | **Done** on this PR. |
 | **B** | Copy matches the product | **Done** on this PR. |
-| **C** | Honest executor: `QueueFromSunset` IntegrationID; kill-switch unclaim; `SignalBatchSize` from sunset cycle | **Next.** |
-
-If C lands cleanly and there is time, **D** is next. Stop before the sunset fold unless Ghent says to continue.
+| **C** | Honest executor: `QueueFromSunset` IntegrationID; kill-switch unclaim; `SignalBatchSize` from sunset cycle | **Done** on this PR. |
+| **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. | **Next.** Do not start unless asked. |
 
 ---
 
@@ -78,15 +77,12 @@ Tests in `backend/internal/services/diskgroup_test.go`:
 
 ---
 
-## Slice C — how to implement (next)
+## Slice C — shipped (do not redo)
 
-| File | Change |
-|---|---|
-| `backend/internal/services/deletion/deletion_intake.go` `QueueFromSunset` | Set `IntegrationID` on the media item. |
-| `backend/internal/services/sunset.go` `processExpiredItem` | Unclaim on simulate / kill switch — today it strips comms then hands off. |
-| `backend/internal/orchestrator/orchestrator.go` `evaluateSunsetMode` | Returns 0 today → `poller.go` `SignalBatchSize` is wrong on escalate. |
-
-Do not fold sunset into `dispatchByMode` (that is D). Do not add unique indexes (F). Do not publish a mode-changed event (E).
+- `QueueFromSunset` sets `MediaItem.IntegrationID`.
+- `processExpiredItem` no longer strips labels/posters before handoff.
+- `executeDryRun` calls `SunsetQueueCleaner.UnclaimExpired` so kill switch / simulate does not consume the hold.
+- `evaluateSunsetMode` returns the escalate release count so `SignalBatchSize` is not 0 on a sunset-only escalate cycle.
 
 ---
 
@@ -107,7 +103,7 @@ Do not fold sunset into `dispatchByMode` (that is D). Do not add unique indexes 
 - Do not use `gh` / forge CLIs to open a PR — this work already has PR #66. Use the session’s PR tool to **update** #66.
 - Plans live in `docs/plans/00-active/`. When a slice ships, tick it in spec §13 on this same branch.
 
-### Tests to run for C
+### Tests to run
 
 ```text
 go test ./internal/services/ ./internal/orchestrator/ ./internal/poller/ -count=1 -timeout 120s
@@ -117,7 +113,7 @@ from `backend/`.
 
 ---
 
-## Current-code map (after A+B)
+## Current-code map (after A+B+C)
 
 | Concern | Where it lives today |
 |---|---|
@@ -125,11 +121,11 @@ from `backend/`.
 | Shared pipeline | `scoreCandidates`, `filterCandidates`, `expandCollections`, `dispatchByMode` |
 | Sunset hold create | `BulkQueueSunset`; `deletion_date = now + prefs.SunsetDays` |
 | Sunset expire / escalate | `ProcessExpired` (cron `jobs/cron.go`), `Escalate` (no step 3, no snooze) |
-| Handoff to delete | `QueueFromSunset` — missing `MediaItem.IntegrationID` |
+| Handoff to delete | `QueueFromSunset` sets `IntegrationID`; simulate unclaims |
 | Mode write + sunset exit | `DiskGroupService.UpdateThresholds` → `SunsetGroupExiter` |
 | Approval reconcile | `approval/approval.go` `ReconcileQueue` — can dismiss `user_initiated` |
 | Manual delete | `deletion_intake.go` `QueueManual` — only approval is special-cased |
-| Kill switch | `deletion_worker.go` process-time `DeletionsEnabled`; sunset claims `expired_at` first |
+| Kill switch | `deletion_worker.go` process-time `DeletionsEnabled`; sunset simulate unclaims |
 | Sunset tooltip | `frontend/app/locales/en.json` `mode.sunsetTooltip` (countdown + escalate) |
 | Help text | `help.executionModes.sunsetDesc` + safety-guard names sunset |
 
@@ -137,8 +133,6 @@ from `backend/`.
 
 ## What success looks like for the next session
 
-- Slice C on PR #66, tests green. Same branch.
-- `QueueFromSunset` carries `IntegrationID`.
-- Simulate / kill switch unclaims sunset rows instead of stripping comms and handing off.
-- `SignalBatchSize` reflects sunset cycle actions (including escalate).
-- Spec §13 ticks C. Next session can start D from that table without rereading the review.
+- Slice D on PR #66, tests green. Same branch. Same-candidate fixture: dry-run and sunset admit the same titles.
+- Do not fold sunset until that test exists.
+- Spec §13 ticks D. Do not combine D with E–J.

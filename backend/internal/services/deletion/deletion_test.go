@@ -103,11 +103,17 @@ func (m *mockClientResolver) GetIntegrationConfig(_ uint) (*db.IntegrationConfig
 
 // mockSunsetQueueCleaner implements SunsetQueueCleaner for deletion tests.
 type mockSunsetQueueCleaner struct {
-	removedIDs []uint
+	removedIDs   []uint
+	unclaimedIDs []uint
 }
 
 func (m *mockSunsetQueueCleaner) RemoveCompleted(id uint) error {
 	m.removedIDs = append(m.removedIDs, id)
+	return nil
+}
+
+func (m *mockSunsetQueueCleaner) UnclaimExpired(id uint) error {
+	m.unclaimedIDs = append(m.unclaimedIDs, id)
 	return nil
 }
 
@@ -1624,6 +1630,55 @@ func TestDeletionService_DryRun_DoesNotReturn_WhenNoApprovalEntry(t *testing.T) 
 	// ReturnToPending should NOT have been called
 	if len(returner.returnedIDs) != 0 {
 		t.Errorf("expected 0 ReturnToPending calls for non-approval job, got %d", len(returner.returnedIDs))
+	}
+}
+
+func TestDeletionService_DryRun_UnclaimsSunsetHold(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := newTestDeletionService(bus, auditLog)
+	cleaner := &mockSunsetQueueCleaner{}
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: false, executionMode: db.ModeSunset, deletionQueueDelaySeconds: 1},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeSunset},
+		Clients:       &mockClientResolver{},
+		SunsetCleaner: cleaner,
+	})
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+
+	svc.Start()
+	defer svc.Stop()
+
+	svc.SignalBatchSize(1)
+
+	job := deleteJob{
+		Client:            nil,
+		Item:              integrations.MediaItem{Title: "Firefly", Type: "show", SizeBytes: 1024, IntegrationID: 7},
+		ForceDryRun:       true,
+		SunsetQueueItemID: 88,
+		EnqueuedMode:      db.ModeSunset,
+	}
+	if err := svc.enqueue(job); err != nil {
+		t.Fatalf("enqueue returned error: %v", err)
+	}
+
+	drainBatchEvent(t, ch)
+
+	if len(cleaner.unclaimedIDs) != 1 {
+		t.Fatalf("expected 1 UnclaimExpired call, got %d", len(cleaner.unclaimedIDs))
+	}
+	if cleaner.unclaimedIDs[0] != 88 {
+		t.Errorf("expected UnclaimExpired(88), got UnclaimExpired(%d)", cleaner.unclaimedIDs[0])
+	}
+	if len(cleaner.removedIDs) != 0 {
+		t.Errorf("expected no RemoveCompleted on simulate, got %v", cleaner.removedIDs)
 	}
 }
 

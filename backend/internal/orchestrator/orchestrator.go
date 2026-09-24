@@ -48,7 +48,7 @@ type IntegrationConfigs interface {
 type Sunset interface {
 	ListSunsettedKeys(diskGroupID uint) (map[string]bool, error)
 	BulkQueueSunset(items []db.SunsetQueueItem, deps services.SunsetDeps) (int, error)
-	Escalate(diskGroupID uint, targetBytes int64, deps services.SunsetDeps) (int64, error)
+	Escalate(diskGroupID uint, targetBytes int64, deps services.SunsetDeps) (int64, int, error)
 }
 
 // Publisher is the event-bus surface for ThresholdBreached / EngineError /
@@ -814,15 +814,16 @@ func (o *Orchestrator) evaluateSunsetMode(acc *RunAccumulator, group db.DiskGrou
 
 		// Calculate bytes to free down to targetPct (NOT sunsetPct — preserves queue)
 		targetBytes := int64((currentPct - group.TargetPct) / 100.0 * float64(effectiveTotal))
-		freed, err := o.sunset.Escalate(group.ID, targetBytes, sunsetDeps)
+		freed, released, err := o.sunset.Escalate(group.ID, targetBytes, sunsetDeps)
 		if err != nil {
 			slog.Error("Sunset escalation failed", "component", "poller",
 				"mount", group.MountPath, "error", err)
 		}
 		groupAcc.FreedBytes += freed
+		return released
 	}
 
-	return 0 // Sunset mode doesn't queue immediate deletions
+	return 0
 }
 
 // normalizePath converts backslash path separators to forward slashes for

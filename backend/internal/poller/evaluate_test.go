@@ -856,3 +856,43 @@ func TestEvaluateSunsetMode_BelowSunsetThreshold_NoQueue(t *testing.T) {
 		t.Errorf("expected 0 sunset queue items when below sunset threshold, got %d", count)
 	}
 }
+
+// TestEvaluateSunsetMode_EscalateCountsTowardSignalBatchSize verifies that
+// a sunset cycle that escalates holds reports those releases as executor
+// actions (spec §5). evaluateSunsetMode used to return 0, so SignalBatchSize(0)
+// fired an empty batch-complete on escalate.
+func TestEvaluateSunsetMode_EscalateCountsTowardSignalBatchSize(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	sunsetPct := 60.0
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100_000_000_000,
+		UsedBytes:    90_000_000_000, // 90% — above critical 85%
+		ThresholdPct: 85.0,
+		TargetPct:    75.0,
+		SunsetPct:    &sunsetPct,
+		Mode:         db.ModeSunset,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1,
+		SizeBytes: 10_000_000_000, DiskGroupID: group.ID, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 10),
+	}).Error; err != nil {
+		t.Fatalf("create sunset hold: %v", err)
+	}
+
+	prefs := db.PreferenceSet{
+		DefaultDiskGroupMode: db.ModeSunset,
+		SunsetDays:           30,
+	}
+	result := p.evaluateDiskGroup(NewRunAccumulator(), group, nil, nil, 0, prefs, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
+	if result < 1 {
+		t.Fatalf("expected escalate to count as at least 1 executor action, got %d", result)
+	}
+}

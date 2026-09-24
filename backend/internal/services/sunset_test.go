@@ -323,12 +323,15 @@ func TestEscalate_OrderAndTargetBytes(t *testing.T) {
 	// 1. No panic on escalation
 	// 2. All items remain (since processExpiredItem returns false without deps)
 	// 3. Zero bytes freed
-	freed, err := svc.Escalate(1, 5000000000, sunsetDeps(database, bus))
+	freed, released, err := svc.Escalate(1, 5000000000, sunsetDeps(database, bus))
 	if err != nil {
 		t.Fatalf("Escalate returned error: %v", err)
 	}
 	if freed != 0 {
 		t.Errorf("Expected 0 bytes freed (no registry), got %d", freed)
+	}
+	if released != 0 {
+		t.Errorf("Expected 0 items released (no registry), got %d", released)
 	}
 
 	// All 3 items should still be in the queue (no deletions without registry)
@@ -362,12 +365,15 @@ func TestEscalate_PreservesQueueBelowTarget(t *testing.T) {
 	// Without registry, no items can be processed — all remain preserved.
 	// This verifies the escalation loop exits gracefully when processExpiredItem
 	// returns false, leaving the queue intact for retry on next cron run.
-	freed, err := svc.Escalate(1, 1000000000, sunsetDeps(database, bus))
+	freed, released, err := svc.Escalate(1, 1000000000, sunsetDeps(database, bus))
 	if err != nil {
 		t.Fatalf("Escalate returned error: %v", err)
 	}
 	if freed != 0 {
 		t.Errorf("Expected 0 bytes freed, got %d", freed)
+	}
+	if released != 0 {
+		t.Errorf("Expected 0 items released, got %d", released)
 	}
 
 	remaining, _ := svc.ListAll()
@@ -534,7 +540,7 @@ func TestProcessExpired_ConcurrentHandoffQueuesOnce(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		if _, err := svc.Escalate(1, 1e15, deps); err != nil {
+		if _, _, err := svc.Escalate(1, 1e15, deps); err != nil {
 			t.Errorf("Escalate: %v", err)
 		}
 	}()
@@ -554,5 +560,56 @@ func TestProcessExpired_ConcurrentHandoffQueuesOnce(t *testing.T) {
 	}
 	if expired != 1 {
 		t.Errorf("expected 1 claimed sunset row, got %d", expired)
+	}
+}
+
+func TestProcessExpired_DoesNotStripCommsBeforeHandoff(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	deletionSvc := NewDeletionService(bus, NewAuditLogService(database))
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: false, executionMode: db.ModeSunset},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeSunset},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 5000000000,
+		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, -1),
+		LabelApplied: true, PosterOverlayActive: true,
+	}).Error; err != nil {
+		t.Fatalf("create sunset item: %v", err)
+	}
+
+	processed, err := svc.ProcessExpired(SunsetDeps{
+		Settings: NewSettingsService(database, bus),
+		Deletion: deletionSvc,
+	})
+	if err != nil {
+		t.Fatalf("ProcessExpired: %v", err)
+	}
+	if processed != 1 {
+		t.Fatalf("expected 1 processed, got %d", processed)
+	}
+
+	var item db.SunsetQueueItem
+	if err := database.First(&item).Error; err != nil {
+		t.Fatalf("reload item: %v", err)
+	}
+	if !item.LabelApplied {
+		t.Error("expected label to stay applied until a live delete")
+	}
+	if !item.PosterOverlayActive {
+		t.Error("expected poster overlay to stay active until a live delete")
+	}
+	if item.ExpiredAt == nil {
+		t.Error("expected expired_at claimed after successful handoff")
+	}
+	if deletionSvc.QueueLen() != 1 {
+		t.Errorf("expected 1 queued deletion job, got %d", deletionSvc.QueueLen())
 	}
 }
