@@ -169,6 +169,7 @@ func TestClearSunsetQueue(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		database.Create(&db.SunsetQueueItem{
 			MediaName: "Firefly", MediaType: "show", IntegrationID: ic.ID,
+			ExternalID: fmt.Sprintf("ext-%d", i),
 			SizeBytes: 1000000, DiskGroupID: dg.ID,
 			Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
 		})

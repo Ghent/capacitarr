@@ -1083,9 +1083,9 @@ func TestApprovalService_ReconcileQueue_DismissesStaleItems(t *testing.T) {
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
 
-	// Only "Firefly|show" is still needed — the other two should be dismissed
+	// Only Firefly's identity is still needed — the other two should be dismissed
 	neededKeys := map[string]bool{
-		db.MediaKey("Firefly", "show"): true,
+		db.ItemKey(intID, "1"): true,
 	}
 
 	dismissed, err := svc.ReconcileQueue(dgID, neededKeys)
@@ -1186,8 +1186,8 @@ func TestApprovalService_ReconcileQueue_NoopWhenAllNeeded(t *testing.T) {
 
 	// All items are still needed
 	neededKeys := map[string]bool{
-		db.MediaKey("Firefly", "show"):   true,
-		db.MediaKey("Serenity", "movie"): true,
+		db.ItemKey(intID, "1"): true,
+		db.ItemKey(intID, "2"): true,
 	}
 
 	dismissed, err := svc.ReconcileQueue(dgID, neededKeys)
@@ -1204,6 +1204,95 @@ func TestApprovalService_ReconcileQueue_NoopWhenAllNeeded(t *testing.T) {
 	database.Where("disk_group_id = ?", dgID).Find(&remaining)
 	if len(remaining) != 2 {
 		t.Errorf("expected 2 remaining items, got %d", len(remaining))
+	}
+}
+
+func TestApprovalService_ReconcileQueue_PreservesUserInitiated(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+
+	for _, item := range []db.ApprovalQueueItem{
+		{MediaName: "Engine Pick", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "eng-1", DiskGroupID: &dgID},
+		{MediaName: "User Pick", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "usr-1", DiskGroupID: &dgID, UserInitiated: true},
+	} {
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("Failed to create item: %v", err)
+		}
+	}
+
+	dismissed, err := svc.ReconcileQueue(dgID, map[string]bool{})
+	if err != nil {
+		t.Fatalf("ReconcileQueue returned error: %v", err)
+	}
+	if dismissed != 1 {
+		t.Errorf("expected 1 dismissed (engine only), got %d", dismissed)
+	}
+
+	var remaining []db.ApprovalQueueItem
+	database.Where("disk_group_id = ?", dgID).Find(&remaining)
+	if len(remaining) != 1 {
+		t.Fatalf("expected 1 remaining item, got %d", len(remaining))
+	}
+	if !remaining[0].UserInitiated || remaining[0].MediaName != "User Pick" {
+		t.Errorf("expected user-initiated User Pick to remain, got %+v", remaining[0])
+	}
+}
+
+func TestApprovalService_Exit_KeepsUserInitiatedAndSnooze(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := NewApprovalService(database, bus)
+
+	intID := seedIntegration(t, database)
+	dgID := seedDiskGroup(t, database)
+	otherGroup := db.DiskGroup{MountPath: "/mnt/other", TotalBytes: 1000, UsedBytes: 500, ThresholdPct: 80, TargetPct: 70}
+	if err := database.Create(&otherGroup).Error; err != nil {
+		t.Fatalf("Failed to seed other disk group: %v", err)
+	}
+	other := otherGroup.ID
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+
+	for _, item := range []db.ApprovalQueueItem{
+		{MediaName: "Engine Pending", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "e1", DiskGroupID: &dgID},
+		{MediaName: "Engine Approved", MediaType: "movie", Status: db.StatusApproved, IntegrationID: intID, ExternalID: "e2", DiskGroupID: &dgID},
+		{MediaName: "User Pending", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "u1", DiskGroupID: &dgID, UserInitiated: true},
+		{MediaName: "Snoozed", MediaType: "movie", Status: db.StatusRejected, IntegrationID: intID, ExternalID: "s1", DiskGroupID: &dgID, SnoozedUntil: &snoozedUntil},
+		{MediaName: "Other Group", MediaType: "movie", Status: db.StatusPending, IntegrationID: intID, ExternalID: "o1", DiskGroupID: &other},
+	} {
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("Failed to create item: %v", err)
+		}
+	}
+
+	dismissed, err := svc.Exit(dgID)
+	if err != nil {
+		t.Fatalf("Exit returned error: %v", err)
+	}
+	if dismissed != 2 {
+		t.Errorf("expected 2 dismissed (engine pending + returned-approved), got %d", dismissed)
+	}
+
+	var remaining []db.ApprovalQueueItem
+	database.Find(&remaining)
+	names := map[string]bool{}
+	for _, item := range remaining {
+		names[item.MediaName] = true
+	}
+	if names["Engine Pending"] || names["Engine Approved"] {
+		t.Errorf("engine-queued items should be dismissed, remaining=%v", names)
+	}
+	if !names["User Pending"] {
+		t.Error("user-initiated pending should be kept")
+	}
+	if !names["Snoozed"] {
+		t.Error("active snooze should be kept")
+	}
+	if !names["Other Group"] {
+		t.Error("other disk group's holds should be kept")
 	}
 }
 

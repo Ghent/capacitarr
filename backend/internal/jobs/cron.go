@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"capacitarr/internal/engine"
 	"capacitarr/internal/services"
 
 	"github.com/robfig/cron/v3"
@@ -176,6 +177,21 @@ func Start(reg *services.Registry) *cron.Cron {
 		if weightsErr != nil {
 			slog.Error("Failed to load scoring weights for sunset cron", "component", "jobs", "error", weightsErr)
 		}
+		rules, rulesErr := reg.Rules.GetEnabledRules()
+		if rulesErr != nil {
+			slog.Error("Failed to load scoring rules for sunset cron", "component", "jobs", "error", rulesErr)
+		}
+		var configTypes []string
+		if configs, listErr := reg.Integration.ListEnabled(); listErr == nil {
+			configTypes = make([]string, len(configs))
+			for i, cfg := range configs {
+				configTypes[i] = cfg.Type
+			}
+		}
+		var unhealthy []string
+		if reg.Health != nil {
+			unhealthy = reg.Health.UnhealthyTypes()
+		}
 
 		sunsetDeps := services.SunsetDeps{
 			Registry:      registry,
@@ -185,6 +201,8 @@ func Start(reg *services.Registry) *cron.Cron {
 			Preview:       reg.Preview,
 			PosterOverlay: reg.PosterOverlay,
 			Mapping:       reg.Mapping,
+			Rules:         rules,
+			EvalCtx:       engine.NewEvaluationContext(configTypes, unhealthy),
 		}
 
 		// 1. Process expired sunset items → DeletionService

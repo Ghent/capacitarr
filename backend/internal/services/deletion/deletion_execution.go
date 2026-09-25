@@ -54,6 +54,15 @@ func (s *DeletionService) executeDryRun(job deleteJob, factorsJSON []byte, delet
 		}
 	}
 
+	// Kill switch / simulate must not consume a sunset hold. Unclaim expired_at
+	// so status stays pending and labels/posters remain (spec §6.3).
+	if job.SunsetQueueItemID != 0 && s.sunsetCleaner != nil {
+		if err := s.sunsetCleaner.UnclaimExpired(job.SunsetQueueItemID); err != nil {
+			slog.Error("Failed to unclaim sunset item after simulated delete",
+				"component", "services", "sunsetItemID", job.SunsetQueueItemID, "error", err)
+		}
+	}
+
 	slog.Info("Dry-Delete completed", "component", "services",
 		"media", job.Item.Title, "action", "Dry-Delete", "freed", job.Item.SizeBytes)
 }

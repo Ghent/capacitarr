@@ -117,6 +117,45 @@ func TestQueueFromEngine_SetsTriggerAndMode(t *testing.T) {
 	}
 }
 
+func TestQueueFromEngine_RespectsEnqueuedMode(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := newTestDeletionService(bus, auditLog)
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 300},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{},
+		Clients:       &mockClientResolver{},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	_ = svc.QueueFromEngine(EngineDeleteRequest{
+		Client:       &mockIntegration{},
+		Item:         integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 100},
+		DiskGroupID:  3,
+		EnqueuedMode: db.ModeSunset,
+	})
+
+	svc.queuedMu.Lock()
+	if len(svc.queuedItems) != 1 {
+		svc.queuedMu.Unlock()
+		t.Fatal("expected 1 queued item")
+	}
+	job := svc.queuedItems[0]
+	svc.queuedMu.Unlock()
+
+	if job.EnqueuedMode != db.ModeSunset {
+		t.Errorf("expected enqueued mode %q, got %q", db.ModeSunset, job.EnqueuedMode)
+	}
+	if job.ForceDryRun {
+		t.Error("expected live job (ForceDryRun false)")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // QueueFromApproval tests
 // ---------------------------------------------------------------------------
@@ -277,6 +316,9 @@ func TestQueueFromSunset_FullResolution(t *testing.T) {
 	}
 	if job.CollectionGroup != "Action" {
 		t.Errorf("expected CollectionGroup 'Action', got %q", job.CollectionGroup)
+	}
+	if job.Item.IntegrationID != 2 {
+		t.Errorf("expected MediaItem.IntegrationID 2, got %d", job.Item.IntegrationID)
 	}
 }
 
@@ -460,6 +502,110 @@ func TestQueueManual_ReportsQueueFullSkipped(t *testing.T) {
 	}
 	if result.Total != 2 {
 		t.Errorf("Total = %d, want 2", result.Total)
+	}
+}
+
+type mockSunsetHoldCreator struct {
+	items   []db.SunsetQueueItem
+	held    map[string]bool
+	failErr error
+}
+
+func (m *mockSunsetHoldCreator) QueueUserHold(item db.SunsetQueueItem) (bool, error) {
+	if m.failErr != nil {
+		return false, m.failErr
+	}
+	key := db.ItemKey(item.IntegrationID, item.ExternalID)
+	if m.held[key] {
+		return false, nil
+	}
+	if m.held == nil {
+		m.held = map[string]bool{}
+	}
+	m.held[key] = true
+	m.items = append(m.items, item)
+	return true, nil
+}
+
+func TestQueueManual_RoutesToSunsetHold(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := newTestDeletionService(bus, auditLog)
+
+	dgID := uint(7)
+	holds := &mockSunsetHoldCreator{}
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeSunset, deletionQueueDelaySeconds: 300},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeSunset, diskGroupID: &dgID},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+		SunsetHolds:   holds,
+	})
+
+	result, err := svc.QueueManual([]approval.ManualDeleteRequest{
+		{MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1", SizeBytes: 500, Score: 0.8},
+	}, &mockApprovalUpserter{})
+	if err != nil {
+		t.Fatalf("QueueManual returned error: %v", err)
+	}
+	if svc.QueueLen() != 0 {
+		t.Errorf("expected empty deletion queue, got %d", svc.QueueLen())
+	}
+	if len(holds.items) != 1 {
+		t.Fatalf("expected 1 sunset hold, got %d", len(holds.items))
+	}
+	if holds.items[0].Trigger != db.TriggerUser {
+		t.Errorf("trigger = %q, want user", holds.items[0].Trigger)
+	}
+	if holds.items[0].DiskGroupID != dgID {
+		t.Errorf("disk group = %d, want %d", holds.items[0].DiskGroupID, dgID)
+	}
+	if result.Queued != 1 {
+		t.Errorf("Queued = %d, want 1", result.Queued)
+	}
+	if result.Mode != db.ModeSunset {
+		t.Errorf("Mode = %q, want sunset", result.Mode)
+	}
+}
+
+func TestQueueManual_SunsetAlreadyHeldIsNoop(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	svc := newTestDeletionService(bus, NewAuditLogService(database))
+
+	dgID := uint(7)
+	holds := &mockSunsetHoldCreator{held: map[string]bool{db.ItemKey(1, "ext-1"): true}}
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeSunset},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeSunset, diskGroupID: &dgID},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+		SunsetHolds:   holds,
+	})
+
+	result, err := svc.QueueManual([]approval.ManualDeleteRequest{
+		{MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1"},
+	}, &mockApprovalUpserter{})
+	if err != nil {
+		t.Fatalf("QueueManual returned error: %v", err)
+	}
+	if len(holds.items) != 0 {
+		t.Errorf("expected no new holds, got %d", len(holds.items))
+	}
+	if result.Queued != 1 {
+		t.Errorf("already-held still counts as queued, got %d", result.Queued)
+	}
+	if svc.QueueLen() != 0 {
+		t.Error("must not enqueue a live delete for an existing sunset hold")
 	}
 }
 

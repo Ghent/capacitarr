@@ -1,12 +1,15 @@
 package services
 
 import (
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
+	"capacitarr/internal/integrations"
+	"capacitarr/internal/poster"
 
 	"gorm.io/gorm"
 )
@@ -57,8 +60,8 @@ func TestBulkQueueSunset(t *testing.T) {
 	database, bus, svc := setupSunsetTest(t)
 
 	items := []db.SunsetQueueItem{
-		{MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 5000000000, Score: 0.85, DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30)},
-		{MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, SizeBytes: 3000000000, Score: 0.70, DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30)},
+		{MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1", SizeBytes: 5000000000, Score: 0.85, DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30)},
+		{MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-2", SizeBytes: 3000000000, Score: 0.70, DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30)},
 	}
 
 	created, err := svc.BulkQueueSunset(items, sunsetDeps(database, bus))
@@ -132,13 +135,13 @@ func TestProcessExpired_WithoutDeletion(t *testing.T) {
 
 	// Create an already-expired item
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 5000000000,
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-exp", SizeBytes: 5000000000,
 		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, -1),
 	})
 
 	// Create a future item that should NOT be processed
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, SizeBytes: 3000000000,
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-fut", SizeBytes: 3000000000,
 		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
 	})
 
@@ -166,13 +169,13 @@ func TestProcessExpired_WithDeletion(t *testing.T) {
 
 	// Create an already-expired item
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 5000000000,
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-exp", SizeBytes: 5000000000,
 		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, -1),
 	})
 
 	// Create a future item
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, SizeBytes: 3000000000,
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-fut", SizeBytes: 3000000000,
 		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
 	})
 
@@ -226,11 +229,11 @@ func TestListSunsettedKeys(t *testing.T) {
 	database, _, svc := setupSunsetTest(t)
 
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 5000000000,
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1", SizeBytes: 5000000000,
 		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
 	})
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, SizeBytes: 3000000000,
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-2", SizeBytes: 3000000000,
 		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
 	})
 
@@ -241,14 +244,14 @@ func TestListSunsettedKeys(t *testing.T) {
 	if len(keys) != 2 {
 		t.Fatalf("Expected 2 keys, got %d", len(keys))
 	}
-	if !keys[db.MediaKey("Firefly", "show")] {
-		t.Error("Expected Firefly/show key to be present")
+	if !keys[db.ItemKey(1, "ext-1")] {
+		t.Error("Expected Firefly identity key to be present")
 	}
-	if !keys[db.MediaKey("Serenity", "movie")] {
-		t.Error("Expected Serenity/movie key to be present")
+	if !keys[db.ItemKey(1, "ext-2")] {
+		t.Error("Expected Serenity identity key to be present")
 	}
-	if keys["Firefly|show"] {
-		t.Error("pipe-delimited key must not be used; ListSunsettedKeys should use db.MediaKey")
+	if keys[db.MediaKey("Firefly", "show")] {
+		t.Error("title+type key must not be used; ListSunsettedKeys should use db.ItemKey")
 	}
 }
 
@@ -273,7 +276,7 @@ func TestCancelAll(t *testing.T) {
 
 	for i := 0; i < 5; i++ {
 		database.Create(&db.SunsetQueueItem{
-			MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 1000000,
+			MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: fmt.Sprintf("ext-%d", i), SizeBytes: 1000000,
 			DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
 		})
 	}
@@ -301,19 +304,19 @@ func TestEscalate_OrderAndTargetBytes(t *testing.T) {
 	// 3. Future item, medium score — targeted second by escalation step 2
 
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly", MediaType: "show", IntegrationID: 1,
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
 		SizeBytes: 2000000000, Score: 0.60, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, -1), // Expired
 	})
 
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1,
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-2",
 		SizeBytes: 3000000000, Score: 0.95, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, 20), // Future, highest score
 	})
 
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly Movie", MediaType: "movie", IntegrationID: 1,
+		MediaName: "Firefly Movie", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-3",
 		SizeBytes: 1000000000, Score: 0.75, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, 25), // Future, medium score
 	})
@@ -323,12 +326,15 @@ func TestEscalate_OrderAndTargetBytes(t *testing.T) {
 	// 1. No panic on escalation
 	// 2. All items remain (since processExpiredItem returns false without deps)
 	// 3. Zero bytes freed
-	freed, err := svc.Escalate(1, 5000000000, sunsetDeps(database, bus))
+	freed, released, err := svc.Escalate(1, 5000000000, sunsetDeps(database, bus))
 	if err != nil {
 		t.Fatalf("Escalate returned error: %v", err)
 	}
 	if freed != 0 {
 		t.Errorf("Expected 0 bytes freed (no registry), got %d", freed)
+	}
+	if released != 0 {
+		t.Errorf("Expected 0 items released (no registry), got %d", released)
 	}
 
 	// All 3 items should still be in the queue (no deletions without registry)
@@ -344,17 +350,17 @@ func TestEscalate_PreservesQueueBelowTarget(t *testing.T) {
 	// Seed items: one expired (small), two future (larger)
 	// targetBytes is set low enough that only the expired item would suffice
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly", MediaType: "show", IntegrationID: 1,
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
 		SizeBytes: 1000000000, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, -1), // Expired
 	})
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1,
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-2",
 		SizeBytes: 5000000000, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, 20),
 	})
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly", MediaType: "show", IntegrationID: 1,
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-3",
 		SizeBytes: 4000000000, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, 25),
 	})
@@ -362,12 +368,15 @@ func TestEscalate_PreservesQueueBelowTarget(t *testing.T) {
 	// Without registry, no items can be processed — all remain preserved.
 	// This verifies the escalation loop exits gracefully when processExpiredItem
 	// returns false, leaving the queue intact for retry on next cron run.
-	freed, err := svc.Escalate(1, 1000000000, sunsetDeps(database, bus))
+	freed, released, err := svc.Escalate(1, 1000000000, sunsetDeps(database, bus))
 	if err != nil {
 		t.Fatalf("Escalate returned error: %v", err)
 	}
 	if freed != 0 {
 		t.Errorf("Expected 0 bytes freed, got %d", freed)
+	}
+	if released != 0 {
+		t.Errorf("Expected 0 items released, got %d", released)
 	}
 
 	remaining, _ := svc.ListAll()
@@ -430,17 +439,17 @@ func TestGetExpired_OrdersByScoreDescending(t *testing.T) {
 	// Seed 3 expired items with different scores, inserted in ascending score
 	// order. GetExpired() must return them highest-score-first.
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly", MediaType: "show", IntegrationID: 1,
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
 		SizeBytes: 5000000000, Score: 0.45, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, -1), // expired
 	})
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1,
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-2",
 		SizeBytes: 3000000000, Score: 0.85, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, -2), // expired earlier
 	})
 	database.Create(&db.SunsetQueueItem{
-		MediaName: "Firefly Movie", MediaType: "movie", IntegrationID: 1,
+		MediaName: "Firefly Movie", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-3",
 		SizeBytes: 2000000000, Score: 1.20, DiskGroupID: 1, Trigger: db.TriggerEngine,
 		DeletionDate: time.Now().UTC().AddDate(0, 0, -3), // expired earliest
 	})
@@ -534,7 +543,7 @@ func TestProcessExpired_ConcurrentHandoffQueuesOnce(t *testing.T) {
 	}()
 	go func() {
 		defer wg.Done()
-		if _, err := svc.Escalate(1, 1e15, deps); err != nil {
+		if _, _, err := svc.Escalate(1, 1e15, deps); err != nil {
 			t.Errorf("Escalate: %v", err)
 		}
 	}()
@@ -554,5 +563,388 @@ func TestProcessExpired_ConcurrentHandoffQueuesOnce(t *testing.T) {
 	}
 	if expired != 1 {
 		t.Errorf("expected 1 claimed sunset row, got %d", expired)
+	}
+}
+
+func TestProcessExpired_DoesNotStripCommsBeforeHandoff(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	deletionSvc := NewDeletionService(bus, NewAuditLogService(database))
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: false, executionMode: db.ModeSunset},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeSunset},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, SizeBytes: 5000000000,
+		DiskGroupID: 1, Trigger: db.TriggerEngine, DeletionDate: time.Now().UTC().AddDate(0, 0, -1),
+		LabelApplied: true, PosterOverlayActive: true,
+	}).Error; err != nil {
+		t.Fatalf("create sunset item: %v", err)
+	}
+
+	processed, err := svc.ProcessExpired(SunsetDeps{
+		Settings: NewSettingsService(database, bus),
+		Deletion: deletionSvc,
+	})
+	if err != nil {
+		t.Fatalf("ProcessExpired: %v", err)
+	}
+	if processed != 1 {
+		t.Fatalf("expected 1 processed, got %d", processed)
+	}
+
+	var item db.SunsetQueueItem
+	if err := database.First(&item).Error; err != nil {
+		t.Fatalf("reload item: %v", err)
+	}
+	if !item.LabelApplied {
+		t.Error("expected label to stay applied until a live delete")
+	}
+	if !item.PosterOverlayActive {
+		t.Error("expected poster overlay to stay active until a live delete")
+	}
+	if item.ExpiredAt == nil {
+		t.Error("expected expired_at claimed after successful handoff")
+	}
+	if item.Status != db.SunsetStatusExpired {
+		t.Errorf("status = %q, want %s", item.Status, db.SunsetStatusExpired)
+	}
+	if deletionSvc.QueueLen() != 1 {
+		t.Errorf("expected 1 queued deletion job, got %d", deletionSvc.QueueLen())
+	}
+}
+
+func TestEscalate_SkipsSnoozed(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	deletionSvc := NewDeletionService(bus, NewAuditLogService(database))
+	deletionSvc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: true, executionMode: db.ModeSunset},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{mode: db.ModeSunset},
+		Clients:       &mockClientResolver{deleter: &mockIntegration{}},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Snoozed Show", MediaType: "show", IntegrationID: 1, ExternalID: "snoozed",
+		SizeBytes: 5000000000, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, -1),
+	}).Error; err != nil {
+		t.Fatalf("create snoozed hold: %v", err)
+	}
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Open Show", MediaType: "show", IntegrationID: 1, ExternalID: "open",
+		SizeBytes: 4000000000, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, -1),
+	}).Error; err != nil {
+		t.Fatalf("create open hold: %v", err)
+	}
+
+	freed, released, err := svc.Escalate(1, 1e15, SunsetDeps{
+		Settings:    NewSettingsService(database, bus),
+		Deletion:    deletionSvc,
+		SnoozedKeys: map[string]bool{db.MediaKey("Snoozed Show", "show"): true},
+	})
+	if err != nil {
+		t.Fatalf("Escalate: %v", err)
+	}
+	if released != 1 {
+		t.Fatalf("expected 1 released (snoozed skipped), got %d", released)
+	}
+	if freed != 4000000000 {
+		t.Errorf("freed = %d, want 4000000000", freed)
+	}
+
+	var snoozed db.SunsetQueueItem
+	database.Where("external_id = ?", "snoozed").First(&snoozed)
+	if snoozed.ExpiredAt != nil {
+		t.Error("snoozed hold should not be claimed")
+	}
+}
+
+func TestQueueUserHold_Idempotent(t *testing.T) {
+	_, _, svc := setupSunsetTest(t)
+	item := db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
+		SizeBytes: 100, DiskGroupID: 1, DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}
+	created, err := svc.QueueUserHold(item)
+	if err != nil {
+		t.Fatalf("first QueueUserHold: %v", err)
+	}
+	if !created {
+		t.Fatal("expected first hold to be created")
+	}
+	created, err = svc.QueueUserHold(item)
+	if err != nil {
+		t.Fatalf("second QueueUserHold: %v", err)
+	}
+	if created {
+		t.Error("expected second hold to be a no-op")
+	}
+	all, _ := svc.ListAll()
+	if len(all) != 1 {
+		t.Errorf("expected 1 hold, got %d", len(all))
+	}
+	if all[0].Trigger != db.TriggerUser {
+		t.Errorf("trigger = %q, want user", all[0].Trigger)
+	}
+}
+
+func TestBulkQueueSunset_AppliesPosterOnCreate(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	overlay, err := NewPosterOverlayService(database, bus, t.TempDir())
+	if err != nil {
+		t.Fatalf("NewPosterOverlayService: %v", err)
+	}
+
+	tmdbID := 13029
+	if err := database.Create(&db.MediaServerMapping{
+		TmdbID: tmdbID, IntegrationID: 1, NativeID: "plex-12345",
+		MediaType: "movie", Title: "Serenity",
+	}).Error; err != nil {
+		t.Fatalf("seed mapping: %v", err)
+	}
+	if err := overlay.cache.Store(poster.CacheKey(0, tmdbID, "canonical"), createTestPosterJPEG(300, 450)); err != nil {
+		t.Fatalf("seed poster cache: %v", err)
+	}
+
+	mockMgr := newMockPosterManager()
+	registry := integrations.NewIntegrationRegistry()
+	registry.Register(1, mockMgr)
+
+	created, err := svc.BulkQueueSunset([]db.SunsetQueueItem{{
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-1",
+		SizeBytes: 3000000000, Score: 0.70, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		TmdbID: &tmdbID, PosterURL: "https://example.com/poster.jpg",
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}}, SunsetDeps{
+		Settings:      NewSettingsService(database, bus),
+		Registry:      registry,
+		PosterOverlay: overlay,
+		Mapping:       NewMappingService(database, bus),
+	})
+	if err != nil {
+		t.Fatalf("BulkQueueSunset: %v", err)
+	}
+	if created != 1 {
+		t.Fatalf("created = %d, want 1", created)
+	}
+
+	var item db.SunsetQueueItem
+	if err := database.First(&item).Error; err != nil {
+		t.Fatalf("load hold: %v", err)
+	}
+	if !item.PosterOverlayActive {
+		t.Error("expected poster_overlay_active after hold create")
+	}
+	if _, ok := mockMgr.getUploaded("plex-12345"); !ok {
+		t.Error("expected poster overlay upload on hold create")
+	}
+}
+
+func TestQueueSunset_AppliesPosterOnCreate(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	overlay, err := NewPosterOverlayService(database, bus, t.TempDir())
+	if err != nil {
+		t.Fatalf("NewPosterOverlayService: %v", err)
+	}
+
+	tmdbID := 13029
+	if err := database.Create(&db.MediaServerMapping{
+		TmdbID: tmdbID, IntegrationID: 1, NativeID: "plex-serenity",
+		MediaType: "movie", Title: "Serenity",
+	}).Error; err != nil {
+		t.Fatalf("seed mapping: %v", err)
+	}
+	if err := overlay.cache.Store(poster.CacheKey(0, tmdbID, "canonical"), createTestPosterJPEG(300, 450)); err != nil {
+		t.Fatalf("seed poster cache: %v", err)
+	}
+
+	mockMgr := newMockPosterManager()
+	registry := integrations.NewIntegrationRegistry()
+	registry.Register(1, mockMgr)
+
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-q",
+		SizeBytes: 3000000000, Score: 0.70, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		TmdbID: &tmdbID, PosterURL: "https://example.com/poster.jpg",
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{
+		Settings:      NewSettingsService(database, bus),
+		Registry:      registry,
+		PosterOverlay: overlay,
+		Mapping:       NewMappingService(database, bus),
+	}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	var item db.SunsetQueueItem
+	if err := database.First(&item).Error; err != nil {
+		t.Fatalf("load hold: %v", err)
+	}
+	if !item.PosterOverlayActive {
+		t.Error("expected poster_overlay_active after QueueSunset")
+	}
+	if _, ok := mockMgr.getUploaded("plex-serenity"); !ok {
+		t.Error("expected poster overlay upload on QueueSunset")
+	}
+}
+
+type stubPreviewLibrary struct {
+	items []integrations.MediaItem
+}
+
+func (s stubPreviewLibrary) GetCachedItems() []integrations.MediaItem { return s.items }
+
+func TestRescoreAndSave_SkipsEmptyLibrary(t *testing.T) {
+	_, bus, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
+		SizeBytes: 10_000_000_000, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{Preview: stubPreviewLibrary{}}, db.PreferenceSet{}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 0 {
+		t.Errorf("saved = %d, want 0 on empty library", saved)
+	}
+	_ = bus
+}
+
+func TestRescoreAndSave_SavesWhenEngineScoreDrops(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
+		SizeBytes: 50 * 1024 * 1024 * 1024, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Firefly", Type: integrations.MediaTypeShow,
+			IntegrationID: 1, ExternalID: "ext-1",
+			SizeBytes: 2 * 1024 * 1024 * 1024,
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 1 {
+		t.Fatalf("saved = %d, want 1", saved)
+	}
+
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusSaved {
+		t.Errorf("status = %q, want saved", item.Status)
+	}
+	_ = bus
+}
+
+func TestRescoreAndSave_KeepsWhenEngineScoreHolds(t *testing.T) {
+	database, _, svc := setupSunsetTest(t)
+	const size int64 = 40 * 1024 * 1024 * 1024
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-2",
+		SizeBytes: size, Score: 0.8, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Serenity", Type: integrations.MediaTypeMovie,
+			IntegrationID: 1, ExternalID: "ext-2",
+			SizeBytes: size,
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 0 {
+		t.Errorf("saved = %d, want 0", saved)
+	}
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusPending {
+		t.Errorf("status = %q, want pending", item.Status)
+	}
+}
+
+func TestRescoreAndSave_SkipsUnknownIdentity(t *testing.T) {
+	database, _, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "held",
+		SizeBytes: 50 * 1024 * 1024 * 1024, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Firefly", Type: integrations.MediaTypeShow,
+			IntegrationID: 1, ExternalID: "other",
+			SizeBytes: 1 * 1024 * 1024 * 1024,
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 0 {
+		t.Errorf("saved = %d, want 0 when identity is missing from library", saved)
+	}
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusPending {
+		t.Errorf("status = %q, want pending", item.Status)
+	}
+}
+
+func TestRescoreAndSave_SavesAtHalfThreshold(t *testing.T) {
+	database, _, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-half",
+		SizeBytes: 50 * 1024 * 1024 * 1024, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Firefly", Type: integrations.MediaTypeShow,
+			IntegrationID: 1, ExternalID: "ext-half",
+			SizeBytes: 25 * 1024 * 1024 * 1024, // file_size score 0.5
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 1 {
+		t.Fatalf("saved = %d, want 1 at exactly 50%%", saved)
+	}
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusSaved {
+		t.Errorf("status = %q, want saved", item.Status)
 	}
 }

@@ -43,12 +43,12 @@ type IntegrationConfigs interface {
 	GetByID(id uint) (*db.IntegrationConfig, error)
 }
 
-// Sunset is the sunset-queue surface used by evaluateSunsetMode.
-// Satisfied by *services.SunsetService.
+// Sunset is the sunset-queue surface used by the sunset dispatch arm and
+// post-admit escalate. Satisfied by *services.SunsetService.
 type Sunset interface {
 	ListSunsettedKeys(diskGroupID uint) (map[string]bool, error)
 	BulkQueueSunset(items []db.SunsetQueueItem, deps services.SunsetDeps) (int, error)
-	Escalate(diskGroupID uint, targetBytes int64, deps services.SunsetDeps) (int64, error)
+	Escalate(diskGroupID uint, targetBytes int64, deps services.SunsetDeps) (int64, int, error)
 }
 
 // Publisher is the event-bus surface for ThresholdBreached / EngineError /
@@ -124,18 +124,28 @@ type evaluationContext struct {
 
 	// Lazy-initialized caches shared across sub-functions.
 	snoozedKeys            map[string]bool
+	sunsettedKeys          map[string]bool
 	expandedCollections    map[string]bool
 	integrationConfigCache map[uint]*db.IntegrationConfig
 
 	// Set when QueueFromEngine hits the in-memory cap. dispatchFiltered
 	// stops sending more items for this disk group.
 	queueFull bool
+	// skipSunsetAdmit is set when ListSunsettedKeys fails. New holds are
+	// skipped; escalate still runs. Step 3 also skips (held set unknown).
+	skipSunsetAdmit bool
+	// scoredCandidates is the full engine candidate list (not truncated
+	// to the hold/action budget). Sunset escalate step 3 walks this set
+	// so already-held prefix items cannot starve live extras.
+	scoredCandidates []engine.EvaluatedItem
 }
 
 // EvaluateDiskGroup scores all media items on a disk group and, when the
-// disk is above threshold, queues candidates for deletion or approval.
-// Returns the number of items queued for deletion. The acc accumulator
-// collects per-run metrics across multiple disk group evaluations.
+// disk is above evaluateAt, admits candidates through the shared pipeline
+// (score → filter → expand → dispatchByMode). Returns the number of items
+// handed to the executor this cycle (live / dry-run jobs, plus sunset
+// escalate releases). The acc accumulator collects per-run metrics across
+// multiple disk group evaluations.
 func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, runStatsID uint, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule, evalCtx *engine.EvaluationContext) int {
 	effectiveTotal := group.EffectiveTotalBytes()
 	if effectiveTotal == 0 {
@@ -152,38 +162,49 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 	groupAcc.DiskThreshold = group.ThresholdPct
 	groupAcc.DiskTargetPct = group.TargetPct
 
-	// ── Sunset mode: special threshold handling ─────────────────────────
-	if group.Mode == db.ModeSunset {
-		return o.evaluateSunsetMode(acc, group, allItems, registry, runStatsID, prefs, weights, rules, evalCtx, effectiveTotal, currentPct)
+	policy := PolicyFor(group)
+	if !policy.OK {
+		slog.Warn("Sunset mode skipped — sunset threshold not configured",
+			"component", "poller", "mount", group.MountPath, "diskGroupID", group.ID)
+		o.bus.Publish(events.SunsetMisconfiguredEvent{
+			DiskGroupID: group.ID,
+			MountPath:   group.MountPath,
+		})
+		return 0
 	}
 
-	// ── Standard modes: dry-run, approval, auto ─────────────────────────
-	if currentPct < group.ThresholdPct {
-		slog.Debug("Disk within threshold, no action needed", "component", "poller",
+	if !policy.ShouldEvaluate(currentPct) {
+		slog.Debug("Disk within evaluateAt, no action needed", "component", "poller",
 			"mount", group.MountPath, "usedPct", fmt.Sprintf("%.1f", currentPct),
-			"threshold", group.ThresholdPct, "mode", group.Mode)
+			"evaluateAt", policy.EvaluateAt, "mode", group.Mode)
 
-		// Clear stale approval queue items for this specific disk group.
-		if cleared, err := o.approval.ClearQueueForDiskGroup(group.ID); err != nil {
-			slog.Error("Failed to clear approval queue for disk group",
-				"component", "poller", "diskGroupID", group.ID, "error", err)
-		} else if cleared > 0 {
-			slog.Info("Approval queue cleared for disk group (below threshold)",
-				"component", "poller", "mount", group.MountPath, "cleared", cleared)
+		// Below evaluateAt: approval clears engine-queued holds. Sunset
+		// keeps existing holds (household promise). Dry-run / auto no-op.
+		if group.Mode != db.ModeSunset {
+			if cleared, err := o.approval.ClearQueueForDiskGroup(group.ID); err != nil {
+				slog.Error("Failed to clear approval queue for disk group",
+					"component", "poller", "diskGroupID", group.ID, "error", err)
+			} else if cleared > 0 {
+				slog.Info("Approval queue cleared for disk group (below threshold)",
+					"component", "poller", "mount", group.MountPath, "cleared", cleared)
+			}
 		}
 
 		return 0
 	}
 
-	slog.Info("Disk threshold breached, evaluating media for deletion", "component", "poller",
-		"mount", group.MountPath, "currentPct", fmt.Sprintf("%.1f", currentPct), "threshold", group.ThresholdPct)
+	slog.Info("Disk evaluateAt breached, evaluating media", "component", "poller",
+		"mount", group.MountPath, "currentPct", fmt.Sprintf("%.1f", currentPct),
+		"evaluateAt", policy.EvaluateAt, "mode", group.Mode)
 
-	o.bus.Publish(events.ThresholdBreachedEvent{
-		MountPath:    group.MountPath,
-		CurrentPct:   currentPct,
-		ThresholdPct: group.ThresholdPct,
-		TargetPct:    group.TargetPct,
-	})
+	if group.Mode != db.ModeSunset {
+		o.bus.Publish(events.ThresholdBreachedEvent{
+			MountPath:    group.MountPath,
+			CurrentPct:   currentPct,
+			ThresholdPct: group.ThresholdPct,
+			TargetPct:    group.TargetPct,
+		})
+	}
 
 	// Build the shared evaluation context for sub-functions.
 	ectx := &evaluationContext{
@@ -198,6 +219,7 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 		evalCtx:                evalCtx,
 		expandedCollections:    make(map[string]bool),
 		integrationConfigCache: make(map[uint]*db.IntegrationConfig),
+		sunsettedKeys:          make(map[string]bool),
 	}
 
 	// Pre-fetch snoozed keys for O(1) lookup. Fail closed: a lookup error
@@ -213,23 +235,63 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 	}
 	ectx.snoozedKeys = snoozedKeys
 
-	// Score and select candidates within the byte budget.
-	candidates, targetBytesToFree := o.scoreCandidates(ectx, currentPct, effectiveTotal)
-	if targetBytesToFree <= 0 {
-		return 0
+	if group.Mode == db.ModeSunset {
+		sunsettedKeys, keysErr := o.sunset.ListSunsettedKeys(group.ID)
+		if keysErr != nil {
+			slog.Error("Failed to load sunsetted keys, skipping new sunset queueing",
+				"component", "poller", "mount", group.MountPath, "error", keysErr)
+			ectx.skipSunsetAdmit = true
+		} else {
+			ectx.sunsettedKeys = sunsettedKeys
+		}
 	}
 
-	// Filter candidates: dedup shows vs seasons, skip snoozed, skip zero-score.
-	filtered, skipStats := filterCandidates(candidates, ectx.snoozedKeys)
+	// Score and select candidates within the byte budget (action budget
+	// for dry-run/approval/auto, hold budget for sunset).
+	candidates, targetBytesToFree := o.scoreCandidates(ectx, currentPct, effectiveTotal, policy.BudgetFromPct())
 
-	// Expand collections, dispatch by mode, and reconcile the queue.
-	return o.dispatchFiltered(ectx, filtered, skipStats, targetBytesToFree)
+	var deletionsQueued int
+	if targetBytesToFree > 0 {
+		filtered, skipStats := filterCandidates(candidates, ectx.snoozedKeys)
+		deletionsQueued = o.dispatchFiltered(ectx, filtered, skipStats, targetBytesToFree)
+	}
+
+	// Duration-hold escalate: after Admit, free down to target (not
+	// evaluateAt). Steps 1–2 release holds; step 3 live-admits unheld
+	// candidates from the same score → filter → expand set.
+	if policy.ShouldEscalate(currentPct) {
+		slog.Warn("Sunset escalation triggered — disk exceeds critical",
+			"component", "poller", "mount", group.MountPath,
+			"currentPct", fmt.Sprintf("%.1f", currentPct),
+			"criticalPct", policy.EscalateAt,
+			"targetPct", policy.Target)
+
+		targetBytes := policy.ActionBudgetBytes(currentPct, effectiveTotal)
+		sunsetDeps := o.sunsetDepsFor(registry)
+		sunsetDeps.SnoozedKeys = ectx.snoozedKeys
+		freed, released, err := o.sunset.Escalate(group.ID, targetBytes, sunsetDeps)
+		if err != nil {
+			slog.Error("Sunset escalation failed", "component", "poller",
+				"mount", group.MountPath, "error", err)
+		}
+		groupAcc.FreedBytes += freed
+
+		remaining := targetBytes - freed
+		var liveQueued int
+		if remaining > 0 && !ectx.skipSunsetAdmit {
+			liveQueued = o.dispatchSunsetEscalateLive(ectx, remaining)
+		}
+		return deletionsQueued + released + liveQueued
+	}
+
+	return deletionsQueued
 }
 
 // scoreCandidates filters items to the mount path, runs engine evaluation,
-// and selects candidates within the byte budget. Returns the selected
-// candidates and the target bytes to free.
-func (o *Orchestrator) scoreCandidates(ectx *evaluationContext, currentPct float64, effectiveTotal int64) ([]engine.EvaluatedItem, int64) {
+// and selects candidates within the byte budget. budgetFromPct is the
+// preset binding (targetPct for action budget, sunsetPct for hold budget).
+// Returns the selected candidates and the target bytes to free.
+func (o *Orchestrator) scoreCandidates(ectx *evaluationContext, currentPct float64, effectiveTotal int64, budgetFromPct float64) ([]engine.EvaluatedItem, int64) {
 	// Filter items on this mount
 	normalizedMount := normalizePath(ectx.group.MountPath)
 	var diskItems []integrations.MediaItem
@@ -270,12 +332,14 @@ func (o *Orchestrator) scoreCandidates(ectx *evaluationContext, currentPct float
 		"protected", len(evalResult.Protected),
 		"candidates", len(evalResult.Candidates))
 
-	targetBytesToFree := int64((currentPct - ectx.group.TargetPct) / 100.0 * float64(effectiveTotal))
+	ectx.scoredCandidates = evalResult.Candidates
+
+	targetBytesToFree := int64((currentPct - budgetFromPct) / 100.0 * float64(effectiveTotal))
 	if targetBytesToFree <= 0 {
 		slog.Warn("Target bytes to free is zero or negative, skipping evaluation",
 			"component", "poller", "mount", ectx.group.MountPath,
 			"currentPct", fmt.Sprintf("%.1f", currentPct),
-			"targetPct", ectx.group.TargetPct,
+			"budgetFromPct", budgetFromPct,
 			"targetBytesToFree", targetBytesToFree)
 		return nil, 0
 	}
@@ -476,8 +540,9 @@ func (o *Orchestrator) expandCollections(ectx *evaluationContext, ev engine.Eval
 }
 
 // dispatchByMode routes a single processItem through the appropriate execution
-// mode (auto, approval, dry-run). Returns (deletionsQueued, bytesFreed).
-func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, pendingBatch *[]db.ApprovalQueueItem, neededKeys map[string]bool) (int, int64) {
+// mode (auto, approval, dry-run, sunset). Returns (deletionsQueued, bytesFreed).
+// Auto / approval / dry-run arms are unchanged; sunset is a new hold sink.
+func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, pendingBatch *[]db.ApprovalQueueItem, neededKeys map[string]bool, sunsetBatch *[]db.SunsetQueueItem) (int, int64) {
 	switch ectx.group.Mode {
 	case db.ModeAuto:
 		deleter, err := ectx.registry.Deleter(pi.item.IntegrationID)
@@ -534,12 +599,50 @@ func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, p
 			CollectionGroup: pi.collectionGroup,
 		})
 
-		neededKeys[db.MediaKey(pi.item.Title, string(pi.item.Type))] = true
+		neededKeys[db.ItemKey(pi.item.IntegrationID, pi.item.ExternalID)] = true
 		ectx.groupAcc.Candidates++
 		ectx.groupAcc.FreedBytes += pi.item.SizeBytes
 
 		slog.Info("Engine action taken", "component", "poller",
 			"media", pi.item.Title, "action", "queued_for_approval", "score", pi.score, "freed", pi.item.SizeBytes,
+			"collectionGroup", pi.collectionGroup)
+		return 0, pi.item.SizeBytes
+
+	case db.ModeSunset:
+		if ectx.skipSunsetAdmit {
+			return 0, 0
+		}
+		key := db.ItemKey(pi.item.IntegrationID, pi.item.ExternalID)
+		if ectx.sunsettedKeys[key] {
+			return 0, 0
+		}
+
+		factorsJSON, marshalErr := json.Marshal(pi.factors)
+		if marshalErr != nil {
+			slog.Error("Failed to marshal sunset candidate factors", "component", "poller",
+				"mediaName", pi.item.Title, "error", marshalErr)
+			return 0, 0
+		}
+		tmdbID := pi.item.TMDbID
+		*sunsetBatch = append(*sunsetBatch, db.SunsetQueueItem{
+			MediaName:       pi.item.Title,
+			MediaType:       string(pi.item.Type),
+			TmdbID:          &tmdbID,
+			IntegrationID:   pi.item.IntegrationID,
+			ExternalID:      pi.item.ExternalID,
+			SizeBytes:       pi.item.SizeBytes,
+			Score:           pi.score,
+			ScoreDetails:    string(factorsJSON),
+			PosterURL:       pi.item.PosterURL,
+			DiskGroupID:     ectx.group.ID,
+			CollectionGroup: pi.collectionGroup,
+			Trigger:         db.TriggerEngine,
+			DeletionDate:    time.Now().UTC().AddDate(0, 0, ectx.prefs.SunsetDays),
+		})
+		ectx.groupAcc.Candidates++
+
+		slog.Info("Engine action taken", "component", "poller",
+			"media", pi.item.Title, "action", "queued_for_sunset", "score", pi.score,
 			"collectionGroup", pi.collectionGroup)
 		return 0, pi.item.SizeBytes
 
@@ -570,6 +673,25 @@ func (o *Orchestrator) dispatchByMode(ectx *evaluationContext, pi processItem, p
 			"collectionGroup", pi.collectionGroup)
 		return 1, pi.item.SizeBytes
 	}
+}
+
+// flushSunsetBatch writes the sunset Admit batch. No-op when empty.
+func (o *Orchestrator) flushSunsetBatch(ectx *evaluationContext, sunsetBatch []db.SunsetQueueItem) {
+	if len(sunsetBatch) == 0 {
+		return
+	}
+	created, err := o.sunset.BulkQueueSunset(sunsetBatch, o.sunsetDepsFor(ectx.registry))
+	if err != nil {
+		slog.Error("Failed to queue sunset items", "component", "poller",
+			"mount", ectx.group.MountPath, "error", err)
+		return
+	}
+	for _, item := range sunsetBatch {
+		ectx.sunsettedKeys[db.ItemKey(item.IntegrationID, item.ExternalID)] = true
+	}
+	ectx.groupAcc.SunsetQueued += created
+	slog.Info("Sunset items queued", "component", "poller",
+		"mount", ectx.group.MountPath, "count", created)
 }
 
 // reconcileQueue flushes the pending approval batch and reconciles stale items.
@@ -603,6 +725,7 @@ func (o *Orchestrator) dispatchFiltered(ectx *evaluationContext, filtered []engi
 	var bytesFreed int64
 	var deletionsQueued int
 	var pendingBatch []db.ApprovalQueueItem
+	var sunsetBatch []db.SunsetQueueItem
 	neededKeys := make(map[string]bool)
 
 	for i, ev := range filtered {
@@ -634,13 +757,14 @@ func (o *Orchestrator) dispatchFiltered(ectx *evaluationContext, filtered []engi
 				ectx.groupAcc.QueueFullSkipped += len(itemsToProcess) - j
 				break
 			}
-			queued, freed := o.dispatchByMode(ectx, pi, &pendingBatch, neededKeys)
+			queued, freed := o.dispatchByMode(ectx, pi, &pendingBatch, neededKeys, &sunsetBatch)
 			deletionsQueued += queued
 			bytesFreed += freed
 		}
 	}
 
-	// Flush approval batch and reconcile queue
+	// Flush sunset holds, then approval batch / reconcile.
+	o.flushSunsetBatch(ectx, sunsetBatch)
 	o.reconcileQueue(ectx, pendingBatch, neededKeys)
 
 	// Diagnostic summary
@@ -659,6 +783,113 @@ func (o *Orchestrator) dispatchFiltered(ectx *evaluationContext, filtered []engi
 	return deletionsQueued
 }
 
+// dispatchSunsetEscalateLive is escalate ladder step 3: if releasing holds
+// did not meet the action budget, admit additional candidates from the same
+// scored set that are not already held, as immediate live deletes. Same
+// filter/expand as Admit. EnqueuedMode stays sunset so a later mode change
+// still cancels these jobs.
+func (o *Orchestrator) dispatchSunsetEscalateLive(ectx *evaluationContext, remainingBytes int64) int {
+	if remainingBytes <= 0 || ectx.skipSunsetAdmit {
+		return 0
+	}
+
+	filtered, stats := filterCandidates(ectx.scoredCandidates, ectx.snoozedKeys)
+	ectx.expandedCollections = make(map[string]bool)
+
+	var bytesFreed int64
+	var queued int
+
+	for i, ev := range filtered {
+		if ectx.queueFull {
+			ectx.groupAcc.QueueFullSkipped += len(filtered) - i
+			break
+		}
+		if bytesFreed >= remainingBytes {
+			break
+		}
+
+		itemsToProcess, skipped := o.expandCollections(ectx, ev, &stats)
+		if skipped {
+			continue
+		}
+
+		for j, pi := range itemsToProcess {
+			if ectx.queueFull {
+				ectx.groupAcc.QueueFullSkipped += len(itemsToProcess) - j
+				break
+			}
+			if bytesFreed >= remainingBytes {
+				break
+			}
+			key := db.ItemKey(pi.item.IntegrationID, pi.item.ExternalID)
+			if ectx.sunsettedKeys[key] {
+				continue
+			}
+			n, freed := o.queueSunsetEscalateLive(ectx, pi)
+			queued += n
+			bytesFreed += freed
+		}
+	}
+
+	if queued > 0 {
+		o.bus.Publish(events.SunsetEscalatedEvent{
+			DiskGroupID:  ectx.group.ID,
+			ItemsExpired: queued,
+			BytesFreed:   bytesFreed,
+		})
+		slog.Warn("Sunset escalation step 3 — live-admitted unheld candidates",
+			"component", "poller", "mount", ectx.group.MountPath,
+			"queued", queued, "bytes", bytesFreed)
+	}
+
+	return queued
+}
+
+// queueSunsetEscalateLive enqueues one unheld candidate as a live engine
+// delete without flipping the group to auto. Auto / approval / dry-run
+// dispatch arms are unchanged.
+func (o *Orchestrator) queueSunsetEscalateLive(ectx *evaluationContext, pi processItem) (int, int64) {
+	if ectx.registry == nil {
+		return 0, 0
+	}
+	deleter, err := ectx.registry.Deleter(pi.item.IntegrationID)
+	if err != nil {
+		slog.Error("Integration not registered as MediaDeleter", "component", "poller",
+			"integrationId", pi.item.IntegrationID, "error", err)
+		return 0, 0
+	}
+
+	addImportExclusion := true
+	if sourceCfg := o.getIntegrationConfig(ectx, pi.item.IntegrationID); sourceCfg != nil {
+		addImportExclusion = sourceCfg.AddImportExclusion
+	}
+
+	if err := o.deletion.QueueFromEngine(services.EngineDeleteRequest{
+		Client:             deleter,
+		Item:               pi.item,
+		Score:              pi.score,
+		Factors:            pi.factors,
+		RunStatsID:         ectx.runStatsID,
+		DiskGroupID:        ectx.group.ID,
+		CollectionGroup:    pi.collectionGroup,
+		AddImportExclusion: addImportExclusion,
+		EnqueuedMode:       db.ModeSunset,
+	}); err != nil {
+		if errors.Is(err, services.ErrDeletionQueueFull) {
+			ectx.queueFull = true
+			ectx.groupAcc.QueueFullSkipped++
+		}
+		return 0, 0
+	}
+	ectx.groupAcc.Candidates++
+	ectx.groupAcc.FreedBytes += pi.item.SizeBytes
+
+	slog.Info("Engine action taken", "component", "poller",
+		"media", pi.item.Title, "action", "sunset_escalate_live", "score", pi.score,
+		"freed", pi.item.SizeBytes, "collectionGroup", pi.collectionGroup)
+	return 1, pi.item.SizeBytes
+}
+
 // getIntegrationConfig returns the cached integration config, fetching from
 // the service if not yet cached.
 func (o *Orchestrator) getIntegrationConfig(ectx *evaluationContext, id uint) *db.IntegrationConfig {
@@ -671,158 +902,6 @@ func (o *Orchestrator) getIntegrationConfig(ectx *evaluationContext, id uint) *d
 	}
 	ectx.integrationConfigCache[id] = cfg
 	return cfg
-}
-
-// evaluateSunsetMode handles the sunset-mode disk group evaluation.
-// Both steps run independently each cycle:
-//  1. Queue: if currentPct >= sunsetPct, score items and add to sunset_queue
-//  2. Escalate: if currentPct >= criticalPct, force-expire from the queue to free space
-//
-// This ensures items are always marked for sunset once past the sunset threshold,
-// even when the disk is simultaneously past critical. Escalation then processes
-// items that were just queued (or already existed) from the sunset queue.
-func (o *Orchestrator) evaluateSunsetMode(acc *RunAccumulator, group db.DiskGroup, allItems []integrations.MediaItem, registry *integrations.IntegrationRegistry, _ uint, prefs db.PreferenceSet, weights map[string]int, rules []db.CustomRule, evalCtx *engine.EvaluationContext, effectiveTotal int64, currentPct float64) int {
-	// Get the per-group accumulator (already created by EvaluateDiskGroup
-	// before dispatching to sunset mode).
-	groupAcc := acc.GetOrCreate(group.ID, group.MountPath, group.Mode)
-
-	// Validation: sunsetPct must be configured
-	if group.SunsetPct == nil {
-		slog.Warn("Sunset mode skipped — sunset threshold not configured",
-			"component", "poller", "mount", group.MountPath, "diskGroupID", group.ID)
-		o.bus.Publish(events.SunsetMisconfiguredEvent{
-			DiskGroupID: group.ID,
-			MountPath:   group.MountPath,
-		})
-		return 0
-	}
-
-	sunsetPct := *group.SunsetPct
-
-	sunsetDeps := o.sunsetDepsFor(registry)
-
-	// Fail closed: without a reliable snooze set we must not queue new
-	// sunset items or escalate existing ones (escalation would delete
-	// media the user may have snoozed after it entered the sunset queue).
-	snoozedKeys, snoozedErr := o.approval.ListSnoozedKeys(group.ID)
-	if snoozedErr != nil {
-		slog.Error("Failed to load snoozed keys, aborting sunset evaluation",
-			"component", "poller", "mount", group.MountPath, "error", snoozedErr)
-		o.bus.Publish(events.EngineErrorEvent{
-			Error: fmt.Sprintf("failed to load snoozed keys for %s: %v", group.MountPath, snoozedErr),
-		})
-		return 0
-	}
-
-	// Step 1: Queue items to sunset if sunsetPct is breached
-	if currentPct >= sunsetPct {
-		slog.Info("Sunset threshold breached, evaluating media for sunset queue", "component", "poller",
-			"mount", group.MountPath, "currentPct", fmt.Sprintf("%.1f", currentPct),
-			"sunsetPct", sunsetPct)
-
-		// Filter items on this mount
-		normalizedMount := normalizePath(group.MountPath)
-		var diskItems []integrations.MediaItem
-		for _, item := range allItems {
-			if strings.HasPrefix(normalizePath(item.Path), normalizedMount) {
-				diskItems = append(diskItems, item)
-			}
-		}
-
-		// Score items
-		evaluator := engine.NewEvaluator()
-		evalResult := evaluator.Evaluate(diskItems, weights, rules, prefs.TiebreakerMethod, evalCtx)
-		groupAcc.Evaluated += int64(evalResult.TotalCount)
-		groupAcc.Protected += int64(len(evalResult.Protected))
-
-		// Calculate how much to sunset (based on currentPct → sunsetPct range)
-		targetBytesToFree := int64((currentPct - sunsetPct) / 100.0 * float64(effectiveTotal))
-		if targetBytesToFree > 0 {
-			candidates := evalResult.CandidatesForDeletion(targetBytesToFree)
-
-			// Pre-build set of already-sunsetted items for dedup. On lookup
-			// failure we skip new queueing (cannot dedup) but still escalate.
-			sunsettedKeys, keysErr := o.sunset.ListSunsettedKeys(group.ID)
-			if keysErr != nil {
-				slog.Error("Failed to load sunsetted keys, skipping new sunset queueing",
-					"component", "poller", "mount", group.MountPath, "error", keysErr)
-			} else {
-				// Calculate sunset deletion date
-				deletionDate := time.Now().UTC().AddDate(0, 0, prefs.SunsetDays)
-
-				var sunsetItems []db.SunsetQueueItem
-				for _, candidate := range candidates {
-					key := db.MediaKey(candidate.Item.Title, string(candidate.Item.Type))
-					if sunsettedKeys[key] {
-						continue // Already in sunset queue
-					}
-					if snoozedKeys[key] {
-						continue // User snoozed this item
-					}
-
-					factorsJSON, marshalErr := json.Marshal(candidate.Factors)
-					if marshalErr != nil {
-						slog.Error("Failed to marshal sunset candidate factors", "component", "poller",
-							"mediaName", candidate.Item.Title, "error", marshalErr)
-						continue
-					}
-					sunsetItems = append(sunsetItems, db.SunsetQueueItem{
-						MediaName:       candidate.Item.Title,
-						MediaType:       string(candidate.Item.Type),
-						TmdbID:          &candidate.Item.TMDbID,
-						IntegrationID:   candidate.Item.IntegrationID,
-						ExternalID:      candidate.Item.ExternalID,
-						SizeBytes:       candidate.Item.SizeBytes,
-						Score:           candidate.Score,
-						ScoreDetails:    string(factorsJSON),
-						PosterURL:       candidate.Item.PosterURL,
-						DiskGroupID:     group.ID,
-						CollectionGroup: "", // Collection groups are handled by approval/auto mode expansion; sunset evaluates items individually
-						Trigger:         db.TriggerEngine,
-						DeletionDate:    deletionDate,
-					})
-				}
-
-				if len(sunsetItems) > 0 {
-					created, err := o.sunset.BulkQueueSunset(sunsetItems, sunsetDeps)
-					if err != nil {
-						slog.Error("Failed to queue sunset items", "component", "poller",
-							"mount", group.MountPath, "error", err)
-					} else {
-						slog.Info("Sunset items queued", "component", "poller",
-							"mount", group.MountPath, "count", created,
-							"deletionDate", deletionDate.Format("2006-01-02"))
-						groupAcc.Candidates += int64(created)
-						groupAcc.SunsetQueued += created
-					}
-				}
-			}
-		}
-	} else {
-		slog.Debug("Disk within sunset threshold, no action needed", "component", "poller",
-			"mount", group.MountPath, "usedPct", fmt.Sprintf("%.1f", currentPct),
-			"sunsetPct", sunsetPct)
-	}
-
-	// Step 2: Escalate if criticalPct is also breached (independent of step 1)
-	if currentPct >= group.ThresholdPct {
-		slog.Warn("Sunset escalation triggered — disk exceeds critical",
-			"component", "poller", "mount", group.MountPath,
-			"currentPct", fmt.Sprintf("%.1f", currentPct),
-			"criticalPct", group.ThresholdPct,
-			"targetPct", group.TargetPct)
-
-		// Calculate bytes to free down to targetPct (NOT sunsetPct — preserves queue)
-		targetBytes := int64((currentPct - group.TargetPct) / 100.0 * float64(effectiveTotal))
-		freed, err := o.sunset.Escalate(group.ID, targetBytes, sunsetDeps)
-		if err != nil {
-			slog.Error("Sunset escalation failed", "component", "poller",
-				"mount", group.MountPath, "error", err)
-		}
-		groupAcc.FreedBytes += freed
-	}
-
-	return 0 // Sunset mode doesn't queue immediate deletions
 }
 
 // normalizePath converts backslash path separators to forward slashes for

@@ -256,7 +256,6 @@ func (s *PreviewService) GetCachedItems() []integrations.MediaItem {
 
 // GetCachedScoreMap returns a map of "MediaName|MediaType" → score for all
 // items in the preview cache. Returns an empty map if the cache is empty.
-// Implements PreviewScoreReader for sunset re-scoring.
 func (s *PreviewService) GetCachedScoreMap() map[string]float64 {
 	s.previewMu.RLock()
 	defer s.previewMu.RUnlock()

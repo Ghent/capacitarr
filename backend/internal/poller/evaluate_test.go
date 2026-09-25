@@ -856,3 +856,128 @@ func TestEvaluateSunsetMode_BelowSunsetThreshold_NoQueue(t *testing.T) {
 		t.Errorf("expected 0 sunset queue items when below sunset threshold, got %d", count)
 	}
 }
+
+// TestEvaluateSunsetMode_EscalateCountsTowardSignalBatchSize verifies that
+// a sunset cycle that escalates holds reports those releases as executor
+// actions (spec §5). The sunset path used to return 0 from the private
+// evaluator, so SignalBatchSize(0) fired an empty batch-complete on escalate.
+func TestEvaluateSunsetMode_EscalateCountsTowardSignalBatchSize(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	sunsetPct := 60.0
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100_000_000_000,
+		UsedBytes:    90_000_000_000, // 90% — above critical 85%
+		ThresholdPct: 85.0,
+		TargetPct:    75.0,
+		SunsetPct:    &sunsetPct,
+		Mode:         db.ModeSunset,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	if err := database.Create(&db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1,
+		SizeBytes: 10_000_000_000, DiskGroupID: group.ID, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 10),
+	}).Error; err != nil {
+		t.Fatalf("create sunset hold: %v", err)
+	}
+
+	prefs := db.PreferenceSet{
+		DefaultDiskGroupMode: db.ModeSunset,
+		SunsetDays:           30,
+	}
+	result := p.evaluateDiskGroup(NewRunAccumulator(), group, nil, nil, 0, prefs, map[string]int{}, nil, &engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
+	if result < 1 {
+		t.Fatalf("expected escalate to count as at least 1 executor action, got %d", result)
+	}
+}
+
+type stubEvaluateDeleter struct{}
+
+func (stubEvaluateDeleter) DeleteMediaItem(integrations.MediaItem, integrations.DeleteOptions) error {
+	return nil
+}
+
+// TestEvaluateSunsetMode_EscalateStep3CountsTowardSignalBatchSize verifies
+// that when releasing holds cannot meet target, live extras from the same
+// scored set count as executor actions (spec §9.2 step 3).
+func TestEvaluateSunsetMode_EscalateStep3CountsTowardSignalBatchSize(t *testing.T) {
+	database, reg := setupEvaluateTestDB(t)
+	p := New(reg)
+
+	sunsetPct := 60.0
+	group := db.DiskGroup{
+		MountPath:    "/data",
+		TotalBytes:   100_000_000_000,
+		UsedBytes:    90_000_000_000, // 90% — above critical 85%; action budget 15GB
+		ThresholdPct: 85.0,
+		TargetPct:    75.0,
+		SunsetPct:    &sunsetPct,
+		Mode:         db.ModeSunset,
+	}
+	if err := database.Create(&group).Error; err != nil {
+		t.Fatalf("Failed to create disk group: %v", err)
+	}
+
+	// Large already-held items fill the 30GB hold-budget prefix. Snooze them
+	// so escalate steps 1–2 skip them and cannot meet the 15GB action budget.
+	for _, item := range []db.SunsetQueueItem{
+		{MediaName: "HeldA", MediaType: "movie", IntegrationID: 1, ExternalID: "held-a",
+			SizeBytes: 16_000_000_000, DiskGroupID: group.ID, Trigger: db.TriggerEngine,
+			DeletionDate: time.Now().UTC().AddDate(0, 0, 10)},
+		{MediaName: "HeldB", MediaType: "movie", IntegrationID: 1, ExternalID: "held-b",
+			SizeBytes: 16_000_000_000, DiskGroupID: group.ID, Trigger: db.TriggerEngine,
+			DeletionDate: time.Now().UTC().AddDate(0, 0, 10)},
+	} {
+		if err := database.Create(&item).Error; err != nil {
+			t.Fatalf("create sunset hold: %v", err)
+		}
+	}
+	snoozedUntil := time.Now().UTC().Add(24 * time.Hour)
+	dgID := group.ID
+	for _, name := range []string{"HeldA", "HeldB"} {
+		if err := database.Create(&db.ApprovalQueueItem{
+			MediaName: name, MediaType: "movie", Status: db.StatusRejected,
+			SnoozedUntil: &snoozedUntil, IntegrationID: 1, ExternalID: "snooze-" + name,
+			DiskGroupID: &dgID,
+		}).Error; err != nil {
+			t.Fatalf("create snooze: %v", err)
+		}
+	}
+
+	items := []integrations.MediaItem{
+		{ExternalID: "held-a", IntegrationID: 1, Type: integrations.MediaTypeMovie, Title: "HeldA",
+			SizeBytes: 16_000_000_000, Path: "/data/HeldA", Rating: 3},
+		{ExternalID: "held-b", IntegrationID: 1, Type: integrations.MediaTypeMovie, Title: "HeldB",
+			SizeBytes: 16_000_000_000, Path: "/data/HeldB", Rating: 3},
+		{ExternalID: "extra-a", IntegrationID: 1, Type: integrations.MediaTypeMovie, Title: "ExtraA",
+			SizeBytes: 8_000_000_000, Path: "/data/ExtraA", Rating: 3},
+		{ExternalID: "extra-b", IntegrationID: 1, Type: integrations.MediaTypeMovie, Title: "ExtraB",
+			SizeBytes: 8_000_000_000, Path: "/data/ExtraB", Rating: 3},
+	}
+
+	registry := integrations.NewIntegrationRegistry()
+	registry.Register(1, stubEvaluateDeleter{})
+
+	prefs := db.PreferenceSet{DefaultDiskGroupMode: db.ModeSunset, SunsetDays: 30}
+	weights := map[string]int{"file_size": 10}
+	result := p.evaluateDiskGroup(NewRunAccumulator(), group, items, registry, 0, prefs, weights, nil,
+		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}})
+	if result < 2 {
+		t.Fatalf("expected step 3 live extras to count as at least 2 executor actions, got %d", result)
+	}
+	if reg.Deletion.QueueLen() < 2 {
+		t.Errorf("deletion queue length = %d, want >= 2 live extras", reg.Deletion.QueueLen())
+	}
+
+	var extraHolds int64
+	database.Model(&db.SunsetQueueItem{}).Where("external_id IN ?", []string{"extra-a", "extra-b"}).Count(&extraHolds)
+	if extraHolds != 0 {
+		t.Errorf("step 3 extras should be live deletes, not new holds, got %d hold rows", extraHolds)
+	}
+}

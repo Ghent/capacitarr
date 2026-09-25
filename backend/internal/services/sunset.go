@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 
@@ -23,10 +24,10 @@ type SunsetService struct {
 	bus *events.EventBus
 }
 
-// PreviewScoreReader provides read access to cached preview scores for
-// sunset re-scoring. Satisfied by PreviewService.
-type PreviewScoreReader interface {
-	GetCachedScoreMap() map[string]float64
+// PreviewLibrary supplies the last fetched library for sunset rescore.
+// Satisfied by PreviewService. Empty/nil cache skips the cycle.
+type PreviewLibrary interface {
+	GetCachedItems() []integrations.MediaItem
 }
 
 // SunsetDeps holds service dependencies for label management and deletion handoff.
@@ -37,9 +38,12 @@ type SunsetDeps struct {
 	Deletion      *DeletionService
 	Engine        *EngineService
 	Settings      SettingsReader
-	Preview       PreviewScoreReader    // Optional: provides current scores for rescore comparisons
-	PosterOverlay *PosterOverlayService // Optional: if set, posters are restored on cancel/expire/escalate
+	Preview       PreviewLibrary        // Optional: last fetched library for engine rescore
+	PosterOverlay *PosterOverlayService // Optional: if set, posters are applied on create and restored on cancel
 	Mapping       *MappingService       // Persistent TMDb→NativeID mapping; replaces ephemeral BuildMappingMaps()
+	SnoozedKeys   map[string]bool       // MediaKey set; escalate skips these (spec §4.3 / §6.4)
+	Rules         []db.CustomRule       // Same enabled rules as Admit (slice I)
+	EvalCtx       *engine.EvaluationContext
 }
 
 // NewSunsetService creates a new sunset queue service.
@@ -48,19 +52,15 @@ func NewSunsetService(database *gorm.DB, bus *events.EventBus) *SunsetService {
 }
 
 // QueueSunset creates a new sunset_queue entry with a deletion_date.
-// Also applies the sunset label to the item in all enabled media servers.
+// Applies sunset label and poster overlay on create (spec §9.1).
 func (s *SunsetService) QueueSunset(item db.SunsetQueueItem, deps SunsetDeps) error {
 	if err := s.db.Create(&item).Error; err != nil {
 		return fmt.Errorf("create sunset queue item: %w", err)
 	}
 
-	// Apply label to media servers
-	if deps.Registry != nil && deps.Settings != nil {
-		if prefs, err := deps.Settings.GetPreferences(); err == nil && prefs.SunsetLabel != "" {
-			if s.applyLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping) {
-				item.LabelApplied = true
-				s.db.Model(&item).Update("label_applied", true)
-			}
+	if deps.Settings != nil {
+		if prefs, err := deps.Settings.GetPreferences(); err == nil {
+			s.applyCreateComms(item, prefs, deps)
 		}
 	}
 
@@ -77,7 +77,7 @@ func (s *SunsetService) QueueSunset(item db.SunsetQueueItem, deps SunsetDeps) er
 }
 
 // BulkQueueSunset creates multiple sunset entries in a transaction.
-// Applies labels to all items in enabled media servers.
+// Applies labels and poster overlays on create (spec §9.1).
 func (s *SunsetService) BulkQueueSunset(items []db.SunsetQueueItem, deps SunsetDeps) (int, error) {
 	if len(items) == 0 {
 		return 0, nil
@@ -106,14 +106,11 @@ func (s *SunsetService) BulkQueueSunset(items []db.SunsetQueueItem, deps SunsetD
 		return 0, err
 	}
 
-	// Apply labels outside the transaction (media server calls shouldn't block DB)
-	if deps.Registry != nil && prefs.SunsetLabel != "" {
-		for i := range items {
-			if s.applyLabel(items[i], prefs.SunsetLabel, deps.Registry, deps.Mapping) {
-				items[i].LabelApplied = true
-				s.db.Model(&items[i]).Update("label_applied", true)
-			}
-		}
+	// Apply labels and posters outside the transaction (media server
+	// calls shouldn't block DB). Apply-fail leaves the hold; flags stay
+	// false and daily cron retries.
+	for i := range items {
+		s.applyCreateComms(items[i], prefs, deps)
 	}
 
 	// Publish events
@@ -128,6 +125,33 @@ func (s *SunsetService) BulkQueueSunset(items []db.SunsetQueueItem, deps SunsetD
 	}
 
 	return created, nil
+}
+
+// applyCreateComms applies sunset label + poster overlay on hold create.
+// Failures are logged; the hold stays and flags remain retryable.
+func (s *SunsetService) applyCreateComms(item db.SunsetQueueItem, prefs db.PreferenceSet, deps SunsetDeps) {
+	if deps.Registry != nil && prefs.SunsetLabel != "" {
+		if s.applyLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping) {
+			s.db.Model(&item).Update("label_applied", true)
+		}
+	}
+	s.applyCreatePoster(item, prefs, deps)
+}
+
+func (s *SunsetService) applyCreatePoster(item db.SunsetQueueItem, prefs db.PreferenceSet, deps SunsetDeps) {
+	if deps.PosterOverlay == nil || deps.Registry == nil {
+		return
+	}
+	if prefs.PosterOverlayStyle == "" || prefs.PosterOverlayStyle == "off" {
+		return
+	}
+	if err := deps.PosterOverlay.UpdateOverlay(item, s.DaysRemaining(item), prefs.PosterOverlayStyle, PosterDeps{
+		Registry: deps.Registry,
+		Mapping:  deps.Mapping,
+	}); err != nil {
+		slog.Error("Failed to apply poster overlay on sunset hold create",
+			"component", "services", "mediaName", item.MediaName, "error", err)
+	}
 }
 
 // Cancel removes a sunset item. Removes the label from media servers.
@@ -253,21 +277,12 @@ func (s *SunsetService) ProcessExpired(deps SunsetDeps) (int, error) {
 	return processed, nil
 }
 
-// RescoreAndSave checks each pending sunset item against the current preview
-// cache scores. If an item's current score dropped below 50% of its original
-// score at queue time, it transitions to "saved" status instead of continuing
-// the countdown — the item has seen enough new activity to warrant keeping.
+// RescoreAndSave re-scores pending sunset holds through the engine using the
+// same weights and rules as Admit. If the current score is ≤ 50% of the
+// score at admit, the hold becomes "saved". Cache miss (no library) skips
+// the cycle. A hold whose identity is not in the scored set is skipped.
 // Called by the daily cron when SunsetRescoreEnabled is true.
-//
-// The prefs and weights parameters are passed by the caller (cron job) to avoid
-// interface mismatch — SunsetDeps.Settings is a SettingsReader which may not
-// have GetWeightMap on all implementations. The weights parameter is reserved
-// for future full engine re-scoring integration.
 func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, weights map[string]int) (int, error) {
-	// weights will be used for full engine re-scoring in a future iteration.
-	_ = weights
-
-	// Get pending items (not yet expired, not already saved)
 	var items []db.SunsetQueueItem
 	if err := s.db.Where("status = ? AND expired_at IS NULL", db.SunsetStatusPending).Find(&items).Error; err != nil {
 		return 0, fmt.Errorf("list pending sunset items for rescore: %w", err)
@@ -276,26 +291,32 @@ func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, 
 		return 0, nil
 	}
 
-	// Look up the current preview cache to obtain fresh scores.
-	// If the preview cache is unavailable (nil PreviewDataSource or empty
-	// cache), we skip re-scoring for this cycle rather than producing
-	// incorrect results.
-	currentScores := s.buildScoreLookup(deps)
+	library := s.previewLibrary(deps)
+	if len(library) == 0 {
+		slog.Info("Sunset rescore skipped — preview library cache is empty",
+			"component", "services")
+		return 0, nil
+	}
+
+	evalCtx := deps.EvalCtx
+	if evalCtx == nil {
+		evalCtx = engine.NewEvaluationContext(nil, nil)
+	}
+	result := engine.NewEvaluator().Evaluate(library, weights, deps.Rules, prefs.TiebreakerMethod, evalCtx)
+
+	currentScores := make(map[string]float64, len(result.Items))
+	for _, ev := range result.Items {
+		currentScores[db.ItemKey(ev.Item.IntegrationID, ev.Item.ExternalID)] = ev.Score
+	}
 
 	saved := 0
 	for _, item := range items {
-		// Look up the item's current score from the preview cache. If the
-		// item is no longer in the cache (e.g., already removed from the
-		// *arr integration), keep the original score unchanged.
-		key := item.MediaName + "|" + item.MediaType
-		newScore, found := currentScores[key]
+		newScore, found := currentScores[db.ItemKey(item.IntegrationID, item.ExternalID)]
 		if !found {
-			continue // Item not in current preview — skip this cycle
+			continue
 		}
 
-		// If the current score dropped below 50% of the original score at
-		// queue time, the item has seen enough new activity to warrant saving.
-		if newScore < item.Score*0.5 {
+		if newScore <= item.Score*0.5 {
 			now := time.Now().UTC()
 			reason := fmt.Sprintf("Score dropped from %.1f to %.1f due to recent activity", item.Score, newScore)
 
@@ -306,13 +327,11 @@ func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, 
 				"saved_reason": reason,
 			})
 
-			// Replace sunset label with saved label
 			if item.LabelApplied && deps.Registry != nil {
 				s.removeLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping)
 				s.applyLabel(item, prefs.SavedLabel, deps.Registry, deps.Mapping)
 			}
 
-			// Replace countdown overlay with the green "Saved" badge
 			if item.PosterOverlayActive && deps.PosterOverlay != nil && deps.Registry != nil {
 				if overlayErr := deps.PosterOverlay.UpdateSavedOverlay(item, PosterDeps{
 					Registry: deps.Registry, Mapping: deps.Mapping,
@@ -340,13 +359,11 @@ func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, 
 	return saved, nil
 }
 
-// buildScoreLookup returns a map of "MediaName|MediaType" → current score
-// from the preview cache. Returns an empty map if no preview data is available.
-func (s *SunsetService) buildScoreLookup(deps SunsetDeps) map[string]float64 {
+func (s *SunsetService) previewLibrary(deps SunsetDeps) []integrations.MediaItem {
 	if deps.Preview == nil {
-		return map[string]float64{}
+		return nil
 	}
-	return deps.Preview.GetCachedScoreMap()
+	return deps.Preview.GetCachedItems()
 }
 
 // CleanupSaved removes saved items whose saved marker duration has expired.
@@ -404,8 +421,8 @@ func (s *SunsetService) CleanupSaved(deps SunsetDeps) (int, error) {
 
 // Escalate force-expires sunset items for a disk group during threshold breach.
 // Processes expired first, then oldest-in-queue, freeing only enough to reach
-// targetBytes. Returns bytes freed.
-func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps SunsetDeps) (int64, error) {
+// targetBytes. Returns bytes freed and the number of items handed to the executor.
+func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps SunsetDeps) (int64, int, error) {
 	var freedBytes int64
 	itemsExpired := 0
 
@@ -429,6 +446,9 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 		if freedBytes >= targetBytes {
 			break
 		}
+		if deps.SnoozedKeys[db.MediaKey(item.MediaName, item.MediaType)] {
+			continue
+		}
 		if s.processExpiredItem(item, prefs, deps) {
 			freedBytes += item.SizeBytes
 			itemsExpired++
@@ -437,7 +457,7 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 
 	if freedBytes >= targetBytes {
 		s.publishEscalationEvent(diskGroupID, itemsExpired, freedBytes)
-		return freedBytes, nil
+		return freedBytes, itemsExpired, nil
 	}
 
 	// Step 2: Delete highest-score items that haven't expired yet.
@@ -452,6 +472,9 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 		if freedBytes >= targetBytes {
 			break
 		}
+		if deps.SnoozedKeys[db.MediaKey(item.MediaName, item.MediaType)] {
+			continue
+		}
 		if s.processExpiredItem(item, prefs, deps) {
 			freedBytes += item.SizeBytes
 			itemsExpired++
@@ -459,7 +482,7 @@ func (s *SunsetService) Escalate(diskGroupID uint, targetBytes int64, deps Sunse
 	}
 
 	s.publishEscalationEvent(diskGroupID, itemsExpired, freedBytes)
-	return freedBytes, nil
+	return freedBytes, itemsExpired, nil
 }
 
 // CancelAll cancels all sunset items (emergency button). Returns count removed.
@@ -497,8 +520,9 @@ func (s *SunsetService) CancelAll(deps SunsetDeps) (int, error) {
 }
 
 // CancelAllForDiskGroup cancels all sunset items for a specific disk group.
-// Production code uses CancelAll (all groups); this per-group variant exists
-// for test convenience.
+// Production Exit (leaving sunset) calls this via SunsetGroupExiter so labels
+// and posters are restored and rows are deleted. Restore failures are logged;
+// rows are still deleted.
 func (s *SunsetService) CancelAllForDiskGroup(diskGroupID uint, deps SunsetDeps) (int, error) {
 	items, err := s.ListForDiskGroup(diskGroupID)
 	if err != nil {
@@ -532,14 +556,14 @@ func (s *SunsetService) CancelAllForDiskGroup(diskGroupID uint, deps SunsetDeps)
 	return int(result.RowsAffected), nil
 }
 
-// RemoveCompleted hard-deletes a sunset queue item after the file has been
-// successfully deleted by DeletionService. No label removal or poster restore
-// is needed — processExpiredItem already handled those before handoff.
+// RemoveCompleted hard-deletes a sunset queue item after a live delete.
+// Comms stay on the hold until this point so a simulated delete can unclaim
+// without stripping labels/posters.
 func (s *SunsetService) RemoveCompleted(id uint) error {
 	return s.db.Delete(&db.SunsetQueueItem{}, id).Error
 }
 
-// IsSunsetted checks if a media item is already in the sunset queue.
+// IsSunsetted reports whether a title+type is already held. Prefer IsHeld.
 func (s *SunsetService) IsSunsetted(mediaName, mediaType string, diskGroupID uint) bool {
 	var count int64
 	s.db.Model(&db.SunsetQueueItem{}).
@@ -548,11 +572,35 @@ func (s *SunsetService) IsSunsetted(mediaName, mediaType string, diskGroupID uin
 	return count > 0
 }
 
-// ListSunsettedKeys returns db.MediaKey keys for O(1) lookups.
-// Same pattern as ApprovalService.ListSnoozedKeys().
+// IsHeld reports whether the identity is already in this group's sunset queue.
+func (s *SunsetService) IsHeld(diskGroupID, integrationID uint, externalID string) bool {
+	var count int64
+	s.db.Model(&db.SunsetQueueItem{}).
+		Where("disk_group_id = ? AND integration_id = ? AND external_id = ?", diskGroupID, integrationID, externalID).
+		Count(&count)
+	return count > 0
+}
+
+// QueueUserHold inserts a user-initiated sunset hold. No-op if the identity
+// is already held. Returns created=true when a new row was written.
+func (s *SunsetService) QueueUserHold(item db.SunsetQueueItem) (bool, error) {
+	if item.DiskGroupID == 0 {
+		return false, fmt.Errorf("sunset hold requires a disk group")
+	}
+	if s.IsHeld(item.DiskGroupID, item.IntegrationID, item.ExternalID) {
+		return false, nil
+	}
+	item.Trigger = db.TriggerUser
+	if err := s.QueueSunset(item, SunsetDeps{}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// ListSunsettedKeys returns db.ItemKey keys for O(1) lookups.
 func (s *SunsetService) ListSunsettedKeys(diskGroupID uint) (map[string]bool, error) {
 	var items []db.SunsetQueueItem
-	err := s.db.Select("media_name, media_type").
+	err := s.db.Select("integration_id, external_id").
 		Where("disk_group_id = ?", diskGroupID).Find(&items).Error
 	if err != nil {
 		return nil, err
@@ -560,7 +608,7 @@ func (s *SunsetService) ListSunsettedKeys(diskGroupID uint) (map[string]bool, er
 
 	keys := make(map[string]bool, len(items))
 	for _, item := range items {
-		keys[db.MediaKey(item.MediaName, item.MediaType)] = true
+		keys[db.ItemKey(item.IntegrationID, item.ExternalID)] = true
 	}
 	return keys, nil
 }
@@ -706,17 +754,19 @@ func (s *SunsetService) removeLabel(item db.SunsetQueueItem, label string, regis
 	}
 }
 
-// processExpiredItem handles a single expired/escalated item: restores poster,
-// removes label, claims expired_at, then queues for deletion. The item is NOT
-// deleted from sunset_queue — it remains visible in the dashboard until the
-// user removes it via Cancel or Clear All. The ExpiredAt timestamp prevents
-// re-processing on subsequent engine cycles and cron runs.
+// processExpiredItem handles a single expired/escalated item: claims expired_at,
+// then queues for deletion. Comms (labels/posters) stay until a live delete
+// succeeds. Simulate / kill switch unclaims via SunsetQueueCleaner so the hold
+// is not consumed (spec §6.3). The row stays until RemoveCompleted after a
+// live delete.
 //
 // expired_at is claimed with a compare-and-swap (WHERE expired_at IS NULL)
 // so concurrent ProcessExpired and Escalate cannot both hand off the same item.
 // If deletion handoff fails after the claim, expired_at is cleared so the
 // next cycle retries.
 func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.PreferenceSet, deps SunsetDeps) bool {
+	_ = prefs // reserved: comms compensate after live delete, not here
+
 	// Skip if already expired or saved
 	if item.ExpiredAt != nil || item.Status == db.SunsetStatusSaved {
 		return false
@@ -732,25 +782,13 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 		return false
 	}
 
-	// Restore poster overlay before deletion
-	if item.PosterOverlayActive && deps.PosterOverlay != nil && deps.Registry != nil {
-		if err := deps.PosterOverlay.RestoreOriginal(item, PosterDeps{Registry: deps.Registry, Mapping: deps.Mapping}); err != nil {
-			slog.Error("Failed to restore poster before expiry/escalation",
-				"component", "services", "mediaName", item.MediaName, "error", err)
-		}
-	}
-
-	// Remove label
-	if item.LabelApplied && deps.Registry != nil && prefs.SunsetLabel != "" {
-		s.removeLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping)
-	}
-
 	// Hand off to DeletionService intake layer — it handles client resolution,
-	// config lookup, and factor parsing internally.
+	// config lookup, and factor parsing internally. Do not strip labels/posters
+	// here: a simulated delete must keep household comms (spec §6.3 / §15.5).
 	if deps.Deletion == nil {
 		slog.Warn("Skipping sunset item expiry — deletion service unavailable (will retry)",
 			"component", "services", "mediaName", item.MediaName)
-		if unclaimErr := s.unclaimExpired(item.ID); unclaimErr != nil {
+		if unclaimErr := s.UnclaimExpired(item.ID); unclaimErr != nil {
 			slog.Error("Failed to clear sunset expired_at after skipped handoff",
 				"component", "services", "mediaName", item.MediaName, "error", unclaimErr)
 		}
@@ -763,7 +801,7 @@ func (s *SunsetService) processExpiredItem(item db.SunsetQueueItem, prefs db.Pre
 		s.bus.Publish(events.EngineErrorEvent{
 			Error: fmt.Sprintf("sunset expiry queue failed for %q: %v", item.MediaName, queueErr),
 		})
-		if unclaimErr := s.unclaimExpired(item.ID); unclaimErr != nil {
+		if unclaimErr := s.UnclaimExpired(item.ID); unclaimErr != nil {
 			slog.Error("Failed to clear sunset expired_at after queue failure",
 				"component", "services", "mediaName", item.MediaName, "error", unclaimErr)
 		}
@@ -786,18 +824,25 @@ func (s *SunsetService) claimExpired(id uint) (bool, error) {
 	now := time.Now().UTC()
 	result := s.db.Model(&db.SunsetQueueItem{}).
 		Where("id = ? AND expired_at IS NULL", id).
-		Update("expired_at", now)
+		Updates(map[string]any{
+			"expired_at": now,
+			"status":     db.SunsetStatusExpired,
+		})
 	if result.Error != nil {
 		return false, result.Error
 	}
 	return result.RowsAffected == 1, nil
 }
 
-// unclaimExpired clears expired_at so a failed handoff can be retried.
-func (s *SunsetService) unclaimExpired(id uint) error {
+// UnclaimExpired clears expired_at so a failed or simulated handoff can be
+// retried. Satisfies deletion.SunsetQueueCleaner.
+func (s *SunsetService) UnclaimExpired(id uint) error {
 	return s.db.Model(&db.SunsetQueueItem{}).
 		Where("id = ?", id).
-		Update("expired_at", gorm.Expr("NULL")).Error
+		Updates(map[string]any{
+			"expired_at": gorm.Expr("NULL"),
+			"status":     db.SunsetStatusPending,
+		}).Error
 }
 
 // ValidateSunsetConfig validates sunset-mode configuration on a disk group.

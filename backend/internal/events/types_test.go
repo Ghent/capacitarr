@@ -87,6 +87,17 @@ func TestEventTypeAndMessage(t *testing.T) {
 			wantTyp: "approval_returned_to_pending",
 			wantMsg: "Returned to pending after dry-delete: Firefly",
 		},
+		{
+			name: "disk group mode changed",
+			event: DiskGroupModeChangedEvent{
+				DiskGroupID: 1,
+				MountPath:   "/data",
+				OldMode:     "approval",
+				NewMode:     "auto",
+			},
+			wantTyp: "mode_changed",
+			wantMsg: "Mode changed for /data: approval → auto",
+		},
 	}
 
 	for _, tt := range tests {

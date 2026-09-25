@@ -668,10 +668,15 @@ func (s *ApprovalService) ReconcileQueue(diskGroupID uint, neededKeys map[string
 		return 0, err
 	}
 
-	// Collect IDs of stale items (not in the current scoring result) for batch deletion.
+	// Collect IDs of stale engine items (not in this cycle's admitted set).
+	// user_initiated is already excluded by ListPendingForDiskGroup; skip
+	// again here so a later query change cannot dismiss a user hold (spec §4.1).
 	var staleIDs []uint
 	for _, item := range pending {
-		key := db.MediaKey(item.MediaName, item.MediaType)
+		if item.UserInitiated {
+			continue
+		}
+		key := db.ItemKey(item.IntegrationID, item.ExternalID)
 		if !neededKeys[key] {
 			staleIDs = append(staleIDs, item.ID)
 		}
@@ -695,6 +700,41 @@ func (s *ApprovalService) ReconcileQueue(diskGroupID uint, neededKeys map[string
 		"component", "services", "diskGroupID", diskGroupID, "dismissed", dismissed)
 
 	return dismissed, nil
+}
+
+// Exit dismisses engine-queued approval holds for one disk group when leaving
+// approval mode (spec §7.1). Approved rows return to pending first so they are
+// not stuck after the deletion-queue clear, then engine-queued pending/rejected
+// are deleted. user_initiated and active snoozes are kept.
+func (s *ApprovalService) Exit(diskGroupID uint) (int, error) {
+	now := time.Now().UTC()
+	if err := s.db.Model(&db.ApprovalQueueItem{}).
+		Where("disk_group_id = ? AND status = ?", diskGroupID, db.StatusApproved).
+		Updates(map[string]any{
+			"status":     db.StatusPending,
+			"updated_at": now,
+		}).Error; err != nil {
+		return 0, fmt.Errorf("return approved to pending for disk group %d: %w", diskGroupID, err)
+	}
+
+	result := s.db.Where(
+		"disk_group_id = ? AND user_initiated = ? AND status IN ? AND (snoozed_until IS NULL OR snoozed_until <= ?)",
+		diskGroupID,
+		false,
+		[]string{string(db.StatusPending), string(db.StatusRejected)},
+		now,
+	).Delete(&db.ApprovalQueueItem{})
+	if result.Error != nil {
+		return 0, fmt.Errorf("exit approval for disk group %d: %w", diskGroupID, result.Error)
+	}
+
+	count := int(result.RowsAffected)
+	if count > 0 {
+		s.bus.Publish(events.ApprovalQueueClearedEvent{Count: count})
+		slog.Info("Approval engine queue dismissed on mode exit",
+			"component", "services", "diskGroupID", diskGroupID, "dismissed", count)
+	}
+	return count, nil
 }
 
 // RecoverOrphans finds approved items that have no corresponding active deletion

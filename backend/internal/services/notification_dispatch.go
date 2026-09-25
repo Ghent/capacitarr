@@ -201,6 +201,13 @@ func (s *NotificationDispatchService) handle(event events.Event) {
 			Message: "",
 		}, "server_started")
 
+	case events.DiskGroupModeChangedEvent:
+		s.dispatchAlert(notifications.Alert{
+			Type:    notifications.AlertModeChanged,
+			Title:   "⚙️ Mode Changed",
+			Message: fmt.Sprintf("`%s`: **%s** → **%s**", e.MountPath, e.OldMode, e.NewMode),
+		}, "mode_changed")
+
 	case events.ThresholdBreachedEvent:
 		bar := notifications.ProgressBar(e.CurrentPct, 20)
 		s.dispatchAlert(notifications.Alert{

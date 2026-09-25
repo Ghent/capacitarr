@@ -5,7 +5,7 @@
  * tooltip i18n keys for the four disk-group operating modes:
  *   - auto      → red    (destructive, deletes automatically)
  *   - approval  → neutral (waits for human approval)
- *   - sunset    → amber  (winds down, reduces target percentage)
+ *   - sunset    → amber  (countdown hold + escalate at critical)
  *   - dry-run   → muted  (passive, no actions taken)
  *
  * Used by `DiskGroupSection.vue` (badge on dashboard cards) and

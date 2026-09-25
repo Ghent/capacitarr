@@ -70,6 +70,7 @@ type DeletionService struct {
 	diskGroupsFull   DiskGroupResolver
 	clients          ClientResolver
 	sunsetCleaner    SunsetQueueCleaner
+	sunsetHolds      SunsetHoldCreator
 	rateLimiter      *rate.Limiter
 	testGraceDelay   *time.Duration // tests only; overrides preference-based grace
 	done             chan struct{}
@@ -181,11 +182,19 @@ type ClientResolver interface {
 	GetIntegrationConfig(integrationID uint) (*db.IntegrationConfig, error)
 }
 
-// SunsetQueueCleaner allows the DeletionService to remove sunset queue items
-// after a file has been successfully deleted. This closes the sunset lifecycle:
-// item enters queue → countdown expires → DeletionService deletes file → row removed.
+// SunsetQueueCleaner allows the DeletionService to close the sunset lifecycle.
+// RemoveCompleted is the live-delete path. UnclaimExpired is the simulate /
+// kill-switch path: never consume a hold as a side effect of simulating.
 type SunsetQueueCleaner interface {
 	RemoveCompleted(id uint) error
+	UnclaimExpired(id uint) error
+}
+
+// SunsetHoldCreator creates a user-initiated sunset hold. No-op if the
+// identity is already held. Optional on DeletionDeps — QueueManual skips
+// sunset routing when nil.
+type SunsetHoldCreator interface {
+	QueueUserHold(item db.SunsetQueueItem) (created bool, err error)
 }
 
 // deletionAuditor is the audit-log surface used by live and dry-run deletes.
@@ -216,6 +225,7 @@ type DeletionDeps struct {
 	DiskGroups    DiskGroupResolver
 	Clients       ClientResolver
 	SunsetCleaner SunsetQueueCleaner
+	SunsetHolds   SunsetHoldCreator
 }
 
 // ---------------------------------------------------------------------------
@@ -271,6 +281,7 @@ func (s *DeletionService) SetDependencies(deps DeletionDeps) {
 	s.diskGroupsFull = deps.DiskGroups
 	s.clients = deps.Clients
 	s.sunsetCleaner = deps.SunsetCleaner
+	s.sunsetHolds = deps.SunsetHolds
 }
 
 // Start begins the background deletion worker. Panics if SetDependencies()

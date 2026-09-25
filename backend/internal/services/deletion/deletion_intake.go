@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/engine"
@@ -26,7 +27,8 @@ type EngineDeleteRequest struct {
 	CollectionGroup    string
 	AddImportExclusion bool
 	UpsertAudit        bool
-	ForceDryRun        bool // When true, item is from a dry-run disk group (Client may be nil)
+	ForceDryRun        bool   // When true, item is from a dry-run disk group (Client may be nil)
+	EnqueuedMode       string // When set, overrides the auto/dry-run default (sunset escalate step 3)
 }
 
 // ---------------------------------------------------------------------------
@@ -42,6 +44,9 @@ func (s *DeletionService) QueueFromEngine(req EngineDeleteRequest) error {
 	mode := db.ModeAuto
 	if req.ForceDryRun {
 		mode = db.ModeDryRun
+	}
+	if req.EnqueuedMode != "" {
+		mode = req.EnqueuedMode
 	}
 
 	diskGroupID := req.DiskGroupID
@@ -159,12 +164,14 @@ func (s *DeletionService) QueueFromSunset(item *db.SunsetQueueItem) error {
 		}
 	}
 
-	// 4. Construct MediaItem from sunset data
+	// 4. Construct MediaItem from sunset data. IntegrationID must match
+	// QueueFromApproval so the executor can attribute the job (spec §5).
 	mediaItem := integrations.MediaItem{
-		Title:      item.MediaName,
-		Type:       integrations.MediaType(item.MediaType),
-		SizeBytes:  item.SizeBytes,
-		ExternalID: item.ExternalID,
+		Title:         item.MediaName,
+		Type:          integrations.MediaType(item.MediaType),
+		SizeBytes:     item.SizeBytes,
+		ExternalID:    item.ExternalID,
+		IntegrationID: item.IntegrationID,
 	}
 
 	// 5. Enqueue
@@ -234,6 +241,36 @@ func (s *DeletionService) QueueManual(items []approval.ManualDeleteRequest, appr
 						"component", "services", "media", item.MediaName, "error", upsertErr)
 					continue
 				}
+			}
+			approvalCount++
+			continue
+		}
+
+		// 2b. Sunset: user-initiated hold, not a live delete (spec §6.2).
+		if resolvedMode == db.ModeSunset {
+			if s.sunsetHolds == nil || diskGroupID == nil {
+				slog.Error("Failed to queue manual sunset hold — missing hold creator or disk group",
+					"component", "services", "media", item.MediaName)
+				continue
+			}
+			deletionDate := time.Now().UTC().AddDate(0, 0, prefs.SunsetDays)
+			_, holdErr := s.sunsetHolds.QueueUserHold(db.SunsetQueueItem{
+				MediaName:     item.MediaName,
+				MediaType:     item.MediaType,
+				IntegrationID: item.IntegrationID,
+				ExternalID:    item.ExternalID,
+				SizeBytes:     item.SizeBytes,
+				Score:         item.Score,
+				ScoreDetails:  item.ScoreDetails,
+				PosterURL:     item.PosterURL,
+				DiskGroupID:   *diskGroupID,
+				Trigger:       db.TriggerUser,
+				DeletionDate:  deletionDate,
+			})
+			if holdErr != nil {
+				slog.Error("Failed to queue manual sunset hold",
+					"component", "services", "media", item.MediaName, "error", holdErr)
+				continue
 			}
 			approvalCount++
 			continue
