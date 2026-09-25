@@ -204,9 +204,9 @@ func (stubDeleter) DeleteMediaItem(integrations.MediaItem, integrations.DeleteOp
 	return nil
 }
 
-func registryWithDeleter(id uint) *integrations.IntegrationRegistry {
+func registryWithDeleter() *integrations.IntegrationRegistry {
 	reg := integrations.NewIntegrationRegistry()
-	reg.Register(id, stubDeleter{})
+	reg.Register(1, stubDeleter{})
 	return reg
 }
 
@@ -507,7 +507,7 @@ func TestEvaluateDiskGroup_SunsetEscalateStep3_LiveAdmitsUnheld(t *testing.T) {
 		sizedMovie("ExtraB", "extra-b", 8),
 	}
 	queued := o.EvaluateDiskGroup(
-		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(), 1,
 		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
 		map[string]int{"file_size": 10}, nil,
 		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
@@ -571,7 +571,7 @@ func TestEvaluateDiskGroup_SunsetEscalateStep3_SkipsHeldAndSnoozed(t *testing.T)
 		sizedMovie("ExtraA", "extra-a", 8),
 	}
 	o.EvaluateDiskGroup(
-		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(), 1,
 		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
 		map[string]int{"file_size": 10}, nil,
 		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
@@ -598,7 +598,7 @@ func TestEvaluateDiskGroup_SunsetEscalateStep3_SkipWhenHeldSetUnknown(t *testing
 		sizedMovie("ExtraA", "extra-a", 8),
 	}
 	queued := o.EvaluateDiskGroup(
-		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(), 1,
 		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
 		map[string]int{"file_size": 10}, nil,
 		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
@@ -640,7 +640,7 @@ func TestEvaluateDiskGroup_SunsetEscalateStep3_NoLiveWhenStepsMeetTarget(t *test
 		sizedMovie("ExtraA", "extra-a", 8),
 	}
 	queued := o.EvaluateDiskGroup(
-		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(), 1,
 		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
 		map[string]int{"file_size": 10}, nil,
 		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
@@ -704,7 +704,7 @@ func TestEvaluateDiskGroup_SunsetEscalateStep3_SameFilterExpand(t *testing.T) {
 		},
 	}
 	o.EvaluateDiskGroup(
-		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(), 1,
 		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
 		map[string]int{"file_size": 10}, nil,
 		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},

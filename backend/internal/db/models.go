@@ -221,25 +221,25 @@ func (ApprovalQueueItem) TableName() string {
 type SunsetQueueItem struct {
 	ID                  uint       `gorm:"primarykey" json:"id"`
 	MediaName           string     `gorm:"index;not null" json:"mediaName"`
-	MediaType           string     `gorm:"not null" json:"mediaType"`                            // movie, show, season, episode, artist, book
-	TmdbID              *int       `gorm:"index" json:"tmdbId,omitempty"`                        // TMDb ID for media server label/poster targeting; nil if not matched
-	IntegrationID       uint       `gorm:"uniqueIndex:idx_sunset_queue_identity;not null" json:"integrationId"`           // FK to IntegrationConfig
-	ExternalID          string     `gorm:"uniqueIndex:idx_sunset_queue_identity;not null;default:''" json:"externalId"`   // *arr external ID
-	SizeBytes           int64      `gorm:"not null;default:0" json:"sizeBytes"`                                          // File size in bytes
-	Score               float64    `gorm:"not null;default:0" json:"score"`                                              // Score at time of scheduling
-	ScoreDetails        string     `gorm:"type:text" json:"scoreDetails"`                                                // JSON-encoded score factors
-	PosterURL           string     `json:"posterUrl,omitempty"`                                                          // Original poster URL from *arr
-	DiskGroupID         uint       `gorm:"uniqueIndex:idx_sunset_queue_identity;index;not null" json:"diskGroupId"`      // FK to DiskGroup
-	CollectionGroup     string     `gorm:"not null;default:''" json:"collectionGroup,omitempty"` // Collection deletion group
-	Trigger             string     `gorm:"not null;default:'engine'" json:"trigger"`             // "engine", "user"
-	DeletionDate        time.Time  `gorm:"index;not null" json:"deletionDate"`                   // When to hand to DeletionService
-	LabelApplied        bool       `gorm:"not null;default:false" json:"labelApplied"`           // Whether sunset label has been applied to media server
-	PosterOverlayActive bool       `gorm:"not null;default:false" json:"posterOverlayActive"`    // Whether an overlay poster is currently uploaded
-	Status              string     `gorm:"not null;default:'pending'" json:"status"`             // "pending" (in countdown), "saved" (score dropped, saved by activity), "expired" (handed to DeletionService)
-	SavedAt             *time.Time `json:"savedAt,omitempty"`                                    // Non-nil when item was saved due to score drop; cleared on cleanup
-	SavedScore          float64    `gorm:"not null;default:0" json:"savedScore"`                 // Score at the time the item was saved (for display)
-	SavedReason         string     `gorm:"type:text" json:"savedReason,omitempty"`               // Human-readable explanation of why the item was saved
-	ExpiredAt           *time.Time `json:"expiredAt,omitempty"`                                  // Non-nil when countdown expired and item was handed to DeletionService; item remains in queue for visibility
+	MediaType           string     `gorm:"not null" json:"mediaType"`                                                   // movie, show, season, episode, artist, book
+	TmdbID              *int       `gorm:"index" json:"tmdbId,omitempty"`                                               // TMDb ID for media server label/poster targeting; nil if not matched
+	IntegrationID       uint       `gorm:"uniqueIndex:idx_sunset_queue_identity;not null" json:"integrationId"`         // FK to IntegrationConfig
+	ExternalID          string     `gorm:"uniqueIndex:idx_sunset_queue_identity;not null;default:''" json:"externalId"` // *arr external ID
+	SizeBytes           int64      `gorm:"not null;default:0" json:"sizeBytes"`                                         // File size in bytes
+	Score               float64    `gorm:"not null;default:0" json:"score"`                                             // Score at time of scheduling
+	ScoreDetails        string     `gorm:"type:text" json:"scoreDetails"`                                               // JSON-encoded score factors
+	PosterURL           string     `json:"posterUrl,omitempty"`                                                         // Original poster URL from *arr
+	DiskGroupID         uint       `gorm:"uniqueIndex:idx_sunset_queue_identity;index;not null" json:"diskGroupId"`     // FK to DiskGroup
+	CollectionGroup     string     `gorm:"not null;default:''" json:"collectionGroup,omitempty"`                        // Collection deletion group
+	Trigger             string     `gorm:"not null;default:'engine'" json:"trigger"`                                    // "engine", "user"
+	DeletionDate        time.Time  `gorm:"index;not null" json:"deletionDate"`                                          // When to hand to DeletionService
+	LabelApplied        bool       `gorm:"not null;default:false" json:"labelApplied"`                                  // Whether sunset label has been applied to media server
+	PosterOverlayActive bool       `gorm:"not null;default:false" json:"posterOverlayActive"`                           // Whether an overlay poster is currently uploaded
+	Status              string     `gorm:"not null;default:'pending'" json:"status"`                                    // "pending" (in countdown), "saved" (score dropped, saved by activity), "expired" (handed to DeletionService)
+	SavedAt             *time.Time `json:"savedAt,omitempty"`                                                           // Non-nil when item was saved due to score drop; cleared on cleanup
+	SavedScore          float64    `gorm:"not null;default:0" json:"savedScore"`                                        // Score at the time the item was saved (for display)
+	SavedReason         string     `gorm:"type:text" json:"savedReason,omitempty"`                                      // Human-readable explanation of why the item was saved
+	ExpiredAt           *time.Time `json:"expiredAt,omitempty"`                                                         // Non-nil when countdown expired and item was handed to DeletionService; item remains in queue for visibility
 	CreatedAt           time.Time  `json:"createdAt"`
 	UpdatedAt           time.Time  `json:"updatedAt"`
 }
