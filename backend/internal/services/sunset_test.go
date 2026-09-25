@@ -8,6 +8,8 @@ import (
 
 	"capacitarr/internal/db"
 	"capacitarr/internal/events"
+	"capacitarr/internal/integrations"
+	"capacitarr/internal/poster"
 
 	"gorm.io/gorm"
 )
@@ -695,5 +697,254 @@ func TestQueueUserHold_Idempotent(t *testing.T) {
 	}
 	if all[0].Trigger != db.TriggerUser {
 		t.Errorf("trigger = %q, want user", all[0].Trigger)
+	}
+}
+
+func TestBulkQueueSunset_AppliesPosterOnCreate(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	overlay, err := NewPosterOverlayService(database, bus, t.TempDir())
+	if err != nil {
+		t.Fatalf("NewPosterOverlayService: %v", err)
+	}
+
+	tmdbID := 13029
+	if err := database.Create(&db.MediaServerMapping{
+		TmdbID: tmdbID, IntegrationID: 1, NativeID: "plex-12345",
+		MediaType: "movie", Title: "Serenity",
+	}).Error; err != nil {
+		t.Fatalf("seed mapping: %v", err)
+	}
+	if err := overlay.cache.Store(poster.CacheKey(0, tmdbID, "canonical"), createTestPosterJPEG(300, 450)); err != nil {
+		t.Fatalf("seed poster cache: %v", err)
+	}
+
+	mockMgr := newMockPosterManager()
+	registry := integrations.NewIntegrationRegistry()
+	registry.Register(1, mockMgr)
+
+	created, err := svc.BulkQueueSunset([]db.SunsetQueueItem{{
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-1",
+		SizeBytes: 3000000000, Score: 0.70, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		TmdbID: &tmdbID, PosterURL: "https://example.com/poster.jpg",
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}}, SunsetDeps{
+		Settings:      NewSettingsService(database, bus),
+		Registry:      registry,
+		PosterOverlay: overlay,
+		Mapping:       NewMappingService(database, bus),
+	})
+	if err != nil {
+		t.Fatalf("BulkQueueSunset: %v", err)
+	}
+	if created != 1 {
+		t.Fatalf("created = %d, want 1", created)
+	}
+
+	var item db.SunsetQueueItem
+	if err := database.First(&item).Error; err != nil {
+		t.Fatalf("load hold: %v", err)
+	}
+	if !item.PosterOverlayActive {
+		t.Error("expected poster_overlay_active after hold create")
+	}
+	if _, ok := mockMgr.getUploaded("plex-12345"); !ok {
+		t.Error("expected poster overlay upload on hold create")
+	}
+}
+
+func TestQueueSunset_AppliesPosterOnCreate(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	overlay, err := NewPosterOverlayService(database, bus, t.TempDir())
+	if err != nil {
+		t.Fatalf("NewPosterOverlayService: %v", err)
+	}
+
+	tmdbID := 13029
+	if err := database.Create(&db.MediaServerMapping{
+		TmdbID: tmdbID, IntegrationID: 1, NativeID: "plex-serenity",
+		MediaType: "movie", Title: "Serenity",
+	}).Error; err != nil {
+		t.Fatalf("seed mapping: %v", err)
+	}
+	if err := overlay.cache.Store(poster.CacheKey(0, tmdbID, "canonical"), createTestPosterJPEG(300, 450)); err != nil {
+		t.Fatalf("seed poster cache: %v", err)
+	}
+
+	mockMgr := newMockPosterManager()
+	registry := integrations.NewIntegrationRegistry()
+	registry.Register(1, mockMgr)
+
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-q",
+		SizeBytes: 3000000000, Score: 0.70, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		TmdbID: &tmdbID, PosterURL: "https://example.com/poster.jpg",
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{
+		Settings:      NewSettingsService(database, bus),
+		Registry:      registry,
+		PosterOverlay: overlay,
+		Mapping:       NewMappingService(database, bus),
+	}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	var item db.SunsetQueueItem
+	if err := database.First(&item).Error; err != nil {
+		t.Fatalf("load hold: %v", err)
+	}
+	if !item.PosterOverlayActive {
+		t.Error("expected poster_overlay_active after QueueSunset")
+	}
+	if _, ok := mockMgr.getUploaded("plex-serenity"); !ok {
+		t.Error("expected poster overlay upload on QueueSunset")
+	}
+}
+
+type stubPreviewLibrary struct {
+	items []integrations.MediaItem
+}
+
+func (s stubPreviewLibrary) GetCachedItems() []integrations.MediaItem { return s.items }
+
+func TestRescoreAndSave_SkipsEmptyLibrary(t *testing.T) {
+	_, bus, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
+		SizeBytes: 10_000_000_000, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{Preview: stubPreviewLibrary{}}, db.PreferenceSet{}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 0 {
+		t.Errorf("saved = %d, want 0 on empty library", saved)
+	}
+	_ = bus
+}
+
+func TestRescoreAndSave_SavesWhenEngineScoreDrops(t *testing.T) {
+	database, bus, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-1",
+		SizeBytes: 50 * 1024 * 1024 * 1024, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Firefly", Type: integrations.MediaTypeShow,
+			IntegrationID: 1, ExternalID: "ext-1",
+			SizeBytes: 2 * 1024 * 1024 * 1024,
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 1 {
+		t.Fatalf("saved = %d, want 1", saved)
+	}
+
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusSaved {
+		t.Errorf("status = %q, want saved", item.Status)
+	}
+	_ = bus
+}
+
+func TestRescoreAndSave_KeepsWhenEngineScoreHolds(t *testing.T) {
+	database, _, svc := setupSunsetTest(t)
+	const size int64 = 40 * 1024 * 1024 * 1024
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Serenity", MediaType: "movie", IntegrationID: 1, ExternalID: "ext-2",
+		SizeBytes: size, Score: 0.8, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Serenity", Type: integrations.MediaTypeMovie,
+			IntegrationID: 1, ExternalID: "ext-2",
+			SizeBytes: size,
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 0 {
+		t.Errorf("saved = %d, want 0", saved)
+	}
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusPending {
+		t.Errorf("status = %q, want pending", item.Status)
+	}
+}
+
+func TestRescoreAndSave_SkipsUnknownIdentity(t *testing.T) {
+	database, _, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "held",
+		SizeBytes: 50 * 1024 * 1024 * 1024, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Firefly", Type: integrations.MediaTypeShow,
+			IntegrationID: 1, ExternalID: "other",
+			SizeBytes: 1 * 1024 * 1024 * 1024,
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 0 {
+		t.Errorf("saved = %d, want 0 when identity is missing from library", saved)
+	}
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusPending {
+		t.Errorf("status = %q, want pending", item.Status)
+	}
+}
+
+func TestRescoreAndSave_SavesAtHalfThreshold(t *testing.T) {
+	database, _, svc := setupSunsetTest(t)
+	if err := svc.QueueSunset(db.SunsetQueueItem{
+		MediaName: "Firefly", MediaType: "show", IntegrationID: 1, ExternalID: "ext-half",
+		SizeBytes: 50 * 1024 * 1024 * 1024, Score: 1.0, DiskGroupID: 1, Trigger: db.TriggerEngine,
+		DeletionDate: time.Now().UTC().AddDate(0, 0, 30),
+	}, SunsetDeps{}); err != nil {
+		t.Fatalf("QueueSunset: %v", err)
+	}
+
+	saved, err := svc.RescoreAndSave(SunsetDeps{
+		Preview: stubPreviewLibrary{items: []integrations.MediaItem{{
+			Title: "Firefly", Type: integrations.MediaTypeShow,
+			IntegrationID: 1, ExternalID: "ext-half",
+			SizeBytes: 25 * 1024 * 1024 * 1024, // file_size score 0.5
+		}}},
+	}, db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc}, map[string]int{"file_size": 10})
+	if err != nil {
+		t.Fatalf("RescoreAndSave: %v", err)
+	}
+	if saved != 1 {
+		t.Fatalf("saved = %d, want 1 at exactly 50%%", saved)
+	}
+	var item db.SunsetQueueItem
+	database.First(&item)
+	if item.Status != db.SunsetStatusSaved {
+		t.Errorf("status = %q, want saved", item.Status)
 	}
 }

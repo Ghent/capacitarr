@@ -162,8 +162,8 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 	groupAcc.DiskThreshold = group.ThresholdPct
 	groupAcc.DiskTargetPct = group.TargetPct
 
-	evaluateAt, budgetFromPct, thresholdsOK := presetThresholds(group)
-	if !thresholdsOK {
+	policy := PolicyFor(group)
+	if !policy.OK {
 		slog.Warn("Sunset mode skipped — sunset threshold not configured",
 			"component", "poller", "mount", group.MountPath, "diskGroupID", group.ID)
 		o.bus.Publish(events.SunsetMisconfiguredEvent{
@@ -173,10 +173,10 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 		return 0
 	}
 
-	if currentPct < evaluateAt {
+	if !policy.ShouldEvaluate(currentPct) {
 		slog.Debug("Disk within evaluateAt, no action needed", "component", "poller",
 			"mount", group.MountPath, "usedPct", fmt.Sprintf("%.1f", currentPct),
-			"evaluateAt", evaluateAt, "mode", group.Mode)
+			"evaluateAt", policy.EvaluateAt, "mode", group.Mode)
 
 		// Below evaluateAt: approval clears engine-queued holds. Sunset
 		// keeps existing holds (household promise). Dry-run / auto no-op.
@@ -195,7 +195,7 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 
 	slog.Info("Disk evaluateAt breached, evaluating media", "component", "poller",
 		"mount", group.MountPath, "currentPct", fmt.Sprintf("%.1f", currentPct),
-		"evaluateAt", evaluateAt, "mode", group.Mode)
+		"evaluateAt", policy.EvaluateAt, "mode", group.Mode)
 
 	if group.Mode != db.ModeSunset {
 		o.bus.Publish(events.ThresholdBreachedEvent{
@@ -248,7 +248,7 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 
 	// Score and select candidates within the byte budget (action budget
 	// for dry-run/approval/auto, hold budget for sunset).
-	candidates, targetBytesToFree := o.scoreCandidates(ectx, currentPct, effectiveTotal, budgetFromPct)
+	candidates, targetBytesToFree := o.scoreCandidates(ectx, currentPct, effectiveTotal, policy.BudgetFromPct())
 
 	var deletionsQueued int
 	if targetBytesToFree > 0 {
@@ -259,14 +259,14 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 	// Duration-hold escalate: after Admit, free down to target (not
 	// evaluateAt). Steps 1–2 release holds; step 3 live-admits unheld
 	// candidates from the same score → filter → expand set.
-	if group.Mode == db.ModeSunset && currentPct >= group.ThresholdPct {
+	if policy.ShouldEscalate(currentPct) {
 		slog.Warn("Sunset escalation triggered — disk exceeds critical",
 			"component", "poller", "mount", group.MountPath,
 			"currentPct", fmt.Sprintf("%.1f", currentPct),
-			"criticalPct", group.ThresholdPct,
-			"targetPct", group.TargetPct)
+			"criticalPct", policy.EscalateAt,
+			"targetPct", policy.Target)
 
-		targetBytes := int64((currentPct - group.TargetPct) / 100.0 * float64(effectiveTotal))
+		targetBytes := policy.ActionBudgetBytes(currentPct, effectiveTotal)
 		sunsetDeps := o.sunsetDepsFor(registry)
 		sunsetDeps.SnoozedKeys = ectx.snoozedKeys
 		freed, released, err := o.sunset.Escalate(group.ID, targetBytes, sunsetDeps)
@@ -285,18 +285,6 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 	}
 
 	return deletionsQueued
-}
-
-// presetThresholds returns the shared-machine evaluateAt and budget-from
-// percent for this group's mode. ok is false when sunset is missing sunsetPct.
-func presetThresholds(group db.DiskGroup) (evaluateAt, budgetFromPct float64, ok bool) {
-	if group.Mode == db.ModeSunset {
-		if group.SunsetPct == nil {
-			return 0, 0, false
-		}
-		return *group.SunsetPct, *group.SunsetPct, true
-	}
-	return group.ThresholdPct, group.TargetPct, true
 }
 
 // scoreCandidates filters items to the mount path, runs engine evaluation,

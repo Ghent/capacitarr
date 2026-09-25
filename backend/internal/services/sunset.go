@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"capacitarr/internal/db"
+	"capacitarr/internal/engine"
 	"capacitarr/internal/events"
 	"capacitarr/internal/integrations"
 
@@ -23,10 +24,10 @@ type SunsetService struct {
 	bus *events.EventBus
 }
 
-// PreviewScoreReader provides read access to cached preview scores for
-// sunset re-scoring. Satisfied by PreviewService.
-type PreviewScoreReader interface {
-	GetCachedScoreMap() map[string]float64
+// PreviewLibrary supplies the last fetched library for sunset rescore.
+// Satisfied by PreviewService. Empty/nil cache skips the cycle.
+type PreviewLibrary interface {
+	GetCachedItems() []integrations.MediaItem
 }
 
 // SunsetDeps holds service dependencies for label management and deletion handoff.
@@ -37,10 +38,12 @@ type SunsetDeps struct {
 	Deletion      *DeletionService
 	Engine        *EngineService
 	Settings      SettingsReader
-	Preview       PreviewScoreReader    // Optional: provides current scores for rescore comparisons
-	PosterOverlay *PosterOverlayService // Optional: if set, posters are restored on cancel/expire/escalate
+	Preview       PreviewLibrary        // Optional: last fetched library for engine rescore
+	PosterOverlay *PosterOverlayService // Optional: if set, posters are applied on create and restored on cancel
 	Mapping       *MappingService       // Persistent TMDb→NativeID mapping; replaces ephemeral BuildMappingMaps()
 	SnoozedKeys   map[string]bool       // MediaKey set; escalate skips these (spec §4.3 / §6.4)
+	Rules         []db.CustomRule       // Same enabled rules as Admit (slice I)
+	EvalCtx       *engine.EvaluationContext
 }
 
 // NewSunsetService creates a new sunset queue service.
@@ -49,19 +52,15 @@ func NewSunsetService(database *gorm.DB, bus *events.EventBus) *SunsetService {
 }
 
 // QueueSunset creates a new sunset_queue entry with a deletion_date.
-// Also applies the sunset label to the item in all enabled media servers.
+// Applies sunset label and poster overlay on create (spec §9.1).
 func (s *SunsetService) QueueSunset(item db.SunsetQueueItem, deps SunsetDeps) error {
 	if err := s.db.Create(&item).Error; err != nil {
 		return fmt.Errorf("create sunset queue item: %w", err)
 	}
 
-	// Apply label to media servers
-	if deps.Registry != nil && deps.Settings != nil {
-		if prefs, err := deps.Settings.GetPreferences(); err == nil && prefs.SunsetLabel != "" {
-			if s.applyLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping) {
-				item.LabelApplied = true
-				s.db.Model(&item).Update("label_applied", true)
-			}
+	if deps.Settings != nil {
+		if prefs, err := deps.Settings.GetPreferences(); err == nil {
+			s.applyCreateComms(item, prefs, deps)
 		}
 	}
 
@@ -78,7 +77,7 @@ func (s *SunsetService) QueueSunset(item db.SunsetQueueItem, deps SunsetDeps) er
 }
 
 // BulkQueueSunset creates multiple sunset entries in a transaction.
-// Applies labels to all items in enabled media servers.
+// Applies labels and poster overlays on create (spec §9.1).
 func (s *SunsetService) BulkQueueSunset(items []db.SunsetQueueItem, deps SunsetDeps) (int, error) {
 	if len(items) == 0 {
 		return 0, nil
@@ -107,14 +106,11 @@ func (s *SunsetService) BulkQueueSunset(items []db.SunsetQueueItem, deps SunsetD
 		return 0, err
 	}
 
-	// Apply labels outside the transaction (media server calls shouldn't block DB)
-	if deps.Registry != nil && prefs.SunsetLabel != "" {
-		for i := range items {
-			if s.applyLabel(items[i], prefs.SunsetLabel, deps.Registry, deps.Mapping) {
-				items[i].LabelApplied = true
-				s.db.Model(&items[i]).Update("label_applied", true)
-			}
-		}
+	// Apply labels and posters outside the transaction (media server
+	// calls shouldn't block DB). Apply-fail leaves the hold; flags stay
+	// false and daily cron retries.
+	for i := range items {
+		s.applyCreateComms(items[i], prefs, deps)
 	}
 
 	// Publish events
@@ -129,6 +125,33 @@ func (s *SunsetService) BulkQueueSunset(items []db.SunsetQueueItem, deps SunsetD
 	}
 
 	return created, nil
+}
+
+// applyCreateComms applies sunset label + poster overlay on hold create.
+// Failures are logged; the hold stays and flags remain retryable.
+func (s *SunsetService) applyCreateComms(item db.SunsetQueueItem, prefs db.PreferenceSet, deps SunsetDeps) {
+	if deps.Registry != nil && prefs.SunsetLabel != "" {
+		if s.applyLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping) {
+			s.db.Model(&item).Update("label_applied", true)
+		}
+	}
+	s.applyCreatePoster(item, prefs, deps)
+}
+
+func (s *SunsetService) applyCreatePoster(item db.SunsetQueueItem, prefs db.PreferenceSet, deps SunsetDeps) {
+	if deps.PosterOverlay == nil || deps.Registry == nil {
+		return
+	}
+	if prefs.PosterOverlayStyle == "" || prefs.PosterOverlayStyle == "off" {
+		return
+	}
+	if err := deps.PosterOverlay.UpdateOverlay(item, s.DaysRemaining(item), prefs.PosterOverlayStyle, PosterDeps{
+		Registry: deps.Registry,
+		Mapping:  deps.Mapping,
+	}); err != nil {
+		slog.Error("Failed to apply poster overlay on sunset hold create",
+			"component", "services", "mediaName", item.MediaName, "error", err)
+	}
 }
 
 // Cancel removes a sunset item. Removes the label from media servers.
@@ -254,21 +277,12 @@ func (s *SunsetService) ProcessExpired(deps SunsetDeps) (int, error) {
 	return processed, nil
 }
 
-// RescoreAndSave checks each pending sunset item against the current preview
-// cache scores. If an item's current score dropped below 50% of its original
-// score at queue time, it transitions to "saved" status instead of continuing
-// the countdown — the item has seen enough new activity to warrant keeping.
+// RescoreAndSave re-scores pending sunset holds through the engine using the
+// same weights and rules as Admit. If the current score is ≤ 50% of the
+// score at admit, the hold becomes "saved". Cache miss (no library) skips
+// the cycle. A hold whose identity is not in the scored set is skipped.
 // Called by the daily cron when SunsetRescoreEnabled is true.
-//
-// The prefs and weights parameters are passed by the caller (cron job) to avoid
-// interface mismatch — SunsetDeps.Settings is a SettingsReader which may not
-// have GetWeightMap on all implementations. The weights parameter is reserved
-// for future full engine re-scoring integration.
 func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, weights map[string]int) (int, error) {
-	// weights will be used for full engine re-scoring in a future iteration.
-	_ = weights
-
-	// Get pending items (not yet expired, not already saved)
 	var items []db.SunsetQueueItem
 	if err := s.db.Where("status = ? AND expired_at IS NULL", db.SunsetStatusPending).Find(&items).Error; err != nil {
 		return 0, fmt.Errorf("list pending sunset items for rescore: %w", err)
@@ -277,26 +291,32 @@ func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, 
 		return 0, nil
 	}
 
-	// Look up the current preview cache to obtain fresh scores.
-	// If the preview cache is unavailable (nil PreviewDataSource or empty
-	// cache), we skip re-scoring for this cycle rather than producing
-	// incorrect results.
-	currentScores := s.buildScoreLookup(deps)
+	library := s.previewLibrary(deps)
+	if len(library) == 0 {
+		slog.Info("Sunset rescore skipped — preview library cache is empty",
+			"component", "services")
+		return 0, nil
+	}
+
+	evalCtx := deps.EvalCtx
+	if evalCtx == nil {
+		evalCtx = engine.NewEvaluationContext(nil, nil)
+	}
+	result := engine.NewEvaluator().Evaluate(library, weights, deps.Rules, prefs.TiebreakerMethod, evalCtx)
+
+	currentScores := make(map[string]float64, len(result.Items))
+	for _, ev := range result.Items {
+		currentScores[db.ItemKey(ev.Item.IntegrationID, ev.Item.ExternalID)] = ev.Score
+	}
 
 	saved := 0
 	for _, item := range items {
-		// Look up the item's current score from the preview cache. If the
-		// item is no longer in the cache (e.g., already removed from the
-		// *arr integration), keep the original score unchanged.
-		key := item.MediaName + "|" + item.MediaType
-		newScore, found := currentScores[key]
+		newScore, found := currentScores[db.ItemKey(item.IntegrationID, item.ExternalID)]
 		if !found {
-			continue // Item not in current preview — skip this cycle
+			continue
 		}
 
-		// If the current score dropped below 50% of the original score at
-		// queue time, the item has seen enough new activity to warrant saving.
-		if newScore < item.Score*0.5 {
+		if newScore <= item.Score*0.5 {
 			now := time.Now().UTC()
 			reason := fmt.Sprintf("Score dropped from %.1f to %.1f due to recent activity", item.Score, newScore)
 
@@ -307,13 +327,11 @@ func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, 
 				"saved_reason": reason,
 			})
 
-			// Replace sunset label with saved label
 			if item.LabelApplied && deps.Registry != nil {
 				s.removeLabel(item, prefs.SunsetLabel, deps.Registry, deps.Mapping)
 				s.applyLabel(item, prefs.SavedLabel, deps.Registry, deps.Mapping)
 			}
 
-			// Replace countdown overlay with the green "Saved" badge
 			if item.PosterOverlayActive && deps.PosterOverlay != nil && deps.Registry != nil {
 				if overlayErr := deps.PosterOverlay.UpdateSavedOverlay(item, PosterDeps{
 					Registry: deps.Registry, Mapping: deps.Mapping,
@@ -341,13 +359,11 @@ func (s *SunsetService) RescoreAndSave(deps SunsetDeps, prefs db.PreferenceSet, 
 	return saved, nil
 }
 
-// buildScoreLookup returns a map of "MediaName|MediaType" → current score
-// from the preview cache. Returns an empty map if no preview data is available.
-func (s *SunsetService) buildScoreLookup(deps SunsetDeps) map[string]float64 {
+func (s *SunsetService) previewLibrary(deps SunsetDeps) []integrations.MediaItem {
 	if deps.Preview == nil {
-		return map[string]float64{}
+		return nil
 	}
-	return deps.Preview.GetCachedScoreMap()
+	return deps.Preview.GetCachedItems()
 }
 
 // CleanupSaved removes saved items whose saved marker duration has expired.
