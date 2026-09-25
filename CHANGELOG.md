@@ -1,3 +1,17 @@
+## [3.5.0-rc.1] - 2026-09-25
+
+### 🚀 Features
+
+- Bind four execution presets on one shared machine (#66) ([f39496e](https://github.com/Ghent/capacitarr/commit/f39496e3112ccc2fe09e10616615e686d82ba60f))
+
+### 🐛 Bug Fixes
+
+- Cancel sunset holds when leaving sunset mode ([2a2f09b](https://github.com/Ghent/capacitarr/commit/2a2f09b4078aaae44d57e6e262dc5f68a8114b4e))
+- Honest sunset executor (IntegrationID, unclaim, batch size) ([324f693](https://github.com/Ghent/capacitarr/commit/324f693c857fb8f07947d156bab2cb611f1a1f63))
+- Fold sunset into shared score-filter-expand pipeline ([b0a1d10](https://github.com/Ghent/capacitarr/commit/b0a1d1083cf8fc5204232562de5a2642378db3da))
+- Mode-change exits and sunset hold protocol ([970a97b](https://github.com/Ghent/capacitarr/commit/970a97be5827cfd908f7b4e6b284fd666675ad56))
+- Live-admit unheld candidates when sunset escalate cannot meet target ([c1014b6](https://github.com/Ghent/capacitarr/commit/c1014b6d8eb0a6b44f7842638b13782366e6947b))
+- Posters on create, engine rescore, and DiskGroupPolicy bindings ([4708f29](https://github.com/Ghent/capacitarr/commit/4708f29f0e3ed8622f554d516427c445c6453a79))
 ## [3.4.1-rc.2] - 2026-09-23
 
 ### 🚀 Features
