@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -29,6 +31,10 @@ type ScoringFactor interface {
 	DefaultWeight() int
 	// Calculate returns a raw score from 0.0 to 1.0 for the given item.
 	Calculate(item integrations.MediaItem) float64
+	// DescribeInput explains the library stat this factor used and how that
+	// became the raw score (for example "3 plays → 0.5 ÷ 3 = 0.17").
+	// The Score Detail modal prints this verbatim. English, frozen at eval time.
+	DescribeInput(item integrations.MediaItem) string
 }
 
 // ─── Optional capability interfaces ─────────────────────────────────────────
@@ -252,6 +258,21 @@ func (f *WatchHistoryFactor) Calculate(item integrations.MediaItem) float64 {
 	return 1.0
 }
 
+// DescribeInput reports play count and the 0.5/N conversion.
+func (f *WatchHistoryFactor) DescribeInput(item integrations.MediaItem) string {
+	raw := f.Calculate(item)
+	if item.PlayCount <= 0 {
+		return describeLookup("Never played", raw)
+	}
+	noun := "plays"
+	if item.PlayCount == 1 {
+		noun = "play"
+	}
+	input := fmt.Sprintf("%d %s", item.PlayCount, noun)
+	formula := fmt.Sprintf("0.5 ÷ %d", item.PlayCount)
+	return describeCalc(input, formula, raw, false)
+}
+
 // ─── RecencyFactor ──────────────────────────────────────────────────────────
 
 // RecencyFactor scores items by how recently they were watched.
@@ -296,6 +317,18 @@ func (f *RecencyFactor) Calculate(item integrations.MediaItem) float64 {
 	return 1.0
 }
 
+// DescribeInput reports the last-played date and days/365 conversion.
+func (f *RecencyFactor) DescribeInput(item integrations.MediaItem) string {
+	raw := f.Calculate(item)
+	if item.LastPlayed == nil || item.LastPlayed.IsZero() {
+		return describeLookup("Never played", raw)
+	}
+	days := daysSince(*item.LastPlayed)
+	input := formatDate(*item.LastPlayed)
+	formula := fmt.Sprintf("%d ÷ 365", days)
+	return describeCalc(input, formula, raw, days >= 365)
+}
+
 // ─── FileSizeFactor ─────────────────────────────────────────────────────────
 
 // FileSizeFactor scores items by file size. Bigger = higher deletion score.
@@ -326,6 +359,15 @@ func (f *FileSizeFactor) Calculate(item integrations.MediaItem) float64 {
 	return score
 }
 
+// DescribeInput reports size in GB and the /50 GB conversion.
+func (f *FileSizeFactor) DescribeInput(item integrations.MediaItem) string {
+	raw := f.Calculate(item)
+	gb := float64(item.SizeBytes) / (1024 * 1024 * 1024)
+	input := fmt.Sprintf("%.1f GB", gb)
+	formula := fmt.Sprintf("%.1f ÷ 50", gb)
+	return describeCalc(input, formula, raw, gb > 50)
+}
+
 // ─── RatingFactor ───────────────────────────────────────────────────────────
 
 // RatingFactor scores items by rating. Higher rating = lower deletion score.
@@ -354,6 +396,22 @@ func (f *RatingFactor) Calculate(item integrations.MediaItem) float64 {
 		return 1.0 - (item.Rating / 100.0)
 	}
 	return 0.5
+}
+
+// DescribeInput reports the rating and the inverted 0–1 conversion.
+func (f *RatingFactor) DescribeInput(item integrations.MediaItem) string {
+	raw := f.Calculate(item)
+	if item.Rating > 0 && item.Rating <= 10 {
+		input := fmt.Sprintf("%.1f/10", item.Rating)
+		formula := fmt.Sprintf("1 − %.2f", item.Rating/10.0)
+		return describeCalc(input, formula, raw, false)
+	}
+	if item.Rating > 10 && item.Rating <= 100 {
+		input := fmt.Sprintf("%.0f/100", item.Rating)
+		formula := fmt.Sprintf("1 − %.2f", item.Rating/100.0)
+		return describeCalc(input, formula, raw, false)
+	}
+	return describeLookup("No rating", raw)
 }
 
 // ─── LibraryAgeFactor ───────────────────────────────────────────────────────
@@ -387,6 +445,18 @@ func (f *LibraryAgeFactor) Calculate(item integrations.MediaItem) float64 {
 		return score
 	}
 	return 0.5
+}
+
+// DescribeInput reports the added date and the days/365 conversion.
+func (f *LibraryAgeFactor) DescribeInput(item integrations.MediaItem) string {
+	raw := f.Calculate(item)
+	if item.AddedAt == nil || item.AddedAt.IsZero() {
+		return describeLookup("Unknown added date", raw)
+	}
+	days := daysSince(*item.AddedAt)
+	input := formatDate(*item.AddedAt)
+	formula := fmt.Sprintf("%d ÷ 365", days)
+	return describeCalc(input, formula, raw, days >= 365)
 }
 
 // ─── SeriesStatusFactor ─────────────────────────────────────────────────────
@@ -426,6 +496,21 @@ func (f *SeriesStatusFactor) Calculate(item integrations.MediaItem) float64 {
 		return 0.2
 	}
 	return 0.5
+}
+
+// DescribeInput reports series status as a lookup table.
+func (f *SeriesStatusFactor) DescribeInput(item integrations.MediaItem) string {
+	raw := f.Calculate(item)
+	switch strings.ToLower(item.SeriesStatus) {
+	case "ended":
+		return describeLookup("Ended", raw)
+	case "continuing":
+		return describeLookup("Continuing", raw)
+	}
+	if strings.TrimSpace(item.SeriesStatus) != "" {
+		return describeLookup(item.SeriesStatus, raw)
+	}
+	return describeLookup("Unknown status", raw)
 }
 
 // ─── RequestPopularityFactor ────────────────────────────────────────────────
@@ -473,4 +558,49 @@ func (f *RequestPopularityFactor) Calculate(item integrations.MediaItem) float64
 		return 0.1 // Strongly protect unfulfilled requests
 	}
 	return 0.5
+}
+
+// DescribeInput reports request state as a lookup table.
+func (f *RequestPopularityFactor) DescribeInput(item integrations.MediaItem) string {
+	raw := f.Calculate(item)
+	if !item.IsRequested {
+		return describeLookup("Not requested", raw)
+	}
+	label := "Requested"
+	if item.RequestedBy != "" {
+		label = "Requested by " + item.RequestedBy
+	}
+	if item.WatchedByRequestor {
+		label += ", watched by requestor"
+	}
+	return describeLookup(label, raw)
+}
+
+// ─── Input label helpers ────────────────────────────────────────────────────
+
+func formatScore(v float64) string {
+	return fmt.Sprintf("%.2f", v)
+}
+
+func formatDate(t time.Time) string {
+	return t.UTC().Format("Jan 2, 2006")
+}
+
+func daysSince(t time.Time) int {
+	days := int(math.Floor(time.Since(t).Hours() / 24.0))
+	if days < 0 {
+		return 0
+	}
+	return days
+}
+
+func describeLookup(input string, raw float64) string {
+	return input + " → " + formatScore(raw)
+}
+
+func describeCalc(input, formula string, raw float64, capped bool) string {
+	if capped {
+		return input + " → " + formula + " → " + formatScore(raw)
+	}
+	return input + " → " + formula + " = " + formatScore(raw)
 }

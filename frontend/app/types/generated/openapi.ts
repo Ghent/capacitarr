@@ -2252,6 +2252,11 @@ export interface components {
              */
             type: "weight" | "rule";
             matchedValue?: string;
+            /**
+             * @description Library stat and conversion the factor used (weight factors only)
+             * @example 3 plays → 0.5 ÷ 3 = 0.17
+             */
+            inputLabel?: string;
             ruleId?: number;
             skipped?: boolean;
             skipReason?: string;

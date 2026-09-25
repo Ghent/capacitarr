@@ -63,22 +63,30 @@
               :key="f.name"
               v-motion
               v-bind="listItem(idx * 40)"
-              class="flex items-center justify-between text-sm"
             >
-              <span class="flex items-center gap-2">
-                <span
-                  class="w-2 h-2 rounded-full shrink-0"
-                  :style="{ backgroundColor: factorColor(f.key) }"
-                />
-                <span class="text-muted-foreground">{{ f.name }}</span>
-              </span>
-              <span class="font-mono tabular-nums text-foreground">
-                <span class="text-muted-foreground"
-                  >{{ f.rawScore.toFixed(2) }} × {{ f.weight }}</span
-                >
-                <span class="mx-1.5 text-muted-foreground/50">=</span>
-                <span class="font-semibold">{{ f.contribution.toFixed(3) }}</span>
-              </span>
+              <div class="flex items-center justify-between text-sm">
+                <span class="flex items-center gap-2">
+                  <span
+                    class="w-2 h-2 rounded-full shrink-0"
+                    :style="{ backgroundColor: factorColor(f.key) }"
+                  />
+                  <span class="text-muted-foreground">{{ f.name }}</span>
+                </span>
+                <span class="font-mono tabular-nums text-foreground">
+                  <span class="text-muted-foreground"
+                    >{{ f.rawScore.toFixed(2) }} × {{ f.weight }}</span
+                  >
+                  <span class="mx-1.5 text-muted-foreground/50">=</span>
+                  <span class="font-semibold">{{ f.contribution.toFixed(3) }}</span>
+                </span>
+              </div>
+              <p
+                v-if="f.inputLabel"
+                class="text-[11px] text-muted-foreground/70 ml-6 mt-0.5 font-mono tabular-nums truncate"
+                :title="f.inputLabel"
+              >
+                {{ f.inputLabel }}
+              </p>
             </div>
           </div>
           <!-- Skipped factors -->

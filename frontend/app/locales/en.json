@@ -493,7 +493,7 @@
   "help.factor.seriesStatus": "Series Status",
   "help.factor.seriesStatusDesc": "For TV shows: ended series score higher than continuing ones. Movies and other types use a neutral default.",
   "help.readingScoreDetail": "Reading a Score Detail",
-  "help.readingScoreDetail.intro": "Click any row in the Audit History to open its Score Detail modal. It breaks down exactly how the final score was calculated using three columns: Raw, Weight, and Contribution.",
+  "help.readingScoreDetail.intro": "Click any scored item to open its Score Detail. Each weighted factor shows the library stat the engine used and how that became the raw score (for example, 3 plays → 0.5 ÷ 3 = 0.17), then multiplies by your slider weight. A right-pointing arrow instead of equals means the engine hit a cap (for example Time in Library after one year).",
   "help.readingScoreDetail.rawTitle": "Raw Score (0.0 – 1.0)",
   "help.readingScoreDetail.rawDesc": "Represents how strongly this factor suggests the media should be cleaned up. 1.0 = maximum cleanup signal; 0.0 = minimum cleanup signal.",
   "help.rawScore.watchHistoryDesc": "1.0 if never watched, decays with more plays (e.g. 1 play → 0.5, 2 plays → 0.25)",
