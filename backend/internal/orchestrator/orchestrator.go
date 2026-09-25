@@ -132,8 +132,12 @@ type evaluationContext struct {
 	// stops sending more items for this disk group.
 	queueFull bool
 	// skipSunsetAdmit is set when ListSunsettedKeys fails. New holds are
-	// skipped; escalate still runs.
+	// skipped; escalate still runs. Step 3 also skips (held set unknown).
 	skipSunsetAdmit bool
+	// scoredCandidates is the full engine candidate list (not truncated
+	// to the hold/action budget). Sunset escalate step 3 walks this set
+	// so already-held prefix items cannot starve live extras.
+	scoredCandidates []engine.EvaluatedItem
 }
 
 // EvaluateDiskGroup scores all media items on a disk group and, when the
@@ -252,8 +256,9 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 		deletionsQueued = o.dispatchFiltered(ectx, filtered, skipStats, targetBytesToFree)
 	}
 
-	// Duration-hold escalate: after Admit, break holds when used >=
-	// escalateAt (thresholdPct). Step 3 is slice G — do not add it here.
+	// Duration-hold escalate: after Admit, free down to target (not
+	// evaluateAt). Steps 1–2 release holds; step 3 live-admits unheld
+	// candidates from the same score → filter → expand set.
 	if group.Mode == db.ModeSunset && currentPct >= group.ThresholdPct {
 		slog.Warn("Sunset escalation triggered — disk exceeds critical",
 			"component", "poller", "mount", group.MountPath,
@@ -270,7 +275,13 @@ func (o *Orchestrator) EvaluateDiskGroup(acc *RunAccumulator, group db.DiskGroup
 				"mount", group.MountPath, "error", err)
 		}
 		groupAcc.FreedBytes += freed
-		return deletionsQueued + released
+
+		remaining := targetBytes - freed
+		var liveQueued int
+		if remaining > 0 && !ectx.skipSunsetAdmit {
+			liveQueued = o.dispatchSunsetEscalateLive(ectx, remaining)
+		}
+		return deletionsQueued + released + liveQueued
 	}
 
 	return deletionsQueued
@@ -332,6 +343,8 @@ func (o *Orchestrator) scoreCandidates(ectx *evaluationContext, currentPct float
 		"evaluated", evalResult.TotalCount,
 		"protected", len(evalResult.Protected),
 		"candidates", len(evalResult.Candidates))
+
+	ectx.scoredCandidates = evalResult.Candidates
 
 	targetBytesToFree := int64((currentPct - budgetFromPct) / 100.0 * float64(effectiveTotal))
 	if targetBytesToFree <= 0 {
@@ -685,6 +698,9 @@ func (o *Orchestrator) flushSunsetBatch(ectx *evaluationContext, sunsetBatch []d
 			"mount", ectx.group.MountPath, "error", err)
 		return
 	}
+	for _, item := range sunsetBatch {
+		ectx.sunsettedKeys[db.ItemKey(item.IntegrationID, item.ExternalID)] = true
+	}
 	ectx.groupAcc.SunsetQueued += created
 	slog.Info("Sunset items queued", "component", "poller",
 		"mount", ectx.group.MountPath, "count", created)
@@ -777,6 +793,113 @@ func (o *Orchestrator) dispatchFiltered(ectx *evaluationContext, filtered []engi
 	}
 
 	return deletionsQueued
+}
+
+// dispatchSunsetEscalateLive is escalate ladder step 3: if releasing holds
+// did not meet the action budget, admit additional candidates from the same
+// scored set that are not already held, as immediate live deletes. Same
+// filter/expand as Admit. EnqueuedMode stays sunset so a later mode change
+// still cancels these jobs.
+func (o *Orchestrator) dispatchSunsetEscalateLive(ectx *evaluationContext, remainingBytes int64) int {
+	if remainingBytes <= 0 || ectx.skipSunsetAdmit {
+		return 0
+	}
+
+	filtered, stats := filterCandidates(ectx.scoredCandidates, ectx.snoozedKeys)
+	ectx.expandedCollections = make(map[string]bool)
+
+	var bytesFreed int64
+	var queued int
+
+	for i, ev := range filtered {
+		if ectx.queueFull {
+			ectx.groupAcc.QueueFullSkipped += len(filtered) - i
+			break
+		}
+		if bytesFreed >= remainingBytes {
+			break
+		}
+
+		itemsToProcess, skipped := o.expandCollections(ectx, ev, &stats)
+		if skipped {
+			continue
+		}
+
+		for j, pi := range itemsToProcess {
+			if ectx.queueFull {
+				ectx.groupAcc.QueueFullSkipped += len(itemsToProcess) - j
+				break
+			}
+			if bytesFreed >= remainingBytes {
+				break
+			}
+			key := db.ItemKey(pi.item.IntegrationID, pi.item.ExternalID)
+			if ectx.sunsettedKeys[key] {
+				continue
+			}
+			n, freed := o.queueSunsetEscalateLive(ectx, pi)
+			queued += n
+			bytesFreed += freed
+		}
+	}
+
+	if queued > 0 {
+		o.bus.Publish(events.SunsetEscalatedEvent{
+			DiskGroupID:  ectx.group.ID,
+			ItemsExpired: queued,
+			BytesFreed:   bytesFreed,
+		})
+		slog.Warn("Sunset escalation step 3 — live-admitted unheld candidates",
+			"component", "poller", "mount", ectx.group.MountPath,
+			"queued", queued, "bytes", bytesFreed)
+	}
+
+	return queued
+}
+
+// queueSunsetEscalateLive enqueues one unheld candidate as a live engine
+// delete without flipping the group to auto. Auto / approval / dry-run
+// dispatch arms are unchanged.
+func (o *Orchestrator) queueSunsetEscalateLive(ectx *evaluationContext, pi processItem) (int, int64) {
+	if ectx.registry == nil {
+		return 0, 0
+	}
+	deleter, err := ectx.registry.Deleter(pi.item.IntegrationID)
+	if err != nil {
+		slog.Error("Integration not registered as MediaDeleter", "component", "poller",
+			"integrationId", pi.item.IntegrationID, "error", err)
+		return 0, 0
+	}
+
+	addImportExclusion := true
+	if sourceCfg := o.getIntegrationConfig(ectx, pi.item.IntegrationID); sourceCfg != nil {
+		addImportExclusion = sourceCfg.AddImportExclusion
+	}
+
+	if err := o.deletion.QueueFromEngine(services.EngineDeleteRequest{
+		Client:             deleter,
+		Item:               pi.item,
+		Score:              pi.score,
+		Factors:            pi.factors,
+		RunStatsID:         ectx.runStatsID,
+		DiskGroupID:        ectx.group.ID,
+		CollectionGroup:    pi.collectionGroup,
+		AddImportExclusion: addImportExclusion,
+		EnqueuedMode:       db.ModeSunset,
+	}); err != nil {
+		if errors.Is(err, services.ErrDeletionQueueFull) {
+			ectx.queueFull = true
+			ectx.groupAcc.QueueFullSkipped++
+		}
+		return 0, 0
+	}
+	ectx.groupAcc.Candidates++
+	ectx.groupAcc.FreedBytes += pi.item.SizeBytes
+
+	slog.Info("Engine action taken", "component", "poller",
+		"media", pi.item.Title, "action", "sunset_escalate_live", "score", pi.score,
+		"freed", pi.item.SizeBytes, "collectionGroup", pi.collectionGroup)
+	return 1, pi.item.SizeBytes
 }
 
 // getIntegrationConfig returns the cached integration config, fetching from

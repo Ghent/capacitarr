@@ -1,6 +1,6 @@
 # Four-Mode Implementation Handoff
 
-**Status:** A+B+C+D+E+F shipped on this PR; next is G
+**Status:** A+B+C+D+E+F+G shipped on this PR; next is H
 **Priority:** High
 **Spec:** [`20260924T0335Z-four-mode-spec.md`](./20260924T0335Z-four-mode-spec.md)
 **PR / branch:** https://github.com/Ghent/capacitarr/pull/66 — `feature/four-mode`
@@ -13,14 +13,14 @@ This is the start-here doc for a new session. Do not redesign the four modes. Im
 
 1. This file.
 2. The spec — especially §2 (shared machine), §6–§7 (matrix + transitions), §11 (vs today), §13 (slices), §15 (flows).
-3. Shared pipeline: `backend/internal/orchestrator/orchestrator.go` (`EvaluateDiskGroup` → `scoreCandidates` → `filterCandidates` → `expandCollections` → `dispatchByMode`, including the sunset arm).
+3. Shared pipeline: `backend/internal/orchestrator/orchestrator.go` (`EvaluateDiskGroup` → `scoreCandidates` → `filterCandidates` → `expandCollections` → `dispatchByMode`, including the sunset arm and escalate step 3).
 4. Mode write path: `backend/internal/services/diskgroup.go` `UpdateThresholds` (writes mode → Exit sunset if leaving → clear deletion queue → `TriggerRun`).
 5. Sunset exit: `backend/internal/services/sunset_wiring.go` `SunsetGroupExiter` → `CancelAllForDiskGroup`.
 
 Conversation that produced the spec (do not relitigate unless Ghent overrides):
 
 - Four pills are **presets** of auth / timing / comms, not four engines.
-- Dry-run / approval / auto are structurally fine. Sunset is the unfinished product (private scorer, missing escalation step 3). Exit now exists (slice A).
+- Dry-run / approval / auto are structurally fine. Sunset is the unfinished product (private scorer, missing escalation step 3). Exit now exists (slice A). Step 3 now exists (slice G).
 - `holdFor=30d` already exists (`prefs.SunsetDays` → `deletion_date`). The spec did not add a second timer.
 - Modes should be modular as **bindings on one machine**, not as a plugin `Mode` interface.
 
@@ -38,6 +38,7 @@ Conversation that produced the spec (do not relitigate unless Ghent overrides):
 | **D** | Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. | **Done** on this PR. |
 | **E** | `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | **Done** on this PR. |
 | **F** | Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | **Done** on this PR. |
+| **G** | Escalation step 3: live-admit unheld candidates when steps 1–2 cannot meet target. | **Done** on this PR. |
 
 ---
 
@@ -46,7 +47,7 @@ Conversation that produced the spec (do not relitigate unless Ghent overrides):
 If a later slice needs a different rule, change the spec in that same commit. Until then:
 
 1. Manual delete on a sunset group → sunset hold, not live (slice F, not A).
-2. Escalation step 3 is required (slice G). Still this branch; review carefully.
+2. Escalation step 3 is required (slice G, shipped). Still this branch.
 3. Exit never converts holds into live deletes. New preset re-admits under its own budget.
 4. `ReconcileQueue` must not dismiss `user_initiated` (slice F).
 5. Snooze applies to escalate (slice F).
@@ -91,7 +92,7 @@ Tests in `backend/internal/services/diskgroup_test.go`:
 ## Slice D — shipped (do not redo)
 
 - `EvaluateDiskGroup` no longer early-returns to `evaluateSunsetMode`. Sunset uses `evaluateAt` / hold budget bindings, then `scoreCandidates` → `filterCandidates` → `expandCollections` → `dispatchByMode` sunset arm (`BulkQueueSunset`, collection group set).
-- Escalate still runs after Admit when `used >= thresholdPct`. No step 3.
+- Escalate still runs after Admit when `used >= thresholdPct`.
 - Below `sunsetPct`: no new admits, existing holds stay (approval queue is not cleared).
 - `TestEvaluateDiskGroup_DryRunAndSunsetAdmitSameTitles` — one fixture library; dry-run and sunset admit the same titles (show/season dedup, snooze, MCU expand).
 
@@ -109,12 +110,24 @@ Tests in `backend/internal/services/diskgroup_test.go`:
 - Escalate skips snoozed `MediaKey`s (`SunsetDeps.SnoozedKeys`).
 - Manual delete on a sunset group creates a user sunset hold; already-held is a no-op.
 
-## After F (do not start unless asked)
+## Slice G — shipped (do not redo)
+
+- After sunset Admit, `Escalate` (steps 1–2) still frees down to `target`. If remaining action budget (`targetBytes − freed`) is > 0 and the held set is known, `dispatchSunsetEscalateLive` walks the **full** scored set (not the hold-budget prefix) through the same filter/expand.
+- Already-held and newly admitted holds are skipped. Snoozed identities are skipped. `ListSunsettedKeys` failure (`skipSunsetAdmit`) skips step 3 (cannot know who is held); steps 1–2 still run.
+- Live extras use `QueueFromEngine` with `EnqueuedMode=sunset`. The auto / approval / dry-run dispatch arms are unchanged. Mode-change safety still cancels these jobs if the group leaves sunset.
+- Step 3 counts toward `SignalBatchSize` and publishes `SunsetEscalated` when it queues extras.
+
+---
+
+## After G (do not start unless asked)
 
 | Slice | Entry points |
 |---|---|
-| **G** | Escalation step 3. Behavior change — review carefully. |
-| **H–J** | Spec §13. Do not combine with E/F. |
+| **H** | Posters on create. Spec §13. |
+| **I** | Rescore through the engine. Spec §13. |
+| **J** | Optional `DiskGroupPolicy`. Spec §13. |
+
+Do not combine H–J with each other unless asked.
 
 ---
 
@@ -135,14 +148,15 @@ from `backend/`.
 
 ---
 
-## Current-code map (after A+B+C+D+E+F)
+## Current-code map (after A+B+C+D+E+F+G)
 
 | Concern | Where it lives today |
 |---|---|
 | Sunset admit | `orchestrator.go` `dispatchByMode` sunset arm; escalate after Admit |
+| Escalate step 3 | `orchestrator.go` `dispatchSunsetEscalateLive` — unheld extras as live `QueueFromEngine` (`EnqueuedMode` sunset) |
 | Shared pipeline | `scoreCandidates`, `filterCandidates`, `expandCollections`, `dispatchByMode` |
 | Sunset hold create | `BulkQueueSunset` / `QueueUserHold`; `deletion_date = now + prefs.SunsetDays` |
-| Sunset expire / escalate | `ProcessExpired`; `Escalate` skips snooze; writes `expired`; no step 3 |
+| Sunset expire / escalate | `ProcessExpired`; `Escalate` skips snooze; writes `expired`; step 3 live extras in orchestrator |
 | Handoff to delete | `QueueFromSunset` sets `IntegrationID`; simulate unclaims |
 | Mode write + exits | `onDiskGroupModeChange` → sunset Exit / approval Exit / queue clear / `mode_changed` |
 | Approval reconcile | `ReconcileQueue` uses `ItemKey`; keeps `user_initiated` |
@@ -155,4 +169,4 @@ from `backend/`.
 
 ## What success looks like for the next session
 
-- Slice G on PR #66 only if asked. Same branch. Do not combine G with H–J.
+- Slice H on PR #66 only if asked. Same branch. Do not combine H with I–J.

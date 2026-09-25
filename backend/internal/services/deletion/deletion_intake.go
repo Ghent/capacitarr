@@ -27,7 +27,8 @@ type EngineDeleteRequest struct {
 	CollectionGroup    string
 	AddImportExclusion bool
 	UpsertAudit        bool
-	ForceDryRun        bool // When true, item is from a dry-run disk group (Client may be nil)
+	ForceDryRun        bool   // When true, item is from a dry-run disk group (Client may be nil)
+	EnqueuedMode       string // When set, overrides the auto/dry-run default (sunset escalate step 3)
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +44,9 @@ func (s *DeletionService) QueueFromEngine(req EngineDeleteRequest) error {
 	mode := db.ModeAuto
 	if req.ForceDryRun {
 		mode = db.ModeDryRun
+	}
+	if req.EnqueuedMode != "" {
+		mode = req.EnqueuedMode
 	}
 
 	diskGroupID := req.DiskGroupID

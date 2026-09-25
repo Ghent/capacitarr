@@ -1,12 +1,12 @@
 # Four-Mode Spec
 
-**Status:** Draft (spec + slices A+B+C+D+E+F on this PR)
+**Status:** Draft (spec + slices A+B+C+D+E+F+G on this PR)
 **Priority:** High (architecture + trust)
 **Origin:** Principal-engineer review of `dry-run` / `approval` / `auto` / `sunset`
 
 This is the behavior spec for all four execution presets. Implementation continues on this same PR / branch (`feature/four-mode`). If a later slice disagrees with a row here, change this file in the same commit.
 
-**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A–F are on this branch. Next is G. Do not redesign from this file. Do not open a new branch.
+**Implementing?** Start at [`20260924T0340Z-four-mode-handoff.md`](./20260924T0340Z-four-mode-handoff.md). A–G are on this branch. Next is H. Do not redesign from this file. Do not open a new branch.
 
 ---
 
@@ -434,12 +434,12 @@ Queues (approval, sunset) are instance state. Export/import of preferences and d
 | `SunsetStatusExpired` | Written on successful handoff (F) | Written on handoff |
 | Exit sunset | ✅ Compensate holds + comms (`SunsetGroupExiter`) | Shipped (A) |
 | Exit approval | ✅ Dismiss engine-queued pending/rejected; keep user_initiated + snooze (E) | Shipped (E) |
-| Escalation step 3 | Missing | Required |
+| Escalation step 3 | ✅ Live-admit unheld candidates after steps 1–2 (G) | Shipped (G) |
 | Escalate vs snooze | Skips snoozed `MediaKey`s (F) | Skip snoozed |
 | Manual delete + sunset | Sunset hold, already-held is no-op (F) | Sunset hold |
 | `QueueFromSunset` IntegrationID | ✅ Set on MediaItem | Shipped (C) |
 | Kill switch + sunset | ✅ Unclaim, keep comms | Shipped (C) |
-| `SignalBatchSize` | ✅ Escalate count returned from sunset cycle | Shipped (C) |
+| `SignalBatchSize` | ✅ Escalate + step 3 live extras returned from sunset cycle | Shipped (C+G) |
 | Posters | Daily cron first paint | On hold create |
 | Rescore | Preview cache, unused weights | Engine score (slice I) |
 | Reconcile vs `user_initiated` | Reconcile can dismiss them | Must not |
@@ -473,7 +473,7 @@ All slices land on this branch (`feature/four-mode`, PR #66). Do not open a foll
 | **D** | ✅ Fold sunset into score → filter → expand → `dispatchByMode`. Same-candidate test vs dry-run. Collection expand on. | End the private evaluator. |
 | **E** | ✅ `onDiskGroupModeChange` for all exits in §7, including approval engine-queue dismiss + mode-changed event. | Transitions. |
 | **F** | ✅ Unique identity; write `expired`; reconcile preserves `user_initiated`; snooze on escalate; manual delete → sunset hold. | Protocol completeness. |
-| **G** | Escalation step 3. | Capacity. Behavior change — review carefully; still this branch. |
+| **G** | ✅ Escalation step 3. | Capacity. Behavior change — review carefully; still this branch. |
 | **H** | Posters on create. | Comms reliability. |
 | **I** | Rescore through the engine. | Finish or keep hidden. |
 | **J** | Optional: `DiskGroupPolicy` type wrapping §2–§3. Refactor only, no product change. | After D–G exist. |

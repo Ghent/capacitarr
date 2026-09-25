@@ -117,6 +117,45 @@ func TestQueueFromEngine_SetsTriggerAndMode(t *testing.T) {
 	}
 }
 
+func TestQueueFromEngine_RespectsEnqueuedMode(t *testing.T) {
+	database := setupTestDB(t)
+	bus := newTestBus(t)
+	auditLog := NewAuditLogService(database)
+	svc := newTestDeletionService(bus, auditLog)
+	svc.SetDependencies(DeletionDeps{
+		Settings:      &mockSettingsReader{deletionsEnabled: false, deletionQueueDelaySeconds: 300},
+		Engine:        &mockEngineStatsWriter{},
+		Metrics:       &mockDeletionStatsWriter{},
+		Approval:      &mockApprovalReturner{},
+		Snoozer:       &mockApprovalSnoozer{},
+		DiskGroups:    &mockDiskGroupModeReader{},
+		Clients:       &mockClientResolver{},
+		SunsetCleaner: &mockSunsetQueueCleaner{},
+	})
+
+	_ = svc.QueueFromEngine(EngineDeleteRequest{
+		Client:       &mockIntegration{},
+		Item:         integrations.MediaItem{Title: "Serenity", Type: "movie", SizeBytes: 100},
+		DiskGroupID:  3,
+		EnqueuedMode: db.ModeSunset,
+	})
+
+	svc.queuedMu.Lock()
+	if len(svc.queuedItems) != 1 {
+		svc.queuedMu.Unlock()
+		t.Fatal("expected 1 queued item")
+	}
+	job := svc.queuedItems[0]
+	svc.queuedMu.Unlock()
+
+	if job.EnqueuedMode != db.ModeSunset {
+		t.Errorf("expected enqueued mode %q, got %q", db.ModeSunset, job.EnqueuedMode)
+	}
+	if job.ForceDryRun {
+		t.Error("expected live job (ForceDryRun false)")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // QueueFromApproval tests
 // ---------------------------------------------------------------------------

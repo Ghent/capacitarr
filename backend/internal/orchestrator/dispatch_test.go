@@ -1,6 +1,7 @@
 package orchestrator
 
 import (
+	"errors"
 	"sort"
 	"testing"
 
@@ -154,20 +155,34 @@ func TestEvaluateDiskGroup_QueueFullStopsDispatch(t *testing.T) {
 
 type capturingDeletion struct {
 	titles []string
+	reqs   []services.EngineDeleteRequest
 }
 
 func (s *capturingDeletion) QueueFromEngine(req services.EngineDeleteRequest) error {
 	s.titles = append(s.titles, req.Item.Title)
+	s.reqs = append(s.reqs, req)
 	return nil
 }
 
 type capturingSunset struct {
-	titles []string
-	items  []db.SunsetQueueItem
+	titles           []string
+	items            []db.SunsetQueueItem
+	held             map[string]bool
+	heldErr          error
+	escalateFreed    int64
+	escalateReleased int
+	escalateErr      error
+	escalateCalls    int
 }
 
 func (s *capturingSunset) ListSunsettedKeys(uint) (map[string]bool, error) {
-	return map[string]bool{}, nil
+	if s.heldErr != nil {
+		return nil, s.heldErr
+	}
+	if s.held == nil {
+		return map[string]bool{}, nil
+	}
+	return s.held, nil
 }
 
 func (s *capturingSunset) BulkQueueSunset(items []db.SunsetQueueItem, _ services.SunsetDeps) (int, error) {
@@ -179,7 +194,48 @@ func (s *capturingSunset) BulkQueueSunset(items []db.SunsetQueueItem, _ services
 }
 
 func (s *capturingSunset) Escalate(uint, int64, services.SunsetDeps) (int64, int, error) {
-	return 0, 0, nil
+	s.escalateCalls++
+	return s.escalateFreed, s.escalateReleased, s.escalateErr
+}
+
+type stubDeleter struct{}
+
+func (stubDeleter) DeleteMediaItem(integrations.MediaItem, integrations.DeleteOptions) error {
+	return nil
+}
+
+func registryWithDeleter(id uint) *integrations.IntegrationRegistry {
+	reg := integrations.NewIntegrationRegistry()
+	reg.Register(id, stubDeleter{})
+	return reg
+}
+
+func sunsetEscalateGroup() db.DiskGroup {
+	sunsetPct := 70.0
+	const gib int64 = 1024 * 1024 * 1024
+	return db.DiskGroup{
+		ID:           1,
+		MountPath:    "/data",
+		TotalBytes:   100 * gib,
+		UsedBytes:    90 * gib, // 90% — above escalateAt (85)
+		ThresholdPct: 85,
+		TargetPct:    75,
+		SunsetPct:    &sunsetPct,
+		Mode:         db.ModeSunset,
+	}
+}
+
+func sizedMovie(title, externalID string, sizeGiB int64) integrations.MediaItem {
+	const gib int64 = 1024 * 1024 * 1024
+	return integrations.MediaItem{
+		Title:         title,
+		Type:          integrations.MediaTypeMovie,
+		Path:          "/data/" + title,
+		SizeBytes:     sizeGiB * gib,
+		IntegrationID: 1,
+		ExternalID:    externalID,
+		Rating:        3,
+	}
 }
 
 type snoozeApproval struct {
@@ -420,5 +476,257 @@ func TestEvaluateDiskGroup_SunsetBelowEvaluateAtKeepsHolds(t *testing.T) {
 	}
 	if approval.cleared != 0 {
 		t.Errorf("ClearQueueForDiskGroup called %d times, want 0 (sunset keeps holds)", approval.cleared)
+	}
+}
+
+// TestEvaluateDiskGroup_SunsetEscalateStep3_LiveAdmitsUnheld is the slice G
+// acceptance test: already-held items fill the hold-budget prefix (and are
+// not re-held), escalate steps 1–2 do not meet target, and unheld extras
+// from the same scored set are live-admitted with EnqueuedMode sunset.
+func TestEvaluateDiskGroup_SunsetEscalateStep3_LiveAdmitsUnheld(t *testing.T) {
+	sun := &capturingSunset{
+		held: map[string]bool{
+			db.ItemKey(1, "held-a"): true,
+			db.ItemKey(1, "held-b"): true,
+		},
+	}
+	del := &capturingDeletion{}
+	bus := &stubPublisher{}
+	o := New(Deps{
+		Approval:     &stubApproval{},
+		Deletion:     del,
+		Integrations: &stubIntegrations{},
+		Sunset:       sun,
+		Bus:          bus,
+	})
+
+	items := []integrations.MediaItem{
+		sizedMovie("HeldA", "held-a", 12),
+		sizedMovie("HeldB", "held-b", 12),
+		sizedMovie("ExtraA", "extra-a", 8),
+		sizedMovie("ExtraB", "extra-b", 8),
+	}
+	queued := o.EvaluateDiskGroup(
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
+		map[string]int{"file_size": 10}, nil,
+		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
+	)
+
+	if len(sun.titles) != 0 {
+		t.Errorf("sunset admitted holds %v, want none (prefix already held)", sun.titles)
+	}
+	live := sortedCopy(del.titles)
+	if len(live) != 2 || live[0] != "ExtraA" || live[1] != "ExtraB" {
+		t.Fatalf("step 3 live titles = %v, want ExtraA ExtraB", del.titles)
+	}
+	if queued != 2 {
+		t.Errorf("queued = %d, want 2 (step 3 live extras)", queued)
+	}
+	for i, req := range del.reqs {
+		if req.EnqueuedMode != db.ModeSunset {
+			t.Errorf("req[%d].EnqueuedMode = %q, want %q", i, req.EnqueuedMode, db.ModeSunset)
+		}
+		if req.ForceDryRun {
+			t.Errorf("req[%d].ForceDryRun = true, want live", i)
+		}
+	}
+
+	var sawEscalated bool
+	for _, ev := range bus.events {
+		if e, ok := ev.(events.SunsetEscalatedEvent); ok {
+			sawEscalated = true
+			if e.ItemsExpired != 2 {
+				t.Errorf("SunsetEscalated ItemsExpired = %d, want 2", e.ItemsExpired)
+			}
+		}
+	}
+	if !sawEscalated {
+		t.Error("expected SunsetEscalatedEvent for step 3")
+	}
+}
+
+func TestEvaluateDiskGroup_SunsetEscalateStep3_SkipsHeldAndSnoozed(t *testing.T) {
+	sun := &capturingSunset{
+		held: map[string]bool{
+			db.ItemKey(1, "held-a"): true,
+			db.ItemKey(1, "held-b"): true,
+		},
+	}
+	del := &capturingDeletion{}
+	o := New(Deps{
+		Approval: &snoozeApproval{keys: map[string]bool{
+			db.MediaKey("SnoozeMe", string(integrations.MediaTypeMovie)): true,
+		}},
+		Deletion:     del,
+		Integrations: &stubIntegrations{},
+		Sunset:       sun,
+		Bus:          &stubPublisher{},
+	})
+
+	items := []integrations.MediaItem{
+		sizedMovie("HeldA", "held-a", 12),
+		sizedMovie("HeldB", "held-b", 12),
+		sizedMovie("SnoozeMe", "snooze", 10),
+		sizedMovie("ExtraA", "extra-a", 8),
+	}
+	o.EvaluateDiskGroup(
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
+		map[string]int{"file_size": 10}, nil,
+		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
+	)
+
+	if len(del.titles) != 1 || del.titles[0] != "ExtraA" {
+		t.Fatalf("step 3 live titles = %v, want [ExtraA]", del.titles)
+	}
+}
+
+func TestEvaluateDiskGroup_SunsetEscalateStep3_SkipWhenHeldSetUnknown(t *testing.T) {
+	sun := &capturingSunset{heldErr: errors.New("sunset keys unavailable")}
+	del := &capturingDeletion{}
+	o := New(Deps{
+		Approval:     &stubApproval{},
+		Deletion:     del,
+		Integrations: &stubIntegrations{},
+		Sunset:       sun,
+		Bus:          &stubPublisher{},
+	})
+
+	items := []integrations.MediaItem{
+		sizedMovie("HeldA", "held-a", 12),
+		sizedMovie("ExtraA", "extra-a", 8),
+	}
+	queued := o.EvaluateDiskGroup(
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
+		map[string]int{"file_size": 10}, nil,
+		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
+	)
+
+	if sun.escalateCalls != 1 {
+		t.Errorf("Escalate calls = %d, want 1 (steps 1–2 still run)", sun.escalateCalls)
+	}
+	if len(del.titles) != 0 {
+		t.Errorf("step 3 live titles = %v, want none when held set unknown", del.titles)
+	}
+	if queued != 0 {
+		t.Errorf("queued = %d, want 0", queued)
+	}
+}
+
+func TestEvaluateDiskGroup_SunsetEscalateStep3_NoLiveWhenStepsMeetTarget(t *testing.T) {
+	const gib int64 = 1024 * 1024 * 1024
+	sun := &capturingSunset{
+		held: map[string]bool{
+			db.ItemKey(1, "held-a"): true,
+			db.ItemKey(1, "held-b"): true,
+		},
+		escalateFreed:    15 * gib,
+		escalateReleased: 2,
+	}
+	del := &capturingDeletion{}
+	o := New(Deps{
+		Approval:     &stubApproval{},
+		Deletion:     del,
+		Integrations: &stubIntegrations{},
+		Sunset:       sun,
+		Bus:          &stubPublisher{},
+	})
+
+	items := []integrations.MediaItem{
+		sizedMovie("HeldA", "held-a", 12),
+		sizedMovie("HeldB", "held-b", 12),
+		sizedMovie("ExtraA", "extra-a", 8),
+	}
+	queued := o.EvaluateDiskGroup(
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
+		map[string]int{"file_size": 10}, nil,
+		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
+	)
+
+	if len(del.titles) != 0 {
+		t.Errorf("step 3 live titles = %v, want none when steps 1–2 meet target", del.titles)
+	}
+	if queued != 2 {
+		t.Errorf("queued = %d, want 2 (escalate releases only)", queued)
+	}
+}
+
+func TestEvaluateDiskGroup_SunsetEscalateStep3_SameFilterExpand(t *testing.T) {
+	sun := &capturingSunset{
+		held: map[string]bool{
+			db.ItemKey(1, "held-a"): true,
+			db.ItemKey(1, "held-b"): true,
+		},
+	}
+	del := &capturingDeletion{}
+	o := New(Deps{
+		Approval: &snoozeApproval{keys: map[string]bool{
+			db.MediaKey("Skip Me", string(integrations.MediaTypeMovie)): true,
+		}},
+		Deletion:     del,
+		Integrations: &stubIntegrations{collectionDeletion: true},
+		Sunset:       sun,
+		Bus:          &stubPublisher{},
+	})
+
+	items := []integrations.MediaItem{
+		sizedMovie("HeldA", "held-a", 12),
+		sizedMovie("HeldB", "held-b", 12),
+		{
+			Title: "Firefly", Type: integrations.MediaTypeShow,
+			Path: "/data/Firefly", SizeBytes: 2 * 1024 * 1024 * 1024,
+			IntegrationID: 1, ExternalID: "s-firefly", Rating: 3,
+		},
+		{
+			Title: "Firefly - Season 1", Type: integrations.MediaTypeSeason, ShowTitle: "Firefly",
+			Path: "/data/Firefly/S1", SizeBytes: 2 * 1024 * 1024 * 1024,
+			IntegrationID: 1, ExternalID: "s-firefly-1", Rating: 3,
+		},
+		{
+			Title: "Skip Me", Type: integrations.MediaTypeMovie,
+			Path: "/data/Skip Me", SizeBytes: 2 * 1024 * 1024 * 1024,
+			IntegrationID: 1, ExternalID: "m-skip", Rating: 3,
+		},
+		{
+			Title: "The Avengers", Type: integrations.MediaTypeMovie,
+			Path: "/data/The Avengers", SizeBytes: 1 * 1024 * 1024 * 1024,
+			IntegrationID: 1, ExternalID: "m-avengers", Rating: 3,
+			Collections: []string{"MCU"}, CollectionSources: map[string]uint{"MCU": 1},
+		},
+		{
+			Title: "Iron Man", Type: integrations.MediaTypeMovie,
+			Path: "/data/Iron Man", SizeBytes: 1 * 1024 * 1024 * 1024,
+			IntegrationID: 1, ExternalID: "m-ironman", Rating: 3,
+			Collections: []string{"MCU"}, CollectionSources: map[string]uint{"MCU": 1},
+		},
+	}
+	o.EvaluateDiskGroup(
+		NewRunAccumulator(), sunsetEscalateGroup(), items, registryWithDeleter(1), 1,
+		db.PreferenceSet{TiebreakerMethod: db.TiebreakerSizeDesc, SunsetDays: 30},
+		map[string]int{"file_size": 10}, nil,
+		&engine.EvaluationContext{ActiveIntegrationTypes: map[integrations.IntegrationType]bool{}},
+	)
+
+	live := map[string]bool{}
+	for _, title := range del.titles {
+		live[title] = true
+	}
+	if live["Firefly"] {
+		t.Error("show-level Firefly should be deduped when seasons exist")
+	}
+	if live["Skip Me"] {
+		t.Error("snoozed Skip Me should not be live-admitted")
+	}
+	if live["HeldA"] || live["HeldB"] {
+		t.Errorf("already-held titles must not be live-admitted, got %v", del.titles)
+	}
+	if !live["Firefly - Season 1"] {
+		t.Errorf("season should be live-admitted, got %v", del.titles)
+	}
+	if !live["The Avengers"] || !live["Iron Man"] {
+		t.Errorf("collection expand should live-admit both MCU members, got %v", del.titles)
 	}
 }
