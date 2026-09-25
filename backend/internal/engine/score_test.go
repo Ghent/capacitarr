@@ -76,6 +76,9 @@ func TestCalculateScore_WatchHistory(t *testing.T) {
 				if f.Name == "Play History" && (f.RawScore < 0.0 || f.RawScore > 1.0) {
 					t.Errorf("Watch History raw score out of bounds: %v", f.RawScore)
 				}
+				if f.Name == "Play History" && f.InputLabel == "" {
+					t.Error("Play History inputLabel should be set")
+				}
 			}
 		})
 	}

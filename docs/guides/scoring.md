@@ -146,6 +146,18 @@ With weights Watch History=10, File Size=6, Rating=5 (all others=0):
 
 If all weights are set to zero, the score is 0.0 for every item and no deletions are ranked.
 
+## Score Detail
+
+The Score Detail card shows the library data behind each raw score, frozen at evaluation time (so audit and approval cards stay honest if play counts change later).
+
+Each weight factor prints a second line:
+
+- Formula: `3 plays → 0.5 ÷ 3 = 0.17`
+- Lookup: `Ended → 1.00`, `Never played → 1.00`, `No rating → 0.50`
+- Cap: `Jan 10, 2023 → 1354 ÷ 365 → 1.00` — `→` instead of `=` when the engine clipped the value
+
+The right-hand column is unchanged: `rawScore × weight = contribution`.
+
 ## Protection Rules
 
 Rules override the scoring engine by applying **score modifiers** — multipliers that push an item's score up or down after the weighted calculation.

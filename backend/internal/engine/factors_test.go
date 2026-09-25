@@ -143,6 +143,153 @@ func TestRequestPopularityFactor(t *testing.T) {
 	}
 }
 
+func TestDescribeInput(t *testing.T) {
+	addedOld := timePtr(time.Now().Add(-400 * 24 * time.Hour))
+	playedRecent := timePtr(time.Now().Add(-55 * 24 * time.Hour))
+	playedOld := timePtr(time.Now().Add(-400 * 24 * time.Hour))
+
+	tests := []struct {
+		name    string
+		factor  ScoringFactor
+		item    integrations.MediaItem
+		want    string
+		contain []string
+	}{
+		{
+			name:   "play history never",
+			factor: &WatchHistoryFactor{},
+			item:   integrations.MediaItem{PlayCount: 0},
+			want:   "Never played → 1.00",
+		},
+		{
+			name:   "play history one",
+			factor: &WatchHistoryFactor{},
+			item:   integrations.MediaItem{PlayCount: 1},
+			want:   "1 play → 0.5 ÷ 1 = 0.50",
+		},
+		{
+			name:   "play history three",
+			factor: &WatchHistoryFactor{},
+			item:   integrations.MediaItem{PlayCount: 3},
+			want:   "3 plays → 0.5 ÷ 3 = 0.17",
+		},
+		{
+			name:   "last played never",
+			factor: &RecencyFactor{},
+			item:   integrations.MediaItem{},
+			want:   "Never played → 1.00",
+		},
+		{
+			name:    "last played recent",
+			factor:  &RecencyFactor{},
+			item:    integrations.MediaItem{LastPlayed: playedRecent},
+			contain: []string{"÷ 365 ="},
+		},
+		{
+			name:    "last played capped",
+			factor:  &RecencyFactor{},
+			item:    integrations.MediaItem{LastPlayed: playedOld},
+			contain: []string{"÷ 365 → 1.00"},
+		},
+		{
+			name:   "file size mid",
+			factor: &FileSizeFactor{},
+			item:   integrations.MediaItem{SizeBytes: 25 * 1024 * 1024 * 1024},
+			want:   "25.0 GB → 25.0 ÷ 50 = 0.50",
+		},
+		{
+			name:   "file size capped",
+			factor: &FileSizeFactor{},
+			item:   integrations.MediaItem{SizeBytes: 100 * 1024 * 1024 * 1024},
+			want:   "100.0 GB → 100.0 ÷ 50 → 1.00",
+		},
+		{
+			name:   "rating missing",
+			factor: &RatingFactor{},
+			item:   integrations.MediaItem{Rating: 0},
+			want:   "No rating → 0.50",
+		},
+		{
+			name:   "rating 8.8",
+			factor: &RatingFactor{},
+			item:   integrations.MediaItem{Rating: 8.8},
+			want:   "8.8/10 → 1 − 0.88 = 0.12",
+		},
+		{
+			name:   "rating 100-scale",
+			factor: &RatingFactor{},
+			item:   integrations.MediaItem{Rating: 85},
+			want:   "85/100 → 1 − 0.85 = 0.15",
+		},
+		{
+			name:   "library age unknown",
+			factor: &LibraryAgeFactor{},
+			item:   integrations.MediaItem{},
+			want:   "Unknown added date → 0.50",
+		},
+		{
+			name:    "library age capped",
+			factor:  &LibraryAgeFactor{},
+			item:    integrations.MediaItem{AddedAt: addedOld},
+			contain: []string{"÷ 365 → 1.00"},
+		},
+		{
+			name:   "show ended",
+			factor: &SeriesStatusFactor{},
+			item:   integrations.MediaItem{SeriesStatus: "ended"},
+			want:   "Ended → 1.00",
+		},
+		{
+			name:   "show continuing",
+			factor: &SeriesStatusFactor{},
+			item:   integrations.MediaItem{SeriesStatus: "continuing"},
+			want:   "Continuing → 0.20",
+		},
+		{
+			name:   "show unknown",
+			factor: &SeriesStatusFactor{},
+			item:   integrations.MediaItem{},
+			want:   "Unknown status → 0.50",
+		},
+		{
+			name:   "not requested",
+			factor: &RequestPopularityFactor{},
+			item:   integrations.MediaItem{},
+			want:   "Not requested → 0.50",
+		},
+		{
+			name:   "requested by name",
+			factor: &RequestPopularityFactor{},
+			item:   integrations.MediaItem{IsRequested: true, RequestedBy: "Kaylee"},
+			want:   "Requested by Kaylee → 0.10",
+		},
+		{
+			name:   "requested and watched",
+			factor: &RequestPopularityFactor{},
+			item: integrations.MediaItem{
+				IsRequested:        true,
+				RequestedBy:        "Kaylee",
+				WatchedByRequestor: true,
+			},
+			want: "Requested by Kaylee, watched by requestor → 0.30",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.factor.DescribeInput(tc.item)
+			if tc.want != "" && got != tc.want {
+				t.Errorf("DescribeInput() = %q, want %q", got, tc.want)
+			}
+			for _, part := range tc.contain {
+				if !strings.Contains(got, part) {
+					t.Errorf("DescribeInput() = %q, want it to contain %q", got, part)
+				}
+			}
+		})
+	}
+}
+
 func TestDefaultFactors(t *testing.T) {
 	factors := DefaultFactors()
 	if len(factors) != 7 {

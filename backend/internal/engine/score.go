@@ -20,6 +20,7 @@ type ScoreFactor struct {
 	Contribution float64 `json:"contribution"`           // normalized contribution to final score
 	Type         string  `json:"type"`                   // "weight" or "rule"
 	MatchedValue string  `json:"matchedValue,omitempty"` // actual item value that triggered a rule match
+	InputLabel   string  `json:"inputLabel,omitempty"`   // stat + conversion the factor used (weight factors)
 	RuleID       *uint   `json:"ruleId,omitempty"`       // database ID of the matched custom rule (rule factors only)
 	Skipped      bool    `json:"skipped,omitempty"`      // true when the factor was excluded from scoring
 	SkipReason   string  `json:"skipReason,omitempty"`   // why the factor was skipped (e.g. "integration connection error")
@@ -151,6 +152,7 @@ func calculateScore(item integrations.MediaItem, factors []ScoringFactor, weight
 				Weight:       w,
 				Contribution: normalizedContrib,
 				Type:         "weight",
+				InputLabel:   f.DescribeInput(item),
 			})
 			reasonParts = append(reasonParts, fmt.Sprintf("%s:%.2f", f.Key(), normalizedContrib))
 		} else if s.skipReason != "" {
