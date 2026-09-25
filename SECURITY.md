@@ -220,7 +220,7 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 - Shipped Docker images contain patched dependency versions, not just silenced findings
 - The security posture is not weakened by `allow_failure` or audit `--ignore` flags
 
-**Current overrides** (as of 2026-09-20):
+**Current overrides** (as of 2026-09-25):
 
 | Package | Override | Advisory | Severity | Upstream Dep |
 |---------|----------|----------|----------|--------------|
@@ -238,7 +238,8 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 | `yaml` | `>=2.8.3` | [GHSA-48c2-rrv3-qjmp](https://github.com/advisories/GHSA-48c2-rrv3-qjmp) | Moderate | `@nuxt/eslint > @nuxt/devtools-kit > vite > yaml` |
 | `srvx` | `>=0.11.13` | [GHSA-p36q-q72m-gchr](https://github.com/advisories/GHSA-p36q-q72m-gchr) | Moderate | `nuxt > nitropack > srvx` |
 | `brace-expansion` | `>=5.0.9` (for >=3.0.0) / `>=2.0.3` (for >=2.0.0 <2.0.3) | [GHSA-f886-m6hf-6m8v](https://github.com/advisories/GHSA-f886-m6hf-6m8v), [GHSA-3jxr-9vmj-r5cp](https://github.com/advisories/GHSA-3jxr-9vmj-r5cp), [GHSA-mh99-v99m-4gvg](https://github.com/advisories/GHSA-mh99-v99m-4gvg) | High / Moderate | `nuxt > nitropack > @vercel/nft > glob > brace-expansion` |
-| `brace-expansion` (`site/`) | `>=5.0.6` (for >=5.0.0 <5.0.6) | [GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2) | Moderate | `@nuxt/content > minimatch > brace-expansion` |
+| `brace-expansion` (`site/`) | `>=5.0.9` (for >=5.0.0 <5.0.9) | [GHSA-jxxr-4gwj-5jf2](https://github.com/advisories/GHSA-jxxr-4gwj-5jf2), [GHSA-f886-m6hf-6m8v](https://github.com/advisories/GHSA-f886-m6hf-6m8v) | Moderate / High | `@nuxt/content > minimatch > brace-expansion` |
+| `@nuxtjs/mdc` (`site/`) | `>=0.22.1` | [GHSA-mxm6-v9r6-r94c](https://github.com/advisories/GHSA-mxm6-v9r6-r94c) | High | `@nuxt/content > @nuxtjs/mdc` |
 | `postcss` (`site/`) | `>=8.5.10` (for <8.5.10) | [GHSA-qx2v-qp2m-jg93](https://github.com/advisories/GHSA-qx2v-qp2m-jg93) | Moderate | `nuxt > @nuxt/vite-builder > postcss` |
 | `ws` (`site/`) | `>=8.20.1` (for >=8.0.0 <8.20.1) | [GHSA-58qx-3vcg-4xpx](https://github.com/advisories/GHSA-58qx-3vcg-4xpx) | Moderate | `@nuxt/content > socket.io-client > engine.io-client > ws` |
 | `node-forge` | `>=1.4.0` | [CVE-2026-33891](https://www.cve.org/CVERecord?id=CVE-2026-33891), [CVE-2026-33894](https://www.cve.org/CVERecord?id=CVE-2026-33894), [CVE-2026-33895](https://www.cve.org/CVERecord?id=CVE-2026-33895), [CVE-2026-33896](https://www.cve.org/CVERecord?id=CVE-2026-33896) | High | `nuxt > @nuxt/cli > listhen > node-forge` |
@@ -246,14 +247,15 @@ When transitive npm dependencies have known vulnerabilities but the upstream par
 | `lodash-es` | `>=4.18.0` | [GHSA-r5fr-rjxr-66jc](https://github.com/advisories/GHSA-r5fr-rjxr-66jc), [GHSA-f23m-r3pf-42rh](https://github.com/advisories/GHSA-f23m-r3pf-42rh) | High / Moderate | `@vite-pwa/nuxt > workbox-build` (ESM variant of lodash) |
 | `defu` | `>=6.1.5` | [GHSA-737v-mqg7-c878](https://github.com/advisories/GHSA-737v-mqg7-c878) | High | `nuxt > nitropack`, `nuxt > c12`, `nuxt > @nuxt/kit` (UnJS config defaults utility) |
 | `socket.io-parser` | `>=4.2.6` | [GHSA-677m-j7p3-52f9](https://github.com/advisories/GHSA-677m-j7p3-52f9) | High | `nuxt > @nuxt/devtools > socket.io` |
+| `socket.io-parser` (`site/`) | `>=4.2.7` | [GHSA-677m-j7p3-52f9](https://github.com/advisories/GHSA-677m-j7p3-52f9), [GHSA-2m8v-j782-fhvr](https://github.com/advisories/GHSA-2m8v-j782-fhvr) | High | `@nuxt/content > socket.io-client > socket.io-parser` |
 | `@nuxt/devtools` | `>=3.3.1` | [GHSA-279x-mwfv-vcqv](https://github.com/advisories/GHSA-279x-mwfv-vcqv) | Critical | `nuxt > @nuxt/devtools` |
 | `@vitest/mocker` | `>=4.1.11` | [GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9) | High | `vitest` |
 | `@humanfs/node` | `>=0.16.8` | [GHSA-p498-v437-472g](https://github.com/advisories/GHSA-p498-v437-472g) | High | `eslint` |
 | `baseline-browser-mapping` | `>=2.11.0` | [GHSA-w5vr-8v7q-w6rv](https://github.com/advisories/GHSA-w5vr-8v7q-w6rv) | High | `browserslist` |
 | `browserslist` | `>=4.28.7` | [GHSA-c83g-rgw3-j3cx](https://github.com/advisories/GHSA-c83g-rgw3-j3cx), [GHSA-73wf-gq98-2v4g](https://github.com/advisories/GHSA-73wf-gq98-2v4g) | High | `autoprefixer` / `caniuse-lite` |
-| `esbuild` | `>=0.28.1` (for >=0.27.3 <0.28.1) | [GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr) | High | `vite` / `nuxt` |
+| `esbuild` | `>=0.28.1` (for >=0.27.3 <0.28.1) | [GHSA-g7r4-m6w7-qqqr](https://github.com/advisories/GHSA-g7r4-m6w7-qqqr) | High | `vite` / `nuxt` (also `site/`) |
 | `fast-uri` | `>=3.1.6` | [GHSA-v2hh-gcrm-f6hx](https://github.com/advisories/GHSA-v2hh-gcrm-f6hx), [GHSA-f65p-4m7j-42xc](https://github.com/advisories/GHSA-f65p-4m7j-42xc) | High | `ajv` |
-| `js-yaml` | `4.3.2` / `3.15.2` (per-major, pinned) | [GHSA-52cp-r559-cp3m](https://github.com/advisories/GHSA-52cp-r559-cp3m), [GHSA-5p4m-2wfm-xmqj](https://github.com/advisories/GHSA-5p4m-2wfm-xmqj) | High | `gray-matter`, `@nuxt/eslint` |
+| `js-yaml` | `4.3.2` / `5.4.2` / `3.15.2` (per-major, pinned) | [GHSA-52cp-r559-cp3m](https://github.com/advisories/GHSA-52cp-r559-cp3m), [GHSA-5p4m-2wfm-xmqj](https://github.com/advisories/GHSA-5p4m-2wfm-xmqj) | High | `gray-matter`, `@nuxt/eslint` (also `site/`) |
 | `launch-editor` | `>=2.14.1` | [GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3) | Moderate | `nuxt > launch-editor` |
 | `nanoid` | `>=3.3.18` (for 3.x) | [GHSA-28wg-ghj8-5hjv](https://github.com/advisories/GHSA-28wg-ghj8-5hjv), [GHSA-2v37-7h3g-55p8](https://github.com/advisories/GHSA-2v37-7h3g-55p8) | High | `postcss` |
 | `postcss` | `>=8.5.23` | [GHSA-r28c-9q8g-f849](https://github.com/advisories/GHSA-r28c-9q8g-f849), [GHSA-fxqj-rqcc-2cmp](https://github.com/advisories/GHSA-fxqj-rqcc-2cmp) | High | `nuxt > @nuxt/vite-builder > postcss` |
