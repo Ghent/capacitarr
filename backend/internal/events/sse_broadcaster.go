@@ -117,8 +117,7 @@ func (b *SSEBroadcaster) broadcast(event Event) {
 	b.mu.RUnlock()
 }
 
-// HandleSSE is the Echo handler for GET /api/v1/events.
-// It establishes an SSE connection and streams events to the client.
+// lastEventIDFromRequest prefers the Last-Event-ID header, then lastEventId query.
 func lastEventIDFromRequest(c echo.Context) string {
 	if id := c.Request().Header.Get("Last-Event-ID"); id != "" {
 		return id
@@ -126,6 +125,8 @@ func lastEventIDFromRequest(c echo.Context) string {
 	return c.QueryParam("lastEventId")
 }
 
+// HandleSSE is the Echo handler for GET /api/v1/events.
+// It establishes an SSE connection and streams events to the client.
 func (b *SSEBroadcaster) HandleSSE(c echo.Context) error {
 	// Set SSE headers
 	w := c.Response()
