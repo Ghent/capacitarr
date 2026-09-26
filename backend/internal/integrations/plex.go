@@ -76,20 +76,21 @@ type plexMediaResponse struct {
 }
 
 type plexMetadata struct {
-	RatingKey        string     `json:"ratingKey"`
-	Title            string     `json:"title"`
-	ParentTitle      string     `json:"parentTitle,omitempty"`
-	GrandparentTitle string     `json:"grandparentTitle,omitempty"`
-	Year             int        `json:"year"`
-	Type             string     `json:"type"` // movie, show, season, episode
-	AudienceRating   float64    `json:"audienceRating"`
-	Rating           float64    `json:"rating"`
-	ViewCount        int        `json:"viewCount"`
-	LastViewedAt     int64      `json:"lastViewedAt"`
-	AddedAt          int64      `json:"addedAt"`
-	Duration         int64      `json:"duration"`
-	GUID             string     `json:"guid"`           // Primary GUID (e.g. "plex://movie/...")
-	GUIDs            []plexGUID `json:"Guid,omitempty"` // Additional GUIDs including TMDb references
+	RatingKey        string       `json:"ratingKey"`
+	Title            string       `json:"title"`
+	ParentTitle      string       `json:"parentTitle,omitempty"`
+	GrandparentTitle string       `json:"grandparentTitle,omitempty"`
+	Year             int          `json:"year"`
+	Type             string       `json:"type"` // movie, show, season, episode
+	AudienceRating   float64      `json:"audienceRating"`
+	Rating           float64      `json:"rating"`
+	Ratings          []plexRating `json:"Rating,omitempty"` // Plex rating array; exact tag so it does not collide with rating
+	ViewCount        int          `json:"viewCount"`
+	LastViewedAt     int64        `json:"lastViewedAt"`
+	AddedAt          int64        `json:"addedAt"`
+	Duration         int64        `json:"duration"`
+	GUID             string       `json:"guid"`           // Primary GUID (e.g. "plex://movie/...")
+	GUIDs            []plexGUID   `json:"Guid,omitempty"` // Additional GUIDs including TMDb references
 	Genre            []struct {
 		Tag string `json:"tag"`
 	} `json:"Genre"`
@@ -112,6 +113,16 @@ type plexMetadata struct {
 // plexGUID represents a GUID entry from the Plex API.
 type plexGUID struct {
 	ID string `json:"id"` // e.g. "tmdb://12345", "imdb://tt1234567", "tvdb://54321"
+}
+
+// plexRating is the PascalCase Rating array Plex emits next to the scalar
+// rating field. encoding/json matches keys case-insensitively, so this type
+// must be tagged `Rating` or the array decodes into Rating float64 and the
+// whole MediaContainer fails.
+type plexRating struct {
+	Image string  `json:"image"`
+	Value float64 `json:"value"`
+	Type  string  `json:"type"`
 }
 
 // plexHistoryResponse maps /status/sessions/history/all response.
@@ -641,7 +652,8 @@ func (p *PlexClient) GetTMDbToRatingKeyMap() (map[int]string, error) {
 // series they are watching — a strong signal of active interest.
 // The returned map is keyed by TMDb ID for matching against *arr items.
 func (p *PlexClient) GetOnDeckItems() (map[int]bool, error) {
-	body, err := p.doRequest("/library/onDeck")
+	// includeGuids=1 is required for TMDb ID extraction, same as library fetch.
+	body, err := p.doRequest("/library/onDeck?includeGuids=1")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Plex on-deck items: %w", err)
 	}

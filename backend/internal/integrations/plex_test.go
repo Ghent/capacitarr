@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -934,6 +935,98 @@ func TestPlexClient_GetOnDeckItems_APIError(t *testing.T) {
 	_, err := client.GetOnDeckItems()
 	if err == nil {
 		t.Fatal("Expected error for API failure")
+	}
+}
+
+// plexOnDeckRatingArrayJSON is a Plex on-deck payload with both the scalar
+// rating field and the PascalCase Rating array on one item. encoding/json
+// matches keys case-insensitively, so this is the shape that used to fail
+// the entire on-deck parse (issue #67).
+const plexOnDeckRatingArrayJSON = `{
+  "MediaContainer": {
+    "Metadata": [
+      {
+        "ratingKey": "101",
+        "title": "Serenity",
+        "type": "movie",
+        "rating": 8.5,
+        "audienceRating": 8.8,
+        "Rating": [
+          {"image": "imdb://image.rating", "value": 8.0, "type": "audience"},
+          {"image": "rottentomatoes://image.rating.ripe", "value": 8.2, "type": "critic"}
+        ],
+        "Guid": [{"id": "tmdb://16320"}]
+      }
+    ]
+  }
+}`
+
+func TestPlexMetadata_RatingArrayDoesNotCollideWithScalar(t *testing.T) {
+	var resp plexMediaResponse
+	if err := json.Unmarshal([]byte(plexOnDeckRatingArrayJSON), &resp); err != nil {
+		t.Fatalf("expected Rating array and rating scalar to decode together: %v", err)
+	}
+	if len(resp.MediaContainer.Metadata) != 1 {
+		t.Fatalf("expected 1 metadata item, got %d", len(resp.MediaContainer.Metadata))
+	}
+	m := resp.MediaContainer.Metadata[0]
+	if m.Rating != 8.5 {
+		t.Errorf("expected scalar rating 8.5, got %v", m.Rating)
+	}
+	if m.AudienceRating != 8.8 {
+		t.Errorf("expected audienceRating 8.8, got %v", m.AudienceRating)
+	}
+	if len(m.Ratings) != 2 {
+		t.Fatalf("expected 2 Rating array entries, got %d", len(m.Ratings))
+	}
+	if m.Ratings[0].Value != 8.0 || m.Ratings[0].Type != "audience" {
+		t.Errorf("unexpected first Rating entry: %+v", m.Ratings[0])
+	}
+	if plexExtractTMDbID(m.GUIDs) != 16320 {
+		t.Errorf("expected TMDb ID 16320, got %d", plexExtractTMDbID(m.GUIDs))
+	}
+}
+
+func TestPlexClient_GetOnDeckItems_RatingArray(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/library/onDeck" {
+			_, _ = w.Write([]byte(plexOnDeckRatingArrayJSON))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	client := NewPlexClient(srv.URL, "test-token")
+	onDeck, err := client.GetOnDeckItems()
+	if err != nil {
+		t.Fatalf("GetOnDeckItems should succeed with Rating array present: %v", err)
+	}
+	if !onDeck[16320] {
+		t.Errorf("expected TMDb ID 16320 in on-deck map, got %v", onDeck)
+	}
+}
+
+func TestPlexClient_GetOnDeckItems_RequestsIncludeGuids(t *testing.T) {
+	var gotQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/library/onDeck" {
+			gotQuery = r.URL.RawQuery
+			_, _ = w.Write([]byte(`{"MediaContainer":{"Metadata":[]}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	client := NewPlexClient(srv.URL, "test-token")
+	if _, err := client.GetOnDeckItems(); err != nil {
+		t.Fatalf("GetOnDeckItems should succeed: %v", err)
+	}
+	if !strings.Contains(gotQuery, "includeGuids=1") {
+		t.Errorf("on-deck request must include includeGuids=1, got %q", gotQuery)
 	}
 }
 
