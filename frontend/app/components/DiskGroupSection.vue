@@ -143,8 +143,7 @@
 <script setup lang="ts">
 import { HardDriveIcon, TrendingUpIcon, TrendingDownIcon, ClockIcon } from 'lucide-vue-next';
 import { formatBytes, diskStatusBgClass } from '~/utils/format';
-import { modeIcon, modeBadgeClasses, modeTooltipKey } from '~/utils/diskGroupMode';
-import { MODE_AUTO, MODE_APPROVAL, MODE_SUNSET } from '~/constants';
+import { modeIcon, modeBadgeClasses, modeTooltipKey, modeLabelKey } from '~/utils/diskGroupMode';
 import type { DiskGroup } from '~/types/api';
 import { useTimeAgo } from '@vueuse/core';
 
@@ -167,18 +166,7 @@ const staleAgo = useTimeAgo(() =>
 const { t } = useI18n();
 
 /** Mode badge label — human-readable mode name. */
-const modeBadgeLabel = computed(() => {
-  switch (props.group.mode) {
-    case MODE_AUTO:
-      return t('mode.auto');
-    case MODE_APPROVAL:
-      return t('mode.approval');
-    case MODE_SUNSET:
-      return t('mode.sunset');
-    default:
-      return t('mode.dryRun');
-  }
-});
+const modeBadgeLabel = computed(() => t(modeLabelKey(props.group.mode)));
 
 const { destructiveColor, successColor, colorAlpha } = useEChartsDefaults();
 

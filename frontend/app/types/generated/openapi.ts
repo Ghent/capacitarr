@@ -866,7 +866,8 @@ export interface paths {
          *     typed events in real-time. Events include engine runs, deletions,
          *     config changes, approval actions, and more (70 event types total).
          *
-         *     Supports reconnection replay via the `Last-Event-ID` header.
+         *     Supports reconnection replay via the `Last-Event-ID` header or the
+         *     `lastEventId` query parameter (EventSource cannot set headers).
          *     A keepalive comment is sent every 30 seconds to prevent proxy timeouts.
          */
         get: operations["subscribeEvents"];
@@ -4352,6 +4353,16 @@ export interface operations {
                          * @example 3
                          */
                         total?: number;
+                        /**
+                         * @description Resolved disk-group mode used for the request
+                         * @example auto
+                         */
+                        mode?: string;
+                        /**
+                         * @description Items not queued because the in-memory deletion queue was full
+                         * @example 0
+                         */
+                        queueFullSkipped?: number;
                     };
                 };
             };
@@ -4379,7 +4390,10 @@ export interface operations {
     };
     subscribeEvents: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Same as Last-Event-ID. Used by the browser EventSource client on reconnect. */
+                lastEventId?: string;
+            };
             header?: {
                 /** @description Resume from this event ID on reconnection. Events after this ID will be replayed from a ring buffer (up to 100 events). */
                 "Last-Event-ID"?: string;

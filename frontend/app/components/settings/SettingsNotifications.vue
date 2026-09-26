@@ -76,7 +76,7 @@
       <UiCardContent class="pt-4 space-y-3">
         <div class="flex items-center justify-between">
           <p class="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Notification Level
+            {{ $t('notifications.levelLabel') }}
           </p>
           <UiBadge variant="outline" class="capitalize">{{ channel.notificationLevel }}</UiBadge>
         </div>
@@ -84,10 +84,7 @@
           {{ levelDescription(channel.notificationLevel) }}
         </p>
         <p v-if="activeOverrideCount(channel) > 0" class="text-xs text-muted-foreground">
-          {{ activeOverrideCount(channel) }} custom override{{
-            activeOverrideCount(channel) > 1 ? 's' : ''
-          }}
-          active
+          {{ $t('notifications.overridesActive', { count: activeOverrideCount(channel) }) }}
         </p>
       </UiCardContent>
 
@@ -173,17 +170,21 @@
 
         <div class="space-y-3">
           <div class="space-y-1.5">
-            <UiLabel>Notification Level</UiLabel>
+            <UiLabel>{{ $t('notifications.levelLabel') }}</UiLabel>
             <UiSelect v-model="channelForm.notificationLevel">
               <UiSelectTrigger class="w-full">
-                <UiSelectValue placeholder="Select level" />
+                <UiSelectValue :placeholder="$t('notifications.levelPlaceholder')" />
               </UiSelectTrigger>
               <UiSelectContent>
-                <UiSelectItem value="off">Off</UiSelectItem>
-                <UiSelectItem value="critical">Critical Only</UiSelectItem>
-                <UiSelectItem value="important">Important</UiSelectItem>
-                <UiSelectItem value="normal">Normal</UiSelectItem>
-                <UiSelectItem value="verbose">Verbose</UiSelectItem>
+                <UiSelectItem value="off">{{ $t('notifications.levelOff') }}</UiSelectItem>
+                <UiSelectItem value="critical">{{
+                  $t('notifications.levelCritical')
+                }}</UiSelectItem>
+                <UiSelectItem value="important">{{
+                  $t('notifications.levelImportant')
+                }}</UiSelectItem>
+                <UiSelectItem value="normal">{{ $t('notifications.levelNormal') }}</UiSelectItem>
+                <UiSelectItem value="verbose">{{ $t('notifications.levelVerbose') }}</UiSelectItem>
               </UiSelectContent>
             </UiSelect>
             <p class="text-xs text-muted-foreground">
@@ -196,11 +197,11 @@
               class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <component :is="showAdvanced ? ChevronDownIcon : ChevronRightIcon" class="w-4 h-4" />
-              Advanced Overrides
+              {{ $t('notifications.advancedOverrides') }}
             </UiCollapsibleTrigger>
             <UiCollapsibleContent class="mt-3 space-y-2">
               <p class="text-xs text-muted-foreground mb-3">
-                Override individual event types regardless of the notification level.
+                {{ $t('notifications.advancedOverridesDesc') }}
               </p>
               <div
                 v-for="override in overrideOptions"
@@ -216,9 +217,9 @@
                     <UiSelectValue />
                   </UiSelectTrigger>
                   <UiSelectContent>
-                    <UiSelectItem value="auto">Auto</UiSelectItem>
-                    <UiSelectItem value="on">Always On</UiSelectItem>
-                    <UiSelectItem value="off">Always Off</UiSelectItem>
+                    <UiSelectItem value="auto">{{ $t('notifications.triStateAuto') }}</UiSelectItem>
+                    <UiSelectItem value="on">{{ $t('notifications.triStateOn') }}</UiSelectItem>
+                    <UiSelectItem value="off">{{ $t('notifications.triStateOff') }}</UiSelectItem>
                   </UiSelectContent>
                 </UiSelect>
               </div>
@@ -295,18 +296,20 @@ const overrideOptions = [
   { key: 'overrideUpdateAvailable', label: 'Update Available' },
 ];
 
+const { t } = useI18n();
+
 function levelDescription(level: string): string {
   switch (level) {
     case 'off':
-      return 'No notifications';
+      return t('notifications.levelOffDesc');
     case 'critical':
-      return 'Errors, threshold breaches, and integration failures';
+      return t('notifications.levelCriticalDesc');
     case 'important':
-      return 'Critical events plus mode changes and review activity';
+      return t('notifications.levelImportantDesc');
     case 'normal':
-      return 'Cycle digests, update notices, and all important events';
+      return t('notifications.levelNormalDesc');
     case 'verbose':
-      return 'Everything including simulation digests and integration recovery';
+      return t('notifications.levelVerboseDesc');
     default:
       return '';
   }

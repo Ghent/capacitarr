@@ -4,7 +4,7 @@
  */
 import { use } from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
-import { BarChart, LineChart, GaugeChart } from 'echarts/charts';
+import { LineChart, GaugeChart } from 'echarts/charts';
 import {
   TitleComponent,
   TooltipComponent,
@@ -19,7 +19,6 @@ import VChart from 'vue-echarts';
 // Register only the modules we use (tree-shaking)
 use([
   CanvasRenderer,
-  BarChart,
   LineChart,
   GaugeChart,
   TitleComponent,

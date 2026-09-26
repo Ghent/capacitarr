@@ -63,7 +63,7 @@ Active design work lives in `docs/plans/00-active/`. Completed plans go to a pri
 ### Code Standards
 
 - **Go backend**: Follow `gofmt` formatting; `golangci-lint` is run automatically via Docker
-- **Vue frontend**: Follow the project's ESLint and Prettier configuration; use shadcn-vue components (not raw HTML elements); use ECharts via DashboardCard for analytics
+- **Vue frontend**: Follow the project's ESLint and Prettier configuration; use shadcn-vue components (not raw HTML elements); use ECharts via the dashboard/history components (`useEngineHistory`, `EngineActivityCard`)
 - **Commits**: Use Conventional Commits format (required for changelog generation)
 - **Documentation**: Update relevant docs when changing user-facing behavior
 - **Services**: New business logic must be added to the service layer, not inline in route handlers. All DB access — both reads and writes — must go through services.

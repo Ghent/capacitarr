@@ -162,11 +162,11 @@ Not a rewrite of the UI. Thin wrapper (`openapi-fetch` or a hand-rolled `api.GET
 
 ## Done when
 
-- [ ] April plan archived; this file is the active frontend architecture inbox
-- [ ] Slice A: failed ≠ empty; truncated banner; queue-full visible; auth cookie path fixed; delete response typed
-- [ ] Slice B: Last-Event-ID on reconnect; `replay_gap` refetch; approval SSE owned by `useApprovalQueue`; HMR dispose
-- [ ] Slice C: `eventIcons` + history composable + presentational engine card; date-range i18n wired
-- [ ] Slice D: Help wrapper + two extracts; Collection Deletion / About i18n
-- [ ] Slice E: existing keys wired or pruned; starter README gone; CONTRIBUTING does not mention DashboardCard
-- [ ] Error policy and composition rule live in `docs/development.md`, not only in this journal
+- [x] April plan archived; this file is the active frontend architecture inbox
+- [x] Slice A: failed ≠ empty; truncated banner; queue-full visible; auth cookie path fixed; delete response typed
+- [x] Slice B: Last-Event-ID on reconnect; `replay_gap` refetch; approval SSE owned by `useApprovalQueue`; HMR dispose
+- [x] Slice C: `eventIcons` + history composable + presentational engine card; date-range i18n wired
+- [x] Slice D: Help wrapper + two extracts; Collection Deletion / About i18n
+- [x] Slice E: existing keys wired or pruned; starter README gone; CONTRIBUTING does not mention DashboardCard
+- [x] Error policy and composition rule live in `docs/development.md`, not only in this journal
 - [ ] `make ci` green on each slice

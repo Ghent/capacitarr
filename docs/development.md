@@ -15,3 +15,22 @@ The `DefaultDiskGroupMode` field on `PreferenceSet` serves only as a **template 
   3. Backup/restore compatibility
 - The worker stats API returns `diskGroupModes` (a JSON map of group ID → mode) rather than a single global mode string.
 - SSE events (`engine_start`, `engine_complete`) carry `diskGroupModes` for real-time UI updates.
+
+## Frontend composition
+
+1. Pages orchestrate. They do not contain icon/color/label switches or ECharts option builders.
+2. Shared domain maps live in `utils/` (see `diskGroupMode.ts`). New mode or event-type maps go there, not into a page.
+3. Feature cards are presentational. They consume composables; they do not register app-lifetime SSE.
+4. Fetch errors go through the error policy below. `console.warn` alone is not an error strategy.
+
+## Frontend error policy
+
+| Category | Treatment | Examples |
+|---|---|---|
+| **Initial page load** | Inline error + retry. Keep last-good data if any. Never show the empty-state component. | Dashboard disk groups, preview, rules list, approval queue first fetch |
+| **User-initiated action** | Error toast (`$t(...)`). | Run now, approve, save weights, manual delete |
+| **Background refresh** | Stay silent unless consecutive failures. Do not fight `ConnectionBanner`. | SSE-triggered refetches, integration refresh |
+| **Parse / display** | Inline fallback + `console.warn`. | Score-detail JSON parse |
+| **Background polling** | Silent. Comment the site. | Connection health poll, automatic version check |
+
+Do not invent a “3 failures then toast” counter without a shared helper. Prefer `useFetchStatus` with `ok | loading | error` and last-good data.

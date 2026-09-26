@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ref, readonly, type Ref } from 'vue';
 
 // Import AFTER stubs
-import { useEventStream } from './useEventStream';
+import { eventsURL, useEventStream } from './useEventStream';
 
 // ---------------------------------------------------------------------------
 // Mock Nuxt auto-imports
@@ -216,6 +216,18 @@ describe('useEventStream', () => {
   // -------------------------------------------------------------------------
   // State after disconnect()
   // -------------------------------------------------------------------------
+  describe('eventsURL', () => {
+    it('omits the query when lastEventId is empty', () => {
+      expect(eventsURL('http://localhost:2187', '')).toBe('http://localhost:2187/api/v1/events');
+    });
+
+    it('appends lastEventId on reconnect', () => {
+      expect(eventsURL('http://localhost:2187', '42')).toBe(
+        'http://localhost:2187/api/v1/events?lastEventId=42',
+      );
+    });
+  });
+
   describe('state after disconnect', () => {
     it('connected is false after disconnect', () => {
       const { disconnect, connected } = useEventStream();

@@ -25,8 +25,16 @@ const {
   isDeletionActive: engineIsDeletionActive,
   executionMode,
 } = useEngineControl();
-const { queuedItems, completedItems, countdown, fetchQueue, cancelItem, snoozeItem, clearAll } =
-  useDeletionQueue();
+const {
+  queuedItems,
+  completedItems,
+  countdown,
+  loadError,
+  fetchQueue,
+  cancelItem,
+  snoozeItem,
+  clearAll,
+} = useDeletionQueue();
 
 // Fetch queue on mount
 onMounted(() => {
@@ -237,8 +245,8 @@ const progressPercent = computed(() => {
         </div>
       </div>
 
-      <!-- Empty state — always shown when no items are queued -->
-      <div v-if="!hasContent" class="text-center py-6 text-muted-foreground text-sm">
+      <FetchErrorBanner v-if="loadError" class="mb-0" @retry="fetchQueue()" />
+      <div v-else-if="!hasContent" class="text-center py-6 text-muted-foreground text-sm">
         {{ emptyStateMessage }}
       </div>
     </UiCardContent>

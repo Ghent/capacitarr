@@ -39,7 +39,6 @@
   },
   "devDependencies": {
     "@nuxt/eslint": "^1.15.2",
-    "@tailwindcss/postcss": "^4.3.0",
     "@tailwindcss/vite": "^4.3.0",
     "@vite-pwa/nuxt": "^1.1.1",
     "@vitejs/plugin-vue": "^6.0.4",

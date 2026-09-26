@@ -19,8 +19,11 @@ import {
   EVENT_APPROVAL_QUEUE_CLEARED,
   EVENT_APPROVAL_DISMISSED,
   EVENT_APPROVAL_RETURNED_TO_PENDING,
+  EVENT_APPROVAL_APPROVED,
+  EVENT_APPROVAL_REJECTED,
 } from '~/constants';
 import type { ApprovalQueueItem } from '~/types/api';
+import { useFetchStatus } from './useFetchStatus';
 
 export interface ApprovalGroup {
   key: string;
@@ -51,6 +54,11 @@ export interface ApprovalGroup {
 // Module-level flag: SSE handlers registered once globally.
 let _approvalSseRegistered = false;
 
+/** @internal */
+export function _resetApprovalSSE() {
+  _approvalSseRegistered = false;
+}
+
 /**
  * Extract the show title from a season media name.
  * "Big Mouth - Season 1" → "Big Mouth"
@@ -66,6 +74,8 @@ export function useApprovalQueue() {
   const api = useApi();
   const { diskGroupModes } = useEngineControl();
   const { on: sseOn } = useEventStream();
+  const { t } = useI18n();
+  const { lastFetchOk, loadError, markSuccess, markFailure } = useFetchStatus();
 
   // State — shared across pages via useState
   const pendingItems = useState<ApprovalGroup[]>('approvalPending', () => []);
@@ -226,9 +236,10 @@ export function useApprovalQueue() {
       pendingItems.value = pending.sort(byScore);
       snoozedItems.value = snoozed.sort(byScore);
       approvedItems.value = approved.sort(byScore);
+      markSuccess();
     } catch (e) {
-      // Non-critical — queue just won't display
       console.warn('[useApprovalQueue] fetchQueue failed:', e);
+      markFailure();
     }
   }
 
@@ -245,7 +256,7 @@ export function useApprovalQueue() {
       await Promise.all(
         group.auditIds.map((id) => api(`/api/v1/approval-queue/${id}/approve`, { method: 'POST' })),
       );
-      toast.success('Group approved for deletion');
+      toast.success(t('approval.groupApprovedToast'));
     } catch (e: unknown) {
       // Revert optimistic update on failure
       approvedItems.value = approvedItems.value.filter((g) => g.key !== group.key);
@@ -253,9 +264,9 @@ export function useApprovalQueue() {
 
       const fe = e as FetchError;
       if (fe?.statusCode === 409) {
-        toast.error(fe.data?.error || 'Approval blocked — deletions are disabled');
+        toast.error(fe.data?.error || t('approval.blockedToast'));
       } else {
-        toast.error('Failed to approve group');
+        toast.error(t('approval.approveFailedToast'));
       }
     }
   }
@@ -276,14 +287,14 @@ export function useApprovalQueue() {
       await Promise.all(
         group.auditIds.map((id) => api(`/api/v1/approval-queue/${id}/reject`, { method: 'POST' })),
       );
-      toast.info('Group snoozed');
+      toast.info(t('approval.groupSnoozedToast'));
       // Background refresh to get accurate snooze duration from server
       fetchQueue();
     } catch {
       // Revert optimistic update on failure
       snoozedItems.value = snoozedItems.value.filter((g) => g.key !== group.key);
       pendingItems.value = [...pendingItems.value, group];
-      toast.error('Failed to snooze group');
+      toast.error(t('approval.snoozeFailedToast'));
     }
   }
 
@@ -301,14 +312,14 @@ export function useApprovalQueue() {
           api(`/api/v1/approval-queue/${id}/unsnooze`, { method: 'POST' }),
         ),
       );
-      toast.success('Snooze removed — group re-queued for approval');
+      toast.success(t('approval.unsnoozeSuccessToast'));
       // Background refresh to sync with server state
       fetchQueue();
     } catch {
       // Revert optimistic update on failure
       pendingItems.value = pendingItems.value.filter((g) => g.key !== group.key);
       snoozedItems.value = [...snoozedItems.value, group];
-      toast.error('Failed to unsnooze group');
+      toast.error(t('approval.unsnoozeFailedToast'));
     }
   }
 
@@ -316,14 +327,14 @@ export function useApprovalQueue() {
   async function approveSeason(auditId: number) {
     try {
       await api(`/api/v1/approval-queue/${auditId}/approve`, { method: 'POST' });
-      toast.success('Season approved for deletion');
+      toast.success(t('approval.seasonApprovedToast'));
       fetchQueue();
     } catch (e: unknown) {
       const fe = e as FetchError;
       if (fe?.statusCode === 409) {
-        toast.error(fe.data?.error || 'Approval blocked — deletions are disabled');
+        toast.error(fe.data?.error || t('approval.blockedToast'));
       } else {
-        toast.error('Failed to approve season');
+        toast.error(t('approval.seasonApproveFailedToast'));
       }
     }
   }
@@ -332,10 +343,10 @@ export function useApprovalQueue() {
   async function snoozeSeason(auditId: number) {
     try {
       await api(`/api/v1/approval-queue/${auditId}/reject`, { method: 'POST' });
-      toast.info('Season snoozed');
+      toast.info(t('approval.seasonSnoozedToast'));
       fetchQueue();
     } catch {
-      toast.error('Failed to snooze season');
+      toast.error(t('approval.seasonSnoozeFailedToast'));
     }
   }
 
@@ -351,7 +362,7 @@ export function useApprovalQueue() {
       await Promise.all(
         group.auditIds.map((id) => api(`/api/v1/approval-queue/${id}`, { method: 'DELETE' })),
       );
-      toast.info('Dismissed from queue');
+      toast.info(t('approval.dismissedToast'));
     } catch {
       // Revert optimistic update on failure
       if (group.state === 'snoozed') {
@@ -359,7 +370,7 @@ export function useApprovalQueue() {
       } else {
         pendingItems.value = [...pendingItems.value, group];
       }
-      toast.error('Failed to dismiss group');
+      toast.error(t('approval.dismissFailedToast'));
     }
   }
 
@@ -367,10 +378,10 @@ export function useApprovalQueue() {
   async function dismissSeason(auditId: number) {
     try {
       await api(`/api/v1/approval-queue/${auditId}`, { method: 'DELETE' });
-      toast.info('Season dismissed');
+      toast.info(t('approval.seasonDismissedToast'));
       fetchQueue();
     } catch {
-      toast.error('Failed to dismiss season');
+      toast.error(t('approval.seasonDismissFailedToast'));
     }
   }
 
@@ -384,12 +395,12 @@ export function useApprovalQueue() {
 
     try {
       await api('/api/v1/approval-queue/clear', { method: 'POST' });
-      toast.info('Queue cleared');
+      toast.info(t('approval.clearedToast'));
     } catch {
       // Revert optimistic update on failure
       pendingItems.value = prevPending;
       snoozedItems.value = prevSnoozed;
-      toast.error('Failed to clear queue');
+      toast.error(t('approval.clearFailedToast'));
     }
   }
 
@@ -407,11 +418,19 @@ export function useApprovalQueue() {
     sseOn(EVENT_ENGINE_COMPLETE, refreshOnEvent);
     sseOn(EVENT_DELETION_SUCCESS, refreshOnEvent);
     sseOn(EVENT_DELETION_FAILED, refreshOnEvent);
+    sseOn(EVENT_APPROVAL_APPROVED, refreshOnEvent);
+    sseOn(EVENT_APPROVAL_REJECTED, refreshOnEvent);
     sseOn(EVENT_APPROVAL_ORPHANS_RECOVERED, refreshOnEvent);
     sseOn(EVENT_APPROVAL_BULK_UNSNOOZED, refreshOnEvent);
     sseOn(EVENT_APPROVAL_QUEUE_CLEARED, refreshOnEvent);
     sseOn(EVENT_APPROVAL_DISMISSED, refreshOnEvent);
     sseOn(EVENT_APPROVAL_RETURNED_TO_PENDING, refreshOnEvent);
+  }
+
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      _approvalSseRegistered = false;
+    });
   }
 
   return {
@@ -420,6 +439,8 @@ export function useApprovalQueue() {
     snoozedItems: readonly(snoozedItems),
     approvedItems: readonly(approvedItems),
     loading: readonly(loading),
+    lastFetchOk,
+    loadError,
     isApprovalMode,
     hasQueueItems,
 

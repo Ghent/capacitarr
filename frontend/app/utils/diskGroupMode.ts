@@ -13,7 +13,7 @@
  */
 import { HandIcon, HourglassIcon, ShieldIcon, ZapIcon } from 'lucide-vue-next';
 import type { Component } from 'vue';
-import { MODE_APPROVAL, MODE_AUTO, MODE_SUNSET } from '~/constants';
+import { MODE_APPROVAL, MODE_AUTO, MODE_DRY_RUN, MODE_SUNSET } from '~/constants';
 
 /** Icon component for a given mode. */
 export function modeIcon(mode: string): Component {
@@ -78,4 +78,30 @@ export function modeTooltipKey(mode: string): string {
     default:
       return 'mode.dryRunTooltip';
   }
+}
+
+/** i18n key for the short mode label. */
+export function modeLabelKey(mode: string): string {
+  switch (mode) {
+    case MODE_AUTO:
+      return 'mode.auto';
+    case MODE_APPROVAL:
+      return 'mode.approval';
+    case MODE_SUNSET:
+      return 'mode.sunset';
+    default:
+      return 'mode.dryRun';
+  }
+}
+
+/**
+ * Most aggressive mode across a set. Priority: auto > approval > sunset > dry-run.
+ * Empty input returns dry-run.
+ */
+export function mostAggressiveMode(modes: Iterable<string>): string {
+  const set = modes instanceof Set ? modes : new Set(modes);
+  if (set.has(MODE_AUTO)) return MODE_AUTO;
+  if (set.has(MODE_APPROVAL)) return MODE_APPROVAL;
+  if (set.has(MODE_SUNSET)) return MODE_SUNSET;
+  return MODE_DRY_RUN;
 }

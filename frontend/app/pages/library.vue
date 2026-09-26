@@ -61,6 +61,16 @@
           </div>
         </div>
 
+        <FetchErrorBanner v-if="loadError" @retry="refresh(true)" />
+
+        <UiAlert v-if="truncated && !loadError" class="mb-4">
+          <AlertTriangleIcon class="w-4 h-4" />
+          <UiAlertTitle>{{ $t('library.truncatedTitle') }}</UiAlertTitle>
+          <UiAlertDescription>
+            {{ $t('library.truncatedDesc', { shown: items.length, total: totalItems }) }}
+          </UiAlertDescription>
+        </UiAlert>
+
         <!-- Stale data indicator -->
         <div
           v-if="stale"
@@ -118,6 +128,7 @@ import {
   StarIcon,
   ShieldIcon,
   XIcon,
+  AlertTriangleIcon,
 } from 'lucide-vue-next';
 import type { IntegrationConfig, EvaluatedItem, PreferenceSet } from '~/types/api';
 import { toast } from 'vue-sonner';
@@ -125,7 +136,7 @@ import { MODE_DRY_RUN, EVENT_ANALYTICS_UPDATED } from '~/constants';
 
 const api = useApi();
 const { t } = useI18n();
-const { items, loading, stale, refresh } = usePreview();
+const { items, loading, stale, truncated, totalItems, loadError, refresh } = usePreview();
 const route = useRoute();
 const router = useRouter();
 
@@ -334,17 +345,25 @@ async function handleDelete(selectedItems: EvaluatedItem[]) {
     const result = (await api('/api/v1/delete', {
       method: 'POST',
       body,
-    })) as { queued: number; total: number; mode: string };
+    })) as { queued: number; total: number; mode: string; queueFullSkipped?: number };
 
-    // Mode-dependent toast feedback
-    const toastMessages: Record<string, string> = {
-      auto: t('library.deleteSuccessAuto', { count: result.queued }),
-      approval: t('library.deleteSuccessApproval', { count: result.queued }),
-      [MODE_DRY_RUN]: t('library.deleteSuccessDryRun', { count: result.queued }),
-    };
-    toast.success(
-      toastMessages[result.mode] || t('library.deleteSuccess', { count: result.queued }),
-    );
+    if ((result.queueFullSkipped ?? 0) > 0) {
+      toast.warning(
+        t('library.deleteQueueFull', {
+          queued: result.queued,
+          skipped: result.queueFullSkipped,
+        }),
+      );
+    } else {
+      const toastMessages: Record<string, string> = {
+        auto: t('library.deleteSuccessAuto', { count: result.queued }),
+        approval: t('library.deleteSuccessApproval', { count: result.queued }),
+        [MODE_DRY_RUN]: t('library.deleteSuccessDryRun', { count: result.queued }),
+      };
+      toast.success(
+        toastMessages[result.mode] || t('library.deleteSuccess', { count: result.queued }),
+      );
+    }
     libraryTableRef.value?.onDeleteComplete();
 
     // Refresh to reflect changes

@@ -17,6 +17,8 @@ const { viewMode } = useDisplayPrefs();
 const {
   pendingItems,
   loading,
+  loadError,
+  fetchQueue,
   approveGroup,
   rejectGroup,
   approveSeason,
@@ -275,8 +277,8 @@ onUnmounted(() => {
       </div>
     </UiCardHeader>
     <UiCardContent>
-      <!-- Empty state -->
-      <div v-if="totalCount === 0" class="text-center py-6 text-muted-foreground text-sm">
+      <FetchErrorBanner v-if="loadError" class="mb-0" @retry="fetchQueue()" />
+      <div v-else-if="totalCount === 0" class="text-center py-6 text-muted-foreground text-sm">
         {{ t('approval.noPending') }}
       </div>
 

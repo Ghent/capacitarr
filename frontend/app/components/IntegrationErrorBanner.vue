@@ -13,10 +13,10 @@
           <AlertTriangleIcon class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <div class="min-w-0 space-y-2">
             <p class="text-sm font-medium text-foreground">
-              {{ failingIntegrations.length }} integration{{
-                failingIntegrations.length > 1 ? 's' : ''
-              }}
-              failed to connect
+              {{ $t('dashboard.errorBanner.title', { count: failingIntegrations.length }) }}
+            </p>
+            <p class="text-xs text-muted-foreground">
+              {{ $t('dashboard.errorBanner.description') }}
             </p>
             <div
               v-for="integration in failingIntegrations"
@@ -34,7 +34,11 @@
                 v-if="integration.consecutiveFailures > 0"
                 class="text-amber-500 text-[10px] shrink-0 font-medium"
               >
-                Recovering (attempt {{ integration.consecutiveFailures }})
+                {{
+                  $t('dashboard.errorBanner.recovering', {
+                    attempt: integration.consecutiveFailures,
+                  })
+                }}
               </span>
             </div>
             <NuxtLink
@@ -42,7 +46,7 @@
               class="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-500 font-medium transition-colors"
             >
               <SettingsIcon class="w-3 h-3" />
-              Fix in Settings
+              {{ $t('dashboard.errorBanner.action') }}
             </NuxtLink>
           </div>
         </div>
@@ -50,7 +54,7 @@
           variant="ghost"
           size="icon-sm"
           class="h-auto w-auto text-muted-foreground/60 hover:text-foreground transition-colors shrink-0"
-          title="Dismiss"
+          :title="$t('announcements.dismiss')"
           @click="dismissed = true"
         >
           <XIcon class="w-4 h-4" />

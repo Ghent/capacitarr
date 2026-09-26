@@ -18,6 +18,7 @@ import {
   EVENT_APPROVAL_DISMISSED,
   EVENT_ENGINE_COMPLETE,
 } from '~/constants';
+import { useFetchStatus } from './useFetchStatus';
 
 export interface SnoozedItem {
   id: number;
@@ -48,6 +49,7 @@ export function useSnoozedItems() {
 
   const snoozedItems = useState<SnoozedItem[]>('snoozedItems', () => []);
   const loading = ref(false);
+  const { lastFetchOk, loadError, markSuccess, markFailure } = useFetchStatus();
 
   async function fetchSnoozedItems() {
     loading.value = true;
@@ -68,8 +70,9 @@ export function useSnoozedItems() {
           posterUrl: item.posterUrl,
           score: item.score,
         }));
+      markSuccess();
     } catch {
-      snoozedItems.value = [];
+      markFailure();
     } finally {
       loading.value = false;
     }
@@ -109,9 +112,17 @@ export function useSnoozedItems() {
     on(EVENT_ENGINE_COMPLETE, () => fetchSnoozedItems());
   }
 
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      _snoozedSseRegistered = false;
+    });
+  }
+
   return {
     snoozedItems: readonly(snoozedItems),
     loading: readonly(loading),
+    lastFetchOk,
+    loadError,
     fetchSnoozedItems,
     unsnooze,
   };

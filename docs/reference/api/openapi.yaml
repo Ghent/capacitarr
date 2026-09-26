@@ -1546,6 +1546,14 @@ paths:
                     type: integer
                     description: Total items in the request
                     example: 3
+                  mode:
+                    type: string
+                    description: Resolved disk-group mode used for the request
+                    example: auto
+                  queueFullSkipped:
+                    type: integer
+                    description: Items not queued because the in-memory deletion queue was full
+                    example: 0
         "400":
           description: Invalid request body or no items provided
           content:
@@ -1576,12 +1584,18 @@ paths:
         typed events in real-time. Events include engine runs, deletions,
         config changes, approval actions, and more (70 event types total).
 
-        Supports reconnection replay via the `Last-Event-ID` header.
+        Supports reconnection replay via the `Last-Event-ID` header or the
+        `lastEventId` query parameter (EventSource cannot set headers).
         A keepalive comment is sent every 30 seconds to prevent proxy timeouts.
       parameters:
         - name: Last-Event-ID
           in: header
           description: Resume from this event ID on reconnection. Events after this ID will be replayed from a ring buffer (up to 100 events).
+          schema:
+            type: string
+        - name: lastEventId
+          in: query
+          description: Same as Last-Event-ID. Used by the browser EventSource client on reconnect.
           schema:
             type: string
       responses:

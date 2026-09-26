@@ -1,4 +1,5 @@
 import type { EvaluatedItem, DiskContext, DeletionProgress, PreviewResponse } from '~/types/api';
+import { useFetchStatus } from './useFetchStatus';
 import {
   EVENT_DELETION_SUCCESS,
   EVENT_DELETION_DRY_RUN,
@@ -27,6 +28,7 @@ export function usePreview() {
   const totalItems = ref(0);
   const loading = ref(false);
   const stale = ref(false);
+  const { lastFetchOk, loadError, markSuccess, markFailure } = useFetchStatus();
 
   // ---------------------------------------------------------------------------
   // Data fetching
@@ -42,12 +44,10 @@ export function usePreview() {
       truncated.value = data?.truncated ?? false;
       totalItems.value = data?.totalItems ?? items.value.length;
       stale.value = false;
+      markSuccess();
     } catch (err) {
       console.warn('[usePreview] fetch failed:', err);
-      items.value = [];
-      diskContext.value = null;
-      truncated.value = false;
-      totalItems.value = 0;
+      markFailure();
     } finally {
       loading.value = false;
     }
@@ -124,6 +124,11 @@ export function usePreview() {
   // ---------------------------------------------------------------------------
 
   onMounted(() => {
+    const replayGapCounter = useState<number>('sse:replayGap', () => 0);
+    watch(replayGapCounter, () => {
+      refresh();
+    });
+
     const scope = { onUnmounted };
     on(EVENT_PREVIEW_UPDATED, handlePreviewUpdated, scope);
     on(EVENT_PREVIEW_INVALIDATED, handlePreviewInvalidated, scope);
@@ -146,6 +151,8 @@ export function usePreview() {
     loading: readonly(loading),
     /** Whether the cached data is stale (invalidated, awaiting refresh). */
     stale: readonly(stale),
+    lastFetchOk,
+    loadError,
     refresh,
   };
 }

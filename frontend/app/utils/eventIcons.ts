@@ -1,0 +1,183 @@
+import {
+  ActivityIcon,
+  AlarmClockOffIcon,
+  AlertCircleIcon,
+  ArrowUpCircleIcon,
+  BellIcon,
+  BellOffIcon,
+  BellRingIcon,
+  CheckCircle2Icon,
+  DatabaseIcon,
+  KeyIcon,
+  PencilIcon,
+  PlayIcon,
+  PlugIcon,
+  PlusCircleIcon,
+  PowerIcon,
+  RefreshCwIcon,
+  SettingsIcon,
+  SlidersHorizontalIcon,
+  Trash2Icon,
+  UserIcon,
+  XCircleIcon,
+} from 'lucide-vue-next';
+import type { Component } from 'vue';
+import {
+  EVENT_APPROVAL_APPROVED,
+  EVENT_APPROVAL_BULK_UNSNOOZED,
+  EVENT_APPROVAL_ORPHANS_RECOVERED,
+  EVENT_APPROVAL_REJECTED,
+  EVENT_APPROVAL_RETURNED_TO_PENDING,
+  EVENT_APPROVAL_UNSNOOZED,
+  EVENT_API_KEY_GENERATED,
+  EVENT_DATA_RESET,
+  EVENT_DELETION_BATCH_COMPLETE,
+  EVENT_DELETION_DRY_RUN,
+  EVENT_DELETION_FAILED,
+  EVENT_DELETION_PROGRESS,
+  EVENT_DELETION_QUEUED,
+  EVENT_DELETION_SUCCESS,
+  EVENT_ENGINE_COMPLETE,
+  EVENT_ENGINE_ERROR,
+  EVENT_ENGINE_START,
+  EVENT_INTEGRATION_ADDED,
+  EVENT_INTEGRATION_RECOVERED,
+  EVENT_INTEGRATION_RECOVERY_ATTEMPT,
+  EVENT_INTEGRATION_REMOVED,
+  EVENT_INTEGRATION_TEST,
+  EVENT_INTEGRATION_TEST_FAILED,
+  EVENT_INTEGRATION_UPDATED,
+  EVENT_LOGIN,
+  EVENT_MANUAL_RUN_TRIGGERED,
+  EVENT_NOTIFICATION_CHANNEL_ADDED,
+  EVENT_NOTIFICATION_CHANNEL_REMOVED,
+  EVENT_NOTIFICATION_CHANNEL_UPDATED,
+  EVENT_NOTIFICATION_DELIVERY_FAILED,
+  EVENT_NOTIFICATION_SENT,
+  EVENT_PASSWORD_CHANGED,
+  EVENT_RULE_CREATED,
+  EVENT_RULE_DELETED,
+  EVENT_RULE_UPDATED,
+  EVENT_SERVER_STARTED,
+  EVENT_SETTINGS_CHANGED,
+  EVENT_SETTINGS_IMPORTED,
+  EVENT_THRESHOLD_BREACHED,
+  EVENT_THRESHOLD_CHANGED,
+  EVENT_UPDATE_AVAILABLE,
+  EVENT_USERNAME_CHANGED,
+} from '~/constants';
+
+/** Lucide icon for an activity-feed event type. */
+export function eventIcon(eventType: string): Component {
+  switch (eventType) {
+    case EVENT_ENGINE_START:
+    case EVENT_MANUAL_RUN_TRIGGERED:
+      return PlayIcon;
+    case EVENT_ENGINE_COMPLETE:
+    case EVENT_APPROVAL_APPROVED:
+    case EVENT_DELETION_BATCH_COMPLETE:
+      return CheckCircle2Icon;
+    case EVENT_ENGINE_ERROR:
+    case EVENT_DELETION_FAILED:
+    case EVENT_THRESHOLD_BREACHED:
+      return AlertCircleIcon;
+    case EVENT_SETTINGS_CHANGED:
+    case EVENT_SETTINGS_IMPORTED:
+      return SettingsIcon;
+    case EVENT_THRESHOLD_CHANGED:
+      return SlidersHorizontalIcon;
+    case EVENT_LOGIN:
+    case EVENT_USERNAME_CHANGED:
+      return UserIcon;
+    case EVENT_PASSWORD_CHANGED:
+    case EVENT_API_KEY_GENERATED:
+      return KeyIcon;
+    case EVENT_INTEGRATION_ADDED:
+    case EVENT_INTEGRATION_UPDATED:
+    case EVENT_INTEGRATION_REMOVED:
+    case EVENT_INTEGRATION_TEST:
+    case EVENT_INTEGRATION_TEST_FAILED:
+    case EVENT_INTEGRATION_RECOVERED:
+    case EVENT_INTEGRATION_RECOVERY_ATTEMPT:
+      return PlugIcon;
+    case EVENT_APPROVAL_REJECTED:
+      return XCircleIcon;
+    case EVENT_APPROVAL_UNSNOOZED:
+    case EVENT_APPROVAL_BULK_UNSNOOZED:
+      return AlarmClockOffIcon;
+    case EVENT_APPROVAL_ORPHANS_RECOVERED:
+    case EVENT_APPROVAL_RETURNED_TO_PENDING:
+      return RefreshCwIcon;
+    case EVENT_DELETION_QUEUED:
+    case EVENT_DELETION_SUCCESS:
+    case EVENT_DELETION_DRY_RUN:
+    case EVENT_DELETION_PROGRESS:
+    case EVENT_RULE_DELETED:
+      return Trash2Icon;
+    case EVENT_UPDATE_AVAILABLE:
+      return ArrowUpCircleIcon;
+    case EVENT_RULE_CREATED:
+      return PlusCircleIcon;
+    case EVENT_RULE_UPDATED:
+      return PencilIcon;
+    case EVENT_NOTIFICATION_CHANNEL_ADDED:
+    case EVENT_NOTIFICATION_CHANNEL_UPDATED:
+    case EVENT_NOTIFICATION_CHANNEL_REMOVED:
+      return BellIcon;
+    case EVENT_NOTIFICATION_SENT:
+      return BellRingIcon;
+    case EVENT_NOTIFICATION_DELIVERY_FAILED:
+      return BellOffIcon;
+    case EVENT_DATA_RESET:
+      return DatabaseIcon;
+    case EVENT_SERVER_STARTED:
+      return PowerIcon;
+    default:
+      return ActivityIcon;
+  }
+}
+
+/** Tailwind color class for an activity-feed event icon. */
+export function eventIconClass(eventType: string): string {
+  switch (eventType) {
+    case EVENT_ENGINE_START:
+    case EVENT_MANUAL_RUN_TRIGGERED:
+    case EVENT_THRESHOLD_CHANGED:
+    case EVENT_APPROVAL_UNSNOOZED:
+    case EVENT_APPROVAL_BULK_UNSNOOZED:
+    case EVENT_RULE_CREATED:
+    case EVENT_UPDATE_AVAILABLE:
+      return 'text-primary';
+    case EVENT_ENGINE_COMPLETE:
+    case EVENT_APPROVAL_APPROVED:
+    case EVENT_SERVER_STARTED:
+    case EVENT_INTEGRATION_ADDED:
+    case EVENT_INTEGRATION_TEST:
+    case EVENT_INTEGRATION_RECOVERED:
+    case EVENT_DELETION_SUCCESS:
+    case EVENT_DELETION_BATCH_COMPLETE:
+    case EVENT_NOTIFICATION_CHANNEL_ADDED:
+    case EVENT_NOTIFICATION_SENT:
+      return 'text-success';
+    case EVENT_ENGINE_ERROR:
+    case EVENT_APPROVAL_REJECTED:
+    case EVENT_RULE_DELETED:
+    case EVENT_INTEGRATION_TEST_FAILED:
+    case EVENT_INTEGRATION_REMOVED:
+    case EVENT_DELETION_FAILED:
+    case EVENT_THRESHOLD_BREACHED:
+    case EVENT_DATA_RESET:
+    case EVENT_NOTIFICATION_CHANNEL_REMOVED:
+    case EVENT_NOTIFICATION_DELIVERY_FAILED:
+      return 'text-destructive';
+    case EVENT_DELETION_QUEUED:
+    case EVENT_DELETION_DRY_RUN:
+    case EVENT_DELETION_PROGRESS:
+    case EVENT_APPROVAL_ORPHANS_RECOVERED:
+    case EVENT_APPROVAL_RETURNED_TO_PENDING:
+    case EVENT_INTEGRATION_RECOVERY_ATTEMPT:
+      return 'text-warning';
+    default:
+      return 'text-muted-foreground';
+  }
+}

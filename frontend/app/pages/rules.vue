@@ -10,6 +10,8 @@
       </p>
     </div>
 
+    <FetchErrorBanner v-if="loadError" @retry="loadRulesPage" />
+
     <!-- Integration error banner (below page title) -->
     <IntegrationErrorBanner :integrations="allIntegrations" />
 
@@ -52,6 +54,8 @@ import type { DiskGroup, IntegrationConfig, CustomRule, ScoringFactorWeight } fr
 import { toast } from 'vue-sonner';
 
 const api = useApi();
+const { t } = useI18n();
+const { loadError, markSuccess, markFailure } = useFetchStatus();
 const {
   items: previewItems,
   diskContext: previewDiskContext,
@@ -69,11 +73,7 @@ watch(previewItems, () => {
 const diskGroups = ref<DiskGroup[]>([]);
 
 async function fetchDiskGroups() {
-  try {
-    diskGroups.value = (await api('/api/v1/disk-groups')) as DiskGroup[];
-  } catch (err) {
-    console.warn('[Rules] fetchDiskGroups failed:', err);
-  }
+  diskGroups.value = (await api('/api/v1/disk-groups')) as DiskGroup[];
 }
 
 function onDiskGroupUpdated(updated: DiskGroup) {
@@ -89,11 +89,7 @@ function onDiskGroupUpdated(updated: DiskGroup) {
 const factorWeights = ref<ScoringFactorWeight[]>([]);
 
 async function fetchFactorWeights() {
-  try {
-    factorWeights.value = (await api('/api/v1/scoring-factor-weights')) as ScoringFactorWeight[];
-  } catch (err) {
-    console.warn('[Rules] fetchFactorWeights failed:', err);
-  }
+  factorWeights.value = (await api('/api/v1/scoring-factor-weights')) as ScoringFactorWeight[];
 }
 
 async function saveFactorWeights() {
@@ -108,9 +104,9 @@ async function saveFactorWeights() {
       body: weightMap,
     })) as ScoringFactorWeight[];
     factorWeights.value = updated;
-    toast.success('Weights saved');
+    toast.success(t('rules.weightsSaved'));
   } catch {
-    toast.error('Failed to save weights');
+    toast.error(t('rules.weightsSaveFailed'));
   }
 }
 
@@ -137,19 +133,11 @@ const rules = ref<CustomRule[]>([]);
 const allIntegrations = ref<IntegrationConfig[]>([]);
 
 async function fetchIntegrations() {
-  try {
-    allIntegrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
-  } catch (err) {
-    console.warn('[Rules] fetchIntegrations failed:', err);
-  }
+  allIntegrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
 }
 
 async function fetchRules() {
-  try {
-    rules.value = (await api('/api/v1/custom-rules')) as CustomRule[];
-  } catch (err) {
-    console.warn('[Rules] fetchRules failed:', err);
-  }
+  rules.value = (await api('/api/v1/custom-rules')) as CustomRule[];
 }
 
 async function addRule(rule: {
@@ -161,20 +149,20 @@ async function addRule(rule: {
 }) {
   try {
     await api('/api/v1/custom-rules', { method: 'POST', body: rule });
-    toast.success('Rule added');
+    toast.success(t('rules.ruleAdded'));
     await fetchRules();
   } catch {
-    toast.error('Failed to add rule');
+    toast.error(t('rules.ruleAddFailed'));
   }
 }
 
 async function deleteRule(id: number) {
   try {
     await api(`/api/v1/custom-rules/${id}`, { method: 'DELETE' });
-    toast.success('Rule removed');
+    toast.success(t('rules.ruleRemoved'));
     await fetchRules();
   } catch {
-    toast.error('Failed to delete rule');
+    toast.error(t('rules.ruleRemoveFailed'));
   }
 }
 
@@ -187,10 +175,10 @@ async function editRule(
       method: 'PUT',
       body: { ...rule, id },
     });
-    toast.success('Rule updated');
+    toast.success(t('rules.ruleUpdated'));
     await fetchRules();
   } catch {
-    toast.error('Failed to update rule');
+    toast.error(t('rules.ruleUpdateFailed'));
   }
 }
 
@@ -202,11 +190,11 @@ async function toggleRuleEnabled(rule: CustomRule, enabled: boolean) {
       method: 'PUT',
       body: { ...rule, enabled },
     });
-    toast.success(enabled ? 'Rule enabled' : 'Rule disabled');
+    toast.success(enabled ? t('rules.ruleEnabled') : t('rules.ruleDisabled'));
   } catch {
     // Revert on failure
     rule.enabled = !enabled;
-    toast.error('Failed to update rule');
+    toast.error(t('rules.ruleUpdateFailed'));
   }
 }
 
@@ -222,24 +210,31 @@ async function reorderRules(order: number[]) {
       method: 'PUT',
       body: { order },
     });
-    toast.success('Rules reordered');
+    toast.success(t('rules.rulesReordered'));
   } catch {
     // Revert — re-fetch from server
     await fetchRules();
-    toast.error('Failed to reorder rules');
+    toast.error(t('rules.rulesReorderFailed'));
   }
 }
 
-// ---------------------------------------------------------------------------
-// Lifecycle — fetch all data on mount
-// ---------------------------------------------------------------------------
-onMounted(async () => {
-  await Promise.all([
-    fetchFactorWeights(),
-    fetchRules(),
-    previewRefresh(),
-    fetchDiskGroups(),
-    fetchIntegrations(),
-  ]);
+async function loadRulesPage() {
+  try {
+    await Promise.all([
+      fetchFactorWeights(),
+      fetchRules(),
+      previewRefresh(),
+      fetchDiskGroups(),
+      fetchIntegrations(),
+    ]);
+    markSuccess();
+  } catch (err) {
+    console.warn('[Rules] loadRulesPage failed:', err);
+    markFailure();
+  }
+}
+
+onMounted(() => {
+  loadRulesPage();
 });
 </script>

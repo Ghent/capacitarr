@@ -7,12 +7,18 @@
  *
  * Features:
  * - Auto-reconnect with exponential backoff
- * - Last-Event-ID tracking (tracked locally but not replayed on manual reconnect;
- *   the browser EventSource API only auto-sends Last-Event-ID on its own built-in
- *   reconnect, which we bypass for exponential backoff. The backend ring buffer
- *   supports replay if the header is present — see sse_broadcaster.go.)
+ * - Last-Event-ID tracking. Custom backoff closes EventSource, so reconnect
+ *   sends lastEventId as a query parameter (EventSource cannot set headers).
+ *   The backend also accepts the Last-Event-ID header.
  * - Typed event handlers via on()/off()
  */
+
+/** Build the SSE URL. Exported for tests. */
+export function eventsURL(baseURL: string, lastEventId: string): string {
+  const path = `${baseURL}/api/v1/events`;
+  if (!lastEventId) return path;
+  return `${path}?lastEventId=${encodeURIComponent(lastEventId)}`;
+}
 
 // ---------------------------------------------------------------------------
 // Module-level singleton state (client-only)
@@ -63,7 +69,9 @@ function connect() {
 
   const config = useRuntimeConfig();
   const baseURL = (config.public.apiBaseUrl as string) || '';
-  const es = new EventSource(`${baseURL}/api/v1/events`, { withCredentials: true });
+  const es = new EventSource(eventsURL(baseURL, getLastEventIdRef().value), {
+    withCredentials: true,
+  });
 
   es.onopen = () => {
     getConnectedRef().value = true;
@@ -220,6 +228,14 @@ function handleEvent(eventType: string, event: MessageEvent) {
 // ---------------------------------------------------------------------------
 // Composable entry point
 // ---------------------------------------------------------------------------
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    disconnect();
+    _handlers.clear();
+    _registeredTypes.clear();
+  });
+}
 
 export function useEventStream() {
   const connected = getConnectedRef();

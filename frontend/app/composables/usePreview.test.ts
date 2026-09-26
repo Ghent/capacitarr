@@ -31,6 +31,8 @@ function mockUseEventStream() {
 // Stub Nuxt auto-imports — use Vue's real implementations
 vi.stubGlobal('useApi', mockUseApi);
 vi.stubGlobal('useEventStream', mockUseEventStream);
+vi.stubGlobal('useState', (_key: string, init?: () => unknown) => ref(init ? init() : undefined));
+vi.stubGlobal('watch', vi.fn());
 vi.stubGlobal('ref', ref);
 vi.stubGlobal('readonly', readonly);
 vi.stubGlobal('onMounted', (fn: () => void) => fn());
@@ -94,14 +96,29 @@ describe('usePreview', () => {
     expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/preview?force=true');
   });
 
-  it('refresh handles API errors gracefully', async () => {
-    mockApiFetch.mockRejectedValueOnce(new Error('Network error'));
+  it('refresh handles API errors without clearing last-good data', async () => {
+    mockApiFetch.mockResolvedValueOnce({
+      items: [{ item: { title: 'Firefly', type: 'show' }, score: 5.0 }],
+      diskContext: { mountPath: '/media', usedPct: 80 },
+    });
+    const { items, diskContext, loadError, refresh } = usePreview();
+    await refresh();
+    expect(items.value).toHaveLength(1);
 
-    const { items, diskContext, refresh } = usePreview();
+    mockApiFetch.mockRejectedValueOnce(new Error('Network error'));
     await refresh();
 
+    expect(items.value).toHaveLength(1);
+    expect(diskContext.value).toEqual({ mountPath: '/media', usedPct: 80 });
+    expect(loadError.value).toBe(false);
+  });
+
+  it('sets loadError on first-fetch failure', async () => {
+    mockApiFetch.mockRejectedValueOnce(new Error('Network error'));
+    const { items, loadError, refresh } = usePreview();
+    await refresh();
     expect(items.value).toEqual([]);
-    expect(diskContext.value).toBeNull();
+    expect(loadError.value).toBe(true);
   });
 
   it('deletion_success event removes item from list', async () => {

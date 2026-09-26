@@ -30,6 +30,7 @@ function mockUseEventStream() {
 vi.stubGlobal('useState', mockUseState);
 vi.stubGlobal('useApi', mockUseApi);
 vi.stubGlobal('useEventStream', mockUseEventStream);
+vi.stubGlobal('useI18n', () => ({ t: (key: string) => key }));
 vi.stubGlobal('ref', ref);
 vi.stubGlobal('readonly', readonly);
 

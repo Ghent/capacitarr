@@ -141,7 +141,12 @@
             class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
           >
             <component :is="LoaderCircleIcon" class="w-3.5 h-3.5 animate-spin" />
-            Showing {{ renderedGroups.length }} of {{ groupedPreview.length }} — scroll for more
+            {{
+              $t('audit.showingOf', {
+                rendered: renderedGroups.length,
+                total: groupedPreview.length,
+              })
+            }}
           </div>
         </div>
 

@@ -139,8 +139,13 @@ func (b *SSEBroadcaster) HandleSSE(c echo.Context) error {
 	b.clients[client] = struct{}{}
 	b.mu.Unlock()
 
-	// Replay missed events if Last-Event-ID is provided
+	// Replay missed events if Last-Event-ID is provided.
+	// EventSource cannot set headers, so the frontend also sends lastEventId
+	// as a query parameter on reconnect.
 	lastEventID := c.Request().Header.Get("Last-Event-ID")
+	if lastEventID == "" {
+		lastEventID = c.QueryParam("lastEventId")
+	}
 	if lastEventID != "" {
 		b.replay(client, lastEventID)
 	}

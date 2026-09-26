@@ -6,6 +6,7 @@
  * State is stored via useState so it persists across page navigations and is
  * shared between components on the same page.
  */
+import { toast } from 'vue-sonner';
 import type { DeletionQueueItem, DeletionCompletedItem } from '~/types/api';
 import {
   EVENT_DELETION_QUEUED,
@@ -15,7 +16,9 @@ import {
   EVENT_DELETION_CANCELLED,
   EVENT_DELETION_GRACE_PERIOD,
   EVENT_DELETION_BATCH_COMPLETE,
+  EVENT_DELETION_QUEUE_FULL,
 } from '~/constants';
+import { useFetchStatus } from './useFetchStatus';
 
 // Module-level flag: SSE handlers are registered once globally.
 let _sseRegistered = false;
@@ -38,6 +41,8 @@ export interface GracePeriodState {
 export function useDeletionQueue() {
   const api = useApi();
   const { on } = useEventStream();
+  const { t } = useI18n();
+  const { lastFetchOk, loadError, markSuccess, markFailure } = useFetchStatus();
 
   const queuedItems = useState<DeletionQueueItem[]>('deletionQueueItems', () => []);
   const completedItems = useState<DeletionCompletedItem[]>('deletionCompletedItems', () => []);
@@ -75,8 +80,9 @@ export function useDeletionQueue() {
     try {
       const data = await api<DeletionQueueItem[]>('/api/v1/deletion-queue');
       queuedItems.value = data ?? [];
+      markSuccess();
     } catch {
-      queuedItems.value = [];
+      markFailure();
     }
   }
 
@@ -190,6 +196,17 @@ export function useDeletionQueue() {
         stopCountdown();
       }
     });
+
+    on(EVENT_DELETION_QUEUE_FULL, () => {
+      toast.warning(t('deletion.queueFull'));
+      fetchQueue();
+    });
+  }
+
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      _sseRegistered = false;
+    });
   }
 
   return {
@@ -198,6 +215,8 @@ export function useDeletionQueue() {
     gracePeriod: readonly(gracePeriod),
     countdown: readonly(countdown),
     loading,
+    lastFetchOk,
+    loadError,
     fetchQueue,
     cancelItem,
     snoozeItem,

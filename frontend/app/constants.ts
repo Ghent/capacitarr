@@ -64,3 +64,71 @@ export const EVENT_SUNSET_SAVED = 'sunset_saved' as const;
 export const EVENT_SUNSET_CANCELLED = 'sunset_cancelled' as const;
 export const EVENT_SUNSET_RESCHEDULED = 'sunset_rescheduled' as const;
 export const EVENT_SUNSET_SAVED_CLEANED = 'sunset_saved_cleaned' as const;
+
+// Auth / settings / rules / notifications (activity feed)
+export const EVENT_MANUAL_RUN_TRIGGERED = 'manual_run_triggered' as const;
+export const EVENT_THRESHOLD_CHANGED = 'threshold_changed' as const;
+export const EVENT_LOGIN = 'login' as const;
+export const EVENT_PASSWORD_CHANGED = 'password_changed' as const;
+export const EVENT_USERNAME_CHANGED = 'username_changed' as const;
+export const EVENT_API_KEY_GENERATED = 'api_key_generated' as const;
+export const EVENT_INTEGRATION_TEST = 'integration_test' as const;
+export const EVENT_INTEGRATION_TEST_FAILED = 'integration_test_failed' as const;
+export const EVENT_THRESHOLD_BREACHED = 'threshold_breached' as const;
+export const EVENT_UPDATE_AVAILABLE = 'update_available' as const;
+export const EVENT_RULE_CREATED = 'rule_created' as const;
+export const EVENT_RULE_UPDATED = 'rule_updated' as const;
+export const EVENT_RULE_DELETED = 'rule_deleted' as const;
+export const EVENT_NOTIFICATION_CHANNEL_ADDED = 'notification_channel_added' as const;
+export const EVENT_NOTIFICATION_CHANNEL_UPDATED = 'notification_channel_updated' as const;
+export const EVENT_NOTIFICATION_CHANNEL_REMOVED = 'notification_channel_removed' as const;
+export const EVENT_NOTIFICATION_SENT = 'notification_sent' as const;
+export const EVENT_NOTIFICATION_DELIVERY_FAILED = 'notification_delivery_failed' as const;
+export const EVENT_SERVER_STARTED = 'server_started' as const;
+export const EVENT_REPLAY_GAP = 'replay_gap' as const;
+
+/** Event types prepended to the dashboard activity feed. */
+export const ACTIVITY_FEED_EVENT_TYPES = [
+  EVENT_ENGINE_START,
+  EVENT_ENGINE_COMPLETE,
+  EVENT_ENGINE_ERROR,
+  EVENT_MANUAL_RUN_TRIGGERED,
+  EVENT_SETTINGS_CHANGED,
+  EVENT_THRESHOLD_CHANGED,
+  EVENT_LOGIN,
+  EVENT_PASSWORD_CHANGED,
+  EVENT_USERNAME_CHANGED,
+  EVENT_API_KEY_GENERATED,
+  EVENT_INTEGRATION_ADDED,
+  EVENT_INTEGRATION_UPDATED,
+  EVENT_INTEGRATION_REMOVED,
+  EVENT_INTEGRATION_TEST,
+  EVENT_INTEGRATION_TEST_FAILED,
+  EVENT_INTEGRATION_RECOVERED,
+  EVENT_INTEGRATION_RECOVERY_ATTEMPT,
+  EVENT_APPROVAL_APPROVED,
+  EVENT_APPROVAL_REJECTED,
+  EVENT_APPROVAL_UNSNOOZED,
+  EVENT_APPROVAL_BULK_UNSNOOZED,
+  EVENT_APPROVAL_ORPHANS_RECOVERED,
+  EVENT_APPROVAL_RETURNED_TO_PENDING,
+  EVENT_DELETION_QUEUED,
+  EVENT_DELETION_SUCCESS,
+  EVENT_DELETION_FAILED,
+  EVENT_DELETION_DRY_RUN,
+  EVENT_DELETION_BATCH_COMPLETE,
+  EVENT_DELETION_PROGRESS,
+  EVENT_THRESHOLD_BREACHED,
+  EVENT_UPDATE_AVAILABLE,
+  EVENT_RULE_CREATED,
+  EVENT_RULE_UPDATED,
+  EVENT_RULE_DELETED,
+  EVENT_NOTIFICATION_CHANNEL_ADDED,
+  EVENT_NOTIFICATION_CHANNEL_UPDATED,
+  EVENT_NOTIFICATION_CHANNEL_REMOVED,
+  EVENT_NOTIFICATION_SENT,
+  EVENT_NOTIFICATION_DELIVERY_FAILED,
+  EVENT_DATA_RESET,
+  EVENT_SETTINGS_IMPORTED,
+  EVENT_SERVER_STARTED,
+] as const;

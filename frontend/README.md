@@ -1,60 +1,44 @@
-# Nuxt Starter Template
+# Capacitarr frontend
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
+Nuxt 4 SPA (`ssr: false`) for Capacitarr. shadcn-vue / Reka UI, ECharts, `@tanstack/vue-virtual`, `@nuxtjs/i18n`, vue-sonner, PWA via `@vite-pwa/nuxt`.
 
-Use this template to get started with [Nuxt UI](https://ui.nuxt.com) quickly.
+## Scripts
 
-- [Live demo](https://starter-template.nuxt.dev/)
-- [Documentation](https://ui.nuxt.com/docs/getting-started/installation/nuxt)
-
-<a href="https://starter-template.nuxt.dev/" target="_blank">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png">
-    <img alt="Nuxt Starter Template" src="https://ui.nuxt.com/assets/templates/nuxt/starter-light.png" width="830" height="466">
-  </picture>
-</a>
-
-> The starter template for Vue is on https://github.com/nuxt-ui-templates/starter-vue.
-
-## Quick Start
-
-```bash [Terminal]
-npm create nuxt@latest -- -t github:nuxt-ui-templates/starter
-```
-
-## Deploy your own
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-name=starter&repository-url=https%3A%2F%2Fgithub.com%2Fnuxt-ui-templates%2Fstarter&demo-image=https%3A%2F%2Fui.nuxt.com%2Fassets%2Ftemplates%2Fnuxt%2Fstarter-dark.png&demo-url=https%3A%2F%2Fstarter-template.nuxt.dev%2F&demo-title=Nuxt%20Starter%20Template&demo-description=A%20minimal%20template%20to%20get%20started%20with%20Nuxt%20UI.)
-
-## Setup
-
-Make sure to install the dependencies:
+From this directory (`frontend/`):
 
 ```bash
 pnpm install
-```
-
-## Development Server
-
-Start the development server on `http://localhost:3000`:
-
-```bash
-pnpm dev
-```
-
-## Production
-
-Build the application for production:
-
-```bash
+pnpm dev          # http://localhost:3000
+pnpm test
+pnpm lint
+pnpm typecheck
 pnpm build
 ```
 
-Locally preview production build:
+From the repo root, `make ci` runs the same lint/test/security images as GitHub Actions.
+
+## API base URL
+
+`NUXT_PUBLIC_API_BASE_URL` is the backend origin the browser talks to. Leave it empty when the UI is served from the same host as the API (the Docker image). Set it for split local development, e.g. `http://localhost:8080`.
+
+Subdirectory deploys use `NUXT_APP_BASE_URL`. Auth cookies must go through `useAuthCookie()` so the path matches that base URL.
+
+## Generated types
+
+OpenAPI types live in `app/types/generated/`. After changing `docs/reference/api/openapi.yaml`:
 
 ```bash
-pnpm preview
+make api:generate
 ```
 
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+Commit the result. CI fails if the generated file drifts. `useApi()` is still untyped `ofetch`; typed fetch is a later slice.
+
+## i18n
+
+`app/locales/en.json` is the source of truth. Edit that file only. The other locale files stay copies until a real translation pass.
+
+New user-visible strings, including toasts, go through `$t()` / `t()`.
+
+## PWA
+
+`@vite-pwa/nuxt` caches static assets only. Workbox `navigateFallbackDenylist` excludes `/api/` so API responses are never cached as the SPA shell.

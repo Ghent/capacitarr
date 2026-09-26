@@ -20,7 +20,7 @@ export function useConnectionHealth() {
   const _polling = useState<boolean>('connection:polling', () => false);
 
   const config = useRuntimeConfig();
-  const authenticated = useCookie('authenticated');
+  const authenticated = useAuthCookie();
 
   // SSE connection state — primary indicator when authenticated
   const { connected: sseConnected, reconnecting: sseReconnecting } = useEventStream();
@@ -92,6 +92,7 @@ export function useConnectionHealth() {
           onConnectionRestored();
         }
       } catch (err) {
+        // Intentionally silent — background polling, toast would spam
         console.warn('[ConnectionHealth] health poll failed:', err);
       }
     }, 5000);

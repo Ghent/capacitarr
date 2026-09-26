@@ -303,7 +303,7 @@
           class="flex items-center justify-center py-3 text-xs text-muted-foreground gap-2"
         >
           <LoaderCircleIcon class="w-3.5 h-3.5 animate-spin" />
-          Loading more…
+          {{ $t('audit.loadingMore') }}
         </div>
       </div>
 
@@ -311,9 +311,13 @@
         v-if="logs.length > 0"
         class="flex items-center justify-between px-5 py-3 border-t border-border"
       >
-        <span class="text-xs text-muted-foreground"
-          >{{ groupedLogs.length }} groups from {{ logs.length }} of {{ total }} entries</span
-        >
+        <span class="text-xs text-muted-foreground">{{
+          $t('audit.groups', {
+            count: groupedLogs.length,
+            entries: logs.length,
+            total,
+          })
+        }}</span>
       </div>
     </UiCard>
 

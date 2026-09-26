@@ -166,7 +166,7 @@
               <span
                 class="text-xs"
                 :class="integration.collectionDeletion ? 'text-destructive font-medium' : ''"
-                >Collection Deletion</span
+                >{{ $t('settings.collectionDeletion') }}</span
               >
             </div>
             <UiSwitch
@@ -316,7 +316,7 @@
                 <UiLabel
                   class="cursor-pointer"
                   :class="formState.collectionDeletion ? 'text-destructive font-medium' : ''"
-                  >Collection Deletion</UiLabel
+                  >{{ $t('settings.collectionDeletion') }}</UiLabel
                 >
               </div>
               <p class="text-xs text-muted-foreground mt-1">
@@ -335,7 +335,7 @@
             class="text-xs text-primary hover:underline inline-flex items-center gap-1"
           >
             <InfoIcon class="w-3 h-3" />
-            Learn more about collection deletion
+            {{ $t('settings.collectionDeletionLearnMore') }}
           </NuxtLink>
         </div>
 
@@ -423,31 +423,25 @@
   >
     <UiDialogContent class="max-w-md">
       <UiDialogHeader>
-        <UiDialogTitle class="text-destructive">Enable Collection Deletion?</UiDialogTitle>
+        <UiDialogTitle class="text-destructive">{{
+          $t('settings.collectionDeletionConfirmTitle')
+        }}</UiDialogTitle>
         <UiDialogDescription class="space-y-3">
-          <p>
-            When a movie gets selected for deletion,
-            <strong>every other movie in its collection</strong>
-            will be deleted too. One low-scoring movie in a large franchise could trigger the
-            deletion of dozens of files.
-          </p>
-          <p>
-            This is permanent and cannot be undone. Consider using
-            <strong>dry-run mode</strong> first while you review how this feature behaves.
-          </p>
+          <p>{{ $t('settings.collectionDeletionConfirmP1') }}</p>
+          <p>{{ $t('settings.collectionDeletionConfirmP2') }}</p>
           <NuxtLink
             to="/help#collection-deletion"
             class="text-xs text-primary hover:underline inline-flex items-center gap-1"
           >
             <InfoIcon class="w-3 h-3" />
-            Learn more about collection deletion and safety features
+            {{ $t('settings.collectionDeletionConfirmLearnMore') }}
           </NuxtLink>
         </UiDialogDescription>
       </UiDialogHeader>
       <UiDialogFooter class="flex gap-2 justify-end">
         <UiButton variant="outline" @click="cancelCollectionDeletionToggle()"> Cancel </UiButton>
         <UiButton variant="destructive" @click="confirmCollectionDeletionToggle()">
-          Yes, enable collection deletion
+          {{ $t('settings.collectionDeletionConfirmEnable') }}
         </UiButton>
       </UiDialogFooter>
     </UiDialogContent>
@@ -509,14 +503,12 @@ const collectionDeletionTypes = new Set(['radarr', 'plex', 'jellyfin', 'emby']);
 const importExclusionTypes = new Set(['sonarr', 'radarr', 'lidarr', 'readarr']);
 
 /** Description text for the collection deletion toggle per integration type */
-const collectionDeletionDescriptions: Record<string, string> = {
-  radarr:
-    'Uses TMDb movie collections — curated franchise groupings like "The Lord of the Rings Collection".',
-  plex: 'Uses Plex library collections. Includes automatic and user-created collections. Custom collections can group unrelated media.',
-  jellyfin:
-    'Uses Jellyfin Box Sets — groups of related movies that were auto-detected or manually organized.',
-  emby: 'Uses Emby Box Sets — groups of related movies that were auto-detected or manually organized.',
-};
+const collectionDeletionDescriptions = computed<Record<string, string>>(() => ({
+  radarr: t('settings.collectionDeletionDescRadarr'),
+  plex: t('settings.collectionDeletionDescPlex'),
+  jellyfin: t('settings.collectionDeletionDescJellyfin'),
+  emby: t('settings.collectionDeletionDescEmby'),
+}));
 
 // ─── Enable/Disable toggle ──────────────────────────────────────────────────
 async function toggleEnabled(integration: IntegrationConfig, enabled: boolean) {

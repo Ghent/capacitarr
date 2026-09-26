@@ -23,7 +23,7 @@ function mockUseRuntimeConfig() {
 }
 
 const mockCookieRef = ref<string | null>('true');
-function mockUseCookie() {
+function mockUseAuthCookie() {
   return mockCookieRef;
 }
 
@@ -45,7 +45,7 @@ function mockUseEventStream() {
 // Stub globals — use Vue's real implementations
 vi.stubGlobal('useState', mockUseState);
 vi.stubGlobal('useRuntimeConfig', mockUseRuntimeConfig);
-vi.stubGlobal('useCookie', mockUseCookie);
+vi.stubGlobal('useAuthCookie', mockUseAuthCookie);
 vi.stubGlobal('useEventStream', mockUseEventStream);
 vi.stubGlobal('computed', computed);
 vi.stubGlobal('readonly', readonly);

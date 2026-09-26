@@ -108,6 +108,12 @@ export function useEngineControl() {
   // -------------------------------------------------------------------------
   // SSE subscriptions — registered once globally
   // -------------------------------------------------------------------------
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      _sseRegistered = false;
+    });
+  }
+
   if (import.meta.client && !_sseRegistered) {
     _sseRegistered = true;
 

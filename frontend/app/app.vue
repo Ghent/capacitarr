@@ -28,6 +28,7 @@ import {
   EVENT_INTEGRATION_ADDED,
   EVENT_INTEGRATION_UPDATED,
   EVENT_INTEGRATION_REMOVED,
+  EVENT_REPLAY_GAP,
 } from '~/constants';
 
 const authenticated = useAuthCookie();
@@ -61,6 +62,7 @@ if (import.meta.client) {
 // Initialize SSE event stream when authenticated (client-only).
 // The connection persists for the app lifetime and reconnects automatically.
 const { connect: connectSSE, disconnect: disconnectSSE, on: sseOn } = useEventStream();
+const { refetchAll } = useAppDataRefresh();
 
 // Re-fetch integrations when any integration is added, updated, or removed
 // so the error banner and integration cards reflect the current state.
@@ -73,6 +75,14 @@ onMounted(() => {
   for (const evt of integrationEventTypes) {
     sseOn(evt, fetchAppIntegrations, { onUnmounted });
   }
+  sseOn(
+    EVENT_REPLAY_GAP,
+    () => {
+      refetchAll();
+      fetchAppIntegrations();
+    },
+    { onUnmounted },
+  );
 });
 
 watch(isAuthenticated, (authed) => {

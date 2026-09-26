@@ -9,6 +9,12 @@ import {
   EVENT_SUNSET_SAVED,
   EVENT_SUNSET_SAVED_CLEANED,
 } from '~/constants';
+import { useFetchStatus } from './useFetchStatus';
+
+/** @internal */
+export function _resetSunsetQueueSSE() {
+  _sseRegistered = false;
+}
 
 // Module-level flag — SSE handlers are registered once globally,
 // not per component instance. Same pattern as useSnoozedItems.ts.
@@ -22,14 +28,17 @@ export function useSunsetQueue() {
 
   const sunsetItems = useState<SunsetQueueItem[]>('sunsetItems', () => []);
   const loading = useState<boolean>('sunsetLoading', () => false);
+  const { lastFetchOk, loadError, markSuccess, markFailure } = useFetchStatus();
 
   async function fetchSunsetItems() {
     loading.value = true;
     try {
       const data = (await api('/api/v1/sunset-queue')) as SunsetQueueItem[];
       sunsetItems.value = data ?? [];
+      markSuccess();
     } catch (err) {
       console.warn('[useSunsetQueue] fetchSunsetItems failed:', err);
+      markFailure();
     } finally {
       loading.value = false;
     }
@@ -101,9 +110,17 @@ export function useSunsetQueue() {
     on(EVENT_SUNSET_SAVED_CLEANED, () => fetchSunsetItems());
   }
 
+  if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+      _sseRegistered = false;
+    });
+  }
+
   return {
     sunsetItems: readonly(sunsetItems),
     loading: readonly(loading),
+    lastFetchOk,
+    loadError,
     fetchSunsetItems,
     cancelItem,
     rescheduleItem,

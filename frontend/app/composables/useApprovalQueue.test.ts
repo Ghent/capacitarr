@@ -80,6 +80,7 @@ vi.stubGlobal('useState', mockUseState);
 vi.stubGlobal('useApi', mockUseApi);
 vi.stubGlobal('useEngineControl', mockUseEngineControl);
 vi.stubGlobal('useEventStream', mockUseEventStream);
+vi.stubGlobal('useI18n', () => ({ t: (key: string) => key }));
 vi.stubGlobal('ref', ref);
 vi.stubGlobal('computed', computed);
 vi.stubGlobal('readonly', readonly);
@@ -329,7 +330,7 @@ describe('useApprovalQueue', () => {
       // Pending should be empty, approved should have the group
       expect(stateStore.get('approvalPending')!.value).toHaveLength(0);
       expect(stateStore.get('approvalApproved')!.value).toHaveLength(1);
-      expect(toastSuccessSpy).toHaveBeenCalledWith('Group approved for deletion');
+      expect(toastSuccessSpy).toHaveBeenCalledWith('approval.groupApprovedToast');
     });
 
     it('calls POST /approve for each audit ID', async () => {
@@ -362,7 +363,7 @@ describe('useApprovalQueue', () => {
       // Should revert: back in pending, not in approved
       expect(stateStore.get('approvalPending')!.value).toHaveLength(1);
       expect(stateStore.get('approvalApproved')!.value).toHaveLength(0);
-      expect(toastErrorSpy).toHaveBeenCalledWith('Failed to approve group');
+      expect(toastErrorSpy).toHaveBeenCalledWith('approval.approveFailedToast');
     });
 
     it('shows specific error on 409 conflict', async () => {
@@ -407,7 +408,7 @@ describe('useApprovalQueue', () => {
       expect(stateStore.get('approvalPending')!.value).toHaveLength(0);
       expect(stateStore.get('approvalSnoozed')!.value).toHaveLength(1);
       expect(stateStore.get('approvalSnoozed')!.value[0].state).toBe('snoozed');
-      expect(toastInfoSpy).toHaveBeenCalledWith('Group snoozed');
+      expect(toastInfoSpy).toHaveBeenCalledWith('approval.groupSnoozedToast');
     });
 
     it('calls POST /reject for each audit ID', async () => {
@@ -436,7 +437,7 @@ describe('useApprovalQueue', () => {
 
       expect(stateStore.get('approvalPending')!.value).toHaveLength(1);
       expect(stateStore.get('approvalSnoozed')!.value).toHaveLength(0);
-      expect(toastErrorSpy).toHaveBeenCalledWith('Failed to snooze group');
+      expect(toastErrorSpy).toHaveBeenCalledWith('approval.snoozeFailedToast');
     });
   });
 
@@ -456,7 +457,7 @@ describe('useApprovalQueue', () => {
       expect(stateStore.get('approvalSnoozed')!.value).toHaveLength(0);
       expect(stateStore.get('approvalPending')!.value).toHaveLength(1);
       expect(stateStore.get('approvalPending')!.value[0].state).toBe('pending');
-      expect(toastSuccessSpy).toHaveBeenCalledWith('Snooze removed — group re-queued for approval');
+      expect(toastSuccessSpy).toHaveBeenCalledWith('approval.unsnoozeSuccessToast');
     });
 
     it('calls POST /unsnooze for each audit ID', async () => {
@@ -487,7 +488,7 @@ describe('useApprovalQueue', () => {
 
       expect(stateStore.get('approvalSnoozed')!.value).toHaveLength(1);
       expect(stateStore.get('approvalPending')!.value).toHaveLength(0);
-      expect(toastErrorSpy).toHaveBeenCalledWith('Failed to unsnooze group');
+      expect(toastErrorSpy).toHaveBeenCalledWith('approval.unsnoozeFailedToast');
     });
   });
 
@@ -505,7 +506,7 @@ describe('useApprovalQueue', () => {
       await q.dismissGroup(group);
 
       expect(stateStore.get('approvalPending')!.value).toHaveLength(0);
-      expect(toastInfoSpy).toHaveBeenCalledWith('Dismissed from queue');
+      expect(toastInfoSpy).toHaveBeenCalledWith('approval.dismissedToast');
     });
 
     it('calls DELETE for each audit ID', async () => {
@@ -529,7 +530,7 @@ describe('useApprovalQueue', () => {
       await q.dismissGroup(group);
 
       expect(stateStore.get('approvalSnoozed')!.value).toHaveLength(1);
-      expect(toastErrorSpy).toHaveBeenCalledWith('Failed to dismiss group');
+      expect(toastErrorSpy).toHaveBeenCalledWith('approval.dismissFailedToast');
     });
   });
 
@@ -548,7 +549,7 @@ describe('useApprovalQueue', () => {
 
       expect(stateStore.get('approvalPending')!.value).toHaveLength(0);
       expect(stateStore.get('approvalSnoozed')!.value).toHaveLength(0);
-      expect(toastInfoSpy).toHaveBeenCalledWith('Queue cleared');
+      expect(toastInfoSpy).toHaveBeenCalledWith('approval.clearedToast');
     });
 
     it('calls POST /approval-queue/clear', async () => {
@@ -575,7 +576,7 @@ describe('useApprovalQueue', () => {
 
       expect(stateStore.get('approvalPending')!.value).toHaveLength(1);
       expect(stateStore.get('approvalSnoozed')!.value).toHaveLength(1);
-      expect(toastErrorSpy).toHaveBeenCalledWith('Failed to clear queue');
+      expect(toastErrorSpy).toHaveBeenCalledWith('approval.clearFailedToast');
     });
   });
 
@@ -592,7 +593,7 @@ describe('useApprovalQueue', () => {
       expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/42/approve', {
         method: 'POST',
       });
-      expect(toastSuccessSpy).toHaveBeenCalledWith('Season approved for deletion');
+      expect(toastSuccessSpy).toHaveBeenCalledWith('approval.seasonApprovedToast');
     });
 
     it('approveSeason shows 409 conflict error', async () => {
@@ -617,7 +618,7 @@ describe('useApprovalQueue', () => {
       expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/99/reject', {
         method: 'POST',
       });
-      expect(toastInfoSpy).toHaveBeenCalledWith('Season snoozed');
+      expect(toastInfoSpy).toHaveBeenCalledWith('approval.seasonSnoozedToast');
     });
 
     it('dismissSeason calls DELETE for a single ID', async () => {
@@ -627,7 +628,7 @@ describe('useApprovalQueue', () => {
       await q.dismissSeason(77);
 
       expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/77', { method: 'DELETE' });
-      expect(toastInfoSpy).toHaveBeenCalledWith('Season dismissed');
+      expect(toastInfoSpy).toHaveBeenCalledWith('approval.seasonDismissedToast');
     });
   });
 
