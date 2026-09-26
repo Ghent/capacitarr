@@ -190,46 +190,15 @@
 <script setup lang="ts">
 import { LoaderCircleIcon } from 'lucide-vue-next';
 import { CreatableCombobox } from '~/components/ui/creatable-combobox';
+import type { RuleField, RuleValueResult, RuleContext, NameValue, CustomRule } from '~/types/api';
+
+type RuleEffect = NonNullable<CustomRule['effect']>;
 
 interface Integration {
   id: number;
   type: string;
   name: string;
   enabled: boolean;
-}
-
-interface FieldDef {
-  field: string;
-  label: string;
-  type: string;
-  operators: string[];
-}
-
-interface NameValue {
-  value: string;
-  label: string;
-}
-
-interface RuleValuesResponse {
-  type: 'closed' | 'combobox' | 'free';
-  options?: NameValue[];
-  suggestions?: NameValue[];
-  inputType?: string;
-  placeholder?: string;
-  suffix?: string;
-}
-
-interface RuleContextResponse {
-  rule: {
-    id: number;
-    integrationId: number;
-    field: string;
-    operator: string;
-    value: string;
-    effect: string;
-  };
-  fields: FieldDef[];
-  values: RuleValuesResponse | null;
 }
 
 const props = defineProps<{
@@ -241,7 +210,7 @@ const props = defineProps<{
     field: string;
     operator: string;
     value: string;
-    effect: string;
+    effect: RuleEffect;
   };
 }>();
 
@@ -250,12 +219,24 @@ const isEditMode = computed(() => !!props.initialRule);
 const emit = defineEmits<{
   (
     e: 'save',
-    rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+    rule: {
+      integrationId: number;
+      field: string;
+      operator: string;
+      value: string;
+      effect: RuleEffect;
+    },
   ): void;
   (
     e: 'update',
     id: number,
-    rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+    rule: {
+      integrationId: number;
+      field: string;
+      operator: string;
+      value: string;
+      effect: RuleEffect;
+    },
   ): void;
   (e: 'cancel'): void;
 }>();
@@ -304,14 +285,14 @@ const form = reactive({
   field: '',
   operator: '',
   value: '',
-  effect: '',
+  effect: '' as RuleEffect | '',
 });
 
 // Dynamic fields fetched based on selected service type
-const fields = ref<FieldDef[]>([]);
+const fields = ref<RuleField[]>([]);
 
 // Rule values response from API
-const ruleValues = ref<RuleValuesResponse | null>(null);
+const ruleValues = ref<RuleValueResult | null>(null);
 const valueLoading = ref(false);
 
 // Edit mode initialization guard — prevents cascade functions from
@@ -477,7 +458,16 @@ async function onServiceChange() {
 
   try {
     const serviceType = selectedServiceType.value;
-    fields.value = (await api(`/api/v1/rule-fields?service_type=${serviceType}`)) as FieldDef[];
+    if (
+      serviceType !== 'sonarr' &&
+      serviceType !== 'radarr' &&
+      serviceType !== 'lidarr' &&
+      serviceType !== 'readarr'
+    ) {
+      fields.value = [];
+      return;
+    }
+    fields.value = (await api.GET('/rule-fields', { query: { service_type: serviceType } })) ?? [];
   } catch {
     fields.value = [];
   }
@@ -503,9 +493,9 @@ async function onFieldChange() {
   // Fetch value options from the API
   valueLoading.value = true;
   try {
-    const data = (await api(
-      `/api/v1/rule-values?integration_id=${form.integrationId}&action=${form.field}`,
-    )) as RuleValuesResponse;
+    const data = await api.GET('/rule-values', {
+      query: { integration_id: Number(form.integrationId), action: form.field },
+    });
     ruleValues.value = data;
   } catch {
     ruleValues.value = null;
@@ -525,16 +515,16 @@ async function initializeForEdit() {
 
   isInitializing.value = true;
   try {
-    const ctx = (await api(
-      `/api/v1/custom-rules/${props.initialRule.id}/context`,
-    )) as RuleContextResponse;
+    const ctx: RuleContext = await api.GET('/custom-rules/{id}/context', {
+      path: { id: props.initialRule.id },
+    });
 
     // Populate field definitions and value options directly from context
     if (ctx.fields) {
       fields.value = ctx.fields;
     }
     if (ctx.values) {
-      ruleValues.value = ctx.values;
+      ruleValues.value = ctx.values ?? null;
     }
 
     // Set all form fields at once — cascade guards prevent downstream resets
@@ -557,7 +547,7 @@ onMounted(() => {
 });
 
 function submitRule() {
-  if (!isFormValid.value) return;
+  if (!isFormValid.value || !form.effect) return;
   const ruleData = {
     integrationId: Number(form.integrationId),
     field: form.field,

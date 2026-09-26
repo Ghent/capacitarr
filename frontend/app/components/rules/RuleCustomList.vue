@@ -294,6 +294,8 @@ import {
 } from '~/utils/ruleFieldMaps';
 import type { CustomRule, IntegrationConfig } from '~/types/api';
 
+type RuleEffect = NonNullable<CustomRule['effect']>;
+
 interface RuleGroup {
   integrationId: number;
   name: string;
@@ -310,11 +312,23 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'add-rule': [
-    rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+    rule: {
+      integrationId: number;
+      field: string;
+      operator: string;
+      value: string;
+      effect: RuleEffect;
+    },
   ];
   'edit-rule': [
     id: number,
-    rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+    rule: {
+      integrationId: number;
+      field: string;
+      operator: string;
+      value: string;
+      effect: RuleEffect;
+    },
   ];
   'delete-rule': [id: number];
   'toggle-enabled': [rule: CustomRule, enabled: boolean];
@@ -364,7 +378,7 @@ function onAddRule(rule: {
   field: string;
   operator: string;
   value: string;
-  effect: string;
+  effect: RuleEffect;
 }) {
   viewMode.value = 'list';
   emit('add-rule', rule);
@@ -377,7 +391,7 @@ function onUpdateRule(
     field: string;
     operator: string;
     value: string;
-    effect: string;
+    effect: RuleEffect;
   },
 ) {
   viewMode.value = 'list';
@@ -462,19 +476,13 @@ function onDrop(event: DragEvent, targetIntegrationId: number, targetIdx: number
 }
 
 // ─── Rule impact counts (fetched from API) ────────────────────────────────
-interface RuleImpact {
-  ruleId: number;
-  affectedCount: number;
-  totalItems: number;
-}
-
 const impactCounts = ref<Map<number, number>>(new Map());
 
 async function fetchRuleImpacts() {
   const enabledRules = props.rules.filter((r) => r.enabled !== false);
   const results = await Promise.allSettled(
     enabledRules.map((rule) =>
-      (api(`/api/v1/custom-rules/${rule.id}/impact`) as Promise<RuleImpact>).then((resp) => ({
+      api.GET('/custom-rules/{id}/impact', { path: { id: rule.id } }).then((resp) => ({
         id: rule.id,
         count: resp.affectedCount,
       })),

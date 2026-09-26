@@ -169,4 +169,5 @@ Not a rewrite of the UI. Thin wrapper (`openapi-fetch` or a hand-rolled `api.GET
 - [x] Slice D: Help wrapper + two extracts; Collection Deletion / About i18n
 - [x] Slice E: existing keys wired or pruned; starter README gone; CONTRIBUTING does not mention DashboardCard
 - [x] Error policy and composition rule live in `docs/development.md`, not only in this journal
+- [x] Slice F: typed `useApi()` wrapper; REST call sites off bare `as` (SSE extras stay)
 - [x] `make ci` green on each slice

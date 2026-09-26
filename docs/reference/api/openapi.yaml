@@ -1078,8 +1078,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                description: Preview result with rule conflict analysis
+                $ref: "#/components/schemas/ImportPreview"
         "400":
           description: Validation failed (invalid version, malformed payload)
           content:
@@ -1128,14 +1127,7 @@ paths:
                   type: array
                   description: Rule integration overrides from the preview step
                   items:
-                    type: object
-                    properties:
-                      ruleIndex:
-                        type: integer
-                        description: Index of the rule in the export payload
-                      integrationId:
-                        type: integer
-                        description: Target integration ID to assign the rule to
+                    $ref: "#/components/schemas/RuleOverride"
       responses:
         "200":
           description: Import committed successfully
@@ -1327,6 +1319,13 @@ paths:
           schema:
             type: string
             enum: [pending, approved, rejected]
+        - name: limit
+          in: query
+          description: Maximum number of records to return (max 2000)
+          schema:
+            type: integer
+            default: 200
+            maximum: 2000
       responses:
         "200":
           description: Approval queue items
@@ -1530,6 +1529,10 @@ paths:
                   posterUrl:
                     type: string
                     description: URL to the item's poster image
+                  score:
+                    type: number
+                    format: double
+                    description: Deletion score at the time of the request
       responses:
         "200":
           description: Items queued for deletion
@@ -1867,6 +1870,10 @@ paths:
       responses:
         "200":
           description: Rule impact data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleImpact"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1887,6 +1894,10 @@ paths:
       responses:
         "200":
           description: Rule context data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleContext"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -1987,6 +1998,10 @@ paths:
       responses:
         "200":
           description: Item rescheduled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SunsetRescheduleResponse"
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -2000,6 +2015,13 @@ paths:
       responses:
         "200":
           description: Queue cleared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: integer
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -2011,6 +2033,15 @@ paths:
       responses:
         "200":
           description: Posters restored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  restored:
+                    type: integer
         "503":
           description: Poster overlay service unavailable
 
@@ -2025,25 +2056,32 @@ paths:
       responses:
         "200":
           description: List of items pending deletion
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeletionQueueItem"
         "401":
           $ref: "#/components/responses/Unauthorized"
     delete:
       operationId: cancelDeletion
       tags: [Deletion Queue]
       summary: Cancel a pending deletion
-      description: Remove a specific item from the deletion queue and snooze it.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [mediaName, mediaType]
-              properties:
-                mediaName:
-                  type: string
-                mediaType:
-                  type: string
+      description: |
+        Remove a specific item from the deletion queue and snooze it.
+        `mediaName` and `mediaType` are query parameters.
+      parameters:
+        - name: mediaName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: mediaType
+          in: query
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: Deletion cancelled and item snoozed
@@ -2137,6 +2175,10 @@ paths:
       responses:
         "200":
           description: List of dead content items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeadContentReport"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -2161,6 +2203,10 @@ paths:
       responses:
         "200":
           description: List of stale content items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaleContentReport"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -2182,14 +2228,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  daysUntilThreshold:
-                    type: integer
-                    description: Estimated days until threshold breach (-1 if no data)
-                  daysUntilFull:
-                    type: integer
-                    description: Estimated days until disk is full (-1 if no data)
+                $ref: "#/components/schemas/CapacityForecast"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -2646,6 +2685,9 @@ components:
         has_key:
           type: boolean
           description: Whether the user has an API key configured
+        hint:
+          type: string
+          description: Last four characters of the stored key, when one exists
       required: [has_key]
       example:
         has_key: true
@@ -2789,6 +2831,7 @@ components:
           example: 1
         type:
           type: string
+          enum: [plex, sonarr, radarr, lidarr, readarr, tautulli, seerr, jellyfin, emby, tracearr, jellystat]
           example: sonarr
         name:
           type: string
@@ -2858,6 +2901,12 @@ components:
         apiKey:
           type: string
           description: Plaintext API key or token for the service
+        collectionDeletion:
+          type: boolean
+        showLevelOnly:
+          type: boolean
+        addImportExclusion:
+          type: boolean
       required: [type, name, url, apiKey]
 
     IntegrationConfigUpdate:
@@ -2872,6 +2921,12 @@ components:
           type: string
           description: New API key, or masked value to keep existing
         enabled:
+          type: boolean
+        collectionDeletion:
+          type: boolean
+        showLevelOnly:
+          type: boolean
+        addImportExclusion:
           type: boolean
 
     ConnectionTestRequest:
@@ -3132,6 +3187,9 @@ components:
           type: string
           description: "Deprecated: use `effect` instead. Legacy values: absolute, strong, moderate"
           deprecated: true
+        enabled:
+          type: boolean
+          description: Whether the rule is active
       required: [field, operator, value]
 
     SettingsExportEnvelope:
@@ -3209,7 +3267,7 @@ components:
     SettingsImportRequest:
       type: object
       properties:
-        envelope:
+        payload:
           $ref: "#/components/schemas/SettingsExportEnvelope"
         sections:
           type: object
@@ -3234,7 +3292,7 @@ components:
                 are accepted for backward compatibility.
               enum: [merge, sync]
               default: merge
-      required: [envelope]
+      required: [payload]
 
     SettingsImportResponse:
       type: object
@@ -3298,6 +3356,31 @@ components:
             type: string
           example: ["==", "!="]
       required: [field, label, type, operators]
+
+    RuleImpact:
+      type: object
+      properties:
+        ruleId:
+          type: integer
+        affectedCount:
+          type: integer
+        totalItems:
+          type: integer
+      required: [ruleId, affectedCount, totalItems]
+
+    RuleContext:
+      type: object
+      description: Field definitions and value options for editing an existing rule
+      properties:
+        rule:
+          $ref: "#/components/schemas/CustomRule"
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleField"
+        values:
+          $ref: "#/components/schemas/RuleValueResult"
+      required: [rule]
 
     RuleValueResult:
       type: object
@@ -3868,10 +3951,14 @@ components:
           type: integer
           description: Number of media items evaluated
           example: 120
-        flagged:
+        candidates:
           type: integer
-          description: Number of items flagged for deletion
+          description: Number of items selected as deletion candidates
           example: 8
+        queued:
+          type: integer
+          description: Number of items queued for deletion or approval
+          example: 6
         deleted:
           type: integer
           description: Number of items actually deleted
@@ -3886,7 +3973,116 @@ components:
           format: int64
           description: Engine run duration in milliseconds
           example: 320
-      required: [timestamp, evaluated, flagged, deleted, freedBytes, durationMs]
+        diskGroupModes:
+          type: string
+          description: JSON map of disk-group ID to execution mode
+      required: [timestamp, evaluated, candidates, queued, deleted, freedBytes, durationMs]
+
+    DeadContentItem:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        daysInLibrary:
+          type: integer
+        integrationId:
+          type: integer
+      required: [title, type, sizeBytes, daysInLibrary, integrationId]
+
+    DeadContentReport:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeadContentItem"
+        totalCount:
+          type: integer
+        totalSize:
+          type: integer
+          format: int64
+        protectedCount:
+          type: integer
+      required: [items, totalCount, totalSize, protectedCount]
+
+    StaleContentItem:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+        daysSinceWatched:
+          type: integer
+        playCount:
+          type: integer
+        stalenessScore:
+          type: number
+          format: double
+        integrationId:
+          type: integer
+      required: [title, type, sizeBytes, daysSinceWatched, playCount, stalenessScore, integrationId]
+
+    StaleContentReport:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaleContentItem"
+        totalCount:
+          type: integer
+        totalSize:
+          type: integer
+          format: int64
+        protectedCount:
+          type: integer
+      required: [items, totalCount, totalSize, protectedCount]
+
+    CapacityForecast:
+      type: object
+      properties:
+        currentUsedPct:
+          type: number
+          format: double
+        growthRatePerDay:
+          type: integer
+          format: int64
+          description: Bytes per day
+        daysUntilThreshold:
+          type: integer
+          description: Estimated days until threshold breach (-1 if no data)
+        daysUntilFull:
+          type: integer
+          description: Estimated days until disk is full (-1 if no data)
+        totalCapacity:
+          type: integer
+          format: int64
+        usedCapacity:
+          type: integer
+          format: int64
+
+    SunsetRescheduleResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        mediaName:
+          type: string
+        deletionDate:
+          type: string
+          format: date
+        daysRemaining:
+          type: integer
+      required: [id, mediaName, deletionDate, daysRemaining]
 
     GroupedAuditResult:
       type: object

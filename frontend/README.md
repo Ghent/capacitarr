@@ -31,7 +31,9 @@ OpenAPI types live in `app/types/generated/`. After changing `docs/reference/api
 make api:generate
 ```
 
-Commit the result. CI fails if the generated file drifts. `useApi()` is still untyped `ofetch`; typed fetch is a later slice.
+Commit the result. CI fails if the generated file drifts.
+
+`useApi()` is a typed client over those paths: `api.GET('/preview', { query })`, `api.POST('/delete', { body })`, `api.DELETE('/custom-rules/{id}', { path: { id } })`. Login, migration, connection-health polling, and EventSource stay on raw `ofetch`. Do not cast REST responses with `as` — fix the spec and regenerate. SSE payloads may still be cast.
 
 ## i18n
 

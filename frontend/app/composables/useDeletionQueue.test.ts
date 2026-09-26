@@ -12,7 +12,13 @@ function mockUseState<T>(key: string, init?: () => T): Ref<T> {
 
 const mockApiFetch = vi.fn();
 function mockUseApi() {
-  return mockApiFetch;
+  return {
+    GET: mockApiFetch,
+    POST: mockApiFetch,
+    PUT: mockApiFetch,
+    PATCH: mockApiFetch,
+    DELETE: mockApiFetch,
+  };
 }
 
 function mockUseEventStream() {
@@ -46,9 +52,8 @@ describe('useDeletionQueue cancel', () => {
     const { cancelItem } = useDeletionQueue();
     await cancelItem('Firefly', 'show');
 
-    expect(mockApiFetch).toHaveBeenCalledWith(
-      '/api/v1/deletion-queue?mediaName=Firefly&mediaType=show',
-      { method: 'DELETE' },
-    );
+    expect(mockApiFetch).toHaveBeenCalledWith('/deletion-queue', {
+      query: { mediaName: 'Firefly', mediaType: 'show' },
+    });
   });
 });

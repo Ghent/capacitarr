@@ -24,11 +24,7 @@ export function useVersion() {
   async function fetchApiVersion() {
     try {
       const api = useApi();
-      const data = (await api('/api/v1/version')) as {
-        version?: string;
-        commit?: string;
-        buildDate?: string;
-      };
+      const data = await api.GET('/version');
       apiVersion.value = data.version || '';
       apiBuildDate.value = data.buildDate || '';
     } catch (e) {
@@ -41,12 +37,7 @@ export function useVersion() {
   async function checkForUpdates() {
     try {
       const api = useApi();
-      const data = (await api('/api/v1/version/check')) as {
-        current?: string;
-        latest?: string;
-        updateAvailable?: boolean;
-        releaseUrl?: string;
-      };
+      const data = await api.GET('/version/check');
       updateAvailable.value = data.updateAvailable || false;
       latestVersion.value = data.latest || '';
       releaseUrl.value = data.releaseUrl || '';
@@ -60,12 +51,7 @@ export function useVersion() {
     checking.value = true;
     try {
       const api = useApi();
-      const data = (await api('/api/v1/version/check', { method: 'POST' })) as {
-        current?: string;
-        latest?: string;
-        updateAvailable?: boolean;
-        releaseUrl?: string;
-      };
+      const data = await api.POST('/version/check');
       updateAvailable.value = data.updateAvailable || false;
       latestVersion.value = data.latest || '';
       releaseUrl.value = data.releaseUrl || '';

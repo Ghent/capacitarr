@@ -8,7 +8,13 @@ import { usePreview } from './usePreview';
 
 const mockApiFetch = vi.fn();
 function mockUseApi() {
-  return mockApiFetch;
+  return {
+    GET: mockApiFetch,
+    POST: mockApiFetch,
+    PUT: mockApiFetch,
+    PATCH: mockApiFetch,
+    DELETE: mockApiFetch,
+  };
 }
 
 const sseHandlers = new Map<string, (data: unknown) => void>();
@@ -93,7 +99,7 @@ describe('usePreview', () => {
     const { refresh } = usePreview();
     await refresh(true);
 
-    expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/preview?force=true');
+    expect(mockApiFetch).toHaveBeenCalledWith('/preview', { query: { force: true } });
   });
 
   it('refresh handles API errors without clearing last-good data', async () => {

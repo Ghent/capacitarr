@@ -42,15 +42,15 @@ export function useAutoSave() {
     saving = true;
     showSaveStatus(field, 'saving');
     try {
-      const currentPrefs = (await api('/api/v1/preferences')) as PreferenceSet;
+      const currentPrefs = await api.GET('/preferences');
       // Merge any overrides that were queued while we were fetching
-      const body: Record<string, unknown> = { ...currentPrefs, [key]: value };
+      const body = { ...currentPrefs, [key]: value } as PreferenceSet;
       const snapshot = new Map(pendingOverrides);
       for (const [k, v] of snapshot) {
-        body[k] = v.value;
+        (body as Record<string, string | number | boolean>)[k] = v.value;
       }
 
-      await api('/api/v1/preferences', { method: 'PUT', body });
+      await api.PUT('/preferences', { body });
       showSaveStatus(field, 'saved');
       for (const v of snapshot.values()) showSaveStatus(v.field, 'saved');
     } catch {
@@ -71,10 +71,12 @@ export function useAutoSave() {
   ) {
     showSaveStatus(field, 'saving');
     try {
-      await api(`/api/v1/preferences/${group}`, {
-        method: 'PATCH',
-        body: { [key]: value },
-      });
+      const path = `/preferences/${group}` as
+        | '/preferences/engine'
+        | '/preferences/sunset'
+        | '/preferences/content'
+        | '/preferences/advanced';
+      await api.PATCH(path, { body: { [key]: value } as never });
       showSaveStatus(field, 'saved');
     } catch {
       showSaveStatus(field, 'error');

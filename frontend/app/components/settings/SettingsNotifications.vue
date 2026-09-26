@@ -380,7 +380,7 @@ function channelTypeLabel(type: string) {
 async function fetchChannels() {
   channelsLoading.value = true;
   try {
-    channels.value = (await api('/api/v1/notifications/channels')) as NotificationChannel[];
+    channels.value = (await api.GET('/notifications/channels')) ?? [];
   } catch {
     toast.error('Failed to load notification channels');
   } finally {
@@ -432,7 +432,7 @@ async function onChannelSubmit() {
   savingChannel.value = true;
   channelFormError.value = '';
   try {
-    const body: Record<string, unknown> = {
+    const body = {
       type: channelForm.type,
       name: channelForm.name,
       webhookUrl: channelForm.webhookUrl,
@@ -446,20 +446,15 @@ async function onChannelSubmit() {
       overrideUpdateAvailable: channelForm.overrideUpdateAvailable,
       overrideApprovalActivity: channelForm.overrideApprovalActivity,
       overrideIntegrationStatus: channelForm.overrideIntegrationStatus,
+      ...(channelForm.type === 'apprise' ? { appriseTags: channelForm.appriseTags } : {}),
     };
-    if (channelForm.type === 'apprise') {
-      body.appriseTags = channelForm.appriseTags;
-    }
     if (editingChannel.value) {
-      await api(`/api/v1/notifications/channels/${editingChannel.value.id}`, {
-        method: 'PUT',
+      await api.PUT('/notifications/channels/{id}', {
+        path: { id: editingChannel.value.id },
         body,
       });
     } else {
-      await api('/api/v1/notifications/channels', {
-        method: 'POST',
-        body,
-      });
+      await api.POST('/notifications/channels', { body });
     }
     showChannelModal.value = false;
     toast.success('Notification channel saved');
@@ -475,7 +470,7 @@ async function onChannelSubmit() {
 async function deleteChannel(channel: NotificationChannel) {
   if (!confirm(`Delete "${channel.name}"? This cannot be undone.`)) return;
   try {
-    await api(`/api/v1/notifications/channels/${channel.id}`, { method: 'DELETE' });
+    await api.DELETE('/notifications/channels/{id}', { path: { id: channel.id } });
     toast.success('Channel deleted');
     await fetchChannels();
   } catch {
@@ -485,8 +480,8 @@ async function deleteChannel(channel: NotificationChannel) {
 
 async function toggleChannelEnabled(channel: NotificationChannel, enabled: boolean) {
   try {
-    await api(`/api/v1/notifications/channels/${channel.id}`, {
-      method: 'PUT',
+    await api.PUT('/notifications/channels/{id}', {
+      path: { id: channel.id },
       body: { ...channel, enabled },
     });
     channel.enabled = enabled;
@@ -499,7 +494,7 @@ async function toggleChannelEnabled(channel: NotificationChannel, enabled: boole
 async function testChannel(channel: NotificationChannel) {
   testingChannelId.value = channel.id;
   try {
-    await api(`/api/v1/notifications/channels/${channel.id}/test`, { method: 'POST' });
+    await api.POST('/notifications/channels/{id}/test', { path: { id: channel.id } });
     toast.success('Test notification sent!');
   } catch {
     toast.error('Failed to send test notification');

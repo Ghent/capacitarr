@@ -463,7 +463,7 @@ import {
   InfoIcon,
   ShieldBanIcon,
 } from 'lucide-vue-next';
-import type { IntegrationConfig, ConnectionTestResult, ApiError } from '~/types/api';
+import type { IntegrationConfig, ApiError } from '~/types/api';
 import { PlexOAuth } from '~/utils/plexOAuth';
 import {
   typeIcon,
@@ -486,8 +486,10 @@ const editingIntegration = ref<IntegrationConfig | null>(null);
 const saving = ref(false);
 const formError = ref('');
 
+type IntegrationType = NonNullable<IntegrationConfig['type']>;
+
 const formState = reactive({
-  type: 'sonarr',
+  type: 'sonarr' as IntegrationType,
   name: '',
   url: '',
   apiKey: '',
@@ -517,10 +519,7 @@ async function toggleEnabled(integration: IntegrationConfig, enabled: boolean) {
   integration.enabled = enabled;
 
   try {
-    await api(`/api/v1/integrations/${integration.id}`, {
-      method: 'PUT',
-      body: { enabled },
-    });
+    await api.PUT('/integrations/{id}', { path: { id: integration.id }, body: { enabled } });
     toast.success(
       t('settings.integrationToggled', {
         action: enabled ? t('common.enabled') : t('common.disabled'),
@@ -543,10 +542,7 @@ async function toggleCardSetting(
   integration[key] = value;
 
   try {
-    await api(`/api/v1/integrations/${integration.id}`, {
-      method: 'PUT',
-      body: { [key]: value },
-    });
+    await api.PUT('/integrations/{id}', { path: { id: integration.id }, body: { [key]: value } });
     toast.success(
       t('settings.integrationToggled', {
         action: value ? t('common.enabled') : t('common.disabled'),
@@ -645,7 +641,7 @@ const urlHelp = computed(() => urlHelpTexts[formState.type] || 'The base URL of 
 async function fetchIntegrations(showSpinner = true) {
   if (showSpinner) loading.value = true;
   try {
-    integrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
+    integrations.value = (await api.GET('/integrations')) ?? [];
   } catch {
     toast.error('Failed to load integrations');
   } finally {
@@ -692,12 +688,12 @@ async function onSubmit() {
   formError.value = '';
   try {
     if (editingIntegration.value) {
-      await api(`/api/v1/integrations/${editingIntegration.value.id}`, {
-        method: 'PUT',
+      await api.PUT('/integrations/{id}', {
+        path: { id: editingIntegration.value.id },
         body: { ...formState, enabled: editingIntegration.value.enabled },
       });
     } else {
-      await api('/api/v1/integrations', { method: 'POST', body: formState });
+      await api.POST('/integrations', { body: formState });
     }
     showModal.value = false;
     toast.success('Integration saved');
@@ -713,7 +709,7 @@ async function onSubmit() {
 async function deleteIntegration(integration: IntegrationConfig) {
   if (!confirm(`Delete ${integration.name}? This cannot be undone.`)) return;
   try {
-    await api(`/api/v1/integrations/${integration.id}`, { method: 'DELETE' });
+    await api.DELETE('/integrations/{id}', { path: { id: integration.id } });
     toast.success('Integration deleted');
     await fetchIntegrations();
   } catch {
@@ -723,15 +719,14 @@ async function deleteIntegration(integration: IntegrationConfig) {
 
 async function testConnection(integration: IntegrationConfig) {
   try {
-    const result = (await api('/api/v1/integrations/test', {
-      method: 'POST',
+    const result = await api.POST('/integrations/test', {
       body: {
         type: integration.type,
         url: integration.url,
         apiKey: integration.apiKey,
         integrationId: integration.id,
       },
-    })) as ConnectionTestResult;
+    });
     if (result.success) {
       toast.success('Connection successful!');
     } else {
@@ -746,16 +741,14 @@ async function testConnection(integration: IntegrationConfig) {
 
 async function testFormConnection() {
   try {
-    const body: Record<string, unknown> = {
-      type: formState.type,
-      url: formState.url,
-      apiKey: formState.apiKey,
-    };
-    if (editingIntegration.value) body.integrationId = editingIntegration.value.id;
-    const result = (await api('/api/v1/integrations/test', {
-      method: 'POST',
-      body,
-    })) as ConnectionTestResult;
+    const result = await api.POST('/integrations/test', {
+      body: {
+        type: formState.type,
+        url: formState.url,
+        apiKey: formState.apiKey,
+        integrationId: editingIntegration.value?.id,
+      },
+    });
     if (result.success) {
       formError.value = '';
       toast.success('Connection successful!');

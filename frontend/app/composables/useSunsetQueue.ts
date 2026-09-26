@@ -33,7 +33,7 @@ export function useSunsetQueue() {
   async function fetchSunsetItems() {
     loading.value = true;
     try {
-      const data = (await api('/api/v1/sunset-queue')) as SunsetQueueItem[];
+      const data = await api.GET('/sunset-queue');
       sunsetItems.value = data ?? [];
       markSuccess();
     } catch (err) {
@@ -50,7 +50,7 @@ export function useSunsetQueue() {
     sunsetItems.value = sunsetItems.value.filter((item) => item.id !== id);
 
     try {
-      await api(`/api/v1/sunset-queue/${id}`, { method: 'DELETE' });
+      await api.DELETE('/sunset-queue/{id}', { path: { id } });
       toast.success(t('sunset.cancelledToast'));
     } catch {
       sunsetItems.value = prev;
@@ -60,10 +60,10 @@ export function useSunsetQueue() {
 
   async function rescheduleItem(id: number, deletionDate: string) {
     try {
-      const result = (await api(`/api/v1/sunset-queue/${id}`, {
-        method: 'PATCH',
+      const result = await api.PATCH('/sunset-queue/{id}', {
+        path: { id },
         body: { deletionDate },
-      })) as { id: number; mediaName: string; deletionDate: string; daysRemaining: number };
+      });
 
       // Update local state
       const idx = sunsetItems.value.findIndex((item) => item.id === id);
@@ -82,11 +82,9 @@ export function useSunsetQueue() {
 
   async function clearAll() {
     try {
-      const result = (await api('/api/v1/sunset-queue/clear', { method: 'POST' })) as {
-        cancelled: number;
-      };
+      const result = await api.POST('/sunset-queue/clear');
       sunsetItems.value = [];
-      toast.success(t('sunset.clearedToast', { count: result.cancelled }));
+      toast.success(t('sunset.clearedToast', { count: result?.cancelled ?? 0 }));
     } catch {
       toast.error(t('sunset.clearFailedToast'));
     }

@@ -130,7 +130,12 @@ import {
   XIcon,
   AlertTriangleIcon,
 } from 'lucide-vue-next';
-import type { IntegrationConfig, EvaluatedItem, PreferenceSet } from '~/types/api';
+import type {
+  IntegrationConfig,
+  EvaluatedItem,
+  DeadContentReport,
+  StaleContentReport,
+} from '~/types/api';
 import { toast } from 'vue-sonner';
 import { MODE_DRY_RUN, EVENT_ANALYTICS_UPDATED } from '~/constants';
 
@@ -234,22 +239,14 @@ watch(
 // ---------------------------------------------------------------------------
 // Backend analytics data for smart filter matching
 // ---------------------------------------------------------------------------
-interface DeadContentReport {
-  items: { title: string }[];
-  totalCount: number;
-}
-interface StaleContentReport {
-  items: { title: string }[];
-  totalCount: number;
-}
 const deadTitles = ref<Set<string>>(new Set());
 const staleTitles = ref<Set<string>>(new Set());
 
 async function fetchFilterData() {
   try {
-    const [deadResp, staleResp] = await Promise.all([
-      api('/api/v1/analytics/dead-content') as Promise<DeadContentReport>,
-      api('/api/v1/analytics/stale-content') as Promise<StaleContentReport>,
+    const [deadResp, staleResp]: [DeadContentReport, StaleContentReport] = await Promise.all([
+      api.GET('/analytics/dead-content'),
+      api.GET('/analytics/stale-content'),
     ]);
     deadTitles.value = new Set((deadResp?.items ?? []).map((i) => i.title));
     staleTitles.value = new Set((staleResp?.items ?? []).map((i) => i.title));
@@ -316,7 +313,7 @@ const enabledIntegrations = computed(() => integrations.value.filter((i) => i.en
 
 async function fetchIntegrations() {
   try {
-    integrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
+    integrations.value = (await api.GET('/integrations')) ?? [];
   } catch (err) {
     console.warn('[Library] fetchIntegrations failed:', err);
   }
@@ -342,10 +339,7 @@ async function handleDelete(selectedItems: EvaluatedItem[]) {
       score: e.score,
     }));
 
-    const result = (await api('/api/v1/delete', {
-      method: 'POST',
-      body,
-    })) as { queued: number; total: number; mode: string; queueFullSkipped?: number };
+    const result = await api.POST('/delete', { body });
 
     if ((result.queueFullSkipped ?? 0) > 0) {
       toast.warning(
@@ -355,14 +349,13 @@ async function handleDelete(selectedItems: EvaluatedItem[]) {
         }),
       );
     } else {
+      const mode = result.mode ?? '';
       const toastMessages: Record<string, string> = {
         auto: t('library.deleteSuccessAuto', { count: result.queued }),
         approval: t('library.deleteSuccessApproval', { count: result.queued }),
         [MODE_DRY_RUN]: t('library.deleteSuccessDryRun', { count: result.queued }),
       };
-      toast.success(
-        toastMessages[result.mode] || t('library.deleteSuccess', { count: result.queued }),
-      );
+      toast.success(toastMessages[mode] || t('library.deleteSuccess', { count: result.queued }));
     }
     libraryTableRef.value?.onDeleteComplete();
 
@@ -380,7 +373,7 @@ async function handleDelete(selectedItems: EvaluatedItem[]) {
 // ---------------------------------------------------------------------------
 async function fetchPreferences() {
   try {
-    const prefs = (await api('/api/v1/preferences')) as PreferenceSet;
+    const prefs = await api.GET('/preferences');
     if (prefs?.deadContentMinDays !== undefined) {
       deadContentMinDays.value = prefs.deadContentMinDays;
     }

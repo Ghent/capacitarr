@@ -9,7 +9,6 @@
  * State is stored via useState so it persists across page navigations and
  * is shared between components on the same page.
  */
-import type { ApprovalQueueItem } from '~/types/api';
 import {
   EVENT_APPROVAL_REJECTED,
   EVENT_APPROVAL_UNSNOOZED,
@@ -54,9 +53,8 @@ export function useSnoozedItems() {
   async function fetchSnoozedItems() {
     loading.value = true;
     try {
-      const allRejected = (await api(
-        '/api/v1/approval-queue?status=rejected&limit=1000',
-      )) as ApprovalQueueItem[];
+      const allRejected =
+        (await api.GET('/approval-queue', { query: { status: 'rejected', limit: 1000 } })) ?? [];
 
       const now = new Date();
       snoozedItems.value = allRejected
@@ -84,7 +82,7 @@ export function useSnoozedItems() {
     snoozedItems.value = snoozedItems.value.filter((item) => item.id !== id);
 
     try {
-      await api(`/api/v1/approval-queue/${id}/unsnooze`, { method: 'POST' });
+      await api.POST('/approval-queue/{id}/unsnooze', { path: { id } });
     } catch {
       // Revert on failure
       snoozedItems.value = prev;

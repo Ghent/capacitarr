@@ -460,7 +460,7 @@ async function doExport() {
     if (exportSections.notificationChannels) sectionParams.push('notifications');
 
     const query = sectionParams.join(',');
-    const data = (await api(`/api/v1/settings/export?sections=${query}`)) as SettingsExportEnvelope;
+    const data = await api.GET('/settings/export', { query: { sections: query } });
 
     const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: 'application/json',
@@ -589,13 +589,12 @@ async function loadPreview() {
   if (!parsedPayload.value) return;
   loadingPreview.value = true;
   try {
-    const preview = (await api('/api/v1/settings/import/preview', {
-      method: 'POST',
+    const preview = await api.POST('/settings/import/preview', {
       body: {
         payload: parsedPayload.value,
         sections: { ...importSections, mode: importMode.value },
       },
-    })) as ImportPreview;
+    });
 
     importPreviewData.value = preview;
     ruleOverrides.value = [];
@@ -612,19 +611,21 @@ async function doConfirmImport() {
   importing.value = true;
   try {
     const hasOverrides = ruleOverrides.value.length > 0;
-    const endpoint = hasOverrides ? '/api/v1/settings/import/commit' : '/api/v1/settings/import';
-    const body: Record<string, unknown> = {
-      payload: parsedPayload.value,
-      sections: { ...importSections, mode: importMode.value },
-    };
-    if (hasOverrides) {
-      body.overrides = ruleOverrides.value;
-    }
-
-    const result = (await api(endpoint, {
-      method: 'POST',
-      body,
-    })) as ImportResult;
+    const sections = { ...importSections, mode: importMode.value };
+    const result = hasOverrides
+      ? await api.POST('/settings/import/commit', {
+          body: {
+            payload: parsedPayload.value,
+            sections,
+            overrides: ruleOverrides.value,
+          },
+        })
+      : await api.POST('/settings/import', {
+          body: {
+            payload: parsedPayload.value,
+            sections,
+          },
+        });
 
     importResult.value = result;
     parsedPayload.value = null;

@@ -755,10 +755,7 @@ async function saveThresholds(dg: DiskGroup) {
       dg.sunsetPct,
       payload,
     );
-    const updated = (await api(`/api/v1/disk-groups/${dg.id}`, {
-      method: 'PUT',
-      body: payload,
-    })) as DiskGroup;
+    const updated = await api.PUT('/disk-groups/{id}', { path: { id: dg.id }, body: payload });
 
     // Emit updated disk group to parent for sync.
     // Explicitly handle totalBytesOverride: when the API omits it (omitempty),

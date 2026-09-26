@@ -1,14 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ref, type Ref } from 'vue';
 
-// Import after stubs are in place
-import { useApi } from './useApi';
+import { interpolatePath, useApi } from './useApi';
 
-// ---------------------------------------------------------------------------
-// Capture the ofetch.create factory call so we can inspect the interceptors.
-// vi.hoisted ensures the variables are available in the vi.mock factory,
-// which is hoisted to the top of the file before any other code runs.
-// ---------------------------------------------------------------------------
 const { capturedOptions, mockFetchInstance } = vi.hoisted(() => {
   const options: { value: Record<string, unknown> } = { value: {} };
   const instance = vi.fn();
@@ -23,10 +17,6 @@ vi.mock('ofetch', () => ({
     },
   },
 }));
-
-// ---------------------------------------------------------------------------
-// Mock Nuxt auto-imports
-// ---------------------------------------------------------------------------
 
 function mockUseRuntimeConfig() {
   return {
@@ -63,9 +53,26 @@ vi.stubGlobal('useAuthCookie', mockUseAuthCookie);
 vi.stubGlobal('useConnectionHealth', mockUseConnectionHealth);
 vi.stubGlobal('useRouter', mockUseRouter);
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+describe('interpolatePath', () => {
+  it('leaves static paths unchanged', () => {
+    expect(interpolatePath('/preview')).toBe('/preview');
+  });
+
+  it('replaces path parameters', () => {
+    expect(interpolatePath('/custom-rules/{id}', { id: 42 })).toBe('/custom-rules/42');
+  });
+
+  it('encodes reserved characters in path values', () => {
+    expect(interpolatePath('/deletion-queue', { unused: 'x' })).toBe('/deletion-queue');
+    expect(interpolatePath('/items/{name}', { name: 'Firefly/Serenity' })).toBe(
+      '/items/Firefly%2FSerenity',
+    );
+  });
+
+  it('throws when a path parameter is missing', () => {
+    expect(() => interpolatePath('/custom-rules/{id}', {})).toThrow('Missing path parameter: id');
+  });
+});
 
 describe('useApi', () => {
   beforeEach(() => {
@@ -77,19 +84,18 @@ describe('useApi', () => {
     mockAuthCookie.value = 'true';
   });
 
-  // -------------------------------------------------------------------------
-  // Return value
-  // -------------------------------------------------------------------------
   describe('return value', () => {
-    it('returns the ofetch instance created by ofetch.create', () => {
+    it('returns GET/POST/PUT/PATCH/DELETE methods, not the raw ofetch instance', () => {
       const api = useApi();
-      expect(api).toBe(mockFetchInstance);
+      expect(api).not.toBe(mockFetchInstance);
+      expect(typeof api.GET).toBe('function');
+      expect(typeof api.POST).toBe('function');
+      expect(typeof api.PUT).toBe('function');
+      expect(typeof api.PATCH).toBe('function');
+      expect(typeof api.DELETE).toBe('function');
     });
   });
 
-  // -------------------------------------------------------------------------
-  // ofetch.create configuration
-  // -------------------------------------------------------------------------
   describe('ofetch.create configuration', () => {
     it('sets baseURL from runtime config', () => {
       useApi();
@@ -102,35 +108,55 @@ describe('useApi', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // GET request formatting
-  // -------------------------------------------------------------------------
-  describe('GET request formatting', () => {
-    it('delegates calls to the ofetch instance with URL and options', async () => {
+  describe('typed methods', () => {
+    it('GET prefixes /api/v1 and returns the JSON body', async () => {
       mockFetchInstance.mockResolvedValueOnce({ title: 'Firefly' });
 
       const api = useApi();
-      const result = await api('/api/v1/shows/1');
+      const result = await api.GET('/preview');
 
-      expect(mockFetchInstance).toHaveBeenCalledWith('/api/v1/shows/1');
+      expect(mockFetchInstance).toHaveBeenCalledWith('/api/v1/preview', { method: 'GET' });
       expect(result).toEqual({ title: 'Firefly' });
     });
 
-    it('passes query parameters and options through to ofetch', async () => {
+    it('GET passes query parameters through to ofetch', async () => {
       mockFetchInstance.mockResolvedValueOnce([]);
 
       const api = useApi();
-      await api('/api/v1/preview', { params: { force: 'true' } });
+      await api.GET('/preview', { query: { force: true } });
 
       expect(mockFetchInstance).toHaveBeenCalledWith('/api/v1/preview', {
-        params: { force: 'true' },
+        method: 'GET',
+        query: { force: true },
+      });
+    });
+
+    it('POST interpolates path params and sends the body', async () => {
+      mockFetchInstance.mockResolvedValueOnce({ status: 'approved' });
+
+      const api = useApi();
+      await api.POST('/approval-queue/{id}/approve', { path: { id: 7 } });
+
+      expect(mockFetchInstance).toHaveBeenCalledWith('/api/v1/approval-queue/7/approve', {
+        method: 'POST',
+      });
+    });
+
+    it('DELETE sends required query params', async () => {
+      mockFetchInstance.mockResolvedValueOnce(undefined);
+
+      const api = useApi();
+      await api.DELETE('/deletion-queue', {
+        query: { mediaName: 'Firefly', mediaType: 'show' },
+      });
+
+      expect(mockFetchInstance).toHaveBeenCalledWith('/api/v1/deletion-queue', {
+        method: 'DELETE',
+        query: { mediaName: 'Firefly', mediaType: 'show' },
       });
     });
   });
 
-  // -------------------------------------------------------------------------
-  // onResponse — connection restored
-  // -------------------------------------------------------------------------
   describe('onResponse interceptor', () => {
     it('calls onConnectionRestored on any successful response', () => {
       useApi();
@@ -142,9 +168,6 @@ describe('useApi', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // onResponseError — 401 handling and connection restored
-  // -------------------------------------------------------------------------
   describe('onResponseError interceptor', () => {
     it('clears auth cookie and redirects to /login on 401', () => {
       useApi();
@@ -182,9 +205,6 @@ describe('useApi', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // onRequestError — connection lost
-  // -------------------------------------------------------------------------
   describe('onRequestError interceptor', () => {
     it('calls onConnectionLost on network-level failures', () => {
       useApi();
@@ -196,16 +216,13 @@ describe('useApi', () => {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // Error handling
-  // -------------------------------------------------------------------------
   describe('error handling', () => {
     it('propagates fetch errors to the caller', async () => {
       const networkError = new Error('Network error');
       mockFetchInstance.mockRejectedValueOnce(networkError);
 
       const api = useApi();
-      await expect(api('/api/v1/shows')).rejects.toThrow('Network error');
+      await expect(api.GET('/preview')).rejects.toThrow('Network error');
     });
 
     it('propagates HTTP errors from ofetch', async () => {
@@ -216,7 +233,9 @@ describe('useApi', () => {
       mockFetchInstance.mockRejectedValueOnce(httpError);
 
       const api = useApi();
-      await expect(api('/api/v1/movies/999')).rejects.toThrow('Not Found');
+      await expect(api.GET('/custom-rules/{id}/impact', { path: { id: 999 } })).rejects.toThrow(
+        'Not Found',
+      );
     });
   });
 });

@@ -78,7 +78,7 @@ export function useDeletionQueue() {
 
   async function fetchQueue() {
     try {
-      const data = await api<DeletionQueueItem[]>('/api/v1/deletion-queue');
+      const data = await api.GET('/deletion-queue');
       queuedItems.value = data ?? [];
       markSuccess();
     } catch {
@@ -88,12 +88,7 @@ export function useDeletionQueue() {
 
   async function cancelItem(mediaName: string, mediaType: string) {
     try {
-      await api(
-        `/api/v1/deletion-queue?mediaName=${encodeURIComponent(mediaName)}&mediaType=${encodeURIComponent(mediaType)}`,
-        {
-          method: 'DELETE',
-        },
-      );
+      await api.DELETE('/deletion-queue', { query: { mediaName, mediaType } });
       // Optimistically remove from local list
       queuedItems.value = queuedItems.value.filter(
         (item) => !(item.mediaName === mediaName && item.mediaType === mediaType),
@@ -106,10 +101,7 @@ export function useDeletionQueue() {
 
   async function snoozeItem(mediaName: string, mediaType: string) {
     try {
-      await api('/api/v1/deletion-queue/snooze', {
-        method: 'POST',
-        body: { mediaName, mediaType },
-      });
+      await api.POST('/deletion-queue/snooze', { body: { mediaName, mediaType } });
       // Optimistically remove from local list
       queuedItems.value = queuedItems.value.filter(
         (item) => !(item.mediaName === mediaName && item.mediaType === mediaType),
@@ -121,7 +113,7 @@ export function useDeletionQueue() {
 
   async function clearAll() {
     try {
-      await api('/api/v1/deletion-queue/clear', { method: 'POST' });
+      await api.POST('/deletion-queue/clear');
       queuedItems.value = [];
       stopCountdown();
     } catch {

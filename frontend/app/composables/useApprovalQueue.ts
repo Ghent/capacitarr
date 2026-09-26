@@ -105,7 +105,7 @@ export function useApprovalQueue() {
   async function fetchQueue() {
     try {
       // Fetch all approval queue items (all statuses)
-      const allItems = (await api('/api/v1/approval-queue?limit=1000')) as ApprovalQueueItem[];
+      const allItems = (await api.GET('/approval-queue', { query: { limit: 1000 } })) ?? [];
 
       // Group items: seasons under their parent show, standalone items as-is
       const groupMap = new Map<
@@ -254,7 +254,7 @@ export function useApprovalQueue() {
 
     try {
       await Promise.all(
-        group.auditIds.map((id) => api(`/api/v1/approval-queue/${id}/approve`, { method: 'POST' })),
+        group.auditIds.map((id) => api.POST('/approval-queue/{id}/approve', { path: { id } })),
       );
       toast.success(t('approval.groupApprovedToast'));
     } catch (e: unknown) {
@@ -285,7 +285,7 @@ export function useApprovalQueue() {
 
     try {
       await Promise.all(
-        group.auditIds.map((id) => api(`/api/v1/approval-queue/${id}/reject`, { method: 'POST' })),
+        group.auditIds.map((id) => api.POST('/approval-queue/{id}/reject', { path: { id } })),
       );
       toast.info(t('approval.groupSnoozedToast'));
       // Background refresh to get accurate snooze duration from server
@@ -308,9 +308,7 @@ export function useApprovalQueue() {
 
     try {
       await Promise.all(
-        group.auditIds.map((id) =>
-          api(`/api/v1/approval-queue/${id}/unsnooze`, { method: 'POST' }),
-        ),
+        group.auditIds.map((id) => api.POST('/approval-queue/{id}/unsnooze', { path: { id } })),
       );
       toast.success(t('approval.unsnoozeSuccessToast'));
       // Background refresh to sync with server state
@@ -326,7 +324,7 @@ export function useApprovalQueue() {
   /** Approve a single season by its approval queue ID, then refresh the queue */
   async function approveSeason(auditId: number) {
     try {
-      await api(`/api/v1/approval-queue/${auditId}/approve`, { method: 'POST' });
+      await api.POST('/approval-queue/{id}/approve', { path: { id: auditId } });
       toast.success(t('approval.seasonApprovedToast'));
       fetchQueue();
     } catch (e: unknown) {
@@ -342,7 +340,7 @@ export function useApprovalQueue() {
   /** Snooze a single season by its approval queue ID, then refresh the queue */
   async function snoozeSeason(auditId: number) {
     try {
-      await api(`/api/v1/approval-queue/${auditId}/reject`, { method: 'POST' });
+      await api.POST('/approval-queue/{id}/reject', { path: { id: auditId } });
       toast.info(t('approval.seasonSnoozedToast'));
       fetchQueue();
     } catch {
@@ -360,7 +358,7 @@ export function useApprovalQueue() {
 
     try {
       await Promise.all(
-        group.auditIds.map((id) => api(`/api/v1/approval-queue/${id}`, { method: 'DELETE' })),
+        group.auditIds.map((id) => api.DELETE('/approval-queue/{id}', { path: { id } })),
       );
       toast.info(t('approval.dismissedToast'));
     } catch {
@@ -377,7 +375,7 @@ export function useApprovalQueue() {
   /** Dismiss a single season by its approval queue ID, then refresh the queue */
   async function dismissSeason(auditId: number) {
     try {
-      await api(`/api/v1/approval-queue/${auditId}`, { method: 'DELETE' });
+      await api.DELETE('/approval-queue/{id}', { path: { id: auditId } });
       toast.info(t('approval.seasonDismissedToast'));
       fetchQueue();
     } catch {
@@ -394,7 +392,7 @@ export function useApprovalQueue() {
     snoozedItems.value = [];
 
     try {
-      await api('/api/v1/approval-queue/clear', { method: 'POST' });
+      await api.POST('/approval-queue/clear');
       toast.info(t('approval.clearedToast'));
     } catch {
       // Revert optimistic update on failure

@@ -106,7 +106,7 @@ const mediaTypes = computed(() => {
   }
 
   // Build set of configured integration types for cross-reference
-  const configuredIntegrationTypes = new Set(props.integrations.map((i) => i.type));
+  const configuredIntegrationTypes = new Set<string>(props.integrations.map((i) => i.type));
 
   // Filter out media types that have no configured integration
   return [...types]

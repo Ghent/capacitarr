@@ -351,7 +351,7 @@ import {
   ArrowUpDownIcon,
   LayersIcon,
 } from 'lucide-vue-next';
-import type { AuditLogEntry, AuditResponse, SelectedDetailItem } from '~/types/api';
+import type { AuditLogEntry, SelectedDetailItem } from '~/types/api';
 
 withDefaults(
   defineProps<{
@@ -377,7 +377,9 @@ const selectedItem = ref<SelectedDetailItem | null>(null);
 
 // Audit filters
 const auditSearch = ref('');
-const auditActionFilter = ref<string | null>(null);
+const auditActionFilter = ref<'deleted' | 'dry_delete' | 'cancelled' | 'pending_delete' | null>(
+  null,
+);
 // Action values must match the backend db.Action* constants exactly
 // (deleted, dry_delete, cancelled, pending_delete) — sent as ?action= query param.
 const auditActionTypes = [
@@ -424,19 +426,16 @@ async function fetchLogs(append = false) {
     pending.value = true;
   }
   try {
-    const params = new URLSearchParams({
-      limit: String(batchSize),
-      offset: String(append ? logs.value.length : 0),
+    const data = await api.GET('/audit-log', {
+      query: {
+        limit: batchSize,
+        offset: append ? logs.value.length : 0,
+        search: auditSearch.value.trim() || undefined,
+        action: auditActionFilter.value || undefined,
+        sort_by: auditSortBy.value,
+        sort_dir: auditSortDir.value,
+      },
     });
-    if (auditSearch.value.trim()) {
-      params.set('search', auditSearch.value.trim());
-    }
-    if (auditActionFilter.value) {
-      params.set('action', auditActionFilter.value);
-    }
-    params.set('sort_by', auditSortBy.value);
-    params.set('sort_dir', auditSortDir.value);
-    const data = (await api(`/api/v1/audit-log?${params.toString()}`)) as AuditResponse;
     if (data?.data) {
       if (append) {
         logs.value = [...logs.value, ...data.data];
@@ -466,7 +465,7 @@ function onSearchInput(value: string | number) {
   }, 400);
 }
 
-function toggleActionFilter(action: string) {
+function toggleActionFilter(action: 'deleted' | 'dry_delete' | 'cancelled' | 'pending_delete') {
   auditActionFilter.value = auditActionFilter.value === action ? null : action;
   resetAndFetch();
 }

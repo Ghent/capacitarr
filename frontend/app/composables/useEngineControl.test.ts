@@ -18,10 +18,16 @@ function mockUseState<T>(key: string, init?: () => T): Ref<T> {
   return stateStore.get(key) as Ref<T>;
 }
 
-// useApi mock — returns a mock fetch function
+// useApi mock — typed client methods share one vi.fn()
 const mockApiFetch = vi.fn();
 function mockUseApi() {
-  return mockApiFetch;
+  return {
+    GET: mockApiFetch,
+    POST: mockApiFetch,
+    PUT: mockApiFetch,
+    PATCH: mockApiFetch,
+    DELETE: mockApiFetch,
+  };
 }
 
 // vue-sonner mock — intercept toast.success/error/info calls.
@@ -166,7 +172,7 @@ describe('useEngineControl', () => {
       const ctrl = useEngineControl();
       await ctrl.fetchStats();
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/worker/stats');
+      expect(mockApiFetch).toHaveBeenCalledWith('/worker/stats');
       expect(ctrl.executionMode.value).toBe('auto');
       expect(ctrl.lastRunEpoch.value).toBe(1700000000);
       expect(ctrl.lastRunEvaluated.value).toBe(150);
@@ -246,7 +252,7 @@ describe('useEngineControl', () => {
       const ctrl = useEngineControl();
       await ctrl.triggerRunNow();
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/engine/run', { method: 'POST' });
+      expect(mockApiFetch).toHaveBeenCalledWith('/engine/run');
       expect(toastInfoSpy).toHaveBeenCalledWith('engine.runTriggeredToast');
       // runNowLoading stays true on success — the SSE engine_complete handler
       // resets it when the engine finishes. Only resets to false on error.

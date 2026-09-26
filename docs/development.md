@@ -22,6 +22,7 @@ The `DefaultDiskGroupMode` field on `PreferenceSet` serves only as a **template 
 2. Shared domain maps live in `utils/` (see `diskGroupMode.ts`). New mode or event-type maps go there, not into a page.
 3. Feature cards are presentational. They consume composables; they do not register app-lifetime SSE.
 4. Fetch errors go through the error policy below. `console.warn` alone is not an error strategy.
+5. REST calls go through `useApi()` (`GET` / `POST` / `PUT` / `PATCH` / `DELETE` over generated OpenAPI paths). Login, migration, connection health, and EventSource stay on raw ofetch. Do not cast REST responses with `as` — fix the spec instead. SSE payloads may still be cast.
 
 ## Frontend error policy
 

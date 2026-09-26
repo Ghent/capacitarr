@@ -1199,6 +1199,7 @@ export interface paths {
         /**
          * Cancel a pending deletion
          * @description Remove a specific item from the deletion queue and snooze it.
+         *     `mediaName` and `mediaType` are query parameters.
          */
         delete: operations["cancelDeletion"];
         options?: never;
@@ -1609,6 +1610,8 @@ export interface components {
         ApiKeyStatusResponse: {
             /** @description Whether the user has an API key configured */
             has_key: boolean;
+            /** @description Last four characters of the stored key, when one exists */
+            hint?: string;
         };
         ApiKeyResponse: {
             /**
@@ -1722,8 +1725,11 @@ export interface components {
         IntegrationConfig: {
             /** @example 1 */
             id: number;
-            /** @example sonarr */
-            type: string;
+            /**
+             * @example sonarr
+             * @enum {string}
+             */
+            type: "plex" | "sonarr" | "radarr" | "lidarr" | "readarr" | "tautulli" | "seerr" | "jellyfin" | "emby" | "tracearr" | "jellystat";
             /** @example Sonarr (TV) */
             name: string;
             /**
@@ -1779,6 +1785,9 @@ export interface components {
             url: string;
             /** @description Plaintext API key or token for the service */
             apiKey: string;
+            collectionDeletion?: boolean;
+            showLevelOnly?: boolean;
+            addImportExclusion?: boolean;
         };
         IntegrationConfigUpdate: {
             name?: string;
@@ -1787,6 +1796,9 @@ export interface components {
             /** @description New API key, or masked value to keep existing */
             apiKey?: string;
             enabled?: boolean;
+            collectionDeletion?: boolean;
+            showLevelOnly?: boolean;
+            addImportExclusion?: boolean;
         };
         ConnectionTestRequest: {
             /** @enum {string} */
@@ -1981,6 +1993,8 @@ export interface components {
              * @description Deprecated: use `effect` instead. Legacy values: absolute, strong, moderate
              */
             intensity?: string;
+            /** @description Whether the rule is active */
+            enabled?: boolean;
         };
         /** @description Portable settings export containing selected sections */
         SettingsExportEnvelope: {
@@ -2039,7 +2053,7 @@ export interface components {
             integrationType?: string | null;
         };
         SettingsImportRequest: {
-            envelope: components["schemas"]["SettingsExportEnvelope"];
+            payload: components["schemas"]["SettingsExportEnvelope"];
             /** @description Which sections to import (all default to false) */
             sections?: {
                 preferences?: boolean;
@@ -2111,6 +2125,17 @@ export interface components {
              *     ]
              */
             operators: string[];
+        };
+        RuleImpact: {
+            ruleId: number;
+            affectedCount: number;
+            totalItems: number;
+        };
+        /** @description Field definitions and value options for editing an existing rule */
+        RuleContext: {
+            rule: components["schemas"]["CustomRule"];
+            fields?: components["schemas"]["RuleField"][];
+            values?: components["schemas"]["RuleValueResult"];
         };
         /**
          * @description Polymorphic response — shape depends on the field type:
@@ -2561,10 +2586,15 @@ export interface components {
              */
             evaluated: number;
             /**
-             * @description Number of items flagged for deletion
+             * @description Number of items selected as deletion candidates
              * @example 8
              */
-            flagged: number;
+            candidates: number;
+            /**
+             * @description Number of items queued for deletion or approval
+             * @example 6
+             */
+            queued: number;
             /**
              * @description Number of items actually deleted
              * @example 5
@@ -2582,6 +2612,65 @@ export interface components {
              * @example 320
              */
             durationMs: number;
+            /** @description JSON map of disk-group ID to execution mode */
+            diskGroupModes?: string;
+        };
+        DeadContentItem: {
+            title: string;
+            type: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            daysInLibrary: number;
+            integrationId: number;
+        };
+        DeadContentReport: {
+            items: components["schemas"]["DeadContentItem"][];
+            totalCount: number;
+            /** Format: int64 */
+            totalSize: number;
+            protectedCount: number;
+        };
+        StaleContentItem: {
+            title: string;
+            type: string;
+            /** Format: int64 */
+            sizeBytes: number;
+            daysSinceWatched: number;
+            playCount: number;
+            /** Format: double */
+            stalenessScore: number;
+            integrationId: number;
+        };
+        StaleContentReport: {
+            items: components["schemas"]["StaleContentItem"][];
+            totalCount: number;
+            /** Format: int64 */
+            totalSize: number;
+            protectedCount: number;
+        };
+        CapacityForecast: {
+            /** Format: double */
+            currentUsedPct?: number;
+            /**
+             * Format: int64
+             * @description Bytes per day
+             */
+            growthRatePerDay?: number;
+            /** @description Estimated days until threshold breach (-1 if no data) */
+            daysUntilThreshold?: number;
+            /** @description Estimated days until disk is full (-1 if no data) */
+            daysUntilFull?: number;
+            /** Format: int64 */
+            totalCapacity?: number;
+            /** Format: int64 */
+            usedCapacity?: number;
+        };
+        SunsetRescheduleResponse: {
+            id: number;
+            mediaName: string;
+            /** Format: date */
+            deletionDate: string;
+            daysRemaining: number;
         };
         GroupedAuditResult: {
             /**
@@ -3938,7 +4027,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": Record<string, never>;
+                    "application/json": components["schemas"]["ImportPreview"];
                 };
             };
             /** @description Validation failed (invalid version, malformed payload) */
@@ -3974,12 +4063,7 @@ export interface operations {
                         notifications?: boolean;
                     };
                     /** @description Rule integration overrides from the preview step */
-                    overrides?: {
-                        /** @description Index of the rule in the export payload */
-                        ruleIndex?: number;
-                        /** @description Target integration ID to assign the rule to */
-                        integrationId?: number;
-                    }[];
+                    overrides?: components["schemas"]["RuleOverride"][];
                 };
             };
         };
@@ -4121,6 +4205,8 @@ export interface operations {
             query?: {
                 /** @description Filter by status */
                 status?: "pending" | "approved" | "rejected";
+                /** @description Maximum number of records to return (max 2000) */
+                limit?: number;
             };
             header?: never;
             path?: never;
@@ -4332,6 +4418,11 @@ export interface operations {
                     scoreDetails?: string;
                     /** @description URL to the item's poster image */
                     posterUrl?: string;
+                    /**
+                     * Format: double
+                     * @description Deletion score at the time of the request
+                     */
+                    score?: number;
                 }[];
             };
         };
@@ -4704,7 +4795,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RuleImpact"];
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
@@ -4726,7 +4819,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["RuleContext"];
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
@@ -4841,7 +4936,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["SunsetRescheduleResponse"];
+                };
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
@@ -4861,7 +4958,11 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        cancelled?: number;
+                    };
+                };
             };
             401: components["responses"]["Unauthorized"];
         };
@@ -4880,7 +4981,12 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        status?: string;
+                        restored?: number;
+                    };
+                };
             };
             /** @description Poster overlay service unavailable */
             503: {
@@ -4905,26 +5011,24 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DeletionQueueItem"][];
+                };
             };
             401: components["responses"]["Unauthorized"];
         };
     };
     cancelDeletion: {
         parameters: {
-            query?: never;
+            query: {
+                mediaName: string;
+                mediaType: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": {
-                    mediaName: string;
-                    mediaType: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Deletion cancelled and item snoozed */
             200: {
@@ -5029,7 +5133,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["DeadContentReport"];
+                };
             };
             401: components["responses"]["Unauthorized"];
         };
@@ -5053,7 +5159,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["StaleContentReport"];
+                };
             };
             401: components["responses"]["Unauthorized"];
         };
@@ -5076,12 +5184,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        /** @description Estimated days until threshold breach (-1 if no data) */
-                        daysUntilThreshold?: number;
-                        /** @description Estimated days until disk is full (-1 if no data) */
-                        daysUntilFull?: number;
-                    };
+                    "application/json": components["schemas"]["CapacityForecast"];
                 };
             };
             401: components["responses"]["Unauthorized"];

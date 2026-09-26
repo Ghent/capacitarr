@@ -183,7 +183,7 @@
 
 <script setup lang="ts">
 import { UserIcon, ShieldIcon, KeyIcon } from 'lucide-vue-next';
-import type { ApiKeyResponse, ApiError } from '~/types/api';
+import type { ApiError } from '~/types/api';
 import { toast } from 'vue-sonner';
 
 const api = useApi();
@@ -236,8 +236,7 @@ async function changePassword() {
 
   savingPassword.value = true;
   try {
-    await api('/api/v1/auth/password', {
-      method: 'PUT',
+    await api.PUT('/auth/password', {
       body: {
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
@@ -277,8 +276,7 @@ async function changeUsername() {
 
   savingUsername.value = true;
   try {
-    await api('/api/v1/auth/username', {
-      method: 'PUT',
+    await api.PUT('/auth/username', {
       body: {
         newUsername: usernameForm.newUsername,
         currentPassword: usernameForm.password,
@@ -302,7 +300,7 @@ async function changeUsername() {
 async function generateApiKey() {
   generatingApiKey.value = true;
   try {
-    const result = (await api('/api/v1/auth/apikey', { method: 'POST' })) as ApiKeyResponse;
+    const result = await api.POST('/auth/apikey');
     apiKey.value = result.api_key;
     toast.success('API key generated');
   } catch {
@@ -314,14 +312,8 @@ async function generateApiKey() {
 
 async function fetchApiKey() {
   try {
-    const result = (await api('/api/v1/auth/apikey')) as {
-      has_key?: boolean;
-      api_key?: string;
-      hint?: string;
-    };
-    if (result?.api_key) {
-      apiKey.value = result.api_key;
-    } else if (result?.has_key) {
+    const result = await api.GET('/auth/apikey');
+    if (result?.has_key) {
       apiKey.value = '••••••••••••••••••••••••••••••••';
       if (result.hint) apiKeyHint.value = result.hint;
     }

@@ -231,7 +231,7 @@ export function useEngineControl() {
   /** Fetch current stats from the REST API (initial hydration / after mode change). */
   async function fetchStats() {
     try {
-      const stats = (await api('/api/v1/worker/stats')) as WorkerStats;
+      const stats = await api.GET('/worker/stats');
       if (stats) {
         workerStats.value = stats;
         prevIsRunning.value = stats.isRunning === true;
@@ -245,7 +245,7 @@ export function useEngineControl() {
   async function triggerRunNow() {
     runNowLoading.value = true;
     try {
-      await api('/api/v1/engine/run', { method: 'POST' });
+      await api.POST('/engine/run');
       toast.info(t('engine.runTriggeredToast'));
       // No delay or fetchStats needed — SSE engine_start/engine_complete events
       // will update the UI reactively.

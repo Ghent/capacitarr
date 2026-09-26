@@ -169,9 +169,10 @@ function handleDeletionBatchCompleteRefresh() {
 }
 
 function handleIntegrationChange() {
-  api('/api/v1/integrations')
+  api
+    .GET('/integrations')
     .then((data) => {
-      allIntegrations.value = data as IntegrationConfig[];
+      allIntegrations.value = data ?? [];
       lastUpdated.value = new Date();
     })
     .catch((err) => console.warn('[Dashboard] integration refresh failed:', err));
@@ -184,9 +185,10 @@ function handleDataReset() {
 }
 
 function handleSettingsChange() {
-  api('/api/v1/disk-groups')
+  api
+    .GET('/disk-groups')
     .then((data) => {
-      diskGroups.value = data as DiskGroup[];
+      diskGroups.value = data ?? [];
       lastUpdated.value = new Date();
     })
     .catch((err) => console.warn('[Dashboard] settings refresh failed:', err));
@@ -218,12 +220,12 @@ async function fetchDashboardData(silent = false) {
   if (!silent) loading.value = true;
   try {
     const [groups, integrations] = await Promise.all([
-      api('/api/v1/disk-groups'),
-      api('/api/v1/integrations'),
+      api.GET('/disk-groups'),
+      api.GET('/integrations'),
     ]);
     await engineFetchStats();
-    diskGroups.value = groups as DiskGroup[];
-    allIntegrations.value = integrations as IntegrationConfig[];
+    diskGroups.value = groups ?? [];
+    allIntegrations.value = integrations ?? [];
     fetchApprovalQueue();
     lastUpdated.value = new Date();
     markSuccess();
@@ -237,7 +239,7 @@ async function fetchDashboardData(silent = false) {
 
 async function fetchRecentActivity() {
   try {
-    const data = (await api('/api/v1/activity/recent?limit=100')) as ActivityEvent[];
+    const data = await api.GET('/activity/recent', { query: { limit: 100 } });
     recentActivity.value = data || [];
   } catch (err) {
     console.warn('[Dashboard] fetchRecentActivity failed:', err);

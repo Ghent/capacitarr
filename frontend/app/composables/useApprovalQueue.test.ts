@@ -48,7 +48,13 @@ function mockUseState<T>(key: string, init?: () => T): Ref<T> {
 
 const mockApiFetch = vi.fn();
 function mockUseApi() {
-  return mockApiFetch;
+  return {
+    GET: mockApiFetch,
+    POST: mockApiFetch,
+    PUT: mockApiFetch,
+    PATCH: mockApiFetch,
+    DELETE: mockApiFetch,
+  };
 }
 
 // Engine control — controls the per-disk-group modes
@@ -299,7 +305,7 @@ describe('useApprovalQueue', () => {
       await q.fetchQueue();
 
       // Should still fetch — per-disk-group mode may be approval even when global is dry-run
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue?limit=1000');
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue', { query: { limit: 1000 } });
       expect(q.pendingItems.value).toHaveLength(1);
     });
 
@@ -340,14 +346,14 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.approveGroup(group);
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/10/approve', {
-        method: 'POST',
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/approve', {
+        path: { id: 10 },
       });
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/20/approve', {
-        method: 'POST',
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/approve', {
+        path: { id: 20 },
       });
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/30/approve', {
-        method: 'POST',
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/approve', {
+        path: { id: 30 },
       });
     });
 
@@ -418,12 +424,8 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.rejectGroup(group);
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/5/reject', {
-        method: 'POST',
-      });
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/6/reject', {
-        method: 'POST',
-      });
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/reject', { path: { id: 5 } });
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/reject', { path: { id: 6 } });
     });
 
     it('reverts optimistic update on failure', async () => {
@@ -469,11 +471,11 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.unsnoozeGroup(group);
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/7/unsnooze', {
-        method: 'POST',
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/unsnooze', {
+        path: { id: 7 },
       });
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/8/unsnooze', {
-        method: 'POST',
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/unsnooze', {
+        path: { id: 8 },
       });
     });
 
@@ -516,8 +518,8 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.dismissGroup(group);
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/11', { method: 'DELETE' });
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/12', { method: 'DELETE' });
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}', { path: { id: 11 } });
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}', { path: { id: 12 } });
     });
 
     it('reverts snoozed group on failure', async () => {
@@ -558,9 +560,7 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.clearQueue();
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/clear', {
-        method: 'POST',
-      });
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/clear');
     });
 
     it('reverts on failure', async () => {
@@ -590,8 +590,8 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.approveSeason(42);
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/42/approve', {
-        method: 'POST',
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/approve', {
+        path: { id: 42 },
       });
       expect(toastSuccessSpy).toHaveBeenCalledWith('approval.seasonApprovedToast');
     });
@@ -615,8 +615,8 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.snoozeSeason(99);
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/99/reject', {
-        method: 'POST',
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}/reject', {
+        path: { id: 99 },
       });
       expect(toastInfoSpy).toHaveBeenCalledWith('approval.seasonSnoozedToast');
     });
@@ -627,7 +627,7 @@ describe('useApprovalQueue', () => {
       const q = useApprovalQueue();
       await q.dismissSeason(77);
 
-      expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue/77', { method: 'DELETE' });
+      expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue/{id}', { path: { id: 77 } });
       expect(toastInfoSpy).toHaveBeenCalledWith('approval.seasonDismissedToast');
     });
   });
@@ -677,7 +677,7 @@ describe('useApprovalQueue', () => {
       const handler = sseHandlers.get(EVENT_ENGINE_COMPLETE);
       if (handler) {
         handler({});
-        expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue?limit=1000');
+        expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue', { query: { limit: 1000 } });
       }
     });
 
@@ -691,7 +691,7 @@ describe('useApprovalQueue', () => {
       if (handler) {
         handler({});
         // Should still fetch — per-disk-group mode may be approval even when global is dry-run
-        expect(mockApiFetch).toHaveBeenCalledWith('/api/v1/approval-queue?limit=1000');
+        expect(mockApiFetch).toHaveBeenCalledWith('/approval-queue', { query: { limit: 1000 } });
       }
     });
   });

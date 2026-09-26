@@ -73,7 +73,7 @@ watch(previewItems, () => {
 const diskGroups = ref<DiskGroup[]>([]);
 
 async function fetchDiskGroups() {
-  diskGroups.value = (await api('/api/v1/disk-groups')) as DiskGroup[];
+  diskGroups.value = (await api.GET('/disk-groups')) ?? [];
 }
 
 function onDiskGroupUpdated(updated: DiskGroup) {
@@ -89,7 +89,7 @@ function onDiskGroupUpdated(updated: DiskGroup) {
 const factorWeights = ref<ScoringFactorWeight[]>([]);
 
 async function fetchFactorWeights() {
-  factorWeights.value = (await api('/api/v1/scoring-factor-weights')) as ScoringFactorWeight[];
+  factorWeights.value = (await api.GET('/scoring-factor-weights')) ?? [];
 }
 
 async function saveFactorWeights() {
@@ -99,10 +99,7 @@ async function saveFactorWeights() {
     for (const f of factorWeights.value) {
       weightMap[f.key] = f.weight;
     }
-    const updated = (await api('/api/v1/scoring-factor-weights', {
-      method: 'PUT',
-      body: weightMap,
-    })) as ScoringFactorWeight[];
+    const updated = await api.PUT('/scoring-factor-weights', { body: weightMap });
     factorWeights.value = updated;
     toast.success(t('rules.weightsSaved'));
   } catch {
@@ -133,22 +130,24 @@ const rules = ref<CustomRule[]>([]);
 const allIntegrations = ref<IntegrationConfig[]>([]);
 
 async function fetchIntegrations() {
-  allIntegrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
+  allIntegrations.value = (await api.GET('/integrations')) ?? [];
 }
 
 async function fetchRules() {
-  rules.value = (await api('/api/v1/custom-rules')) as CustomRule[];
+  rules.value = (await api.GET('/custom-rules')) ?? [];
 }
+
+type RuleEffect = NonNullable<CustomRule['effect']>;
 
 async function addRule(rule: {
   integrationId: number;
   field: string;
   operator: string;
   value: string;
-  effect: string;
+  effect: RuleEffect;
 }) {
   try {
-    await api('/api/v1/custom-rules', { method: 'POST', body: rule });
+    await api.POST('/custom-rules', { body: rule });
     toast.success(t('rules.ruleAdded'));
     await fetchRules();
   } catch {
@@ -158,7 +157,7 @@ async function addRule(rule: {
 
 async function deleteRule(id: number) {
   try {
-    await api(`/api/v1/custom-rules/${id}`, { method: 'DELETE' });
+    await api.DELETE('/custom-rules/{id}', { path: { id } });
     toast.success(t('rules.ruleRemoved'));
     await fetchRules();
   } catch {
@@ -168,13 +167,16 @@ async function deleteRule(id: number) {
 
 async function editRule(
   id: number,
-  rule: { integrationId: number; field: string; operator: string; value: string; effect: string },
+  rule: {
+    integrationId: number;
+    field: string;
+    operator: string;
+    value: string;
+    effect: RuleEffect;
+  },
 ) {
   try {
-    await api(`/api/v1/custom-rules/${id}`, {
-      method: 'PUT',
-      body: { ...rule, id },
-    });
+    await api.PUT('/custom-rules/{id}', { path: { id }, body: rule });
     toast.success(t('rules.ruleUpdated'));
     await fetchRules();
   } catch {
@@ -186,9 +188,16 @@ async function toggleRuleEnabled(rule: CustomRule, enabled: boolean) {
   // Optimistically update local state
   rule.enabled = enabled;
   try {
-    await api(`/api/v1/custom-rules/${rule.id}`, {
-      method: 'PUT',
-      body: { ...rule, enabled },
+    await api.PUT('/custom-rules/{id}', {
+      path: { id: rule.id },
+      body: {
+        integrationId: rule.integrationId,
+        field: rule.field,
+        operator: rule.operator,
+        value: rule.value,
+        effect: rule.effect,
+        enabled,
+      },
     });
     toast.success(enabled ? t('rules.ruleEnabled') : t('rules.ruleDisabled'));
   } catch {
@@ -206,10 +215,7 @@ async function reorderRules(order: number[]) {
   rules.value = reordered;
 
   try {
-    await api('/api/v1/custom-rules/reorder', {
-      method: 'PUT',
-      body: { order },
-    });
+    await api.PUT('/custom-rules/reorder', { body: { order } });
     toast.success(t('rules.rulesReordered'));
   } catch {
     // Revert — re-fetch from server

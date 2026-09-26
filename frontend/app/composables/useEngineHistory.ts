@@ -2,18 +2,9 @@
  * Engine sparkline history — shared so dashboard and replay_gap can refetch.
  * Chart option builders live here. The card is a view; it does not register SSE.
  */
-import type { DeletionProgress } from '~/types/api';
+import type { DeletionProgress, EngineHistoryPoint } from '~/types/api';
 
-export interface EngineHistoryPoint {
-  timestamp: string;
-  evaluated: number;
-  candidates: number;
-  queued: number;
-  deleted: number;
-  freedBytes: number;
-  durationMs: number;
-  diskGroupModes: string;
-}
+export type { EngineHistoryPoint };
 
 export const DATE_RANGE_VALUES = ['1h', '6h', '24h', '7d', '30d', 'all'] as const;
 export type DateRangeValue = (typeof DATE_RANGE_VALUES)[number];
@@ -271,7 +262,7 @@ export function useEngineHistory() {
   async function fetchHistory() {
     try {
       const range = dateRange.value || '7d';
-      const data = (await api(`/api/v1/engine/history?range=${range}`)) as EngineHistoryPoint[];
+      const data = await api.GET('/engine/history', { query: { range } });
       history.value = data || [];
     } catch (err) {
       console.warn('[Dashboard] fetchEngineHistory failed:', err);

@@ -26,7 +26,7 @@ const overlayStyle = useState<string>('sunsetOverlayStyle', () => 'countdown');
 onMounted(async () => {
   fetchSunsetItems();
   try {
-    const prefs = (await api('/api/v1/preferences')) as { posterOverlayStyle?: string };
+    const prefs = await api.GET('/preferences');
     if (prefs?.posterOverlayStyle) {
       overlayStyle.value = prefs.posterOverlayStyle;
     }

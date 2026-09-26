@@ -534,7 +534,6 @@
 
 <script setup lang="ts">
 import { MonitorIcon, CogIcon, SunsetIcon, LoaderCircleIcon } from 'lucide-vue-next';
-import type { PreferenceSet } from '~/types/api';
 import { TIEBREAKER_SIZE_DESC } from '~/constants';
 import type { AcceptableValue } from 'reka-ui';
 import SaveIndicator from '~/components/settings/SaveIndicator.vue';
@@ -594,7 +593,7 @@ watch(engineTiebreakerMethod, (newVal, oldVal) => {
 // ─── Fetch preferences on mount ──────────────────────────────────────────────
 async function fetchPreferences() {
   try {
-    const prefs = (await api('/api/v1/preferences')) as PreferenceSet;
+    const prefs = await api.GET('/preferences');
     if (prefs?.tiebreakerMethod) {
       engineTiebreakerMethod.value = prefs.tiebreakerMethod;
     }
@@ -633,9 +632,7 @@ async function fetchPreferences() {
 async function refreshAllPosters() {
   refreshingPosters.value = true;
   try {
-    const result = (await api('/api/v1/sunset-queue/refresh-posters', {
-      method: 'POST',
-    })) as { updated: number };
+    const result = await api.POST('/sunset-queue/refresh-posters');
     toast.success(t('settings.refreshPostersSuccess', { count: result.updated }));
   } catch {
     toast.error(t('settings.refreshPostersError'));
@@ -651,9 +648,7 @@ function confirmRestorePosters() {
 async function restoreAllPosters() {
   restoringPosters.value = true;
   try {
-    const result = (await api('/api/v1/sunset-queue/restore-posters', {
-      method: 'POST',
-    })) as { restored: number };
+    const result = await api.POST('/sunset-queue/restore-posters');
     toast.success(t('settings.restorePostersSuccess', { count: result.restored }));
   } catch {
     toast.error(t('settings.restorePostersError'));

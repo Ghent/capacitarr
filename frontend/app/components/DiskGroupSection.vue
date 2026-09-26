@@ -98,30 +98,32 @@
 
           <!-- Growth rate -->
           <div
-            v-if="forecastData && forecastData.growthRatePerDay !== 0"
+            v-if="forecastData && (forecastData.growthRatePerDay ?? 0) !== 0"
             class="flex items-center gap-2"
           >
             <component
-              :is="forecastData.growthRatePerDay > 0 ? TrendingUpIcon : TrendingDownIcon"
+              :is="(forecastData.growthRatePerDay ?? 0) > 0 ? TrendingUpIcon : TrendingDownIcon"
               class="w-3.5 h-3.5 shrink-0"
-              :class="forecastData.growthRatePerDay > 0 ? 'text-destructive' : 'text-emerald-500'"
+              :class="
+                (forecastData.growthRatePerDay ?? 0) > 0 ? 'text-destructive' : 'text-emerald-500'
+              "
             />
             <span class="text-sm text-muted-foreground">
-              {{ forecastData.growthRatePerDay > 0 ? '+' : ''
-              }}{{ formatBytes(Math.abs(forecastData.growthRatePerDay)) }}/day
+              {{ (forecastData.growthRatePerDay ?? 0) > 0 ? '+' : ''
+              }}{{ formatBytes(Math.abs(forecastData.growthRatePerDay ?? 0)) }}/day
             </span>
           </div>
 
           <!-- Days until full -->
           <div
-            v-if="forecastData && forecastData.daysUntilFull > 0"
+            v-if="forecastData && (forecastData.daysUntilFull ?? 0) > 0"
             class="flex items-center gap-2"
           >
             <component :is="ClockIcon" class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <span
               class="text-sm"
               :class="
-                forecastData.daysUntilFull <= 7
+                (forecastData.daysUntilFull ?? 0) <= 7
                   ? 'text-destructive font-medium'
                   : 'text-muted-foreground'
               "
@@ -144,7 +146,7 @@
 import { HardDriveIcon, TrendingUpIcon, TrendingDownIcon, ClockIcon } from 'lucide-vue-next';
 import { formatBytes, diskStatusBgClass } from '~/utils/format';
 import { modeIcon, modeBadgeClasses, modeTooltipKey, modeLabelKey } from '~/utils/diskGroupMode';
-import type { DiskGroup } from '~/types/api';
+import type { DiskGroup, CapacityForecast } from '~/types/api';
 import { useTimeAgo } from '@vueuse/core';
 
 const props = defineProps<{
@@ -193,22 +195,14 @@ const statusBgColor = computed(() =>
 );
 
 // --- Forecast data ---
-interface CapacityForecast {
-  currentUsedPct: number;
-  growthRatePerDay: number;
-  daysUntilThreshold: number;
-  daysUntilFull: number;
-  totalCapacity: number;
-  usedCapacity: number;
-}
 
 const forecastData = ref<CapacityForecast | null>(null);
 
 async function fetchForecast() {
   try {
-    forecastData.value = (await api(
-      `/api/v1/analytics/forecast?disk_group_id=${props.group.id}`,
-    )) as CapacityForecast;
+    forecastData.value = await api.GET('/analytics/forecast', {
+      query: { disk_group_id: props.group.id },
+    });
   } catch {
     // Non-critical
   }

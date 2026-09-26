@@ -41,7 +41,7 @@ provide('appIntegrations', appIntegrations);
 
 async function fetchAppIntegrations() {
   try {
-    appIntegrations.value = (await api('/api/v1/integrations')) as IntegrationConfig[];
+    appIntegrations.value = (await api.GET('/integrations')) ?? [];
   } catch {
     // Silently fail — banner just won't show
   }

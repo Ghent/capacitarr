@@ -491,7 +491,7 @@ import {
   RefreshCwIcon,
   ClockIcon,
 } from 'lucide-vue-next';
-import type { PreferenceSet, ApiError } from '~/types/api';
+import type { ApiError } from '~/types/api';
 import { toast } from 'vue-sonner';
 import SaveIndicator from '~/components/settings/SaveIndicator.vue';
 
@@ -636,7 +636,7 @@ function cancelEnableDeletions() {
 async function confirmResetData() {
   resettingData.value = true;
   try {
-    await api('/api/v1/data/reset', { method: 'DELETE' });
+    await api.DELETE('/data/reset');
     showResetDialog.value = false;
     toast.success('All scraped data has been cleared');
   } catch (e: unknown) {
@@ -649,7 +649,7 @@ async function confirmResetData() {
 // ─── Fetch preferences on mount ──────────────────────────────────────────────
 async function fetchPreferences() {
   try {
-    const prefs = (await api('/api/v1/preferences')) as PreferenceSet;
+    const prefs = await api.GET('/preferences');
     if (prefs?.auditLogRetentionDays !== undefined) {
       retentionDays.value = prefs.auditLogRetentionDays;
     }

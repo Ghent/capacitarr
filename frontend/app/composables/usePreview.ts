@@ -1,4 +1,4 @@
-import type { EvaluatedItem, DiskContext, DeletionProgress, PreviewResponse } from '~/types/api';
+import type { EvaluatedItem, DiskContext, DeletionProgress } from '~/types/api';
 import { useFetchStatus } from './useFetchStatus';
 import {
   EVENT_DELETION_SUCCESS,
@@ -37,8 +37,7 @@ export function usePreview() {
   async function refresh(force = false): Promise<void> {
     loading.value = true;
     try {
-      const url = force ? '/api/v1/preview?force=true' : '/api/v1/preview';
-      const data = (await api(url)) as PreviewResponse;
+      const data = await api.GET('/preview', force ? { query: { force: true } } : undefined);
       items.value = data?.items ?? [];
       diskContext.value = data?.diskContext ?? null;
       truncated.value = data?.truncated ?? false;
