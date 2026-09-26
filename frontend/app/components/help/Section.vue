@@ -1,7 +1,7 @@
 <template>
   <details
-    v-motion
     :id="id || undefined"
+    v-motion
     :open="defaultOpen || undefined"
     :initial="{ opacity: 0, y: 12 }"
     :enter="{

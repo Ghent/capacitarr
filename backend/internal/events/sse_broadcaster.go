@@ -119,6 +119,13 @@ func (b *SSEBroadcaster) broadcast(event Event) {
 
 // HandleSSE is the Echo handler for GET /api/v1/events.
 // It establishes an SSE connection and streams events to the client.
+func lastEventIDFromRequest(c echo.Context) string {
+	if id := c.Request().Header.Get("Last-Event-ID"); id != "" {
+		return id
+	}
+	return c.QueryParam("lastEventId")
+}
+
 func (b *SSEBroadcaster) HandleSSE(c echo.Context) error {
 	// Set SSE headers
 	w := c.Response()
@@ -142,11 +149,7 @@ func (b *SSEBroadcaster) HandleSSE(c echo.Context) error {
 	// Replay missed events if Last-Event-ID is provided.
 	// EventSource cannot set headers, so the frontend also sends lastEventId
 	// as a query parameter on reconnect.
-	lastEventID := c.Request().Header.Get("Last-Event-ID")
-	if lastEventID == "" {
-		lastEventID = c.QueryParam("lastEventId")
-	}
-	if lastEventID != "" {
+	if lastEventID := lastEventIDFromRequest(c); lastEventID != "" {
 		b.replay(client, lastEventID)
 	}
 

@@ -1,9 +1,13 @@
 package events
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/labstack/echo/v4"
 )
 
 func TestSSEBroadcaster_StartStop(t *testing.T) {
@@ -348,4 +352,34 @@ func TestSSEBroadcaster_IncrementingEventIDs(t *testing.T) {
 	}
 
 	broadcaster.Stop()
+}
+
+func TestLastEventIDFromRequest(t *testing.T) {
+	e := echo.New()
+
+	headerReq := httptest.NewRequest(http.MethodGet, "/events", nil)
+	headerReq.Header.Set("Last-Event-ID", "header-id")
+	headerCtx := e.NewContext(headerReq, httptest.NewRecorder())
+	if got := lastEventIDFromRequest(headerCtx); got != "header-id" {
+		t.Errorf("header lastEventID = %q, want header-id", got)
+	}
+
+	queryReq := httptest.NewRequest(http.MethodGet, "/events?lastEventId=query-id", nil)
+	queryCtx := e.NewContext(queryReq, httptest.NewRecorder())
+	if got := lastEventIDFromRequest(queryCtx); got != "query-id" {
+		t.Errorf("query lastEventID = %q, want query-id", got)
+	}
+
+	bothReq := httptest.NewRequest(http.MethodGet, "/events?lastEventId=query-id", nil)
+	bothReq.Header.Set("Last-Event-ID", "header-id")
+	bothCtx := e.NewContext(bothReq, httptest.NewRecorder())
+	if got := lastEventIDFromRequest(bothCtx); got != "header-id" {
+		t.Errorf("header should win over query, got %q", got)
+	}
+
+	emptyReq := httptest.NewRequest(http.MethodGet, "/events", nil)
+	emptyCtx := e.NewContext(emptyReq, httptest.NewRecorder())
+	if got := lastEventIDFromRequest(emptyCtx); got != "" {
+		t.Errorf("empty lastEventID = %q, want empty", got)
+	}
 }
