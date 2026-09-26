@@ -1,3 +1,13 @@
+## [3.5.0-rc.2] - 2026-09-26
+
+### 🚀 Features
+
+- *(scorecard)* Show engine input and raw-score conversion ([18e0885](https://github.com/Ghent/capacitarr/commit/18e0885da43e1effed9437db7a11ee3a76b815bb))
+- *(frontend)* Type REST fetches through generated OpenAPI paths ([d81ebb0](https://github.com/Ghent/capacitarr/commit/d81ebb0f65469d60df889e97035606a40e95996e))
+
+### 🐛 Bug Fixes
+
+- *(deps)* Patch remaining site CVEs after Dependabot #63 ([1d5dfab](https://github.com/Ghent/capacitarr/commit/1d5dfab758f17e1280507dd6a3b54ff3bb532bec))
 ## [3.5.0-rc.1] - 2026-09-25
 
 ### 🚀 Features
