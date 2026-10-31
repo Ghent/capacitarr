@@ -6,7 +6,7 @@ toolchain go1.26.8
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/labstack/echo/v4 v4.15.4
+	github.com/labstack/echo/v4 v4.16.3
 	github.com/ncruces/go-sqlite3 v0.30.5
 	github.com/ncruces/go-sqlite3/gormlite v0.30.2
 	github.com/pressly/goose/v3 v3.27.0
@@ -31,7 +31,7 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
